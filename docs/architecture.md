@@ -1,9 +1,23 @@
 # EMS ReadyKit – Architecture Overview
 
+This document describes the high‑level architecture for **EMS ReadyKit**, a non‑production,
+cloud‑native inventory and vehicle readiness platform.
+
+The design emphasizes:
+- Simplicity
+- Security by default
+- Centralized observability
+- Cost discipline
+- Clear operational boundaries
+
+---
+
+## High‑Level Architecture
+
 ```mermaid
 flowchart TB
-    User[Responders / Supervisors / Admins]
-    AAD[Azure Active Directory<br/>Group-Based RBAC]
+    User[Responders / Supervisors / Administrators]
+    AAD[Azure Active Directory<br/>Group‑Based RBAC]
 
     User --> AAD
 
