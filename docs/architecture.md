@@ -38,7 +38,7 @@ flowchart TB
             end
 
             Logs[Log Analytics Workspace]
-            SIEM[Security Onion VM<br/>(Optional)]
+            SIEM[Security Onion VM (Optional)]
         end
     end
 
