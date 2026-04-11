@@ -1,0 +1,41 @@
+﻿## Terraform Design
+
+Station → Resource Group
+Vehicle → App instance / logical workload
+RBAC scoped at:
+
+Station (Supervisor)
+Global (Admin)
+
+
+
+## Demonstrates
+
+Scoped access
+Multi-tenant thinking
+Least privilege
+
+## Deliverables
+
+modules/network — VNet, subnets (app/data/monitoring), NSGs
+modules/identity_rbac — group-based RBAC assignments
+modules/policy — tag enforcement, region restriction, deny public IP
+modules/logging — Log Analytics + diagnostic settings
+modules/app — App Service (or Container App) + Key Vault integration
+modules/data — Azure SQL (or Cosmos DB if you prefer document model)
+modules/storage — blob storage for exports/attachments/logs
+modules/siem (optional) — Security Onion VM subnet + NSG rules
+
+## Required Terraform behaviors
+
+Modular structure (modules/)
+Use of locals, variables, outputs
+Remote state backend
+for_each or count usage
+No secrets committed
+
+Acceptance criteria
+
+Repo passes terraform fmt
+Modules are reusable
+Backend documented (but secrets excluded)

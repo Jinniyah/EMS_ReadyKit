@@ -1,0 +1,172 @@
+﻿✅ Final Domain Model (Authoritative)
+Hierarchy
+Station
+ ├── Vehicle (assigned to exactly one Station)
+ │    ├── Inventory Location (Vehicle-level)
+ │    └── Daily Inventory Check
+ └── Supply Room (Station-level Inventory Location)
+
+This mirrors how EMS agencies actually operate:
+
+Vehicles belong to stations
+Stations manage resupply, compliance, and reporting
+Daily checks are vehicle‑centric, not global
+
+
+✅ Entity Definitions (Exact)
+1️⃣ Station
+Represents a physical EMS station / base.
+Fields
+
+station_id
+name
+address
+region
+active
+
+Why this matters
+
+Reporting scope (monthly compliance by station)
+RBAC scope (station supervisor vs system admin)
+Matches real-world EMS accountability
+
+
+2️⃣ Vehicle
+Represents an ambulance, response unit, or supervisor vehicle.
+Fields
+
+vehicle_id
+station_id ✅ (foreign key)
+vehicle_number
+type (ALS / BLS / QRV)
+active
+
+Key rule
+
+A vehicle must belong to exactly one station.
+
+This supports:
+
+Daily inventory checks per vehicle
+Controlled substance accountability
+Station-level compliance reporting
+
+
+3️⃣ Inventory Location
+Abstract concept used by the system.
+Types
+
+STATION_SUPPLY_ROOM
+VEHICLE
+
+Fields
+
+location_id
+location_type
+station_id
+vehicle_id (nullable unless type = VEHICLE)
+
+This lets you:
+
+Track stock on vehicles and in station supply rooms
+Move stock between locations (resupply workflows)
+
+
+4️⃣ Item
+Defines what you track.
+Fields
+
+item_id
+name
+category (Medication / Consumable / Equipment)
+controlled_substance (boolean)
+unit_of_measure
+
+No patient data. No PHI.
+
+5️⃣ Stock Lot
+Tracks expiration and lot numbers (critical for EMS).
+Fields
+
+lot_id
+item_id
+location_id
+quantity
+lot_number
+expiration_date
+
+Why this is strong
+
+Expiration alerts
+Recall readiness
+Audit defensibility
+
+
+6️⃣ Par Level
+Defines readiness requirements.
+Fields
+
+par_id
+item_id
+location_id
+min_quantity
+max_quantity
+
+Supports:
+
+Low-stock alerts
+Automated resupply suggestions
+Budget discipline
+
+
+7️⃣ Daily Inventory Check
+This is a first-class entity (important).
+Fields
+
+check_id
+vehicle_id
+station_id
+performed_by
+timestamp
+status (PASS / FAIL / NEEDS_RESTOCK)
+
+Rule
+
+Each active vehicle must have one completed check per day.
+
+This directly reflects real EMS policy and makes your project operationally credible.
+
+8️⃣ Controlled Substance Check
+Specialized workflow layered on top of daily checks.
+Fields
+
+cs_check_id
+vehicle_id
+primary_signer
+secondary_signer
+timestamp
+discrepancy_flag
+notes
+
+Key behavior
+
+Double-signature model
+Any discrepancy creates an audit event
+
+
+9️⃣ Audit Event
+Everything important flows here.
+Fields
+
+event_id
+actor
+action
+entity_type
+entity_id
+timestamp
+metadata
+
+This is what you feed to:
+
+Log Analytics
+Security Onion (selectively)

@@ -1,0 +1,123 @@
+﻿## Cost Estimates
+Spending $30–$70/month to build:
+
+* Terraform‑managed Azure platform
+* Centralized logging
+* SIEM integration
+* Detection validation
+
+## Guardrails
+✅ Azure Budget with alert at $75
+✅ Terraform variable for VM size
+✅ Short log retention defaults
+✅ Teardown script (terraform destroy)
+
+## One‑Time / Spike Costs
+You may see temporary spikes when:
+
+* Running multiple TryHackMe attack scenarios
+* Testing noisy detections
+* Forgetting to stop the VM for a few days
+
+## Cost Avoidance Tips
+
+❌ Azure Firewall
+❌ Azure Sentinel ingestion at scale
+❌ Premium disks for everything
+❌ Long log retention
+❌ Leaving VMs running 24/7 “just in case”
+
+## Core Cost Drivers (Estimate)
+
+# 1️⃣ Security Onion VM (largest cost) - Typical setup
+
+* VM size: 4 vCPU / 16 GB RAM (Security Onion really needs RAM)
+* OS disk: Standard SSD
+* Data disk: Standard SSD (logs)
+
+# Monthly estimate
+
+* Compute: ~$40–$60/month (if left on 24/7)
+* Disks: ~$5–$10/month
+
+✅ Expected range: $45–$70/month
+
+# Cost control tip
+
+* Stop the VM when not actively testing
+* Even stopping it nights/weekends can cut this in half
+
+
+2️⃣ Azure Networking
+Resources
+
+VNet
+Subnets
+NSGs
+Route tables
+
+✅ Cost: $0
+VNets and NSGs are free. Networking only costs money when you add:
+
+Azure Firewall
+NAT Gateway
+Large egress traffic
+
+You are not doing that here.
+
+3️⃣ Log Analytics Workspace (moderate, controllable)
+What you’re ingesting
+
+Azure Activity Logs
+NSG / VNet flow logs
+Possibly VM diagnostics
+
+Lab‑scale ingestion
+
+Low event volume
+Short retention (7–14 days)
+
+✅ Expected cost: $5–$20/month
+Cost control tips
+
+Set short retention
+Don’t ingest everything “just because”
+Disable verbose logs when idle
+
+
+4️⃣ Storage (flow logs + artifacts)
+Resources
+
+Storage account for:
+
+Flow logs
+Evidence artifacts
+
+
+Standard Blob Storage
+
+✅ Expected cost: $1–$5/month
+Storage is cheap unless you retain logs forever.
+
+5️⃣ Azure Activity Logs / Policy / RBAC
+✅ Cost: $0
+
+Management Groups: free
+Azure Policy assignments: free
+RBAC: free
+
+This is why landing‑zone projects are great labs.
+
+6️⃣ TryHackMe Traffic (indirect cost)
+TryHackMe itself doesn’t bill Azure, but:
+
+Port scans
+Brute force attempts
+Test traffic
+
+These generate:
+
+Ingress traffic (free)
+Minimal egress traffic (negligible at lab scale)
+
+✅ Expected cost: ~$0–$2/month
