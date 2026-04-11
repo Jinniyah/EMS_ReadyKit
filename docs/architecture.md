@@ -21,16 +21,16 @@ flowchart TB
 
     User --> AAD
 
-    subgraph Azure["Azure Tenant"]
-        subgraph Subscription["Azure Subscription"]
+    subgraph Azure
+        subgraph Subscription
 
-            subgraph VNet["Virtual Network"]
+            subgraph VNet
                 AppSubnet[App Subnet]
                 DataSubnet[Data Subnet]
                 MonSubnet[Monitoring Subnet]
             end
 
-            subgraph StationRG["Station Resource Group"]
+            subgraph StationRG
                 App[Web / API Application]
                 DB[(Primary Database)]
                 KV[Key Vault]
@@ -38,7 +38,7 @@ flowchart TB
             end
 
             Logs[Log Analytics Workspace]
-            SIEM[Security Onion VM (Optional)]
+            SIEM["Security Onion VM (Optional)"]
         end
     end
 
