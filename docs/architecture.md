@@ -1,57 +1,40 @@
+# EMS ReadyKit – Architecture Overview
+
+```mermaid
 flowchart TB
-  %% ===== Identity =====
-  User[End Users<br/>(Responder / Supervisor / Admin)]
-  AAD[Azure AD<br/>Group‑based RBAC]
+    User[Responders / Supervisors / Admins]
+    AAD[Azure Active Directory<br/>Group-Based RBAC]
 
-  User --> AAD
+    User --> AAD
 
-  %% ===== Azure Boundary =====
-  subgraph Azure["Azure Tenant"]
-    
-    %% --- Management & Governance ---
-    subgraph MG["Management Group"]
-      Policy[Azure Policy<br/>Tags • Region • Deny Public IP]
-      Budget[Azure Budget Alert]
+    subgraph Azure["Azure Tenant"]
+        subgraph Subscription["Azure Subscription"]
+
+            subgraph VNet["Virtual Network"]
+                AppSubnet[App Subnet]
+                DataSubnet[Data Subnet]
+                MonSubnet[Monitoring Subnet]
+            end
+
+            subgraph StationRG["Station Resource Group"]
+                App[Web / API Application]
+                DB[(Primary Database)]
+                KV[Key Vault]
+                Store[Blob Storage]
+            end
+
+            Logs[Log Analytics Workspace]
+            SIEM[Security Onion VM<br/>(Optional)]
+        end
     end
 
-    %% --- Subscription ---
-    subgraph Sub["Azure Subscription"]
+    AAD --> App
+    App --> DB
+    App --> KV
+    App --> Store
+    App --> Logs
+    Logs --> SIEM
 
-      %% --- Networking ---
-      subgraph Net["Virtual Network"]
-        AppSubnet[App Subnet]
-        DataSubnet[Data Subnet]
-        MonSubnet[Monitoring Subnet]
-      end
-
-      %% --- Station Scope ---
-      subgraph RG["Station Resource Group"]
-        App[Web / API Application<br/>(Inventory & Readiness)]
-        DB[Database<br/>(Stations, Vehicles, Inventory)]
-        KV[Key Vault<br/>(Secrets)]
-        Store[Storage Account<br/>(Exports / Artifacts)]
-      end
-
-      %% --- Observability ---
-      Logs[Log Analytics Workspace]
-
-      %% --- Optional SIEM ---
-      SO[Security Onion VM<br/>(Optional SIEM)]
-
-    end
-  end
-
-  %% ===== Auth & App Flow =====
-  AAD --> App
-  App --> DB
-  App --> KV
-  App --> Store
-
-  %% ===== Logging & Monitoring =====
-  App --> Logs
-  Logs --> SO
-
-  %% ===== Network Placement =====
-  AppSubnet --> App
-  DataSubnet --> DB
-  MonSubnet --> SO
+    AppSubnet --> App
+    DataSubnet --> DB
+    MonSubnet --> SIEM
