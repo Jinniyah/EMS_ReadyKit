@@ -18,3 +18,10 @@ resource "azurerm_resource_group" "ems_rg" {
   name     = "rg-ems-readykit"
   location = "eastus"
 }
+
+module "network" {
+  source = "./modules/network"
+
+  resource_group_name = azurerm_resource_group.ems_rg.name
+  location            = azurerm_resource_group.ems_rg.location
+}
