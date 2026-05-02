@@ -25,3 +25,11 @@ module "network" {
   resource_group_name = azurerm_resource_group.ems_rg.name
   location            = azurerm_resource_group.ems_rg.location
 }
+
+module "storage" {
+  source = "./modules/storage"
+
+  resource_group_name  = azurerm_resource_group.ems_rg.name
+  location             = azurerm_resource_group.ems_rg.location
+  storage_account_name = "emsreadykitstorage123"
+}
