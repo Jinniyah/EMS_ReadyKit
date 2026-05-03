@@ -1,142 +1,121 @@
-# Terraform Infrastructure – EMS ReadyKit
+# EMS ReadyKit — Terraform Infrastructure
 
-This directory contains the **Infrastructure‑as‑Code (IaC)** for the **EMS ReadyKit** project.
+This directory contains the complete Infrastructure-as-Code for EMS ReadyKit, deployed to Azure via Terraform.
 
-All infrastructure is provisioned using **Terraform** and is designed to be:
-- Reproducible
-- Reviewable
-- Secure by default
-- Cost‑controlled
-- Easily destroyed
-
-This is a **non‑production demonstration environment** intended for learning, portfolio review, and architectural validation.
+See [ADR-004](../../docs/adr/ADR-004-Terraform-Module-Structure.md) for the rationale behind this module structure.
 
 ---
 
-## What This Terraform Code Provisions
+## Prerequisites
 
-At a high level, this Terraform configuration provisions:
-
-- Azure governance primitives (Policy, RBAC)
-- Secure networking baseline (VNet, subnets, NSGs)
-- Centralized logging (Log Analytics)
-- Application hosting platform
-- Datastore and supporting storage
-- Optional SIEM environment (Security Onion VM)
-
-All resources are deployed into **a single Azure region** and are scoped to a **single station resource group**.
+- Terraform >= 1.5.0
+- Azure CLI authenticated (`az login`)
+- Contributor access to the target subscription
+- Remote state backend pre-created (see below)
 
 ---
 
-## What This Terraform Code Does *Not* Do
+## Module Overview
 
-This repository intentionally does **not**:
-
-- Create microservices or distributed infrastructure
-- Provision per‑vehicle infrastructure
-- Deploy patient, PHI, or clinical systems
-- Claim production readiness or regulatory compliance
-
-These exclusions are **intentional architectural decisions** documented in the ADRs.
-
----
-
-## Repository Structure
-
-```text
-iac/terraform/
-├── backend.tf          # Remote state configuration (no secrets)
-├── providers.tf        # Terraform & Azure providers
-├── main.tf             # Root module wiring
-├── variables.tf        # Root‑level inputs
-├── outputs.tf          # Root‑level outputs
-├── README.md           # This file
-└── modules/            # Reusable Terraform modules
-    ├── network/
-    ├── identity_rbac/
-    ├── policy/
-    ├── logging/
-    ├── app/
-    ├── data/
-    ├── storage/
-    └── siem/           # Optional (disabled by default)
+```
+modules/
+├── logging/        — Log Analytics workspace, saved queries, alerts
+├── network/        — VNet, subnets, NSGs with rules, route table, diagnostics
+├── identity_rbac/  — Azure AD groups, RBAC assignments (ADR-002)
+├── policy/         — Allowed locations, required tags, deny public IP
+├── storage/        — Blob storage, containers, lifecycle, diagnostics
+├── data/           — Azure SQL Server + DB, private endpoint, auditing
+├── app/            — App Service (Linux B1), Key Vault, managed identity
+└── siem/           — Security Onion VM (optional, disabled by default)
 ```
 
-Each module has its own `README.md` describing its responsibility and inputs.
-
 ---
 
-## Architectural Alignment
+## Remote State Backend
 
-This Terraform layout aligns directly with the documented architecture and ADRs:
-
-- **ADR‑001** – Overall System Architecture
-- **ADR‑002** – Role‑Based Access Control Model
-- **ADR‑003** – Logging and Audit Strategy
-- **ADR‑004** – Terraform Module Structure
-
-Reviewers are encouraged to read the ADRs before inspecting module implementations.
-
----
-
-## Deployment Model
-
-- One Terraform root per environment
-- All configuration managed via variables
-- No secrets committed to source control
-- Azure Key Vault used for runtime secrets
-
-Infrastructure is treated as **disposable lab infrastructure**.
-
----
-
-## Typical Workflow
+State is stored in Azure Blob Storage. The backend storage account must be created **before** running `terraform init`.
 
 ```bash
+# One-time setup (run manually or via bootstrap script)
+az group create --name tfstate-rg --location eastus
+az storage account create \
+  --name emsreadykittfstate \
+  --resource-group tfstate-rg \
+  --sku Standard_LRS \
+  --https-only true
+az storage container create \
+  --name tfstate \
+  --account-name emsreadykittfstate
+```
+
+No secrets are committed to this repository. Authentication uses the current Azure CLI session or a service principal set via environment variables.
+
+---
+
+## Usage
+
+```bash
+cd iac/Terraform
+
+# Initialize (pulls providers, configures backend)
 terraform init
-terraform plan
-terraform apply
+
+# Review execution plan
+terraform plan -var="sql_admin_password=<your_password>"
+
+# Apply
+terraform apply -var="sql_admin_password=<your_password>"
+
+# Enable optional SIEM
+terraform apply \
+  -var="sql_admin_password=<password>" \
+  -var="enable_siem=true" \
+  -var="siem_admin_password=<siem_password>"
+
+# Destroy all resources
+terraform destroy -var="sql_admin_password=<your_password>"
 ```
 
-Validation activities are performed after deployment (see runbook).
-
-To tear down the environment:
-
-```bash
-terraform destroy
-```
+> **Tip:** Use a `.tfvars` file (gitignored) or environment variables for sensitive values rather than passing them on the command line.
 
 ---
 
-## Cost & Safety Notes
+## Key Variables
 
-- Designed to run for **$30–$70/month** depending on usage
-- Budget alerts are configured to prevent runaway spend
-- Optional SIEM VM is the primary cost driver and should be stopped when idle
-- Short log retention is used by default
-
-Destroy resources when not actively validating detections or features.
-
----
-
-## Security Notes
-
-- Group‑based Azure AD RBAC only (no user‑level assignments)
-- No public IPs by default
-- Network Security Groups enforce least‑privilege traffic flows
-- High‑risk events are explicitly logged and auditable
+| Variable | Description | Default |
+|---|---|---|
+| `environment` | Deployment environment | `dev` |
+| `location` | Azure region | `eastus` |
+| `owner_tag` | Owner tag value | `EMS-ReadyKit-Team` |
+| `cost_center_tag` | CostCenter tag value | `EMS-Demo` |
+| `storage_account_name` | Globally unique storage name | `emsreadykitstorage123` |
+| `sql_admin_login` | SQL Server admin login | `emsadmin` |
+| `sql_admin_password` | SQL Server admin password | *(sensitive, required)* |
+| `enable_siem` | Deploy Security Onion VM | `false` |
 
 ---
 
-## Disclaimer
+## Build Order
 
-This Terraform configuration is:
-- A **technical demonstration**
-- Not production hardened
-- Not certified for regulatory compliance
+Modules are deployed in dependency order by Terraform automatically. The logical order is:
 
-It exists solely to demonstrate cloud engineering judgment, not to replace operational EMS systems.
+1. `logging` — workspace must exist before diagnostic settings
+2. `network` — VNet before private endpoints and VNet integration
+3. `identity_rbac` — groups before application configuration
+4. `policy` — guardrails applied subscription-wide
+5. `storage` — storage account before app settings reference it
+6. `data` — SQL before app reads connection string
+7. `app` — app deploys last, referencing all upstream outputs
+8. `siem` — optional, independent of the app layer
 
 ---
 
-**See `docs/runbook.md` for deployment validation steps.**
+## Acceptance Criteria
+
+- [ ] `terraform fmt` passes with no changes
+- [ ] `terraform validate` passes cleanly
+- [ ] `terraform plan` produces expected resource count with no errors
+- [ ] Remote state is configured and working
+- [ ] No secrets committed to the repository
+- [ ] All modules expose documented inputs and outputs
+- [ ] Tags are applied to all resources
