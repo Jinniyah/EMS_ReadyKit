@@ -22,19 +22,19 @@ module "logging" {
 module "network" {
   source = "./modules/network"
 
-  resource_group_name      = azurerm_resource_group.ems_rg.name
-  location                 = azurerm_resource_group.ems_rg.location
+  resource_group_name        = azurerm_resource_group.ems_rg.name
+  location                   = azurerm_resource_group.ems_rg.location
   log_analytics_workspace_id = module.logging.workspace_id
-  tags                     = local.common_tags
+  tags                       = local.common_tags
 }
 
 # ── Identity & RBAC ───────────────────────────────────────────────────────────
 module "identity_rbac" {
   source = "./modules/identity_rbac"
 
-  resource_group_id   = azurerm_resource_group.ems_rg.id
-  subscription_id     = local.subscription_id
-  tags                = local.common_tags
+  resource_group_id = azurerm_resource_group.ems_rg.id
+  subscription_id   = local.subscription_id
+  tags              = local.common_tags
 }
 
 # ── Policy ────────────────────────────────────────────────────────────────────
@@ -78,6 +78,7 @@ module "app" {
   resource_group_name        = azurerm_resource_group.ems_rg.name
   location                   = azurerm_resource_group.ems_rg.location
   name_prefix                = local.name_prefix
+  app_service_sku            = var.app_service_sku
   subnet_app_id              = module.network.subnet_app_id
   key_vault_tenant_id        = data.azurerm_client_config.current.tenant_id
   sql_connection_string      = module.data.sql_connection_string

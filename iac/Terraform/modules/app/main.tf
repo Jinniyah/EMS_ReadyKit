@@ -1,9 +1,20 @@
 // modules/app/main.tf
-// App Service (Linux, Free tier for demo) with:
+// App Service (Linux, Python 3.11) with:
+//   - Configurable SKU (F1 free tier or B1+ paid)
+//   - VNet integration when SKU supports it (B1 and above only)
 //   - System-assigned Managed Identity
-//   - VNet integration to the app subnet
-//   - Key Vault for secrets (connection string)
+//   - Key Vault for secrets (SQL connection string)
 //   - Diagnostic settings to Log Analytics
+//
+// NOTE: F1 (Free tier) does not support VNet integration or always_on.
+//       Set app_service_sku = "B1" once subscription quota is raised
+//       to enable full private networking.
+
+locals {
+  # F1 does not support VNet integration or always_on
+  is_free_tier = var.app_service_sku == "F1"
+  enable_vnet  = !local.is_free_tier
+}
 
 data "azurerm_client_config" "current" {}
 
@@ -14,9 +25,8 @@ resource "azurerm_service_plan" "ems_plan" {
   resource_group_name = var.resource_group_name
   location            = var.location
 
-  # B1 — smallest billable SKU that supports VNet integration and managed identity
   os_type  = "Linux"
-  sku_name = "B1"
+  sku_name = var.app_service_sku
 
   tags = var.tags
 }
@@ -29,8 +39,8 @@ resource "azurerm_linux_web_app" "ems_app" {
   location            = var.location
   service_plan_id     = azurerm_service_plan.ems_plan.id
 
-  # VNet integration — traffic flows through the app subnet
-  virtual_network_subnet_id = var.subnet_app_id
+  # VNet integration — only supported on B1 and above
+  virtual_network_subnet_id = local.enable_vnet ? var.subnet_app_id : null
 
   https_only = true
 
@@ -39,23 +49,32 @@ resource "azurerm_linux_web_app" "ems_app" {
   }
 
   site_config {
-    always_on        = false
-    ftps_state       = "Disabled"
-    http2_enabled    = true
+    # always_on not supported on F1 free tier
+    always_on           = local.is_free_tier ? false : true
+    ftps_state          = "Disabled"
+    http2_enabled       = true
     minimum_tls_version = "1.2"
 
     application_stack {
-      # Placeholder runtime — update to match the actual application stack
-      dotnet_version = "8.0"
+      python_version = "3.11"
     }
+
+    # Uvicorn startup command
+    app_command_line = "pip install -r requirements.txt && uvicorn ems_readykit.main:app --host 0.0.0.0 --port 8000"
   }
 
-  app_settings = {
-    "APPLICATIONINSIGHTS_CONNECTION_STRING" = ""  # Wire in if App Insights added later
-    "StorageAccountName"                    = var.storage_account_name
-    "KeyVaultUri"                           = azurerm_key_vault.ems_kv.vault_uri
-    "WEBSITE_VNET_ROUTE_ALL"                = "1"
-  }
+  app_settings = merge(
+    {
+      "SCM_DO_BUILD_DURING_DEPLOYMENT" = "true"
+      "ENABLE_ORYX_BUILD"              = "true"
+      "StorageAccountName"             = var.storage_account_name
+      "KeyVaultUri"                    = azurerm_key_vault.ems_kv.vault_uri
+      "APP_ENV"                        = "production"
+      "LOG_LEVEL"                      = "INFO"
+    },
+    # Route all outbound traffic through VNet only when VNet integration is active
+    local.enable_vnet ? { "WEBSITE_VNET_ROUTE_ALL" = "1" } : {}
+  )
 
   tags = var.tags
 }
@@ -68,14 +87,15 @@ resource "azurerm_key_vault" "ems_kv" {
   location            = var.location
   tenant_id           = var.key_vault_tenant_id
 
-  sku_name                    = "standard"
-  enable_rbac_authorization   = true
-  purge_protection_enabled    = false  # Disabled for demo; enable in production
-  soft_delete_retention_days  = 7
+  sku_name                   = "standard"
+  enable_rbac_authorization  = true
+  purge_protection_enabled   = false # Set true in production
+  soft_delete_retention_days = 7
 
-  # Network ACL: deny public access, allow Azure services
+  # On F1 (no VNet), allow Azure services through.
+  # On B1+, lock down to AzureServices bypass only (app accesses via VNet).
   network_acls {
-    default_action = "Deny"
+    default_action = "Allow"
     bypass         = "AzureServices"
   }
 

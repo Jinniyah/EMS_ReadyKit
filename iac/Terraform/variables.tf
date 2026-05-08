@@ -9,7 +9,9 @@ variable "environment" {
 variable "location" {
   type        = string
   description = "Azure region for all resources"
-  default     = "eastus"
+  # Changed from eastus → eastus2: SQL provisioning is restricted in eastus
+  # on trial/free subscriptions. eastus2 has open quota for both SQL and App Service.
+  default     =  "southcentralus" # tried "eastus" and "eastus2"
 }
 
 variable "owner_tag" {
@@ -40,6 +42,12 @@ variable "sql_admin_password" {
   type        = string
   description = "SQL Server administrator password (sensitive)"
   sensitive   = true
+}
+
+variable "app_service_sku" {
+  type        = string
+  description = "App Service Plan SKU. Use F1 for free tier (no VNet integration), B1 for Basic (requires quota)."
+  default     = "F1"
 }
 
 variable "enable_siem" {

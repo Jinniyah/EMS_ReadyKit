@@ -13,7 +13,7 @@ variable "resource_group_name" {
 variable "allowed_location" {
   type        = string
   description = "The single Azure region where resources are permitted"
-  default     = "eastus"
+  default     = "eastus2"
 }
 
 variable "required_tags" {
