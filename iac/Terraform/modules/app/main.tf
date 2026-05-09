@@ -3,17 +3,39 @@
 //   - Configurable SKU (F1 free tier or B1+ paid)
 //   - VNet integration when SKU supports it (B1 and above only)
 //   - System-assigned Managed Identity
-//   - Key Vault for secrets (SQL connection string)
+//   - Key Vault for secrets (PostgreSQL connection string)
+//   - SCM/Kudu IP restriction (office IP only)
+//   - Health check endpoint wired to /health
+//   - Backup configuration to storage account
 //   - Diagnostic settings to Log Analytics
 //
-// NOTE: F1 (Free tier) does not support VNet integration or always_on.
-//       Set app_service_sku = "B1" once subscription quota is raised
-//       to enable full private networking.
+// NOTE: F1 (Free tier) does not support VNet integration, always_on, or
+//       backup.  Set app_service_sku = "B1" to enable full private
+//       networking and backup.
+//
+// Key Vault RBAC model:
+//   This vault uses enable_rbac_authorization = true (no access policies).
+//   Two role assignments are required:
+//     1. Terraform identity → Key Vault Secrets Officer (to write secrets)
+//     2. App managed identity → Key Vault Secrets User (to read secrets at runtime)
+//   The network_acls ip_rules must include the Terraform runner IP so the
+//   firewall does not block secret writes during terraform apply.
+//
+// Key Vault purge protection note:
+//   purge_protection_enabled and soft_delete_retention_days are gated on
+//   var.environment. In dev, purge protection is disabled and retention is
+//   7 days so deleted vaults can be purged immediately during iteration.
+//   In staging/prod, purge protection is enabled with 90-day retention.
 
 locals {
-  # F1 does not support VNet integration or always_on
+  # F1 does not support VNet integration, always_on, or backup
   is_free_tier = var.app_service_sku == "F1"
   enable_vnet  = !local.is_free_tier
+
+  # Key Vault protection settings — relaxed in dev for easier iteration
+  is_dev                   = var.environment == "dev"
+  kv_purge_protection      = local.is_dev ? false : true
+  kv_soft_delete_retention = local.is_dev ? 7 : 90
 }
 
 data "azurerm_client_config" "current" {}
@@ -29,6 +51,50 @@ resource "azurerm_service_plan" "ems_plan" {
   sku_name = var.app_service_sku
 
   tags = var.tags
+}
+
+# ── Key Vault ──────────────────────────────────────────────────────────────────
+# Key Vault names must be globally unique (3-24 chars, alphanumeric + hyphens).
+# A random suffix is appended to avoid collisions across deployments.
+
+resource "random_string" "kv_suffix" {
+  length  = 6
+  special = false
+  upper   = false
+}
+
+resource "azurerm_key_vault" "ems_kv" {
+  name                = "kv-${random_string.kv_suffix.result}"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  tenant_id           = var.key_vault_tenant_id
+
+  sku_name                   = "standard"
+  enable_rbac_authorization  = true
+  purge_protection_enabled   = local.kv_purge_protection
+  soft_delete_retention_days = local.kv_soft_delete_retention
+
+  network_acls {
+    default_action = "Deny"
+    bypass         = "AzureServices"
+    # Allow the Terraform runner IP so secret writes succeed during apply.
+    # In CI/CD this would be the pipeline agent IP range.
+    ip_rules = var.allowed_admin_ips
+  }
+
+  tags = var.tags
+}
+
+# ── Key Vault RBAC: Terraform identity → Secrets Officer ──────────────────────
+# Required so Terraform can write azurerm_key_vault_secret resources.
+# Without this, the RBAC-enabled vault returns 403 ForbiddenByRbac even
+# for subscription owners. RBAC propagation takes 30-90 seconds — the
+# secret resource depends_on this assignment to ensure correct ordering.
+
+resource "azurerm_role_assignment" "terraform_kv_secrets_officer" {
+  scope                = azurerm_key_vault.ems_kv.id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = data.azurerm_client_config.current.object_id
 }
 
 # ── App Service ────────────────────────────────────────────────────────────────
@@ -49,18 +115,30 @@ resource "azurerm_linux_web_app" "ems_app" {
   }
 
   site_config {
-    # always_on not supported on F1 free tier
     always_on           = local.is_free_tier ? false : true
     ftps_state          = "Disabled"
     http2_enabled       = true
     minimum_tls_version = "1.2"
 
+    health_check_path = "/health"
+
     application_stack {
       python_version = "3.11"
     }
 
-    # Uvicorn startup command
-    app_command_line = "pip install -r requirements.txt && uvicorn ems_readykit.main:app --host 0.0.0.0 --port 8000"
+    app_command_line = "gunicorn -w 2 -k uvicorn.workers.UvicornWorker ems_readykit.main:app"
+
+    scm_ip_restriction_default_action = "Deny"
+
+    dynamic "scm_ip_restriction" {
+      for_each = var.office_ip_cidr != "" ? [var.office_ip_cidr] : []
+      content {
+        name       = "Allow-Office"
+        ip_address = scm_ip_restriction.value
+        action     = "Allow"
+        priority   = 100
+      }
+    }
   }
 
   app_settings = merge(
@@ -72,31 +150,23 @@ resource "azurerm_linux_web_app" "ems_app" {
       "APP_ENV"                        = "production"
       "LOG_LEVEL"                      = "INFO"
     },
-    # Route all outbound traffic through VNet only when VNet integration is active
     local.enable_vnet ? { "WEBSITE_VNET_ROUTE_ALL" = "1" } : {}
   )
 
-  tags = var.tags
-}
+  dynamic "backup" {
+    for_each = local.is_free_tier ? [] : [1]
+    content {
+      name                = "default-backup"
+      enabled             = true
+      storage_account_url = var.storage_account_sas_url
 
-# ── Key Vault ──────────────────────────────────────────────────────────────────
-
-resource "azurerm_key_vault" "ems_kv" {
-  name                = "kv-${replace(var.name_prefix, "-", "")}"
-  resource_group_name = var.resource_group_name
-  location            = var.location
-  tenant_id           = var.key_vault_tenant_id
-
-  sku_name                   = "standard"
-  enable_rbac_authorization  = true
-  purge_protection_enabled   = false # Set true in production
-  soft_delete_retention_days = 7
-
-  # On F1 (no VNet), allow Azure services through.
-  # On B1+, lock down to AzureServices bypass only (app accesses via VNet).
-  network_acls {
-    default_action = "Allow"
-    bypass         = "AzureServices"
+      schedule {
+        frequency_interval       = 1
+        frequency_unit           = "Day"
+        retention_period_days    = 7
+        keep_at_least_one_backup = true
+      }
+    }
   }
 
   tags = var.tags
@@ -110,14 +180,16 @@ resource "azurerm_role_assignment" "app_kv_secrets_user" {
   principal_id         = azurerm_linux_web_app.ems_app.identity[0].principal_id
 }
 
-# ── Store SQL Connection String as a Secret ────────────────────────────────────
+# ── Store PostgreSQL connection string as a Key Vault secret ───────────────────
+# depends_on the Terraform role assignment to ensure RBAC has propagated
+# and depends_on the firewall ip_rules being in place before the write.
 
 resource "azurerm_key_vault_secret" "sql_connection" {
   name         = "sql-connection-string"
   value        = var.sql_connection_string
   key_vault_id = azurerm_key_vault.ems_kv.id
 
-  depends_on = [azurerm_role_assignment.app_kv_secrets_user]
+  depends_on = [azurerm_role_assignment.terraform_kv_secrets_officer]
 }
 
 # ── Diagnostic Settings → Log Analytics ───────────────────────────────────────

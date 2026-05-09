@@ -1,6 +1,20 @@
 // modules/network/main.tf
-// VNet, subnets, NSGs with restrictive rules, route table,
-// and NSG diagnostic settings routing flow logs to Log Analytics.
+// VNet, subnets, NSGs with restrictive rules, and NSG diagnostic settings
+// routing flow logs to Log Analytics.
+//
+// App Service NSG note:
+//   App Service VNet integration is OUTBOUND-ONLY from the subnet perspective.
+//   Inbound traffic (HTTPS from the internet) hits the App Service public
+//   frontend infrastructure — not this subnet — so Allow-HTTPS-Inbound rules
+//   on the app NSG have no effect and are misleading.  The NSG is kept for
+//   audit posture (explicit Deny-All-Inbound) and diagnostic visibility.
+//
+// Route table note:
+//   An empty route table was previously attached to all subnets as a
+//   placeholder.  An empty route table with no UDRs does nothing and creates
+//   a false impression of traffic control.  It has been removed until a
+//   Firewall/NVA is available to route through.  Re-add when ready:
+//     resource "azurerm_route_table" + azurerm_subnet_route_table_association
 
 resource "azurerm_virtual_network" "ems_vnet" {
   name                = "vnet-ems-readykit"
@@ -27,11 +41,26 @@ resource "azurerm_subnet" "app" {
   }
 }
 
+# Data subnet configured for Private Endpoints:
+#   - private_endpoint_network_policies = "Disabled" allows Private Endpoint
+#     NIC resources to be placed in this subnet (replaces the deprecated
+#     private_endpoint_network_policies_enabled = false, removed in azurerm 4.0)
+#   - service_endpoints provide the network route optimisation used by the SQL
+#     server firewall rule and Key Vault network ACL before private endpoints
+#     are available.
 resource "azurerm_subnet" "data" {
   name                 = "snet-data"
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.ems_vnet.name
   address_prefixes     = ["10.10.2.0/24"]
+
+  private_endpoint_network_policies = "Disabled"
+
+  service_endpoints = [
+    "Microsoft.Sql",
+    "Microsoft.KeyVault",
+    "Microsoft.Storage",
+  ]
 }
 
 resource "azurerm_subnet" "management" {
@@ -43,39 +72,16 @@ resource "azurerm_subnet" "management" {
 
 # ── NSGs ──────────────────────────────────────────────────────────────────────
 
+# App NSG — inbound-only Deny-All for audit posture.
+# Do NOT add Allow-HTTPS-Inbound here: App Service VNet integration is
+# outbound-only; internet traffic enters via Azure's managed frontend and
+# never traverses this subnet inbound.
 resource "azurerm_network_security_group" "app_nsg" {
   name                = "nsg-app"
   location            = var.location
   resource_group_name = var.resource_group_name
   tags                = var.tags
 
-  # Allow inbound HTTPS from the internet (App Service public endpoint)
-  security_rule {
-    name                       = "Allow-HTTPS-Inbound"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "443"
-    source_address_prefix      = "Internet"
-    destination_address_prefix = "*"
-  }
-
-  # Allow App Service infrastructure tags
-  security_rule {
-    name                       = "Allow-AppServiceManagement"
-    priority                   = 110
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "454-455"
-    source_address_prefix      = "AppServiceManagement"
-    destination_address_prefix = "*"
-  }
-
-  # Deny all other inbound
   security_rule {
     name                       = "Deny-All-Inbound"
     priority                   = 4096
@@ -108,7 +114,6 @@ resource "azurerm_network_security_group" "data_nsg" {
     destination_address_prefix = "*"
   }
 
-  # Deny all other inbound
   security_rule {
     name                       = "Deny-All-Inbound"
     priority                   = 4096
@@ -141,7 +146,6 @@ resource "azurerm_network_security_group" "management_nsg" {
     destination_address_prefix = "*"
   }
 
-  # Deny all other inbound
   security_rule {
     name                       = "Deny-All-Inbound"
     priority                   = 4096
@@ -170,30 +174,6 @@ resource "azurerm_subnet_network_security_group_association" "data_assoc" {
 resource "azurerm_subnet_network_security_group_association" "management_assoc" {
   subnet_id                 = azurerm_subnet.management.id
   network_security_group_id = azurerm_network_security_group.management_nsg.id
-}
-
-# ── Route table ───────────────────────────────────────────────────────────────
-
-resource "azurerm_route_table" "ems_rt" {
-  name                = "rt-ems-readykit"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  tags                = var.tags
-}
-
-resource "azurerm_subnet_route_table_association" "app_rt_assoc" {
-  subnet_id      = azurerm_subnet.app.id
-  route_table_id = azurerm_route_table.ems_rt.id
-}
-
-resource "azurerm_subnet_route_table_association" "data_rt_assoc" {
-  subnet_id      = azurerm_subnet.data.id
-  route_table_id = azurerm_route_table.ems_rt.id
-}
-
-resource "azurerm_subnet_route_table_association" "management_rt_assoc" {
-  subnet_id      = azurerm_subnet.management.id
-  route_table_id = azurerm_route_table.ems_rt.id
 }
 
 # ── NSG Diagnostic Settings → Log Analytics ───────────────────────────────────

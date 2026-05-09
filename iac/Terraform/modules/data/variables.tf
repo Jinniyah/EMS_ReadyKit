@@ -20,14 +20,14 @@ variable "subnet_data_id" {
   description = "Resource ID of the data subnet for private endpoint"
 }
 
-variable "sql_admin_login" {
+variable "pg_admin_login" {
   type        = string
-  description = "SQL Server administrator login"
+  description = "PostgreSQL Flexible Server administrator login"
 }
 
-variable "sql_admin_password" {
+variable "pg_admin_password" {
   type        = string
-  description = "SQL Server administrator password"
+  description = "PostgreSQL Flexible Server administrator password"
   sensitive   = true
 }
 

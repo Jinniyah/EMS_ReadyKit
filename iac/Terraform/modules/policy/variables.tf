@@ -12,8 +12,8 @@ variable "resource_group_name" {
 
 variable "allowed_location" {
   type        = string
-  description = "The single Azure region where resources are permitted"
-  default     = "eastus2"
+  description = "The single Azure region where resources are permitted. Always passed from root local.location — do not rely on this default."
+  default     = "northcentralus"
 }
 
 variable "required_tags" {

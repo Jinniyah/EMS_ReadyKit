@@ -3,14 +3,25 @@ models/audit_event.py
 AuditEvent — immutable record of every material action in the system.
 Written at the service layer and also emitted to the structured logger
 so events flow through to Log Analytics / Security Onion.
+
+metadata_json contract:
+    This column uses SQLAlchemy's JSON type, which handles serialization
+    automatically. Callers MUST pass a Python dict (or None) — never a
+    pre-serialized JSON string. Passing a string will cause double-encoding:
+        CORRECT:   metadata_json={"before": 5, "after": 3}
+        INCORRECT: metadata_json=json.dumps({"before": 5, "after": 3})
+
+    On SQLite the JSON type stores as TEXT internally; on Azure SQL it stores
+    as NVARCHAR(MAX). The wire format is identical to the previous Text column,
+    so no data migration is required.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ems_readykit.core.database import Base
@@ -46,8 +57,9 @@ class AuditEvent(Base):
         ForeignKey("vehicles.vehicle_id"), nullable=True
     )
 
-    # JSON blob for action-specific detail (e.g. before/after quantities)
-    metadata_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Structured detail for the event (e.g. {"before": 5, "after": 3, "item_id": 12}).
+    # Pass a dict or None — SQLAlchemy handles serialization. See module docstring.
+    metadata_json: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
 
     # Severity: INFO | WARNING | HIGH
     severity: Mapped[str] = mapped_column(String(10), nullable=False, default="INFO")

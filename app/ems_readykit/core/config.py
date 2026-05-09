@@ -1,8 +1,15 @@
 """
 core/config.py
 Application settings loaded from environment variables (or .env).
-In production the DATABASE_URL is pulled from Azure Key Vault via managed identity;
-in development it falls back to a local SQLite file so no Azure dependencies are needed.
+
+In production the DATABASE_URL is pulled from Azure Key Vault via managed
+identity at startup. In development it falls back to a local SQLite file
+so no Azure or PostgreSQL dependencies are needed for local dev/testing.
+
+Database backends:
+  - Local dev/test: SQLite (sqlite:///./ems_readykit_dev.db)
+  - Production:     PostgreSQL via Azure Key Vault secret
+                    (postgresql+psycopg2://user:pass@host:5432/db?sslmode=require)
 """
 
 from __future__ import annotations
@@ -30,12 +37,13 @@ class Settings(BaseSettings):
     allowed_origins: str = "http://localhost:3000,http://localhost:8000"
 
     # ── Database ──────────────────────────────────────────────────────────────
-    # Falls back to local SQLite when not set — makes local dev dependency-free.
+    # Falls back to local SQLite when not set — keeps local dev dependency-free.
+    # In production this is overridden by the Key Vault secret at startup.
     database_url: str = "sqlite:///./ems_readykit_dev.db"
 
     # ── Azure Key Vault ───────────────────────────────────────────────────────
-    # When set, the app fetches 'sql-connection-string' from KV at startup
-    # and overrides database_url.  Requires Managed Identity on the App Service.
+    # When set, the app fetches 'sql-connection-string' from Key Vault at
+    # startup using the App Service Managed Identity and overrides database_url.
     key_vault_uri: Optional[str] = None
 
     @field_validator("log_level")
@@ -58,6 +66,10 @@ class Settings(BaseSettings):
     def is_sqlite(self) -> bool:
         return self.database_url.startswith("sqlite")
 
+    @property
+    def is_postgresql(self) -> bool:
+        return self.database_url.startswith("postgresql")
+
 
 @lru_cache
 def get_settings() -> Settings:
@@ -67,9 +79,13 @@ def get_settings() -> Settings:
 
 def resolve_database_url(settings: Settings) -> str:
     """
-    If KEY_VAULT_URI is configured, retrieve the SQL connection string from
-    Azure Key Vault using the App Service's managed identity.
+    If KEY_VAULT_URI is configured, retrieve the PostgreSQL connection string
+    from Azure Key Vault using the App Service Managed Identity.
     Falls back to DATABASE_URL from environment for local development.
+
+    The Key Vault secret 'sql-connection-string' contains a SQLAlchemy-compatible
+    PostgreSQL URL in the form:
+        postgresql+psycopg2://user:pass@host:5432/db?sslmode=require
     """
     if not settings.key_vault_uri:
         return settings.database_url
@@ -81,7 +97,10 @@ def resolve_database_url(settings: Settings) -> str:
         credential = ManagedIdentityCredential()
         client = SecretClient(vault_url=settings.key_vault_uri, credential=credential)
         secret = client.get_secret("sql-connection-string")
-        logging.getLogger(__name__).info("Database URL resolved from Key Vault.")
+        logging.getLogger(__name__).info(
+            "Database URL resolved from Key Vault.",
+            extra={"key_vault_uri": settings.key_vault_uri},
+        )
         return secret.value
     except Exception as exc:  # noqa: BLE001
         logging.getLogger(__name__).warning(

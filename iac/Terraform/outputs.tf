@@ -16,13 +16,18 @@ output "app_service_url" {
 }
 
 output "key_vault_uri" {
-  description = "URI of the Key Vault"
+  description = "URI of the application Key Vault"
   value       = module.app.key_vault_uri
 }
 
-output "sql_server_fqdn" {
-  description = "Fully qualified domain name of the SQL Server"
-  value       = module.data.sql_server_fqdn
+output "pg_server_fqdn" {
+  description = "Fully qualified domain name of the PostgreSQL Flexible Server"
+  value       = module.data.pg_server_fqdn
+}
+
+output "pg_database_name" {
+  description = "Name of the PostgreSQL database"
+  value       = module.data.pg_database_name
 }
 
 output "storage_account_name" {

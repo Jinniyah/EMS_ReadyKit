@@ -5,3 +5,31 @@ asyncio_mode = "auto"
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.ruff.lint]
+# E/W — pycodestyle errors and warnings
+# F   — pyflakes (undefined names, unused imports)
+# I   — isort (import ordering)
+# B   — flake8-bugbear (likely bugs and design issues)
+# C4  — flake8-comprehensions (unnecessary comprehension patterns)
+# RUF — Ruff-native rules
+select = ["E", "W", "F", "I", "B", "C4", "RUF"]
+
+ignore = [
+    "E501",   # line too long — handled by formatter, not linter
+    "B008",   # do not perform function calls in default arguments
+              # (FastAPI's Depends() pattern triggers this legitimately)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["ems_readykit"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_return_any = false
+# strict mode is intentionally off — the codebase uses SQLAlchemy's Mapped[]
+# type system which requires lenient checking in several places.
+# Tighten incrementally as Phase 2 adds typed service and schema layers.
+disallow_untyped_defs = false

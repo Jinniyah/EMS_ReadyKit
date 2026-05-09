@@ -2,6 +2,12 @@
 // Deploys a Log Analytics Workspace as the central log store.
 // All platform diagnostics, application logs, and audit events
 // are routed here per ADR-003.
+//
+// Provider note:
+//   data "azurerm_client_config" is used below to resolve the subscription ID
+//   for the activity log alert scope. This data source uses the azurerm provider
+//   inherited from the root module — no explicit provider block is needed here,
+//   but this module implicitly requires the root azurerm provider to be configured.
 
 resource "azurerm_log_analytics_workspace" "ems_law" {
   name                = "law-${var.name_prefix}"
@@ -50,13 +56,18 @@ resource "azurerm_log_analytics_saved_search" "high_severity_events" {
   EOQ
 }
 
-# ── Azure Activity Log alert: any destructive operations ─────────────────────
+# ── Azure Activity Log alert: destructive operations ──────────────────────────
+
 resource "azurerm_monitor_action_group" "ems_ops" {
   name                = "ag-${var.name_prefix}-ops"
   resource_group_name = var.resource_group_name
   short_name          = "ems-ops"
   tags                = var.tags
 }
+
+# Resolves the current subscription ID at plan time via the inherited
+# azurerm provider. See provider note in the file header.
+data "azurerm_client_config" "current" {}
 
 resource "azurerm_monitor_activity_log_alert" "destructive_operations" {
   name                = "alert-${var.name_prefix}-destructive-ops"
@@ -74,5 +85,3 @@ resource "azurerm_monitor_activity_log_alert" "destructive_operations" {
     action_group_id = azurerm_monitor_action_group.ems_ops.id
   }
 }
-
-data "azurerm_client_config" "current" {}

@@ -52,3 +52,17 @@ flowchart TB
     AppSubnet --> App
     DataSubnet --> DB
     MonSubnet --> SIEM
+```
+
+---
+
+## Networking Notes
+
+The default SKU is **F1 (free tier)**, which does not support VNet integration.
+On F1, the App Service reaches Azure SQL over the public internet via an
+Azure-services firewall rule. The VNet, subnets, and private endpoint are
+provisioned and ready — upgrading to B1+ and enabling VNet integration requires
+only a SKU change and adding a Private DNS Zone for `privatelink.database.windows.net`.
+
+See [ADR-001](../adr/ADR-001-Architecture.md) for the full architecture rationale
+and [ADR-004](../adr/ADR-004-Terraform-Module-Structure.md) for the IaC structure.

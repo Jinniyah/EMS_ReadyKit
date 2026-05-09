@@ -15,9 +15,15 @@ variable "name_prefix" {
   description = "Prefix for resource naming"
 }
 
+variable "environment" {
+  type        = string
+  description = "Deployment environment (dev/staging/prod). Controls Key Vault purge protection and retention."
+  default     = "dev"
+}
+
 variable "app_service_sku" {
   type        = string
-  description = "App Service Plan SKU. F1 = free tier (no VNet integration). B1+ = paid (VNet integration supported)."
+  description = "App Service Plan SKU. F1 = free tier (no VNet integration or backup). B1+ = paid."
   default     = "F1"
 
   validation {
@@ -38,7 +44,7 @@ variable "key_vault_tenant_id" {
 
 variable "sql_connection_string" {
   type        = string
-  description = "SQL connection string stored as a Key Vault secret"
+  description = "PostgreSQL connection string stored as a Key Vault secret"
   sensitive   = true
 }
 
@@ -47,9 +53,33 @@ variable "storage_account_name" {
   description = "Storage account name passed to the app as a setting"
 }
 
+variable "storage_account_sas_url" {
+  type        = string
+  description = "SAS URL for the storage account container used for App Service backup (required for B1+ SKUs)"
+  sensitive   = true
+  default     = ""
+}
+
 variable "log_analytics_workspace_id" {
   type        = string
   description = "Log Analytics workspace ID for diagnostic settings"
+}
+
+variable "office_ip_cidr" {
+  type        = string
+  description = "Office or admin IP in CIDR notation to allow SCM/Kudu access (e.g. \"203.0.113.5/32\"). Leave empty to deny all SCM access."
+  default     = ""
+
+  validation {
+    condition     = var.office_ip_cidr == "" || can(regex("^(\\d{1,3}\\.){3}\\d{1,3}/\\d{1,2}$", var.office_ip_cidr))
+    error_message = "office_ip_cidr must be a valid CIDR block (e.g. \"203.0.113.5/32\") or empty string."
+  }
+}
+
+variable "allowed_admin_ips" {
+  type        = list(string)
+  description = "Public IP addresses (CIDR) allowed to access the app Key Vault during Terraform runs (e.g. [\"203.0.113.5/32\"])"
+  default     = []
 }
 
 variable "tags" {

@@ -1,5 +1,13 @@
+// locals.tf
+// Resolves the current subscription dynamically so no subscription ID
+// is hardcoded in version-controlled files.
+
+data "azurerm_subscription" "current" {}
+
 locals {
-  subscription_id = "75fce2ea-1d83-4c5a-9929-b424b2913c8e"
+  # Resolved at plan time from the authenticated Azure context.
+  # Avoids hardcoding an environment-specific subscription ID in source control.
+  subscription_id = data.azurerm_subscription.current.subscription_id
 
   project     = "ems-readykit"
   environment = var.environment

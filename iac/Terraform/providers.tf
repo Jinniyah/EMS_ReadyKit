@@ -1,7 +1,7 @@
-// Terraform providers
+// providers.tf
 
 terraform {
-  required_version = ">= 1.5.0"
+  required_version = "~> 1.6"
 
   required_providers {
     azurerm = {
@@ -12,17 +12,26 @@ terraform {
       source  = "hashicorp/azuread"
       version = "~> 2.47"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 }
 
 provider "azurerm" {
+  # subscription_id is intentionally omitted — the provider resolves it
+  # automatically from the authenticated Azure CLI session (az login).
+  # Explicitly setting it here would create a dependency cycle with
+  # data.azurerm_subscription.current in locals.tf.
   features {
     key_vault {
-      purge_soft_delete_on_destroy    = true
+      purge_soft_delete_on_destroy    = false
       recover_soft_deleted_key_vaults = true
     }
   }
-  subscription_id = local.subscription_id
 }
 
 provider "azuread" {}
+
+provider "random" {}

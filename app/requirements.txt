@@ -4,16 +4,16 @@
 fastapi==0.111.0
 uvicorn[standard]==0.29.0
 
-# Database ORM + driver
+# Database ORM + migrations
 sqlalchemy==2.0.30
 alembic==1.13.1
-pyodbc==5.1.0          # Azure SQL (ODBC driver 18 required on host)
+psycopg2-binary==2.9.9   # PostgreSQL driver (binary wheel — no libpq build dep)
 
 # Pydantic v2 (FastAPI 0.111 uses v2 natively)
 pydantic==2.7.1
 pydantic-settings==2.2.1
 
-# Azure SDK — Key Vault secret retrieval
+# Azure SDK — Key Vault secret retrieval via Managed Identity
 azure-keyvault-secrets==4.8.0
 azure-identity==1.16.0
 

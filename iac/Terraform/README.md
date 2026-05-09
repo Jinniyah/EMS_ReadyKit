@@ -8,7 +8,7 @@ See [ADR-004](../../docs/adr/ADR-004-Terraform-Module-Structure.md) for the rati
 
 ## Prerequisites
 
-- Terraform >= 1.5.0
+- Terraform ~> 1.6
 - Azure CLI authenticated (`az login`)
 - Contributor access to the target subscription
 - Remote state backend pre-created (see below)
@@ -20,12 +20,12 @@ See [ADR-004](../../docs/adr/ADR-004-Terraform-Module-Structure.md) for the rati
 ```
 modules/
 ├── logging/        — Log Analytics workspace, saved queries, alerts
-├── network/        — VNet, subnets, NSGs with rules, route table, diagnostics
+├── network/        — VNet, subnets, NSGs with rules, diagnostics
 ├── identity_rbac/  — Azure AD groups, RBAC assignments (ADR-002)
 ├── policy/         — Allowed locations, required tags, deny public IP
 ├── storage/        — Blob storage, containers, lifecycle, diagnostics
 ├── data/           — Azure SQL Server + DB, private endpoint, auditing
-├── app/            — App Service (Linux B1), Key Vault, managed identity
+├── app/            — App Service (Linux F1/B1), Key Vault, managed identity
 └── siem/           — Security Onion VM (optional, disabled by default)
 ```
 
@@ -37,7 +37,7 @@ State is stored in Azure Blob Storage. The backend storage account must be creat
 
 ```bash
 # One-time setup (run manually or via bootstrap script)
-az group create --name tfstate-rg --location eastus
+az group create --name tfstate-rg --location southcentralus
 az storage account create \
   --name emsreadykittfstate \
   --resource-group tfstate-rg \
@@ -84,14 +84,20 @@ terraform destroy -var="sql_admin_password=<your_password>"
 
 | Variable | Description | Default |
 |---|---|---|
-| `environment` | Deployment environment | `dev` |
-| `location` | Azure region | `eastus` |
+| `environment` | Deployment environment (`dev`, `staging`, `prod`) | `dev` |
+| `location` | Azure region | `southcentralus` |
 | `owner_tag` | Owner tag value | `EMS-ReadyKit-Team` |
 | `cost_center_tag` | CostCenter tag value | `EMS-Demo` |
-| `storage_account_name` | Globally unique storage name | `emsreadykitstorage123` |
+| `storage_account_name` | Globally unique storage name (3-24 lowercase alphanumeric) | `emsreadykitstorage123` |
 | `sql_admin_login` | SQL Server admin login | `emsadmin` |
 | `sql_admin_password` | SQL Server admin password | *(sensitive, required)* |
+| `app_service_sku` | App Service SKU — `F1` (free, no VNet) or `B1`+ (private networking) | `F1` |
 | `enable_siem` | Deploy Security Onion VM | `false` |
+| `allowed_admin_ips` | CIDR list allowed to access the platform Key Vault during bootstrap | `[]` |
+| `office_ip_cidr` | Admin IP (CIDR) for SCM/Kudu access restriction | `""` |
+| `monthly_budget_usd` | Monthly spend threshold in USD for cost alerts | `50` |
+| `budget_start_date` | Budget period start date (RFC3339) | `2026-05-01T00:00:00Z` |
+| `budget_alert_emails` | Email addresses notified at 80% and 100% of budget | *(required)* |
 
 ---
 
@@ -107,6 +113,18 @@ Modules are deployed in dependency order by Terraform automatically. The logical
 6. `data` — SQL before app reads connection string
 7. `app` — app deploys last, referencing all upstream outputs
 8. `siem` — optional, independent of the app layer
+
+---
+
+## Networking Notes
+
+The current default SKU is **F1 (free tier)**, which does not support VNet integration. The App Service reaches Azure SQL over the public internet via an Azure-services firewall rule on the SQL server. The private endpoint and data subnet are retained in the Terraform code so that upgrading to B1+ requires only:
+
+1. Changing `app_service_sku` to `B1` (or higher)
+2. Adding a Private DNS Zone for `privatelink.database.windows.net` in the data module
+3. Setting `public_network_access_enabled = false` on the SQL server
+
+No structural Terraform changes are needed for the upgrade path.
 
 ---
 

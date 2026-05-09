@@ -3,11 +3,13 @@ core/database.py
 SQLAlchemy engine and session factory.
 
 SQLite is used for local development (no driver dependencies).
-Azure SQL (via pyodbc) is used in production — the connection string
+PostgreSQL (via psycopg2) is used in production — the connection string
 is injected from Key Vault at startup via resolve_database_url().
 
 The same ORM models work against both backends because we avoid
-dialect-specific column types in the model definitions.
+dialect-specific column types in the model definitions. All enum columns
+use native_enum=False (VARCHAR storage) so no PostgreSQL CREATE TYPE
+statements are needed.
 
 Note on onupdate:
     TimestampMixin.updated_at uses SQLAlchemy's onupdate hook, which fires
@@ -35,7 +37,7 @@ def _build_engine():
 
     # pool_size and max_overflow are not valid for SQLite's StaticPool and
     # will raise a TypeError at startup.  Only pass them for real DBAPI-backed
-    # engines (Azure SQL, PostgreSQL, etc.).
+    # engines (PostgreSQL, etc.).
     engine_kwargs: dict = dict(
         connect_args=connect_args,
         pool_pre_ping=True,

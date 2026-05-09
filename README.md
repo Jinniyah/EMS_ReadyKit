@@ -108,3 +108,13 @@ security monitoring capability using Security Onion.
 - Log volume considerations
 - Signal vs noise
 - Cost / performance tradeoffs
+
+## Demo Deployment Notes
+- **Current**: F1 tier (free) due to subscription quota constraints
+- **Impact**: VNet integration disabled; SQL Private Endpoint configured but not utilized by App Service
+- **Production**: Upgrade to B1/P1v2 and uncomment VNet integration for end-to-end private networking
+
+## Known Limitations (Demo Architecture)
+- **App Service Tier**: F1 (Free) lacks VNet integration, preventing Private Endpoints
+- **Key Vault Access**: Uses Managed Identity + Service Tag ACLs instead of Private Link
+- **Production Delta**: Upgrade to B1+ and add `azurerm_private_endpoint` for Key Vault

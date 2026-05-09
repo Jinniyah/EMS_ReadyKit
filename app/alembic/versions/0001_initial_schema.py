@@ -1,7 +1,7 @@
 """Initial schema — all domain tables
 
 Revision ID: 0001_initial_schema
-Revises: 
+Revises:
 Create Date: 2026-05-06
 
 """
@@ -125,6 +125,10 @@ def upgrade() -> None:
     )
 
     # ── audit_events ──────────────────────────────────────────────────────────
+    # metadata_json uses sa.JSON (not sa.Text) so that SQLAlchemy handles
+    # serialization automatically. Callers pass dicts, not pre-serialized strings.
+    # On SQLite this stores as TEXT; on Azure SQL as NVARCHAR(MAX) — identical
+    # wire format to the previous Text declaration, so no data migration needed.
     op.create_table(
         "audit_events",
         sa.Column("event_id", sa.Integer, primary_key=True, autoincrement=True),
@@ -134,7 +138,7 @@ def upgrade() -> None:
         sa.Column("entity_id", sa.String(50), nullable=True),
         sa.Column("station_id", sa.Integer, sa.ForeignKey("stations.station_id"), nullable=True),
         sa.Column("vehicle_id", sa.Integer, sa.ForeignKey("vehicles.vehicle_id"), nullable=True),
-        sa.Column("metadata_json", sa.Text, nullable=True),
+        sa.Column("metadata_json", sa.JSON, nullable=True),
         sa.Column("severity", sa.String(10), nullable=False, server_default="INFO"),
         sa.Column("timestamp", sa.DateTime(timezone=True), nullable=False),
     )
