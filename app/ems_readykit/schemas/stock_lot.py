@@ -18,7 +18,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
 
 class StockLotBase(BaseModel):
@@ -73,6 +73,7 @@ class StockLotRead(StockLotBase):
     created_at: datetime
     updated_at: datetime
 
+    @computed_field
     @property
     def is_expired(self) -> bool:
         """True if the lot has an expiration date that has passed."""

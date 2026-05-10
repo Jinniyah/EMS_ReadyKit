@@ -17,7 +17,7 @@ output "pg_database_name" {
 
 output "sql_connection_string" {
   description = "SQLAlchemy connection string for the EMS database (sensitive)"
-  value       = "postgresql+psycopg2://${var.pg_admin_login}:${var.pg_admin_password}@${azurerm_postgresql_flexible_server.ems_pg.fqdn}:5432/${azurerm_postgresql_flexible_server_database.ems_db.name}?sslmode=require"
+  value       = "postgresql+psycopg2://${var.pg_admin_login}:${var.pg_admin_password}@${azurerm_postgresql_flexible_server.ems_pg.fqdn}:5432/${azurerm_postgresql_flexible_server_database.ems_db.name}?sslmode=require&sslrootcert=/etc/ssl/certs/ca-certificates.crt"
   sensitive   = true
 }
 

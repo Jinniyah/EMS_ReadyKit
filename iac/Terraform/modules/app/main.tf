@@ -1,4 +1,18 @@
 // modules/app/main.tf
+//
+// Deployment lessons learned:
+//   Oryx extracts the zip to /tmp/8dea.../ and creates the virtualenv at
+//   /tmp/8dea.../antenv/. The system Python at /opt/python/3.11.14/ has no
+//   packages installed. The startup command MUST use the antenv binaries
+//   directly (antenv/bin/gunicorn) rather than the system Python/gunicorn,
+//   otherwise uvicorn and ems_readykit are not found.
+//
+//   Oryx sets the working directory to the extracted app path before running
+//   app_command_line, so relative paths like antenv/bin/gunicorn work correctly.
+//
+//   DO NOT use --chdir — it overrides Oryx's working directory setup.
+//   DO NOT set PYTHONPATH manually — Oryx sets it correctly.
+//   DO NOT leave app_command_line empty — Oryx falls back to the system Python.
 
 locals {
   is_free_tier             = var.app_service_sku == "F1"
@@ -67,15 +81,20 @@ resource "azurerm_linux_web_app" "ems_app" {
     ftps_state          = "Disabled"
     http2_enabled       = true
     minimum_tls_version = "1.2"
-    health_check_path   = "/health"
+    health_check_path                 = "/health"
+    # Allow up to 10 minutes of health-check failures before recycling.
+    # Gives startup.sh time to run Alembic migrations before gunicorn
+    # begins accepting traffic.
+    health_check_eviction_time_in_min  = 10
 
     application_stack {
       python_version = "3.11"
     }
 
-    # Single worker with extended timeout for F1's limited CPU.
-    # 2 workers caused startup timeouts on the free tier.
-    app_command_line = "gunicorn -w 1 -k uvicorn.workers.UvicornWorker --timeout 120 --chdir /home/site/wwwroot ems_readykit.main:app"
+    # startup.sh activates the antenv virtualenv, runs Alembic migrations,
+    # then execs gunicorn. This guarantees the schema is current before the
+    # app accepts traffic. Migrations are idempotent (no-op if already at head).
+    app_command_line = "bash startup.sh"
 
     scm_ip_restriction_default_action = "Deny"
 
@@ -92,14 +111,13 @@ resource "azurerm_linux_web_app" "ems_app" {
 
   app_settings = merge(
     {
-      "SCM_DO_BUILD_DURING_DEPLOYMENT" = "true"
-      "ENABLE_ORYX_BUILD"              = "true"
-      "PYTHONPATH"                     = "/home/site/wwwroot"
-      "STORAGE_ACCOUNT_NAME"           = var.storage_account_name
-      "KEY_VAULT_URI"                  = azurerm_key_vault.ems_kv.vault_uri
-      "APP_ENV"                        = "production"
-      "LOG_LEVEL"                      = "INFO"
-      "DATABASE_URL"                   = var.sql_connection_string
+      "SCM_DO_BUILD_DURING_DEPLOYMENT"      = "true"
+      "ENABLE_ORYX_BUILD"                   = "true"
+      "STORAGE_ACCOUNT_NAME"                = var.storage_account_name
+      "KEY_VAULT_URI"                       = azurerm_key_vault.ems_kv.vault_uri
+      "APP_ENV"                             = "production"
+      "LOG_LEVEL"                           = "INFO"
+      "DATABASE_URL"                        = var.sql_connection_string
     },
     local.enable_vnet ? { "WEBSITE_VNET_ROUTE_ALL" = "1" } : {}
   )
