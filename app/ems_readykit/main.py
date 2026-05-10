@@ -13,12 +13,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from ems_readykit.core.config import get_settings
 from ems_readykit.core.logging import configure_logging
+from ems_readykit.routers import audit, checks, inventory, items, stations, vehicles
 
 # Configure logging before anything else
 configure_logging()
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
+
+API_PREFIX = "/api/v1"
 
 
 @asynccontextmanager
@@ -39,7 +42,7 @@ def create_app() -> FastAPI:
             "Vehicle readiness and inventory management platform for Fire & EMS. "
             "Non-production technical demonstration."
         ),
-        version="0.1.0",
+        version="0.2.0",
         lifespan=lifespan,
         docs_url="/docs",
         redoc_url="/redoc",
@@ -55,10 +58,15 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # ── Routers (registered here as Phase 2 adds them) ────────────────────────
-    # from ems_readykit.routers import stations, vehicles, items, inventory
-    # app.include_router(stations.router, prefix="/api/v1")
-    # app.include_router(vehicles.router, prefix="/api/v1")
+    # ── API Routers ────────────────────────────────────────────────────────────
+    # All routes are versioned under /api/v1 for forward compatibility.
+    # Phase 3 will add authentication middleware before these registrations.
+    app.include_router(stations.router, prefix=API_PREFIX)
+    app.include_router(vehicles.router, prefix=API_PREFIX)
+    app.include_router(items.router, prefix=API_PREFIX)
+    app.include_router(inventory.router, prefix=API_PREFIX)
+    app.include_router(checks.router, prefix=API_PREFIX)
+    app.include_router(audit.router, prefix=API_PREFIX)
 
     # ── Health check ──────────────────────────────────────────────────────────
     @app.get("/health", tags=["system"])

@@ -1,16 +1,18 @@
 """
 routers/__init__.py
+All Phase 2 routers are registered here and imported by main.py.
 
-FastAPI route handlers for the EMS ReadyKit API.
+Router → prefix mapping:
+  stations  → /api/v1/stations
+  vehicles  → /api/v1/vehicles, /api/v1/stations/{id}/vehicles
+  items     → /api/v1/items
+  inventory → /api/v1/inventory
+  checks    → /api/v1/checks
+  audit     → /api/v1/audit
 
-Phase 2 will add routers for:
-  - stations   — GET /stations, POST /stations, GET /stations/{id}
-  - vehicles   — GET /vehicles, POST /vehicles, GET /vehicles/{id}
-  - items      — GET /items, POST /items, GET /items/{id}
-  - inventory  — GET /inventory/{location_id}, stock lot CRUD
-  - checks     — POST /checks/daily, POST /checks/controlled-substance
-  - audit      — GET /audit (read-only audit log query)
-
-All routers will be registered in main.py under the /api/v1 prefix.
 Authentication and RBAC middleware will be added in Phase 3.
 """
+
+from ems_readykit.routers import audit, checks, inventory, items, stations, vehicles
+
+__all__ = ["stations", "vehicles", "items", "inventory", "checks", "audit"]
