@@ -82,6 +82,16 @@ variable "allowed_admin_ips" {
   default     = []
 }
 
+variable "tenant_id" {
+  type        = string
+  description = "Azure AD tenant ID — set as AZURE_AD_TENANT_ID app setting for JWT validation"
+}
+
+variable "client_id" {
+  type        = string
+  description = "App Registration client ID — set as AZURE_AD_CLIENT_ID app setting for JWT validation"
+}
+
 variable "tags" {
   type        = map(string)
   description = "Tags to apply to all resources"

@@ -1,25 +1,58 @@
 """
 routers/deps.py
 Shared FastAPI dependencies used across all routers.
-
-Centralizing dependencies here means:
-  - A single import point for all routers
-  - Easy to extend in Phase 3 (e.g. add current_user dependency for RBAC)
-  - No circular imports between routers and core modules
-
-Phase 3 will add:
-  - get_current_user — JWT validation via Azure AD
-  - require_role(role) — RBAC enforcement
-  - get_station_for_user — scope filtering by user's assigned station
 """
 
 from __future__ import annotations
 
-from typing import Generator
+from typing import Callable
 
-from sqlalchemy.orm import Session
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from ems_readykit.core.auth import CurrentUser, resolve_current_user
 from ems_readykit.core.database import get_db
 
-# Re-export get_db so routers only need to import from deps
-__all__ = ["get_db"]
+__all__ = ["get_db", "get_current_user", "require_role"]
+
+# ── Auth bearer scheme ────────────────────────────────────────────────────────
+
+_bearer = HTTPBearer()
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer),
+) -> CurrentUser:
+    """
+    FastAPI dependency — validates the Bearer token and returns a CurrentUser.
+    Raises HTTP 401 if the token is missing or invalid.
+    """
+    return resolve_current_user(credentials.credentials)
+
+
+# ── RBAC helper ───────────────────────────────────────────────────────────────
+
+
+def require_role(*roles: str) -> Callable[[CurrentUser], CurrentUser]:
+    """
+    Dependency factory — returns a FastAPI dependency that enforces role membership.
+
+    Usage (access control only):
+        @router.get("/stations", dependencies=[Depends(require_role("Supervisor", "Administrator"))])
+
+    Usage (access control + user object in handler):
+        @router.post("/checks/daily")
+        def create_check(..., current_user: CurrentUser = Depends(require_role("Responder", "Supervisor", "Administrator"))):
+            ...
+    """
+    def _check(
+        current_user: CurrentUser = Depends(get_current_user),
+    ) -> CurrentUser:
+        if not current_user.has_role(*roles):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Insufficient permissions. Required one of: {list(roles)}",
+            )
+        return current_user
+
+    return _check

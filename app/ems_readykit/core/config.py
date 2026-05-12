@@ -10,6 +10,11 @@ Database backends:
   - Local dev/test: SQLite (sqlite:///./ems_readykit_dev.db)
   - Production:     PostgreSQL via Azure Key Vault secret
                     (postgresql+psycopg2://user:pass@host:5432/db?sslmode=require)
+
+Auth:
+  - Production:     Azure AD JWT tokens validated against AZURE_AD_TENANT_ID
+                    and AZURE_AD_CLIENT_ID (set as App Service app settings by Terraform)
+  - Development:    Fake "test-{role}" Bearer tokens accepted when APP_ENV != "production"
 """
 
 from __future__ import annotations
@@ -37,14 +42,18 @@ class Settings(BaseSettings):
     allowed_origins: str = "http://localhost:3000,http://localhost:8000"
 
     # ── Database ──────────────────────────────────────────────────────────────
-    # Falls back to local SQLite when not set — keeps local dev dependency-free.
-    # In production this is overridden by the Key Vault secret at startup.
     database_url: str = "sqlite:///./ems_readykit_dev.db"
 
     # ── Azure Key Vault ───────────────────────────────────────────────────────
-    # When set, the app fetches 'sql-connection-string' from Key Vault at
-    # startup using the App Service Managed Identity and overrides database_url.
     key_vault_uri: Optional[str] = None
+
+    # ── Azure AD / JWT Auth ───────────────────────────────────────────────────
+    # Set automatically as App Service app settings by Terraform.
+    # Leave unset in local dev — auth middleware uses fake tokens when
+    # APP_ENV is not "production".
+    azure_ad_tenant_id: Optional[str] = None
+    azure_ad_client_id: Optional[str] = None
+    azure_ad_audience: Optional[str] = None
 
     @field_validator("log_level")
     @classmethod
@@ -70,6 +79,26 @@ class Settings(BaseSettings):
     def is_postgresql(self) -> bool:
         return self.database_url.startswith("postgresql")
 
+    @property
+    def jwks_uri(self) -> Optional[str]:
+        """Azure AD JWKS endpoint for public key retrieval."""
+        if not self.azure_ad_tenant_id:
+            return None
+        return (
+            f"https://login.microsoftonline.com/"
+            f"{self.azure_ad_tenant_id}/discovery/v2.0/keys"
+        )
+
+    @property
+    def token_issuer(self) -> Optional[str]:
+        """Expected issuer claim in Azure AD access tokens."""
+        if not self.azure_ad_tenant_id:
+            return None
+        return (
+            f"https://login.microsoftonline.com/"
+            f"{self.azure_ad_tenant_id}/v2.0"
+        )
+
 
 @lru_cache
 def get_settings() -> Settings:
@@ -82,10 +111,6 @@ def resolve_database_url(settings: Settings) -> str:
     If KEY_VAULT_URI is configured, retrieve the PostgreSQL connection string
     from Azure Key Vault using the App Service Managed Identity.
     Falls back to DATABASE_URL from environment for local development.
-
-    The Key Vault secret 'sql-connection-string' contains a SQLAlchemy-compatible
-    PostgreSQL URL in the form:
-        postgresql+psycopg2://user:pass@host:5432/db?sslmode=require
     """
     if not settings.key_vault_uri:
         return settings.database_url

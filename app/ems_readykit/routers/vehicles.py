@@ -3,21 +3,10 @@ routers/vehicles.py
 Vehicle CRUD endpoints.
 
 Endpoints:
-  GET  /vehicles                    — list vehicles (filterable by station/active)
-  POST /vehicles                    — create a vehicle
-  GET  /vehicles/{id}               — get a single vehicle
-  GET  /stations/{id}/vehicles      — list vehicles for a specific station
-
-Design decisions:
-- Creating a vehicle automatically creates its InventoryLocation. A vehicle
-  without a location is operationally invalid — the location is created in
-  the same transaction to guarantee atomicity.
-- station_id is validated on create — a vehicle cannot be created for a
-  non-existent station. Returns 404 if the station is not found.
-- No DELETE endpoint — vehicles are deactivated, never deleted, to preserve
-  audit history and check records.
-- The station-scoped list endpoint (/stations/{id}/vehicles) is provided for
-  supervisor dashboards that need to see compliance by station.
+  GET  /vehicles                    — list vehicles (Supervisor, Administrator)
+  POST /vehicles                    — create a vehicle (Supervisor, Administrator)
+  GET  /vehicles/{id}               — get a single vehicle (Responder, Supervisor, Administrator)
+  GET  /stations/{id}/vehicles      — list vehicles for a station (Supervisor, Administrator)
 """
 
 from __future__ import annotations
@@ -27,13 +16,18 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from ems_readykit.core.auth import ROLE_ADMINISTRATOR, ROLE_RESPONDER, ROLE_SUPERVISOR
 from ems_readykit.core.database import get_db
 from ems_readykit.models.inventory_location import InventoryLocation, LocationType
 from ems_readykit.models.station import Station
 from ems_readykit.models.vehicle import Vehicle
+from ems_readykit.routers.deps import require_role
 from ems_readykit.schemas.vehicle import VehicleCreate, VehicleRead
 
 router = APIRouter(tags=["vehicles"])
+
+_ALL_ROLES       = (ROLE_RESPONDER, ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
+_SUPERVISOR_PLUS = (ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
 
 
 def _get_vehicle_or_404(vehicle_id: int, db: Session) -> Vehicle:
@@ -47,12 +41,17 @@ def _get_vehicle_or_404(vehicle_id: int, db: Session) -> Vehicle:
     return vehicle
 
 
-@router.get("/vehicles", response_model=List[VehicleRead], summary="List vehicles")
+@router.get(
+    "/vehicles",
+    response_model=List[VehicleRead],
+    summary="List vehicles",
+    dependencies=[Depends(require_role(*_SUPERVISOR_PLUS))],
+)
 def list_vehicles(
     active: bool = Query(default=True, description="Filter by active status"),
     db: Session = Depends(get_db),
 ) -> List[Vehicle]:
-    """Returns all vehicles matching the active filter."""
+    """Returns all vehicles matching the active filter. Requires Supervisor or Administrator."""
     return db.query(Vehicle).filter(Vehicle.active == active).all()
 
 
@@ -61,14 +60,15 @@ def list_vehicles(
     response_model=VehicleRead,
     status_code=status.HTTP_201_CREATED,
     summary="Create a vehicle",
+    dependencies=[Depends(require_role(*_SUPERVISOR_PLUS))],
 )
 def create_vehicle(payload: VehicleCreate, db: Session = Depends(get_db)) -> Vehicle:
     """
     Creates a vehicle and its corresponding InventoryLocation in one transaction.
     Returns 404 if the referenced station does not exist.
     Returns 409 if the vehicle_number is already in use.
+    Requires Supervisor or Administrator role.
     """
-    # Validate the station exists before creating the vehicle
     station = db.query(Station).filter(Station.station_id == payload.station_id).first()
     if not station:
         raise HTTPException(
@@ -76,9 +76,6 @@ def create_vehicle(payload: VehicleCreate, db: Session = Depends(get_db)) -> Veh
             detail=f"Station {payload.station_id} not found.",
         )
 
-    # Check vehicle_number uniqueness explicitly for a clear error message.
-    # The DB unique constraint would catch this too, but the error would be
-    # a generic IntegrityError rather than a meaningful 409 response.
     existing = (
         db.query(Vehicle).filter(Vehicle.vehicle_number == payload.vehicle_number).first()
     )
@@ -95,10 +92,8 @@ def create_vehicle(payload: VehicleCreate, db: Session = Depends(get_db)) -> Veh
         active=payload.active,
     )
     db.add(vehicle)
-    db.flush()  # flush to get vehicle_id before creating the location
+    db.flush()
 
-    # Every vehicle gets exactly one inventory location.
-    # Created atomically with the vehicle — no orphaned vehicles without locations.
     location = InventoryLocation(
         location_type=LocationType.VEHICLE,
         station_id=payload.station_id,
@@ -111,9 +106,14 @@ def create_vehicle(payload: VehicleCreate, db: Session = Depends(get_db)) -> Veh
     return vehicle
 
 
-@router.get("/vehicles/{vehicle_id}", response_model=VehicleRead, summary="Get a vehicle")
+@router.get(
+    "/vehicles/{vehicle_id}",
+    response_model=VehicleRead,
+    summary="Get a vehicle",
+    dependencies=[Depends(require_role(*_ALL_ROLES))],
+)
 def get_vehicle(vehicle_id: int, db: Session = Depends(get_db)) -> Vehicle:
-    """Returns a single vehicle by ID. Returns 404 if not found."""
+    """Returns a single vehicle by ID. Returns 404 if not found. All authenticated roles."""
     return _get_vehicle_or_404(vehicle_id, db)
 
 
@@ -121,6 +121,7 @@ def get_vehicle(vehicle_id: int, db: Session = Depends(get_db)) -> Vehicle:
     "/stations/{station_id}/vehicles",
     response_model=List[VehicleRead],
     summary="List vehicles for a station",
+    dependencies=[Depends(require_role(*_SUPERVISOR_PLUS))],
 )
 def list_station_vehicles(
     station_id: int,
@@ -129,7 +130,7 @@ def list_station_vehicles(
 ) -> List[Vehicle]:
     """
     Returns all vehicles assigned to a specific station.
-    Used by supervisor compliance dashboards.
+    Used by supervisor compliance dashboards. Requires Supervisor or Administrator.
     Returns 404 if the station does not exist.
     """
     station = db.query(Station).filter(Station.station_id == station_id).first()

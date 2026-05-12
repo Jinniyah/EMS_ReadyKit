@@ -118,6 +118,9 @@ resource "azurerm_linux_web_app" "ems_app" {
       "APP_ENV"                             = "production"
       "LOG_LEVEL"                           = "INFO"
       "DATABASE_URL"                        = var.sql_connection_string
+      "AZURE_AD_TENANT_ID"                  = var.tenant_id
+      "AZURE_AD_CLIENT_ID"                  = var.client_id
+      "AZURE_AD_AUDIENCE"                   = "api://${var.client_id}"
     },
     local.enable_vnet ? { "WEBSITE_VNET_ROUTE_ALL" = "1" } : {}
   )

@@ -75,6 +75,7 @@ module "identity_rbac" {
 
   resource_group_id = azurerm_resource_group.ems_rg.id
   subscription_id   = local.subscription_id
+  tenant_id         = data.azurerm_client_config.current.tenant_id
   tags              = local.common_tags
 }
 
@@ -185,6 +186,8 @@ module "app" {
   log_analytics_workspace_id = module.logging.workspace_id
   office_ip_cidr             = var.office_ip_cidr
   allowed_admin_ips          = var.allowed_admin_ips
+  tenant_id                  = module.identity_rbac.tenant_id
+  client_id                  = module.identity_rbac.client_id
   tags                       = local.common_tags
 }
 

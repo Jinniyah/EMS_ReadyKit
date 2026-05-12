@@ -10,6 +10,15 @@ Transaction isolation pattern:
     IntegrityError tests can roll back to the savepoint without poisoning
     the outer connection transaction. The outer transaction is rolled back
     after each test, leaving the schema intact for the next test.
+
+Auth fixtures:
+    Three header fixtures are provided for RBAC testing:
+        auth_admin       — Bearer test-administrator (all access)
+        auth_supervisor  — Bearer test-supervisor
+        auth_responder   — Bearer test-responder
+    Pass as headers= to client.get/post/put/delete calls.
+    Most existing tests use auth_admin to avoid permission failures.
+    RBAC-specific tests use the appropriate role to verify enforcement.
 """
 
 from __future__ import annotations
@@ -92,3 +101,23 @@ def client(db):
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+
+
+# ── Auth header fixtures ───────────────────────────────────────────────────────
+
+@pytest.fixture
+def auth_admin():
+    """Authorization headers for an Administrator — full access to all endpoints."""
+    return {"Authorization": "Bearer test-administrator"}
+
+
+@pytest.fixture
+def auth_supervisor():
+    """Authorization headers for a Supervisor — station-level management access."""
+    return {"Authorization": "Bearer test-supervisor"}
+
+
+@pytest.fixture
+def auth_responder():
+    """Authorization headers for a Responder — submit checks and read own vehicle."""
+    return {"Authorization": "Bearer test-responder"}

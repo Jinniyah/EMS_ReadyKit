@@ -2,21 +2,14 @@
 schemas/controlled_substance_check.py
 Pydantic schemas for ControlledSubstanceCheck request validation and response serialization.
 
-Design decisions:
-- primary_signer and secondary_signer must be different people.
-  This is enforced at the schema layer, not just the DB, so the validation
-  error is returned to the caller immediately with a clear message.
-- The ALS-only rule (only ALS vehicles may have CS checks) is enforced
-  in the router by looking up the vehicle type before persisting.
-  It is NOT enforced in the schema because the schema does not have
-  DB access — that would violate separation of concerns.
-- discrepancy_flag=True automatically triggers a HIGH severity audit event
-  in the router. The schema just carries the flag; the side effect is
-  the router's responsibility.
-- notes are optional but strongly encouraged when discrepancy_flag=True.
-  We log a warning if a discrepancy is flagged without notes, but we
-  do not reject the request — an operational record with a flag is better
-  than no record at all.
+Phase 3 change: primary_signer is now Optional in the Create schema.
+The router overwrites it with current_user.name from the JWT, so callers
+do not need to supply it. secondary_signer is still required — the dual-
+signature requirement means a second person must explicitly attest.
+
+The same-signer validation is still present in the schema for the read path,
+but the router also validates that current_user.name != secondary_signer
+before persisting.
 """
 
 from __future__ import annotations
@@ -24,19 +17,20 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ControlledSubstanceCheckBase(BaseModel):
-    """Fields supplied by the caller on create."""
+    """Fields common to create and read schemas."""
 
     vehicle_id: int = Field(..., gt=0, description="ALS vehicle being checked")
-    primary_signer: str = Field(
-        ...,
-        min_length=1,
+    primary_signer: Optional[str] = Field(
+        default=None,
         max_length=100,
-        description="Name of the primary signer (typically the medic performing the check)",
-        examples=["J. Smith"],
+        description=(
+            "Name of the primary signer. "
+            "Set automatically from the authenticated user's identity on create."
+        ),
     )
     secondary_signer: str = Field(
         ...,
@@ -59,22 +53,8 @@ class ControlledSubstanceCheckBase(BaseModel):
     notes: Optional[str] = Field(
         default=None,
         max_length=1000,
-        description="Free-text notes. Required context when discrepancy_flag=True.",
+        description="Free-text notes. Strongly encouraged when discrepancy_flag=True.",
     )
-
-    @model_validator(mode="after")
-    def signers_must_differ(self) -> "ControlledSubstanceCheckBase":
-        """
-        The dual-signature workflow requires two different people.
-        Accepting identical signers would defeat the entire purpose of the
-        dual-signer requirement and is a compliance failure.
-        """
-        if self.primary_signer.strip().lower() == self.secondary_signer.strip().lower():
-            raise ValueError(
-                "primary_signer and secondary_signer must be different people. "
-                "The dual-signature workflow requires two witnesses."
-            )
-        return self
 
 
 class ControlledSubstanceCheckCreate(ControlledSubstanceCheckBase):

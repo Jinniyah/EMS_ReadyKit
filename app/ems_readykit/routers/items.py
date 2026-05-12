@@ -3,19 +3,9 @@ routers/items.py
 Item catalog CRUD endpoints.
 
 Endpoints:
-  GET  /items         — list items (filterable by active/category/controlled)
-  POST /items         — create an item
-  GET  /items/{id}    — get a single item
-
-Design decisions:
-- Items are the catalog layer — they define what exists, not where or how much.
-  Stock quantities live in StockLot, not here.
-- name uniqueness is enforced at the DB level. The router catches IntegrityError
-  and converts it to a 409 with a clear message.
-- Filtering by controlled_substance is provided because the CS check workflow
-  needs to quickly identify which items require dual-signature tracking.
-- No DELETE — items are deactivated (active=False) to preserve stock lot and
-  audit history that references them.
+  GET  /items         — list items (all authenticated roles)
+  POST /items         — create an item (Supervisor, Administrator)
+  GET  /items/{id}    — get a single item (all authenticated roles)
 """
 
 from __future__ import annotations
@@ -26,14 +16,24 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from ems_readykit.core.auth import ROLE_ADMINISTRATOR, ROLE_RESPONDER, ROLE_SUPERVISOR
 from ems_readykit.core.database import get_db
 from ems_readykit.models.item import Item, ItemCategory
+from ems_readykit.routers.deps import require_role
 from ems_readykit.schemas.item import ItemCreate, ItemRead
 
 router = APIRouter(prefix="/items", tags=["items"])
 
+_ALL_ROLES       = (ROLE_RESPONDER, ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
+_SUPERVISOR_PLUS = (ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
 
-@router.get("", response_model=List[ItemRead], summary="List items")
+
+@router.get(
+    "",
+    response_model=List[ItemRead],
+    summary="List items",
+    dependencies=[Depends(require_role(*_ALL_ROLES))],
+)
 def list_items(
     active: bool = Query(default=True, description="Filter by active status"),
     category: Optional[ItemCategory] = Query(
@@ -45,7 +45,7 @@ def list_items(
     db: Session = Depends(get_db),
 ) -> List[Item]:
     """
-    Returns items matching the supplied filters.
+    Returns items matching the supplied filters. All authenticated roles.
     Multiple filters are ANDed together.
     """
     query = db.query(Item).filter(Item.active == active)
@@ -61,10 +61,11 @@ def list_items(
     response_model=ItemRead,
     status_code=status.HTTP_201_CREATED,
     summary="Create an item",
+    dependencies=[Depends(require_role(*_SUPERVISOR_PLUS))],
 )
 def create_item(payload: ItemCreate, db: Session = Depends(get_db)) -> Item:
     """
-    Creates a new item in the catalog.
+    Creates a new item in the catalog. Requires Supervisor or Administrator.
     Returns 409 if an item with the same name already exists.
     """
     item = Item(
@@ -87,9 +88,14 @@ def create_item(payload: ItemCreate, db: Session = Depends(get_db)) -> Item:
     return item
 
 
-@router.get("/{item_id}", response_model=ItemRead, summary="Get an item")
+@router.get(
+    "/{item_id}",
+    response_model=ItemRead,
+    summary="Get an item",
+    dependencies=[Depends(require_role(*_ALL_ROLES))],
+)
 def get_item(item_id: int, db: Session = Depends(get_db)) -> Item:
-    """Returns a single item by ID. Returns 404 if not found."""
+    """Returns a single item by ID. Returns 404 if not found. All authenticated roles."""
     item = db.query(Item).filter(Item.item_id == item_id).first()
     if not item:
         raise HTTPException(

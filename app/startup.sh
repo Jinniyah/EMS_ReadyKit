@@ -2,10 +2,10 @@
 # startup.sh
 # Runs Alembic migrations then starts gunicorn via the Oryx antenv virtualenv.
 #
-# Oryx extracts the compressed build to a temp path ($APP_PATH) and runs
-# startup.sh from there. However the permanent wwwroot copy at
-# /home/site/wwwroot always has the full directory tree. We cd there so
-# alembic.ini and the alembic/ scripts folder are always found.
+# Oryx extracts the compressed build to APP_PATH (/tmp/8dea.../), which contains
+# both the antenv virtualenv AND all app files (alembic.ini, alembic/, ems_readykit/).
+# /home/site/wwwroot contains only the compressed tarball (output.tar.zst),
+# NOT the extracted files — so we must work from APP_PATH, not wwwroot.
 
 set -e
 
@@ -13,29 +13,27 @@ echo "=== EMS ReadyKit startup ==="
 echo "APP_PATH : ${APP_PATH:-not set}"
 echo "PWD      : $(pwd)"
 
-# ── Always work from the permanent wwwroot ────────────────────────────────────
-# Oryx's tmp extraction path (/tmp/8dea.../) may not have all files present
-# when startup.sh first runs. /home/site/wwwroot is always fully populated.
-WWWROOT="/home/site/wwwroot"
-if [ -d "$WWWROOT" ]; then
-    echo "Switching to wwwroot: $WWWROOT"
-    cd "$WWWROOT"
+# ── Use APP_PATH as the working directory ─────────────────────────────────────
+# Oryx extracts the build to APP_PATH before running startup.sh.
+# All app files live there: antenv/, alembic.ini, alembic/, ems_readykit/, etc.
+# Do NOT cd to /home/site/wwwroot — it only has the compressed tarball.
+if [ -n "$APP_PATH" ] && [ -d "$APP_PATH" ]; then
+    echo "Switching to APP_PATH: $APP_PATH"
+    cd "$APP_PATH"
+else
+    echo "APP_PATH not set or not found, staying in: $(pwd)"
 fi
 echo "Working directory: $(pwd)"
 
 # ── Activate the Oryx-managed virtualenv ──────────────────────────────────────
-# Oryx extracts the build (including antenv) to APP_PATH.
-# Try APP_PATH first, then fall back to local antenv/ in case CWD matches.
-if [ -n "$APP_PATH" ] && [ -f "$APP_PATH/antenv/bin/activate" ]; then
-    echo "Activating antenv from APP_PATH..."
-    source "$APP_PATH/antenv/bin/activate"
-elif [ -f "antenv/bin/activate" ]; then
-    echo "Activating antenv from wwwroot..."
+# antenv/ is in APP_PATH alongside the app files.
+if [ -f "antenv/bin/activate" ]; then
+    echo "Activating antenv virtualenv..."
     source antenv/bin/activate
 else
-    echo "ERROR: antenv virtualenv not found."
-    echo "APP_PATH contents:"
-    ls -la "${APP_PATH:-$(pwd)}"
+    echo "ERROR: antenv virtualenv not found at $(pwd)/antenv"
+    echo "Contents of working directory:"
+    ls -la
     exit 1
 fi
 
@@ -46,11 +44,14 @@ echo "alembic.ini   : $(ls -la alembic.ini 2>/dev/null || echo NOT FOUND)"
 echo "alembic dir   : $(ls -la alembic/ 2>/dev/null || echo NOT FOUND)"
 
 # ── Run database migrations ────────────────────────────────────────────────────
+# Alembic reads alembic.ini from the current directory (APP_PATH).
+# Safe to run on every startup — idempotent (no-op if already at head).
 echo "Running Alembic migrations..."
 alembic upgrade head
 echo "Migrations complete."
 
 # ── Start gunicorn ─────────────────────────────────────────────────────────────
+# exec replaces this shell so gunicorn receives SIGTERM correctly.
 echo "Starting gunicorn..."
 exec gunicorn \
     --bind=0.0.0.0:8000 \

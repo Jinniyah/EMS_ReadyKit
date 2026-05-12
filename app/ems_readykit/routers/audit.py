@@ -3,37 +3,33 @@ routers/audit.py
 Audit log query endpoints — read-only.
 
 Endpoints:
-  GET /audit          — list audit events (filterable by severity/action/vehicle/station)
-
-Design decisions:
-- The audit log is read-only via the API. No POST/PUT/DELETE endpoints exist
-  or will ever exist. Writes happen exclusively through the service layer.
-- Filtering is provided for the most operationally useful dimensions:
-  severity (HIGH events for SIEM review), action (specific event types),
-  vehicle_id and station_id (for scoped investigations).
-- Results are ordered most-recent-first with a default limit of 100.
-  The limit is capped at 1000 to prevent runaway queries on large logs.
-  Pagination (offset/cursor) is a Phase 3 enhancement.
-- No actor filter is exposed in Phase 2 to avoid inadvertently building a
-  surveillance tool before RBAC is implemented. Phase 3 will add this
-  with appropriate role restrictions.
+  GET /audit          — list audit events (Supervisor, Administrator)
 """
 
 from __future__ import annotations
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from ems_readykit.core.auth import ROLE_ADMINISTRATOR, ROLE_SUPERVISOR
 from ems_readykit.core.database import get_db
 from ems_readykit.models.audit_event import AuditEvent
+from ems_readykit.routers.deps import require_role
 from ems_readykit.schemas.audit_event import AuditEventRead
 
 router = APIRouter(prefix="/audit", tags=["audit"])
 
+_SUPERVISOR_PLUS = (ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
 
-@router.get("", response_model=List[AuditEventRead], summary="Query audit events")
+
+@router.get(
+    "",
+    response_model=List[AuditEventRead],
+    summary="Query audit events",
+    dependencies=[Depends(require_role(*_SUPERVISOR_PLUS))],
+)
 def list_audit_events(
     severity: Optional[str] = Query(
         default=None,
@@ -61,9 +57,8 @@ def list_audit_events(
 ) -> List[AuditEvent]:
     """
     Returns audit events matching the supplied filters, ordered most-recent-first.
-
-    Use severity=HIGH to surface controlled substance discrepancies and other
-    critical events for SIEM review. All filters are ANDed together.
+    Requires Supervisor or Administrator role.
+    Use severity=HIGH to surface controlled substance discrepancies for SIEM review.
     """
     query = db.query(AuditEvent)
 
