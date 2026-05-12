@@ -39,3 +39,8 @@ output "vnet_id" {
   description = "Resource ID of the virtual network"
   value       = module.network.vnet_id
 }
+
+output "github_actions_client_id" {
+  description = "Client ID of the GitHub Actions service principal — use with az ad sp create-for-rbac to generate AZURE_CREDENTIALS"
+  value       = module.identity_rbac.github_actions_client_id
+}

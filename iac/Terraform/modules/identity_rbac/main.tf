@@ -2,6 +2,8 @@
 // Creates the Azure AD App Registration, app roles, AD groups, and Azure RBAC
 // assignments for EMS ReadyKit per ADR-002.
 //
+// Also creates a CI/CD service principal for GitHub Actions deployments.
+//
 // Roles:
 //   Administrator — Full access; Reader at subscription scope in Azure RBAC
 //   Supervisor    — Station-level management; Contributor at resource group scope
@@ -12,8 +14,6 @@
 resource "azuread_application" "ems_readykit" {
   display_name = "EMS ReadyKit API"
 
-  # Expose an OAuth2 scope so client apps can request delegated access.
-  # Tokens issued for "api://<client_id>/api.access" are accepted by the API.
   api {
     oauth2_permission_scope {
       admin_consent_description  = "Access the EMS ReadyKit API on behalf of the signed-in user"
@@ -27,8 +27,6 @@ resource "azuread_application" "ems_readykit" {
     }
   }
 
-  # App roles — these appear in the "roles" claim of access tokens issued
-  # to members of the corresponding AD groups (via app role assignments below).
   app_role {
     allowed_member_types = ["User", "Application"]
     description          = "EMS ReadyKit global administrators"
@@ -57,7 +55,6 @@ resource "azuread_application" "ems_readykit" {
   }
 }
 
-# The service principal is required for app role assignments to work.
 resource "azuread_service_principal" "ems_readykit" {
   client_id = azuread_application.ems_readykit.client_id
 }
@@ -85,9 +82,7 @@ resource "azuread_group" "responders" {
   description      = "EMS ReadyKit responders — application-enforced access only"
 }
 
-# ── App Role Assignments (groups → app roles) ─────────────────────────────────
-# These cause Azure AD to include the role value in the "roles" claim
-# of access tokens issued to members of each group.
+# ── App Role Assignments ──────────────────────────────────────────────────────
 
 resource "azuread_app_role_assignment" "administrators" {
   app_role_id         = "00000000-0000-0000-0001-000000000001"
@@ -127,5 +122,40 @@ resource "azurerm_role_assignment" "supervisors_log_reader" {
   principal_id         = azuread_group.supervisors.object_id
 }
 
-# Responders: No Azure RBAC assignment.
-# Access is entirely enforced at the application layer per ADR-002.
+# ── CI/CD Service Principal (GitHub Actions) ──────────────────────────────────
+# Scoped to the resource group only — least privilege for deployments.
+# After terraform apply, run the following to generate AZURE_CREDENTIALS:
+#
+#   az ad sp create-for-rbac \
+#     --name "sp-ems-readykit-github-actions" \
+#     --role "Website Contributor" \
+#     --scopes /subscriptions/<sub_id>/resourceGroups/rg-ems-readykit-dev \
+#     --sdk-auth
+#
+# Paste the JSON output as the AZURE_CREDENTIALS GitHub secret.
+# The sp is created by the az command above; Terraform just documents it here.
+# We do NOT store the client secret in Terraform state.
+
+resource "azuread_application" "github_actions" {
+  display_name = "sp-ems-readykit-github-actions"
+}
+
+resource "azuread_service_principal" "github_actions" {
+  client_id = azuread_application.github_actions.client_id
+}
+
+# Website Contributor: can deploy to App Service, cannot modify networking or IAM
+resource "azurerm_role_assignment" "github_actions_website_contributor" {
+  scope                = var.resource_group_id
+  role_definition_name = "Website Contributor"
+  principal_id         = azuread_service_principal.github_actions.object_id
+}
+
+# Storage Blob Data Contributor: needed to read/write Terraform state
+# (backend uses use_azuread_auth = true which requires data plane RBAC,
+# not just storage account key access)
+resource "azurerm_role_assignment" "github_actions_tfstate_blob" {
+  scope                = var.tfstate_storage_account_id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = azuread_service_principal.github_actions.object_id
+}

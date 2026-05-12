@@ -24,3 +24,13 @@ output "tenant_id" {
   description = "Azure AD tenant ID — passed to the app as AZURE_AD_TENANT_ID"
   value       = var.tenant_id
 }
+
+output "github_actions_client_id" {
+  description = "Client ID of the GitHub Actions service principal — needed for az ad sp create-for-rbac"
+  value       = azuread_application.github_actions.client_id
+}
+
+output "github_actions_sp_object_id" {
+  description = "Object ID of the GitHub Actions service principal"
+  value       = azuread_service_principal.github_actions.object_id
+}

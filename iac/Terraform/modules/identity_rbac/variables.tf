@@ -2,7 +2,7 @@
 
 variable "resource_group_id" {
   type        = string
-  description = "Resource ID of the station resource group (for Supervisor scope)"
+  description = "Resource ID of the station resource group (for Supervisor and CI/CD scope)"
 }
 
 variable "subscription_id" {
@@ -13,6 +13,11 @@ variable "subscription_id" {
 variable "tenant_id" {
   type        = string
   description = "Azure AD tenant ID — passed through to outputs for app settings"
+}
+
+variable "tfstate_storage_account_id" {
+  type        = string
+  description = "Resource ID of the storage account holding Terraform state — grants CI/CD service principal Storage Blob Data Contributor so it can read/write state with azuread_auth"
 }
 
 variable "tags" {

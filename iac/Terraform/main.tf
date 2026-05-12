@@ -69,14 +69,24 @@ module "network" {
   tags                       = local.common_tags
 }
 
+# ── tfstate storage account (for CI/CD RBAC) ─────────────────────────────────
+# The backend storage account lives in a separate resource group managed
+# outside this root module. We look it up by name so we can grant the
+# GitHub Actions service principal Storage Blob Data Contributor on it.
+data "azurerm_storage_account" "tfstate" {
+  name                = "emsreadykittfstate"
+  resource_group_name = "tfstate-rg"
+}
+
 # ── Identity & RBAC ───────────────────────────────────────────────────────────
 module "identity_rbac" {
   source = "./modules/identity_rbac"
 
-  resource_group_id = azurerm_resource_group.ems_rg.id
-  subscription_id   = local.subscription_id
-  tenant_id         = data.azurerm_client_config.current.tenant_id
-  tags              = local.common_tags
+  resource_group_id          = azurerm_resource_group.ems_rg.id
+  subscription_id            = local.subscription_id
+  tenant_id                  = data.azurerm_client_config.current.tenant_id
+  tfstate_storage_account_id = data.azurerm_storage_account.tfstate.id
+  tags                       = local.common_tags
 }
 
 # ── Policy ────────────────────────────────────────────────────────────────────
