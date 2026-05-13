@@ -8,10 +8,12 @@ Import all models here so that:
 from ems_readykit.models.station import Station
 from ems_readykit.models.vehicle import Vehicle, VehicleType
 from ems_readykit.models.inventory_location import InventoryLocation, LocationType
+from ems_readykit.models.compartment import Compartment
 from ems_readykit.models.item import Item, ItemCategory
 from ems_readykit.models.stock_lot import StockLot
 from ems_readykit.models.par_level import ParLevel
 from ems_readykit.models.daily_inventory_check import DailyInventoryCheck, CheckStatus
+from ems_readykit.models.check_line_item import CheckLineItem, LineItemStatus
 from ems_readykit.models.controlled_substance_check import ControlledSubstanceCheck
 from ems_readykit.models.audit_event import AuditEvent
 
@@ -21,12 +23,15 @@ __all__ = [
     "VehicleType",
     "InventoryLocation",
     "LocationType",
+    "Compartment",
     "Item",
     "ItemCategory",
     "StockLot",
     "ParLevel",
     "DailyInventoryCheck",
     "CheckStatus",
+    "CheckLineItem",
+    "LineItemStatus",
     "ControlledSubstanceCheck",
     "AuditEvent",
 ]

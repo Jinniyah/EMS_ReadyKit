@@ -2,33 +2,25 @@
 routers/checks.py
 Daily inventory check and controlled substance check endpoints.
 
-Endpoints:
-  POST /checks/daily                            — submit a daily check (all roles)
-  GET  /checks/daily/{id}                       — get a daily check (Supervisor, Administrator)
-  GET  /checks/daily/vehicle/{vehicle_id}       — list checks for a vehicle (all roles)
-  GET  /checks/daily/station/{station_id}/today — compliance status for today (Supervisor, Administrator)
-  POST /checks/controlled-substance             — submit a CS check (all roles)
-  GET  /checks/controlled-substance/{id}        — get a CS check (Supervisor, Administrator)
-  GET  /checks/controlled-substance/vehicle/{vehicle_id} — list CS checks (Supervisor, Administrator)
-
-RBAC notes:
-- POST endpoints allow all authenticated roles (Responders perform checks).
-- GET detail/list endpoints are restricted to Supervisor+ to prevent
-  Responders from browsing other vehicles' check history.
-- The vehicle/{id} list is all-roles so a Responder can see their own
-  vehicle's history. Station-scoped compliance is Supervisor+ only.
-
-Identity binding:
-- performed_by and primary_signer are set from the JWT identity (current_user.name)
-  rather than from the request body. The fields are still present in the schema
-  as Optional so existing seeded data and tests without identity are still valid.
+Phase 4 changes:
+- POST /checks/daily now accepts line_items with optional lot_id
+- lot_id links to a specific StockLot — enables expiration verification
+- Status computation:
+    EXPIRED       — lot_id provided and lot.expiration_date <= today
+    MISSING       — quantity_found == 0 and quantity_needed > 0
+    SHORT         — 0 < quantity_found < quantity_needed
+    OK            — quantity_found >= quantity_needed and not expired
+- Overall check status worst-case:
+    FAIL          — any EXPIRED or MISSING
+    NEEDS_RESTOCK — any SHORT (no EXPIRED/MISSING)
+    PASS          — all OK (or no line items)
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
-from typing import List, Optional
+from datetime import date, datetime, timezone
+from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
@@ -42,10 +34,13 @@ from ems_readykit.core.auth import (
 )
 from ems_readykit.core.database import get_db
 from ems_readykit.models.audit_event import AuditEvent
+from ems_readykit.models.check_line_item import CheckLineItem, LineItemStatus
+from ems_readykit.models.compartment import Compartment
 from ems_readykit.models.controlled_substance_check import ControlledSubstanceCheck
-from ems_readykit.models.daily_inventory_check import DailyInventoryCheck
+from ems_readykit.models.daily_inventory_check import DailyInventoryCheck, CheckStatus
 from ems_readykit.models.station import Station
-from ems_readykit.models.vehicle import Vehicle, VehicleType
+from ems_readykit.models.stock_lot import StockLot
+from ems_readykit.models.vehicle import Vehicle
 from ems_readykit.routers.deps import require_role
 from ems_readykit.schemas.controlled_substance_check import (
     ControlledSubstanceCheckCreate,
@@ -55,6 +50,7 @@ from ems_readykit.schemas.daily_inventory_check import (
     DailyInventoryCheckCreate,
     DailyInventoryCheckRead,
 )
+from ems_readykit.schemas.check_line_item import CheckLineItemCreate
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/checks", tags=["checks"])
@@ -73,6 +69,44 @@ def _get_vehicle_or_404(vehicle_id: int, db: Session) -> Vehicle:
     return vehicle
 
 
+def _compute_line_item_status(
+    needed: int,
+    found: int,
+    lot: Optional[StockLot],
+) -> LineItemStatus:
+    """
+    Compute per-line-item status.
+    Expiration takes priority — an expired lot is a compliance failure
+    regardless of the count found on the truck.
+    """
+    today = date.today()
+    if lot is not None and lot.expiration_date is not None and lot.expiration_date <= today:
+        return LineItemStatus.EXPIRED
+    if found == 0 and needed > 0:
+        return LineItemStatus.MISSING
+    if found < needed:
+        return LineItemStatus.SHORT
+    return LineItemStatus.OK
+
+
+def _compute_check_status(line_items: List[CheckLineItem]) -> CheckStatus:
+    """
+    Derive overall check status from line item statuses.
+    No line items → PASS (header-only check).
+    Any EXPIRED or MISSING → FAIL
+    Any SHORT               → NEEDS_RESTOCK
+    All OK                  → PASS
+    """
+    if not line_items:
+        return CheckStatus.PASS
+    statuses = {li.status for li in line_items}
+    if LineItemStatus.EXPIRED in statuses or LineItemStatus.MISSING in statuses:
+        return CheckStatus.FAIL
+    if LineItemStatus.SHORT in statuses:
+        return CheckStatus.NEEDS_RESTOCK
+    return CheckStatus.PASS
+
+
 def _write_audit_event(
     db: Session,
     *,
@@ -85,7 +119,6 @@ def _write_audit_event(
     metadata: Optional[dict] = None,
     severity: str = "INFO",
 ) -> None:
-    """Write an immutable audit event record after a successful commit."""
     event = AuditEvent(
         actor=actor,
         action=action,
@@ -125,9 +158,21 @@ def create_daily_check(
 ) -> DailyInventoryCheck:
     """
     Submits a daily inventory check for a vehicle.
+
+    Optionally include line_items to record per-compartment item counts.
+    Each line item maps to one row on the paper form (Need / Have columns).
+
+    When lot_id is provided on a line item, the router:
+      - Validates the lot exists and belongs to the correct item
+      - Checks the lot's expiration date
+      - Sets status to EXPIRED if expiration_date <= today
+
+    The overall check status is computed automatically from line items:
+      FAIL          = any EXPIRED or MISSING items
+      NEEDS_RESTOCK = any SHORT items
+      PASS          = all OK (or no line items)
+
     performed_by is set from the authenticated user's identity.
-    Returns 404 if the vehicle or station does not exist.
-    Returns 409 if a check for this vehicle on this date already exists.
     """
     vehicle = _get_vehicle_or_404(payload.vehicle_id, db)
 
@@ -138,8 +183,71 @@ def create_daily_check(
             detail=f"Station {payload.station_id} not found.",
         )
 
-    # Bind identity from JWT — override any value submitted in the request body
+    # Validate all compartment IDs up front
+    if payload.line_items:
+        compartment_ids = {li.compartment_id for li in payload.line_items}
+        found_compartments = {
+            c.compartment_id
+            for c in db.query(Compartment).filter(
+                Compartment.compartment_id.in_(compartment_ids)
+            ).all()
+        }
+        missing_compartments = compartment_ids - found_compartments
+        if missing_compartments:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Compartment(s) not found: {sorted(missing_compartments)}",
+            )
+
+    # Validate all lot IDs up front and build a lookup map
+    lot_ids = {li.lot_id for li in payload.line_items if li.lot_id is not None}
+    lot_map: Dict[int, StockLot] = {}
+    if lot_ids:
+        lots = db.query(StockLot).filter(StockLot.lot_id.in_(lot_ids)).all()
+        lot_map = {lot.lot_id: lot for lot in lots}
+
+        # Check all lot IDs exist
+        missing_lots = lot_ids - set(lot_map.keys())
+        if missing_lots:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Stock lot(s) not found: {sorted(missing_lots)}",
+            )
+
+        # Validate each lot belongs to the correct item
+        for li in payload.line_items:
+            if li.lot_id is not None:
+                lot = lot_map[li.lot_id]
+                if lot.item_id != li.item_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=(
+                            f"Stock lot {li.lot_id} belongs to item {lot.item_id}, "
+                            f"not item {li.item_id}. "
+                            "Each line item's lot_id must match its item_id."
+                        ),
+                    )
+
     performed_by = current_user.name
+
+    # Build line item ORM objects and compute statuses
+    line_item_objects: List[CheckLineItem] = []
+    for li in payload.line_items:
+        lot = lot_map.get(li.lot_id) if li.lot_id else None
+        li_status = _compute_line_item_status(li.quantity_needed, li.quantity_found, lot)
+        line_item_objects.append(
+            CheckLineItem(
+                compartment_id=li.compartment_id,
+                item_id=li.item_id,
+                lot_id=li.lot_id,
+                quantity_needed=li.quantity_needed,
+                quantity_found=li.quantity_found,
+                status=li_status,
+                notes=li.notes,
+            )
+        )
+
+    overall_status = _compute_check_status(line_item_objects)
 
     check = DailyInventoryCheck(
         vehicle_id=payload.vehicle_id,
@@ -147,8 +255,9 @@ def create_daily_check(
         check_date=payload.check_date,
         performed_by=performed_by,
         timestamp=payload.timestamp,
-        status=payload.status,
+        status=overall_status,
         notes=payload.notes,
+        line_items=line_item_objects,
     )
     db.add(check)
     try:
@@ -159,11 +268,18 @@ def create_daily_check(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
                 f"A daily inventory check for vehicle {payload.vehicle_id} "
-                f"on {payload.check_date} already exists. "
-                "Use GET /checks/daily/vehicle/{vehicle_id} to retrieve it."
+                f"on {payload.check_date} already exists."
             ),
         )
     db.refresh(check)
+
+    expired_count = sum(1 for li in line_item_objects if li.status == LineItemStatus.EXPIRED)
+    missing_count = sum(1 for li in line_item_objects if li.status == LineItemStatus.MISSING)
+    short_count   = sum(1 for li in line_item_objects if li.status == LineItemStatus.SHORT)
+
+    audit_severity = "INFO" if overall_status == CheckStatus.PASS else "WARNING"
+    if overall_status == CheckStatus.FAIL:
+        audit_severity = "HIGH"
 
     _write_audit_event(
         db,
@@ -173,8 +289,15 @@ def create_daily_check(
         entity_id=str(check.check_id),
         station_id=payload.station_id,
         vehicle_id=payload.vehicle_id,
-        metadata={"status": payload.status.value, "check_date": payload.check_date},
-        severity="INFO",
+        metadata={
+            "status": overall_status.value,
+            "check_date": payload.check_date,
+            "line_items_total": len(line_item_objects),
+            "expired_count": expired_count,
+            "missing_count": missing_count,
+            "short_count": short_count,
+        },
+        severity=audit_severity,
     )
     return check
 
@@ -186,12 +309,10 @@ def create_daily_check(
     dependencies=[Depends(require_role(*_SUPERVISOR_PLUS))],
 )
 def get_daily_check(check_id: int, db: Session = Depends(get_db)) -> DailyInventoryCheck:
-    """Returns a single daily inventory check by ID. Requires Supervisor or Administrator."""
-    check = (
-        db.query(DailyInventoryCheck)
-        .filter(DailyInventoryCheck.check_id == check_id)
-        .first()
-    )
+    """Returns a single daily inventory check with all line items. Requires Supervisor or Administrator."""
+    check = db.query(DailyInventoryCheck).filter(
+        DailyInventoryCheck.check_id == check_id
+    ).first()
     if not check:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -228,17 +349,13 @@ def list_vehicle_daily_checks(
 def get_station_compliance_today(
     station_id: int, db: Session = Depends(get_db)
 ) -> List[DailyInventoryCheck]:
-    """
-    Returns all completed daily checks for a station for today.
-    Requires Supervisor or Administrator.
-    """
+    """Returns all completed daily checks for a station for today. Requires Supervisor or Administrator."""
     station = db.query(Station).filter(Station.station_id == station_id).first()
     if not station:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Station {station_id} not found.",
         )
-
     today = datetime.now(timezone.utc).date().isoformat()
     return (
         db.query(DailyInventoryCheck)
@@ -281,10 +398,8 @@ def create_cs_check(
             ),
         )
 
-    # Bind primary signer from JWT identity
     primary_signer = current_user.name
 
-    # Validate that secondary signer differs from the JWT-bound primary signer
     if primary_signer.strip().lower() == payload.secondary_signer.strip().lower():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -315,7 +430,6 @@ def create_cs_check(
             extra={
                 "vehicle_id": payload.vehicle_id,
                 "primary_signer": primary_signer,
-                "secondary_signer": payload.secondary_signer,
                 "cs_check_id": check.cs_check_id,
             },
         )
@@ -344,15 +458,11 @@ def create_cs_check(
     summary="Get a controlled substance check",
     dependencies=[Depends(require_role(*_SUPERVISOR_PLUS))],
 )
-def get_cs_check(
-    cs_check_id: int, db: Session = Depends(get_db)
-) -> ControlledSubstanceCheck:
+def get_cs_check(cs_check_id: int, db: Session = Depends(get_db)) -> ControlledSubstanceCheck:
     """Returns a single CS check by ID. Requires Supervisor or Administrator."""
-    check = (
-        db.query(ControlledSubstanceCheck)
-        .filter(ControlledSubstanceCheck.cs_check_id == cs_check_id)
-        .first()
-    )
+    check = db.query(ControlledSubstanceCheck).filter(
+        ControlledSubstanceCheck.cs_check_id == cs_check_id
+    ).first()
     if not check:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -372,7 +482,6 @@ def list_vehicle_cs_checks(
 ) -> List[ControlledSubstanceCheck]:
     """Returns all CS checks for a vehicle, most recent first. Requires Supervisor or Administrator."""
     vehicle = _get_vehicle_or_404(vehicle_id, db)
-
     if not vehicle.requires_controlled_substance_check:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

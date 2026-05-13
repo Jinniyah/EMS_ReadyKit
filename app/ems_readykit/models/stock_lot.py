@@ -8,7 +8,7 @@ This is the primary unit of expiration tracking and recall readiness.
 from __future__ import annotations
 
 from datetime import date
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import Date, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -19,6 +19,7 @@ from ems_readykit.models.base import TimestampMixin
 if TYPE_CHECKING:
     from ems_readykit.models.item import Item
     from ems_readykit.models.inventory_location import InventoryLocation
+    from ems_readykit.models.check_line_item import CheckLineItem
 
 
 class StockLot(TimestampMixin, Base):
@@ -38,6 +39,16 @@ class StockLot(TimestampMixin, Base):
     location: Mapped["InventoryLocation"] = relationship(
         "InventoryLocation", back_populates="stock_lots"
     )
+    check_line_items: Mapped[List["CheckLineItem"]] = relationship(
+        "CheckLineItem", back_populates="lot"
+    )
+
+    @property
+    def is_expired(self) -> bool:
+        """True if the lot has an expiration date that has passed."""
+        if self.expiration_date is None:
+            return False
+        return self.expiration_date < date.today()
 
     def __repr__(self) -> str:
         return (

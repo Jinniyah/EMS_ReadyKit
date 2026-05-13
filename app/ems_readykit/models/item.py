@@ -18,12 +18,13 @@ from ems_readykit.models.base import TimestampMixin
 if TYPE_CHECKING:
     from ems_readykit.models.stock_lot import StockLot
     from ems_readykit.models.par_level import ParLevel
+    from ems_readykit.models.check_line_item import CheckLineItem
 
 
 class ItemCategory(str, enum.Enum):
     MEDICATION = "Medication"
     CONSUMABLE = "Consumable"
-    EQUIPMENT = "Equipment"
+    EQUIPMENT  = "Equipment"
 
 
 class Item(TimestampMixin, Base):
@@ -36,12 +37,15 @@ class Item(TimestampMixin, Base):
     )
     # Controlled substances apply only to ALS vehicles (enforced at the workflow layer)
     controlled_substance: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    unit_of_measure: Mapped[str] = mapped_column(String(30), nullable=False)  # e.g. "mg", "each", "pack"
+    unit_of_measure: Mapped[str] = mapped_column(String(30), nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Relationships
     stock_lots: Mapped[List["StockLot"]] = relationship("StockLot", back_populates="item")
     par_levels: Mapped[List["ParLevel"]] = relationship("ParLevel", back_populates="item")
+    check_line_items: Mapped[List["CheckLineItem"]] = relationship(
+        "CheckLineItem", back_populates="item"
+    )
 
     def __repr__(self) -> str:
         return f"<Item id={self.item_id} name={self.name!r} category={self.category}>"

@@ -1,17 +1,11 @@
 """
 routers/inventory.py
-Inventory location, stock lot, and par level endpoints.
+Inventory location, compartment, stock lot, and par level endpoints.
 
-Endpoints:
-  GET  /inventory/locations                     — list all locations (all roles)
-  GET  /inventory/locations/{id}                — get a single location (all roles)
-  GET  /inventory/locations/{id}/stock          — stock lots at a location (all roles)
-  GET  /inventory/locations/{id}/par-levels     — par levels at a location (all roles)
-  POST /inventory/lots                          — create a stock lot (Supervisor, Administrator)
-  GET  /inventory/lots/{id}                     — get a stock lot (all roles)
-  GET  /inventory/expiring                      — expiring lots (all roles)
-  POST /inventory/par-levels                    — create a par level (Supervisor, Administrator)
-  GET  /inventory/par-levels/{id}               — get a par level (all roles)
+New in Phase 4:
+  POST /inventory/locations/{id}/compartments  — create a compartment (Supervisor, Administrator)
+  GET  /inventory/locations/{id}/compartments  — list compartments at a location (all roles)
+  GET  /inventory/compartments/{id}            — get a single compartment (all roles)
 """
 
 from __future__ import annotations
@@ -25,10 +19,12 @@ from sqlalchemy.orm import Session
 
 from ems_readykit.core.auth import ROLE_ADMINISTRATOR, ROLE_RESPONDER, ROLE_SUPERVISOR
 from ems_readykit.core.database import get_db
+from ems_readykit.models.compartment import Compartment
 from ems_readykit.models.inventory_location import InventoryLocation
 from ems_readykit.models.par_level import ParLevel
 from ems_readykit.models.stock_lot import StockLot
 from ems_readykit.routers.deps import require_role
+from ems_readykit.schemas.compartment import CompartmentCreate, CompartmentRead
 from ems_readykit.schemas.inventory_location import InventoryLocationRead
 from ems_readykit.schemas.par_level import ParLevelCreate, ParLevelRead
 from ems_readykit.schemas.stock_lot import StockLotCreate, StockLotRead
@@ -39,7 +35,7 @@ _ALL_ROLES       = (ROLE_RESPONDER, ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
 _SUPERVISOR_PLUS = (ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
 
 
-# ── Inventory Locations (read-only) ──────────────────────────────────────────
+# ── Inventory Locations ───────────────────────────────────────────────────────
 
 @router.get(
     "/locations",
@@ -60,11 +56,9 @@ def list_locations(db: Session = Depends(get_db)) -> List[InventoryLocation]:
 )
 def get_location(location_id: int, db: Session = Depends(get_db)) -> InventoryLocation:
     """Returns a single inventory location by ID. Returns 404 if not found."""
-    location = (
-        db.query(InventoryLocation)
-        .filter(InventoryLocation.location_id == location_id)
-        .first()
-    )
+    location = db.query(InventoryLocation).filter(
+        InventoryLocation.location_id == location_id
+    ).first()
     if not location:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -79,15 +73,11 @@ def get_location(location_id: int, db: Session = Depends(get_db)) -> InventoryLo
     summary="List stock lots at a location",
     dependencies=[Depends(require_role(*_ALL_ROLES))],
 )
-def list_location_stock(
-    location_id: int, db: Session = Depends(get_db)
-) -> List[StockLot]:
+def list_location_stock(location_id: int, db: Session = Depends(get_db)) -> List[StockLot]:
     """Returns all stock lots at a specific inventory location."""
-    location = (
-        db.query(InventoryLocation)
-        .filter(InventoryLocation.location_id == location_id)
-        .first()
-    )
+    location = db.query(InventoryLocation).filter(
+        InventoryLocation.location_id == location_id
+    ).first()
     if not location:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -102,21 +92,126 @@ def list_location_stock(
     summary="List par levels at a location",
     dependencies=[Depends(require_role(*_ALL_ROLES))],
 )
-def list_location_par_levels(
-    location_id: int, db: Session = Depends(get_db)
-) -> List[ParLevel]:
+def list_location_par_levels(location_id: int, db: Session = Depends(get_db)) -> List[ParLevel]:
     """Returns all par levels defined for a specific inventory location."""
-    location = (
-        db.query(InventoryLocation)
-        .filter(InventoryLocation.location_id == location_id)
-        .first()
-    )
+    location = db.query(InventoryLocation).filter(
+        InventoryLocation.location_id == location_id
+    ).first()
     if not location:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Inventory location {location_id} not found.",
         )
     return db.query(ParLevel).filter(ParLevel.location_id == location_id).all()
+
+
+# ── Compartments ──────────────────────────────────────────────────────────────
+
+@router.get(
+    "/locations/{location_id}/compartments",
+    response_model=List[CompartmentRead],
+    summary="List compartments at a location",
+    dependencies=[Depends(require_role(*_ALL_ROLES))],
+)
+def list_compartments(location_id: int, db: Session = Depends(get_db)) -> List[Compartment]:
+    """
+    Returns all compartments for a location, ordered by sort_order.
+    Matches the physical layout of compartments on the vehicle.
+    All authenticated roles.
+    """
+    location = db.query(InventoryLocation).filter(
+        InventoryLocation.location_id == location_id
+    ).first()
+    if not location:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Inventory location {location_id} not found.",
+        )
+    return (
+        db.query(Compartment)
+        .filter(Compartment.location_id == location_id)
+        .order_by(Compartment.sort_order)
+        .all()
+    )
+
+
+@router.post(
+    "/locations/{location_id}/compartments",
+    response_model=CompartmentRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a compartment",
+    dependencies=[Depends(require_role(*_SUPERVISOR_PLUS))],
+)
+def create_compartment(
+    location_id: int,
+    payload: CompartmentCreate,
+    db: Session = Depends(get_db),
+) -> Compartment:
+    """
+    Creates a compartment within the specified inventory location.
+    Compartment names must be unique within a location.
+    Returns 409 if a compartment with the same name already exists at this location.
+    Requires Supervisor or Administrator.
+    """
+    location = db.query(InventoryLocation).filter(
+        InventoryLocation.location_id == location_id
+    ).first()
+    if not location:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Inventory location {location_id} not found.",
+        )
+
+    # Ensure payload location_id matches path parameter
+    if payload.location_id != location_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Request body location_id ({payload.location_id}) does not match "
+                f"path location_id ({location_id})."
+            ),
+        )
+
+    compartment = Compartment(
+        location_id=location_id,
+        name=payload.name,
+        sort_order=payload.sort_order,
+        als_only=payload.als_only,
+        active=payload.active,
+    )
+    db.add(compartment)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"A compartment named '{payload.name}' already exists "
+                f"at location {location_id}."
+            ),
+        )
+    db.refresh(compartment)
+    return compartment
+
+
+@router.get(
+    "/compartments/{compartment_id}",
+    response_model=CompartmentRead,
+    summary="Get a compartment",
+    dependencies=[Depends(require_role(*_ALL_ROLES))],
+)
+def get_compartment(compartment_id: int, db: Session = Depends(get_db)) -> Compartment:
+    """Returns a single compartment by ID. Returns 404 if not found."""
+    compartment = db.query(Compartment).filter(
+        Compartment.compartment_id == compartment_id
+    ).first()
+    if not compartment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Compartment {compartment_id} not found.",
+        )
+    return compartment
 
 
 # ── Stock Lots ────────────────────────────────────────────────────────────────
@@ -131,14 +226,12 @@ def list_location_par_levels(
 def create_stock_lot(payload: StockLotCreate, db: Session = Depends(get_db)) -> StockLot:
     """
     Creates a new stock lot at the specified location.
-    Returns 404 if the item or location does not exist.
+    Returns 404 if the location does not exist.
     Requires Supervisor or Administrator.
     """
-    location = (
-        db.query(InventoryLocation)
-        .filter(InventoryLocation.location_id == payload.location_id)
-        .first()
-    )
+    location = db.query(InventoryLocation).filter(
+        InventoryLocation.location_id == payload.location_id
+    ).first()
     if not location:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -190,10 +283,7 @@ def list_expiring_lots(
     ),
     db: Session = Depends(get_db),
 ) -> List[StockLot]:
-    """
-    Returns all stock lots with an expiration date within the specified window.
-    Covers FR-5: Expiration Management. All authenticated roles.
-    """
+    """Returns all stock lots expiring within the specified window. All authenticated roles."""
     cutoff = date.today() + timedelta(days=days)
     return (
         db.query(StockLot)
@@ -217,31 +307,44 @@ def list_expiring_lots(
 )
 def create_par_level(payload: ParLevelCreate, db: Session = Depends(get_db)) -> ParLevel:
     """
-    Creates a par level for an item at a specific location.
-    Returns 409 if a par level already exists for this item/location pair.
+    Creates a par level for an item at a location or compartment.
+    Returns 409 if a par level already exists for this item/compartment or item/location pair.
     Requires Supervisor or Administrator.
     """
-    existing = (
-        db.query(ParLevel)
-        .filter(
+    # Check for existing par at compartment level
+    if payload.compartment_id is not None:
+        existing = db.query(ParLevel).filter(
+            ParLevel.item_id == payload.item_id,
+            ParLevel.compartment_id == payload.compartment_id,
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"A par level already exists for item {payload.item_id} "
+                    f"in compartment {payload.compartment_id} (par_id={existing.par_id})."
+                ),
+            )
+    else:
+        existing = db.query(ParLevel).filter(
             ParLevel.item_id == payload.item_id,
             ParLevel.location_id == payload.location_id,
-        )
-        .first()
-    )
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"A par level already exists for item {payload.item_id} "
-                f"at location {payload.location_id} (par_id={existing.par_id}). "
-                "Delete the existing par level before creating a new one."
-            ),
-        )
+            ParLevel.compartment_id.is_(None),
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"A par level already exists for item {payload.item_id} "
+                    f"at location {payload.location_id} (par_id={existing.par_id}). "
+                    "Delete the existing par level before creating a new one."
+                ),
+            )
 
     par = ParLevel(
         item_id=payload.item_id,
         location_id=payload.location_id,
+        compartment_id=payload.compartment_id,
         min_quantity=payload.min_quantity,
         max_quantity=payload.max_quantity,
     )
@@ -252,10 +355,7 @@ def create_par_level(payload: ParLevelCreate, db: Session = Depends(get_db)) -> 
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"A par level already exists for item {payload.item_id} "
-                f"at location {payload.location_id}."
-            ),
+            detail="A par level already exists for this item/location/compartment combination.",
         )
     db.refresh(par)
     return par

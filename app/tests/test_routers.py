@@ -1,6 +1,6 @@
 """
 tests/test_routers.py
-Phase 2 + Phase 3 (auth) router and schema tests.
+Phase 2 + Phase 3 (auth) + Phase 4 (compartments, line items) router and schema tests.
 
 All client calls include auth headers. Most tests use auth_admin for
 simplicity. RBAC-specific tests use the appropriate role fixture.
@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from ems_readykit.models import (
     AuditEvent,
+    Compartment,
     InventoryLocation,
     Item,
     ItemCategory,
@@ -35,6 +36,10 @@ from ems_readykit.models import (
 
 def _uid() -> str:
     return uuid.uuid4().hex[:8]
+
+
+def _utcnow() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 # ── Test data helpers ─────────────────────────────────────────────────────────
@@ -80,10 +85,6 @@ def _supply_room(db: Session, station_id: int) -> InventoryLocation:
     return loc
 
 
-def _utcnow() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
 # ── Station endpoints ─────────────────────────────────────────────────────────
 
 class TestStationEndpoints:
@@ -108,7 +109,6 @@ class TestStationEndpoints:
         name_i = f"Inactive-{_uid()}"
         client.post("/api/v1/stations", json={"name": name_a, "address": "1 St", "region": "R"}, headers=auth_admin)
         client.post("/api/v1/stations", json={"name": name_i, "address": "2 St", "region": "R", "active": False}, headers=auth_admin)
-
         response = client.get("/api/v1/stations", headers=auth_admin)
         assert response.status_code == 200
         names = [s["name"] for s in response.json()]
@@ -152,20 +152,15 @@ class TestVehicleEndpoints:
         r = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers=auth_admin)
         sid = r.json()["station_id"]
         vnum = f"AMB-{_uid()}"
-        response = client.post("/api/v1/vehicles", json={
-            "station_id": sid, "vehicle_number": vnum, "vehicle_type": "BLS",
-        }, headers=auth_admin)
+        response = client.post("/api/v1/vehicles", json={"station_id": sid, "vehicle_number": vnum, "vehicle_type": "BLS"}, headers=auth_admin)
         assert response.status_code == 201
         vehicle_id = response.json()["vehicle_id"]
-
         loc = db.query(InventoryLocation).filter(InventoryLocation.vehicle_id == vehicle_id).first()
         assert loc is not None
         assert loc.location_type == LocationType.VEHICLE
 
     def test_create_vehicle_invalid_station_returns_404(self, client, auth_admin):
-        response = client.post("/api/v1/vehicles", json={
-            "station_id": 99999999, "vehicle_number": f"AMB-{_uid()}", "vehicle_type": "ALS",
-        }, headers=auth_admin)
+        response = client.post("/api/v1/vehicles", json={"station_id": 99999999, "vehicle_number": f"AMB-{_uid()}", "vehicle_type": "ALS"}, headers=auth_admin)
         assert response.status_code == 404
 
     def test_create_vehicle_duplicate_number_returns_409(self, client, auth_admin):
@@ -179,9 +174,7 @@ class TestVehicleEndpoints:
     def test_qrv_vehicle_cs_check_false(self, client, auth_admin):
         r = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers=auth_admin)
         sid = r.json()["station_id"]
-        response = client.post("/api/v1/vehicles", json={
-            "station_id": sid, "vehicle_number": f"ENG-{_uid()}", "vehicle_type": "QRV",
-        }, headers=auth_admin)
+        response = client.post("/api/v1/vehicles", json={"station_id": sid, "vehicle_number": f"ENG-{_uid()}", "vehicle_type": "QRV"}, headers=auth_admin)
         assert response.status_code == 201
         assert response.json()["requires_controlled_substance_check"] is False
 
@@ -196,7 +189,6 @@ class TestVehicleEndpoints:
         vnum1, vnum2 = f"AMB-{_uid()}", f"AMB-{_uid()}"
         client.post("/api/v1/vehicles", json={"station_id": s1_id, "vehicle_number": vnum1, "vehicle_type": "ALS"}, headers=auth_admin)
         client.post("/api/v1/vehicles", json={"station_id": s2_id, "vehicle_number": vnum2, "vehicle_type": "ALS"}, headers=auth_admin)
-
         response = client.get(f"/api/v1/stations/{s1_id}/vehicles", headers=auth_admin)
         assert response.status_code == 200
         numbers = [v["vehicle_number"] for v in response.json()]
@@ -214,8 +206,7 @@ class TestItemEndpoints:
 
     def test_create_item_returns_201(self, client, auth_admin):
         response = client.post("/api/v1/items", json={
-            "name": f"Epi-{_uid()}", "category": "Medication",
-            "controlled_substance": True, "unit_of_measure": "mL",
+            "name": f"Epi-{_uid()}", "category": "Medication", "controlled_substance": True, "unit_of_measure": "mL",
         }, headers=auth_admin)
         assert response.status_code == 201
         assert response.json()["controlled_substance"] is True
@@ -286,16 +277,12 @@ class TestInventoryEndpoints:
         assert response.json()["quantity"] == 10
 
     def test_create_stock_lot_negative_quantity_returns_422(self, client, auth_admin):
-        response = client.post("/api/v1/inventory/lots", json={
-            "item_id": 1, "location_id": 1, "quantity": -5,
-        }, headers=auth_admin)
+        response = client.post("/api/v1/inventory/lots", json={"item_id": 1, "location_id": 1, "quantity": -5}, headers=auth_admin)
         assert response.status_code == 422
 
     def test_create_stock_lot_invalid_location_returns_404(self, client, auth_admin):
         ir = client.post("/api/v1/items", json={"name": f"Item-{_uid()}", "category": "Medication", "unit_of_measure": "mL"}, headers=auth_admin)
-        response = client.post("/api/v1/inventory/lots", json={
-            "item_id": ir.json()["item_id"], "location_id": 99999999, "quantity": 5,
-        }, headers=auth_admin)
+        response = client.post("/api/v1/inventory/lots", json={"item_id": ir.json()["item_id"], "location_id": 99999999, "quantity": 5}, headers=auth_admin)
         assert response.status_code == 404
 
     def test_list_expiring_lots(self, client, auth_admin):
@@ -327,9 +314,7 @@ class TestInventoryEndpoints:
         assert response.json()["min_quantity"] == 5
 
     def test_create_par_level_max_less_than_min_returns_422(self, client, auth_admin):
-        response = client.post("/api/v1/inventory/par-levels", json={
-            "item_id": 1, "location_id": 1, "min_quantity": 10, "max_quantity": 5,
-        }, headers=auth_admin)
+        response = client.post("/api/v1/inventory/par-levels", json={"item_id": 1, "location_id": 1, "min_quantity": 10, "max_quantity": 5}, headers=auth_admin)
         assert response.status_code == 422
 
     def test_create_par_level_duplicate_returns_409(self, client, auth_admin):
@@ -347,6 +332,231 @@ class TestInventoryEndpoints:
         assert len(response.json()) >= 1
 
 
+# ── Compartment endpoints ─────────────────────────────────────────────────────
+
+class TestCompartmentEndpoints:
+
+    def _make_location(self, client, auth_admin):
+        sr = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers=auth_admin)
+        sid = sr.json()["station_id"]
+        vr = client.post("/api/v1/vehicles", json={"station_id": sid, "vehicle_number": f"AMB-{_uid()}", "vehicle_type": "ALS"}, headers=auth_admin)
+        vid = vr.json()["vehicle_id"]
+        locs = client.get("/api/v1/inventory/locations", headers=auth_admin).json()
+        return next(l["location_id"] for l in locs if l["vehicle_id"] == vid)
+
+    def test_create_compartment_returns_201(self, client, auth_admin):
+        loc_id = self._make_location(client, auth_admin)
+        response = client.post(f"/api/v1/inventory/locations/{loc_id}/compartments", json={
+            "location_id": loc_id, "name": "Compartment #1", "sort_order": 1, "als_only": False,
+        }, headers=auth_admin)
+        assert response.status_code == 201
+        assert response.json()["name"] == "Compartment #1"
+        assert response.json()["compartment_id"] is not None
+
+    def test_create_duplicate_compartment_returns_409(self, client, auth_admin):
+        loc_id = self._make_location(client, auth_admin)
+        payload = {"location_id": loc_id, "name": "Drug Bag", "als_only": True}
+        client.post(f"/api/v1/inventory/locations/{loc_id}/compartments", json=payload, headers=auth_admin)
+        response = client.post(f"/api/v1/inventory/locations/{loc_id}/compartments", json=payload, headers=auth_admin)
+        assert response.status_code == 409
+
+    def test_list_compartments_sorted_by_sort_order(self, client, auth_admin):
+        loc_id = self._make_location(client, auth_admin)
+        for name, order in [("Compartment #3", 3), ("Compartment #1", 1), ("Compartment #2", 2)]:
+            client.post(f"/api/v1/inventory/locations/{loc_id}/compartments", json={"location_id": loc_id, "name": name, "sort_order": order}, headers=auth_admin)
+        response = client.get(f"/api/v1/inventory/locations/{loc_id}/compartments", headers=auth_admin)
+        assert response.status_code == 200
+        names = [c["name"] for c in response.json()]
+        assert names == ["Compartment #1", "Compartment #2", "Compartment #3"]
+
+    def test_get_compartment_by_id(self, client, auth_admin):
+        loc_id = self._make_location(client, auth_admin)
+        cr = client.post(f"/api/v1/inventory/locations/{loc_id}/compartments", json={"location_id": loc_id, "name": "First Out Bag", "sort_order": 0}, headers=auth_admin)
+        cid = cr.json()["compartment_id"]
+        response = client.get(f"/api/v1/inventory/compartments/{cid}", headers=auth_admin)
+        assert response.status_code == 200
+        assert response.json()["name"] == "First Out Bag"
+
+    def test_get_compartment_not_found_returns_404(self, client, auth_admin):
+        response = client.get("/api/v1/inventory/compartments/99999999", headers=auth_admin)
+        assert response.status_code == 404
+
+    def test_responder_can_list_compartments(self, client, auth_admin, auth_responder):
+        loc_id = self._make_location(client, auth_admin)
+        client.post(f"/api/v1/inventory/locations/{loc_id}/compartments", json={"location_id": loc_id, "name": "Compartment #1"}, headers=auth_admin)
+        response = client.get(f"/api/v1/inventory/locations/{loc_id}/compartments", headers=auth_responder)
+        assert response.status_code == 200
+
+    def test_responder_cannot_create_compartment_returns_403(self, client, auth_admin, auth_responder):
+        loc_id = self._make_location(client, auth_admin)
+        response = client.post(f"/api/v1/inventory/locations/{loc_id}/compartments", json={"location_id": loc_id, "name": "Compartment #1"}, headers=auth_responder)
+        assert response.status_code == 403
+
+
+# ── Check line item tests ─────────────────────────────────────────────────────
+
+class TestCheckLineItems:
+
+    def _setup(self, client, auth_admin):
+        sr = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers=auth_admin)
+        sid = sr.json()["station_id"]
+        vr = client.post("/api/v1/vehicles", json={"station_id": sid, "vehicle_number": f"AMB-{_uid()}", "vehicle_type": "ALS"}, headers=auth_admin)
+        vid = vr.json()["vehicle_id"]
+        locs = client.get("/api/v1/inventory/locations", headers=auth_admin).json()
+        loc_id = next(l["location_id"] for l in locs if l["vehicle_id"] == vid)
+        cr = client.post(f"/api/v1/inventory/locations/{loc_id}/compartments", json={"location_id": loc_id, "name": "Compartment #1", "sort_order": 1}, headers=auth_admin)
+        cid = cr.json()["compartment_id"]
+        ir = client.post("/api/v1/items", json={"name": f"Item-{_uid()}", "category": "Consumable", "unit_of_measure": "each"}, headers=auth_admin)
+        item_id = ir.json()["item_id"]
+        return sid, vid, cid, item_id
+
+    def test_daily_check_with_line_items_returns_201(self, client, auth_admin):
+        sid, vid, cid, item_id = self._setup(client, auth_admin)
+        response = client.post("/api/v1/checks/daily", json={
+            "vehicle_id": vid, "station_id": sid,
+            "check_date": "2026-06-01", "timestamp": _utcnow(),
+            "line_items": [{"compartment_id": cid, "item_id": item_id, "quantity_needed": 4, "quantity_found": 4}],
+        }, headers=auth_admin)
+        assert response.status_code == 201
+        body = response.json()
+        assert body["status"] == "PASS"
+        assert len(body["line_items"]) == 1
+        assert body["line_items"][0]["status"] == "OK"
+
+    def test_short_item_sets_status_needs_restock(self, client, auth_admin):
+        sid, vid, cid, item_id = self._setup(client, auth_admin)
+        response = client.post("/api/v1/checks/daily", json={
+            "vehicle_id": vid, "station_id": sid,
+            "check_date": "2026-06-02", "timestamp": _utcnow(),
+            "line_items": [{"compartment_id": cid, "item_id": item_id, "quantity_needed": 4, "quantity_found": 2}],
+        }, headers=auth_admin)
+        assert response.status_code == 201
+        body = response.json()
+        assert body["status"] == "NEEDS_RESTOCK"
+        assert body["line_items"][0]["status"] == "SHORT"
+
+    def test_missing_item_sets_status_fail(self, client, auth_admin):
+        sid, vid, cid, item_id = self._setup(client, auth_admin)
+        response = client.post("/api/v1/checks/daily", json={
+            "vehicle_id": vid, "station_id": sid,
+            "check_date": "2026-06-03", "timestamp": _utcnow(),
+            "line_items": [{"compartment_id": cid, "item_id": item_id, "quantity_needed": 4, "quantity_found": 0}],
+        }, headers=auth_admin)
+        assert response.status_code == 201
+        body = response.json()
+        assert body["status"] == "FAIL"
+        assert body["line_items"][0]["status"] == "MISSING"
+
+    def test_check_without_line_items_defaults_to_pass(self, client, auth_admin):
+        sid, vid, cid, item_id = self._setup(client, auth_admin)
+        response = client.post("/api/v1/checks/daily", json={
+            "vehicle_id": vid, "station_id": sid,
+            "check_date": "2026-06-04", "timestamp": _utcnow(),
+        }, headers=auth_admin)
+        assert response.status_code == 201
+        assert response.json()["status"] == "PASS"
+        assert response.json()["line_items"] == []
+
+    def test_invalid_compartment_id_returns_404(self, client, auth_admin):
+        sid, vid, cid, item_id = self._setup(client, auth_admin)
+        response = client.post("/api/v1/checks/daily", json={
+            "vehicle_id": vid, "station_id": sid,
+            "check_date": "2026-06-05", "timestamp": _utcnow(),
+            "line_items": [{"compartment_id": 99999999, "item_id": item_id, "quantity_needed": 4, "quantity_found": 4}],
+        }, headers=auth_admin)
+        assert response.status_code == 404
+
+    def test_expired_lot_sets_status_expired(self, client, auth_admin):
+        sid, vid, cid, item_id = self._setup(client, auth_admin)
+        # Create a stock lot with a past expiration date
+        locs = client.get("/api/v1/inventory/locations", headers=auth_admin).json()
+        loc_id = next(l["location_id"] for l in locs if l["vehicle_id"] == vid)
+        lot_r = client.post("/api/v1/inventory/lots", json={
+            "item_id": item_id, "location_id": loc_id,
+            "quantity": 2, "lot_number": "EXP-LOT",
+            "expiration_date": "2020-01-01",  # clearly expired
+        }, headers=auth_admin)
+        lot_id = lot_r.json()["lot_id"]
+        response = client.post("/api/v1/checks/daily", json={
+            "vehicle_id": vid, "station_id": sid,
+            "check_date": "2026-06-07", "timestamp": _utcnow(),
+            "line_items": [
+                {"compartment_id": cid, "item_id": item_id,
+                 "lot_id": lot_id, "quantity_needed": 2, "quantity_found": 2},
+            ],
+        }, headers=auth_admin)
+        assert response.status_code == 201
+        body = response.json()
+        # Expired lot → EXPIRED status even though quantity is fine
+        assert body["line_items"][0]["status"] == "EXPIRED"
+        # Overall check FAIL because of expired item
+        assert body["status"] == "FAIL"
+        # Expiration date denormalized into response
+        assert body["line_items"][0]["expiration_date"] == "2020-01-01"
+        assert body["line_items"][0]["lot_number"] == "EXP-LOT"
+
+    def test_valid_lot_passes_expiration_check(self, client, auth_admin):
+        sid, vid, cid, item_id = self._setup(client, auth_admin)
+        locs = client.get("/api/v1/inventory/locations", headers=auth_admin).json()
+        loc_id = next(l["location_id"] for l in locs if l["vehicle_id"] == vid)
+        lot_r = client.post("/api/v1/inventory/lots", json={
+            "item_id": item_id, "location_id": loc_id,
+            "quantity": 2, "lot_number": "GOOD-LOT",
+            "expiration_date": "2029-01-01",  # well in the future
+        }, headers=auth_admin)
+        lot_id = lot_r.json()["lot_id"]
+        response = client.post("/api/v1/checks/daily", json={
+            "vehicle_id": vid, "station_id": sid,
+            "check_date": "2026-06-08", "timestamp": _utcnow(),
+            "line_items": [
+                {"compartment_id": cid, "item_id": item_id,
+                 "lot_id": lot_id, "quantity_needed": 2, "quantity_found": 2},
+            ],
+        }, headers=auth_admin)
+        assert response.status_code == 201
+        assert response.json()["status"] == "PASS"
+        assert response.json()["line_items"][0]["status"] == "OK"
+        assert response.json()["line_items"][0]["expiration_date"] == "2029-01-01"
+
+    def test_wrong_lot_item_returns_422(self, client, auth_admin):
+        sid, vid, cid, item_id = self._setup(client, auth_admin)
+        locs = client.get("/api/v1/inventory/locations", headers=auth_admin).json()
+        loc_id = next(l["location_id"] for l in locs if l["vehicle_id"] == vid)
+        # Create a different item and a lot for it
+        ir2 = client.post("/api/v1/items", json={"name": f"OtherItem-{_uid()}", "category": "Consumable", "unit_of_measure": "each"}, headers=auth_admin)
+        item2_id = ir2.json()["item_id"]
+        lot_r = client.post("/api/v1/inventory/lots", json={
+            "item_id": item2_id, "location_id": loc_id, "quantity": 2,
+        }, headers=auth_admin)
+        lot_id = lot_r.json()["lot_id"]
+        # Try to use lot for item2 with item1 — should fail
+        response = client.post("/api/v1/checks/daily", json={
+            "vehicle_id": vid, "station_id": sid,
+            "check_date": "2026-06-09", "timestamp": _utcnow(),
+            "line_items": [
+                {"compartment_id": cid, "item_id": item_id,
+                 "lot_id": lot_id, "quantity_needed": 2, "quantity_found": 2},
+            ],
+        }, headers=auth_admin)
+        assert response.status_code == 422
+        assert "lot_id" in response.json()["detail"].lower() or "item" in response.json()["detail"].lower()
+
+    def test_mixed_statuses_worst_case_wins(self, client, auth_admin):
+        sid, vid, cid, _ = self._setup(client, auth_admin)
+        ir2 = client.post("/api/v1/items", json={"name": f"Item2-{_uid()}", "category": "Consumable", "unit_of_measure": "each"}, headers=auth_admin)
+        ir3 = client.post("/api/v1/items", json={"name": f"Item3-{_uid()}", "category": "Consumable", "unit_of_measure": "each"}, headers=auth_admin)
+        response = client.post("/api/v1/checks/daily", json={
+            "vehicle_id": vid, "station_id": sid,
+            "check_date": "2026-06-06", "timestamp": _utcnow(),
+            "line_items": [
+                {"compartment_id": cid, "item_id": ir2.json()["item_id"], "quantity_needed": 4, "quantity_found": 4},
+                {"compartment_id": cid, "item_id": ir3.json()["item_id"], "quantity_needed": 4, "quantity_found": 0},
+            ],
+        }, headers=auth_admin)
+        assert response.status_code == 201
+        assert response.json()["status"] == "FAIL"
+
+
 # ── Check endpoints ───────────────────────────────────────────────────────────
 
 class TestCheckEndpoints:
@@ -361,47 +571,40 @@ class TestCheckEndpoints:
         sid, vid = self._make_station_and_vehicle(client, auth_admin)
         response = client.post("/api/v1/checks/daily", json={
             "vehicle_id": vid, "station_id": sid,
-            "check_date": "2026-05-10", "timestamp": _utcnow(), "status": "PASS",
+            "check_date": "2026-05-10", "timestamp": _utcnow(),
         }, headers=auth_admin)
         assert response.status_code == 201
         assert response.json()["status"] == "PASS"
-        # performed_by should be set to the JWT identity name
         assert response.json()["performed_by"] == "Test Administrator"
 
     def test_create_daily_check_invalid_date_format_returns_422(self, client, auth_admin):
         sid, vid = self._make_station_and_vehicle(client, auth_admin)
         response = client.post("/api/v1/checks/daily", json={
             "vehicle_id": vid, "station_id": sid,
-            "check_date": "05/10/2026", "timestamp": _utcnow(), "status": "PASS",
+            "check_date": "05/10/2026", "timestamp": _utcnow(),
         }, headers=auth_admin)
         assert response.status_code == 422
 
     def test_create_daily_check_duplicate_returns_409(self, client, auth_admin):
         sid, vid = self._make_station_and_vehicle(client, auth_admin)
-        payload = {
-            "vehicle_id": vid, "station_id": sid,
-            "check_date": "2026-06-15", "timestamp": _utcnow(), "status": "PASS",
-        }
+        payload = {"vehicle_id": vid, "station_id": sid, "check_date": "2026-06-15", "timestamp": _utcnow()}
         client.post("/api/v1/checks/daily", json=payload, headers=auth_admin)
         response = client.post("/api/v1/checks/daily", json=payload, headers=auth_admin)
         assert response.status_code == 409
 
     def test_create_daily_check_invalid_vehicle_returns_404(self, client, auth_admin):
         response = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": 99999999, "station_id": 1,
-            "check_date": "2026-05-10", "timestamp": _utcnow(), "status": "PASS",
+            "vehicle_id": 99999999, "station_id": 1, "check_date": "2026-05-10", "timestamp": _utcnow(),
         }, headers=auth_admin)
         assert response.status_code == 404
 
     def test_daily_check_creates_audit_event(self, client, db, auth_admin):
         sid, vid = self._make_station_and_vehicle(client, auth_admin)
         client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vid, "station_id": sid,
-            "check_date": "2026-07-01", "timestamp": _utcnow(), "status": "PASS",
+            "vehicle_id": vid, "station_id": sid, "check_date": "2026-07-01", "timestamp": _utcnow(),
         }, headers=auth_admin)
         event = db.query(AuditEvent).filter(
-            AuditEvent.action == "CHECK_COMPLETED",
-            AuditEvent.vehicle_id == vid,
+            AuditEvent.action == "CHECK_COMPLETED", AuditEvent.vehicle_id == vid,
         ).first()
         assert event is not None
         assert event.severity == "INFO"
@@ -410,8 +613,7 @@ class TestCheckEndpoints:
         sid, vid = self._make_station_and_vehicle(client, auth_admin)
         today = datetime.now(timezone.utc).date().isoformat()
         client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vid, "station_id": sid,
-            "check_date": today, "timestamp": _utcnow(), "status": "PASS",
+            "vehicle_id": vid, "station_id": sid, "check_date": today, "timestamp": _utcnow(),
         }, headers=auth_admin)
         response = client.get(f"/api/v1/checks/daily/station/{sid}/today", headers=auth_admin)
         assert response.status_code == 200
@@ -420,12 +622,10 @@ class TestCheckEndpoints:
     def test_create_cs_check_als_vehicle_returns_201(self, client, auth_admin):
         _, vid = self._make_station_and_vehicle(client, auth_admin, vtype="ALS")
         response = client.post("/api/v1/checks/controlled-substance", json={
-            "vehicle_id": vid, "secondary_signer": "M. Jones",
-            "timestamp": _utcnow(), "discrepancy_flag": False,
+            "vehicle_id": vid, "secondary_signer": "M. Jones", "timestamp": _utcnow(), "discrepancy_flag": False,
         }, headers=auth_admin)
         assert response.status_code == 201
         assert response.json()["discrepancy_flag"] is False
-        # primary_signer set from JWT
         assert response.json()["primary_signer"] == "Test Administrator"
 
     def test_create_cs_check_non_als_returns_422(self, client, auth_admin):
@@ -434,23 +634,18 @@ class TestCheckEndpoints:
         vr = client.post("/api/v1/vehicles", json={"station_id": sid, "vehicle_number": f"ENG-{_uid()}", "vehicle_type": "QRV"}, headers=auth_admin)
         vid = vr.json()["vehicle_id"]
         response = client.post("/api/v1/checks/controlled-substance", json={
-            "vehicle_id": vid, "secondary_signer": "M. Jones",
-            "timestamp": _utcnow(), "discrepancy_flag": False,
+            "vehicle_id": vid, "secondary_signer": "M. Jones", "timestamp": _utcnow(), "discrepancy_flag": False,
         }, headers=auth_admin)
         assert response.status_code == 422
         assert "ALS" in response.json()["detail"]
 
     def test_create_cs_check_same_signers_returns_422(self, client, auth_responder):
-        # test-responder identity name is "Test Responder"
-        # if secondary_signer == "Test Responder" the router raises 422
         sr = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers={"Authorization": "Bearer test-administrator"})
         sid = sr.json()["station_id"]
         vr = client.post("/api/v1/vehicles", json={"station_id": sid, "vehicle_number": f"AMB-{_uid()}", "vehicle_type": "ALS"}, headers={"Authorization": "Bearer test-administrator"})
         vid = vr.json()["vehicle_id"]
         response = client.post("/api/v1/checks/controlled-substance", json={
-            "vehicle_id": vid,
-            "secondary_signer": "Test Responder",  # same as JWT identity for test-responder
-            "timestamp": _utcnow(), "discrepancy_flag": False,
+            "vehicle_id": vid, "secondary_signer": "Test Responder", "timestamp": _utcnow(), "discrepancy_flag": False,
         }, headers=auth_responder)
         assert response.status_code == 422
         assert "dual-signature" in response.json()["detail"].lower()
@@ -458,26 +653,18 @@ class TestCheckEndpoints:
     def test_cs_check_discrepancy_creates_high_severity_audit(self, client, db, auth_admin):
         _, vid = self._make_station_and_vehicle(client, auth_admin)
         client.post("/api/v1/checks/controlled-substance", json={
-            "vehicle_id": vid, "secondary_signer": "M. Jones",
-            "timestamp": _utcnow(), "discrepancy_flag": True, "notes": "Count off by 1.",
+            "vehicle_id": vid, "secondary_signer": "M. Jones", "timestamp": _utcnow(), "discrepancy_flag": True, "notes": "Count off by 1.",
         }, headers=auth_admin)
-        event = db.query(AuditEvent).filter(
-            AuditEvent.action == "CS_DISCREPANCY",
-            AuditEvent.vehicle_id == vid,
-        ).first()
+        event = db.query(AuditEvent).filter(AuditEvent.action == "CS_DISCREPANCY", AuditEvent.vehicle_id == vid).first()
         assert event is not None
         assert event.severity == "HIGH"
 
     def test_cs_check_no_discrepancy_creates_info_audit(self, client, db, auth_admin):
         _, vid = self._make_station_and_vehicle(client, auth_admin)
         client.post("/api/v1/checks/controlled-substance", json={
-            "vehicle_id": vid, "secondary_signer": "M. Jones",
-            "timestamp": _utcnow(), "discrepancy_flag": False,
+            "vehicle_id": vid, "secondary_signer": "M. Jones", "timestamp": _utcnow(), "discrepancy_flag": False,
         }, headers=auth_admin)
-        event = db.query(AuditEvent).filter(
-            AuditEvent.action == "CS_CHECK_COMPLETED",
-            AuditEvent.vehicle_id == vid,
-        ).first()
+        event = db.query(AuditEvent).filter(AuditEvent.action == "CS_CHECK_COMPLETED", AuditEvent.vehicle_id == vid).first()
         assert event is not None
         assert event.severity == "INFO"
 
@@ -505,8 +692,7 @@ class TestAuditEndpoints:
         vr = client.post("/api/v1/vehicles", json={"station_id": sid, "vehicle_number": f"AMB-{_uid()}", "vehicle_type": "ALS"}, headers=auth_admin)
         vid = vr.json()["vehicle_id"]
         client.post("/api/v1/checks/controlled-substance", json={
-            "vehicle_id": vid, "secondary_signer": "M. Jones",
-            "timestamp": _utcnow(), "discrepancy_flag": True, "notes": "Count mismatch.",
+            "vehicle_id": vid, "secondary_signer": "M. Jones", "timestamp": _utcnow(), "discrepancy_flag": True, "notes": "Count mismatch.",
         }, headers=auth_admin)
         response = client.get("/api/v1/audit?severity=HIGH", headers=auth_admin)
         assert response.status_code == 200
@@ -520,10 +706,7 @@ class TestAuditEndpoints:
         vr = client.post("/api/v1/vehicles", json={"station_id": sid, "vehicle_number": f"AMB-{_uid()}", "vehicle_type": "ALS"}, headers=auth_admin)
         vid = vr.json()["vehicle_id"]
         today = datetime.now(timezone.utc).date().isoformat()
-        client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vid, "station_id": sid, "check_date": today,
-            "timestamp": _utcnow(), "status": "PASS",
-        }, headers=auth_admin)
+        client.post("/api/v1/checks/daily", json={"vehicle_id": vid, "station_id": sid, "check_date": today, "timestamp": _utcnow()}, headers=auth_admin)
         response = client.get("/api/v1/audit?action=CHECK_COMPLETED", headers=auth_admin)
         assert response.status_code == 200
         assert len(response.json()) >= 1
@@ -544,21 +727,15 @@ class TestAuditEndpoints:
 class TestSchemaValidation:
 
     def test_stock_lot_expiry_far_future_returns_422(self, client, auth_admin):
-        response = client.post("/api/v1/inventory/lots", json={
-            "item_id": 1, "location_id": 1, "quantity": 5, "expiration_date": "2099-01-01",
-        }, headers=auth_admin)
+        response = client.post("/api/v1/inventory/lots", json={"item_id": 1, "location_id": 1, "quantity": 5, "expiration_date": "2099-01-01"}, headers=auth_admin)
         assert response.status_code == 422
 
     def test_par_level_min_zero_returns_422(self, client, auth_admin):
-        response = client.post("/api/v1/inventory/par-levels", json={
-            "item_id": 1, "location_id": 1, "min_quantity": 0, "max_quantity": 10,
-        }, headers=auth_admin)
+        response = client.post("/api/v1/inventory/par-levels", json={"item_id": 1, "location_id": 1, "min_quantity": 0, "max_quantity": 10}, headers=auth_admin)
         assert response.status_code == 422
 
     def test_vehicle_missing_required_field_returns_422(self, client, auth_admin):
-        response = client.post("/api/v1/vehicles", json={
-            "station_id": 1, "vehicle_number": f"AMB-{_uid()}",
-        }, headers=auth_admin)
+        response = client.post("/api/v1/vehicles", json={"station_id": 1, "vehicle_number": f"AMB-{_uid()}"}, headers=auth_admin)
         assert response.status_code == 422
 
 
@@ -567,9 +744,6 @@ class TestSchemaValidation:
 class TestRBAC:
 
     def test_unauthenticated_returns_401(self, client):
-        # FastAPI's HTTPBearer returns 403 when no Authorization header is
-        # present (a known framework quirk). Both 401 and 403 correctly block
-        # unauthenticated access; we accept either here.
         response = client.get("/api/v1/stations")
         assert response.status_code in (401, 403)
 
@@ -578,9 +752,7 @@ class TestRBAC:
         assert response.status_code == 403
 
     def test_responder_cannot_create_station_returns_403(self, client, auth_responder):
-        response = client.post("/api/v1/stations", json={
-            "name": f"S-{_uid()}", "address": "1 St", "region": "R",
-        }, headers=auth_responder)
+        response = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers=auth_responder)
         assert response.status_code == 403
 
     def test_supervisor_can_list_stations(self, client, auth_supervisor):
@@ -588,15 +760,11 @@ class TestRBAC:
         assert response.status_code == 200
 
     def test_supervisor_cannot_create_station_returns_403(self, client, auth_supervisor):
-        response = client.post("/api/v1/stations", json={
-            "name": f"S-{_uid()}", "address": "1 St", "region": "R",
-        }, headers=auth_supervisor)
+        response = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers=auth_supervisor)
         assert response.status_code == 403
 
     def test_admin_can_create_station(self, client, auth_admin):
-        response = client.post("/api/v1/stations", json={
-            "name": f"S-{_uid()}", "address": "1 St", "region": "R",
-        }, headers=auth_admin)
+        response = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers=auth_admin)
         assert response.status_code == 201
 
     def test_responder_can_read_items(self, client, auth_responder):
@@ -604,9 +772,7 @@ class TestRBAC:
         assert response.status_code == 200
 
     def test_responder_cannot_create_item_returns_403(self, client, auth_responder):
-        response = client.post("/api/v1/items", json={
-            "name": f"Item-{_uid()}", "category": "Medication", "unit_of_measure": "mL",
-        }, headers=auth_responder)
+        response = client.post("/api/v1/items", json={"name": f"Item-{_uid()}", "category": "Medication", "unit_of_measure": "mL"}, headers=auth_responder)
         assert response.status_code == 403
 
     def test_responder_cannot_access_audit_log_returns_403(self, client, auth_responder):
@@ -623,11 +789,9 @@ class TestRBAC:
         vr = client.post("/api/v1/vehicles", json={"station_id": sid, "vehicle_number": f"AMB-{_uid()}", "vehicle_type": "ALS"}, headers=auth_admin)
         vid = vr.json()["vehicle_id"]
         response = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vid, "station_id": sid,
-            "check_date": "2026-08-01", "timestamp": _utcnow(), "status": "PASS",
+            "vehicle_id": vid, "station_id": sid, "check_date": "2026-08-01", "timestamp": _utcnow(),
         }, headers=auth_responder)
         assert response.status_code == 201
-        # performed_by comes from JWT — should be the responder's identity
         assert response.json()["performed_by"] == "Test Responder"
 
     def test_responder_cannot_view_daily_check_detail_returns_403(self, client, auth_admin, auth_responder):
@@ -636,8 +800,7 @@ class TestRBAC:
         vr = client.post("/api/v1/vehicles", json={"station_id": sid, "vehicle_number": f"AMB-{_uid()}", "vehicle_type": "ALS"}, headers=auth_admin)
         vid = vr.json()["vehicle_id"]
         cr = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vid, "station_id": sid,
-            "check_date": "2026-08-02", "timestamp": _utcnow(), "status": "PASS",
+            "vehicle_id": vid, "station_id": sid, "check_date": "2026-08-02", "timestamp": _utcnow(),
         }, headers=auth_responder)
         check_id = cr.json()["check_id"]
         response = client.get(f"/api/v1/checks/daily/{check_id}", headers=auth_responder)

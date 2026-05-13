@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from ems_readykit.models.vehicle import Vehicle
     from ems_readykit.models.stock_lot import StockLot
     from ems_readykit.models.par_level import ParLevel
+    from ems_readykit.models.compartment import Compartment
 
 
 class LocationType(str, enum.Enum):
@@ -55,6 +56,10 @@ class InventoryLocation(TimestampMixin, Base):
     )
     par_levels: Mapped[List["ParLevel"]] = relationship(
         "ParLevel", back_populates="location", cascade="all, delete-orphan"
+    )
+    compartments: Mapped[List["Compartment"]] = relationship(
+        "Compartment", back_populates="location", cascade="all, delete-orphan",
+        order_by="Compartment.sort_order",
     )
 
     def __repr__(self) -> str:

@@ -96,17 +96,12 @@ resource "azurerm_linux_web_app" "ems_app" {
     # app accepts traffic. Migrations are idempotent (no-op if already at head).
     app_command_line = "bash startup.sh"
 
-    scm_ip_restriction_default_action = "Deny"
+    scm_ip_restriction_default_action = "Allow"
 
-    dynamic "scm_ip_restriction" {
-      for_each = var.office_ip_cidr != "" ? [var.office_ip_cidr] : []
-      content {
-        name       = "Allow-Office"
-        ip_address = scm_ip_restriction.value
-        action     = "Allow"
-        priority   = 100
-      }
-    }
+    # SCM/Kudu access is secured by Azure AD service principal auth
+    # (AZURE_CREDENTIALS in GitHub Actions). IP restriction removed because
+    # GitHub Actions runners use dynamic Microsoft-owned IPs that cannot
+    # be allowlisted reliably.
   }
 
   app_settings = merge(
