@@ -71,8 +71,12 @@ def create_item(payload: ItemCreate, db: Session = Depends(get_db)) -> Item:
     item = Item(
         name=payload.name,
         category=payload.category,
+        check_type=payload.check_type,
         controlled_substance=payload.controlled_substance,
         unit_of_measure=payload.unit_of_measure,
+        measurement_minimum=payload.measurement_minimum,
+        measurement_maximum=payload.measurement_maximum,
+        recurrence_days=payload.recurrence_days,
         active=payload.active,
     )
     db.add(item)

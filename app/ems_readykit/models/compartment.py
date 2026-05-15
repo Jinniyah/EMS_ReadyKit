@@ -1,22 +1,60 @@
 """
 models/compartment.py
-Compartment — a named physical storage area within a vehicle or station.
+Compartment — a named physical storage area within a vehicle, supply room,
+or portable bag.
 
-Each Compartment belongs to one InventoryLocation (the vehicle or supply room).
-Items and par levels are tracked at the compartment level, matching how
-EMS crews actually perform inventory: compartment by compartment.
+## Physical layout — Ambulance 712
 
-Examples from Jan-Care inventory sheets:
-  - Compartment #1, Compartment #2 ... Compartment #13
-  - First Out Bag, Peds Bag, Drug Bag, Narcotic Lock Bag
-  - BLS Only Epi Pens, Emergency Resp. Box, ALS Trucks Only
+Interior patient compartments (PC):
+    PC 1 through PC 18 — numbered compartments inside the ambulance
+    Named bags: First Out Bag, Drug Bag, Narcotic Lock Bag, BLS Drug Bag, Jump Bag
 
-Design decision: Compartment is a separate model rather than a field on
-InventoryLocation so that:
-  1. Par levels and check line items can be scoped to a compartment.
-  2. The same item can appear in multiple compartments with different par levels
-     (e.g. KY Jelly in Compartment #2 AND First Out Bag).
-  3. Compartment templates can be defined once and applied to multiple vehicles.
+Exterior compartments (EC):
+    Driver Side EC 1, 2, 3     — exterior storage bays on driver side
+    Passenger Side EC 1, 2, 3  — exterior storage bays on passenger side
+
+Special areas:
+    Admin Counter, Bench, Suction Drawer, Glove Compartment
+    Charger Counter, Stretcher, Under Hood
+
+## Sub-compartments (Jump Bag)
+
+The Jump Bag has pockets within pockets:
+    Main Pocket
+    Main Pocket — Elastic Pouches Back
+    Main Pocket — Elastic Pouches Front
+    Main Pocket — Flap Left
+    Main Pocket — Flap Right
+
+These are modeled as separate Compartments with parent_compartment_id pointing
+to "Main Pocket". sort_order keeps them visually grouped in the UI.
+
+## Access restrictions
+
+The paper form marks:
+    "ALS Only" items        → als_only flag is true (Drug Bag, Narcotic Lock Bag)
+    "Under Hood, Approved Personnel Only" → restriction_note set
+
+Rather than multiple boolean flags, restriction_note is a free-text field
+that surfaces in the UI. This handles any future restriction type without
+a schema change.
+
+Examples:
+    restriction_note = "ALS crews only"
+    restriction_note = "Approved personnel only — mechanical authorization required"
+    restriction_note = "Supervisor access only"
+
+## Location descriptor
+
+location_descriptor gives the physical position on the truck or bag —
+essential for medics who work on multiple vehicle configurations.
+
+Examples:
+    "Left side, rear — driver side"
+    "Exterior, driver side, front"
+    "Behind airway seat"
+    "Under attendant seat"
+    "Front pocket"
 """
 
 from __future__ import annotations
@@ -38,7 +76,6 @@ if TYPE_CHECKING:
 class Compartment(TimestampMixin, Base):
     __tablename__ = "compartments"
     __table_args__ = (
-        # Each location can only have one compartment with a given name
         UniqueConstraint("location_id", "name", name="uq_compartment_location_name"),
     )
 
@@ -48,21 +85,53 @@ class Compartment(TimestampMixin, Base):
         ForeignKey("inventory_locations.location_id"), nullable=False
     )
 
-    # Human-readable name matching the physical label on the truck
-    # e.g. "Compartment #1", "Drug Bag", "Narcotic Lock Bag", "First Out Bag"
+    # Human-readable name matching the physical label on the vehicle or bag.
+    # e.g. "PC 1 (Airway)", "Drug Bag", "Driver Side EC 1",
+    #      "Main Pocket — Flap Left", "Truck Operations"
     name: Mapped[str] = mapped_column(String(100), nullable=False)
 
-    # Display order for UI — matches physical left-to-right / top-to-bottom layout
+    # Optional physical location description — helps medics navigate the truck.
+    # e.g. "Interior, left side behind driver seat"
+    # e.g. "Exterior, driver side, forward bay"
+    # e.g. "Front pocket of jump bag"
+    location_descriptor: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+
+    # Display order matching physical walk-around sequence.
+    # Interior PCs → Exterior ECs → Bags → Equipment
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    # ALS-only compartments (Drug Bag, Narcotic Lock Bag) are hidden on BLS trucks
+    # Optional parent for sub-compartments (e.g. Jump Bag pocket-within-pocket).
+    # "Main Pocket — Flap Left" → parent = "Main Pocket"
+    parent_compartment_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("compartments.compartment_id"), nullable=True
+    )
+
+    # Free-text access restriction note shown prominently in the UI.
+    # None = accessible to all authenticated crew.
+    # e.g. "ALS crews only", "Approved personnel only"
+    restriction_note: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+
+    # Legacy boolean kept for backward compatibility with existing API consumers.
+    # New code should use restriction_note = "ALS crews only" instead.
+    # Will be removed in a future migration once all clients use restriction_note.
     als_only: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
-    # Relationships
+    # ── Relationships ─────────────────────────────────────────────────────────
+
     location: Mapped["InventoryLocation"] = relationship(
         "InventoryLocation", back_populates="compartments"
+    )
+    parent: Mapped[Optional["Compartment"]] = relationship(
+        "Compartment",
+        remote_side="Compartment.compartment_id",
+        back_populates="children",
+    )
+    children: Mapped[List["Compartment"]] = relationship(
+        "Compartment",
+        back_populates="parent",
+        order_by="Compartment.sort_order",
     )
     par_levels: Mapped[List["ParLevel"]] = relationship(
         "ParLevel", back_populates="compartment", cascade="all, delete-orphan"

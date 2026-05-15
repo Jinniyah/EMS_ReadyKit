@@ -1,37 +1,82 @@
 """
 models/check_line_item.py
-CheckLineItem — one line of a daily inventory check.
+CheckLineItem — one verified line of a daily inventory check.
 
-Captures the "Need" (par) and "Have" (found) quantities for a single item
-in a single compartment during a daily check, matching the paper form:
+## Check type routing
 
-  Need | Have | Compartment #1
-  -----+------+----------------------------
-    2  |  2   | Personal Protection Kits
-    1  |  0   | BioHaz Spill Clean-up Kit   ← SHORT
-    2  |  2   | Epi 1:1000 1mg (LOT A, exp 2026-06-01)  ← EXPIRED
+The item's check_type determines which fields are populated and which
+are left NULL. The router validates this at write time.
 
-Each CheckLineItem belongs to one DailyInventoryCheck (the header) and
-one Compartment, and references one Item.
+    SUPPLY items:
+        quantity_needed  — par/need (from ParLevel)
+        quantity_found   — actual count found
+        lot_id           — optional; triggers expiration check
+        status           → OK / SHORT / MISSING / EXPIRED
 
-lot_id is optional — links to the specific StockLot inspected during
-the check. When provided, the router validates the lot belongs to the
-correct item and checks its expiration date.
+    MEASUREMENT items (PSI readings, temperature, glucose):
+        measurement_value  — the numeric reading (e.g. 1800.0 for PSI)
+        status             → OK (>= minimum) or LOW (< minimum) or CRITICAL
+        quantity_needed and quantity_found are 0 / not used
 
-Status is computed automatically:
-  OK      — quantity_found >= quantity_needed and lot not expired
-  SHORT   — 0 < quantity_found < quantity_needed and lot not expired
-  MISSING — quantity_found == 0 and quantity_needed > 0
-  EXPIRED — lot_id provided and lot expiration_date <= today
-             (expired items cannot be used regardless of quantity found)
+    FUNCTIONAL items (battery OK, runs and starts, lights & sirens):
+        functional_pass  — True (pass) or False (fail)
+        status           → OK (True) or FAIL (False)
+
+    DATE_RECORD items (AED last charge, LUCAS last charge):
+        date_value       — the date recorded by the crew member
+        status           → OK (within recurrence_days) or OVERDUE
+
+    DOCUMENT items (PCR form, billing form, protocol book):
+        quantity_found   — 1 (present) or 0 (missing)
+        quantity_needed  — always 1
+        status           → OK or MISSING
+
+## Status values (extended from Phase 4)
+
+    OK       — item is present/passing/within spec
+    SHORT    — SUPPLY: have > 0 but less than needed
+    MISSING  — SUPPLY: have 0 / DOCUMENT: not present
+    EXPIRED  — SUPPLY: lot expiration date has passed
+    LOW      — MEASUREMENT: reading below minimum threshold (e.g. O2 PSI too low)
+    FAIL     — FUNCTIONAL: check did not pass (battery not OK, siren not working)
+    OVERDUE  — DATE_RECORD: last recorded date exceeds recurrence_days
+
+## Real examples from Ambulance 712
+
+    AED Battery:
+        item.check_type = FUNCTIONAL
+        functional_pass = True/False
+        status = OK / FAIL
+
+    AED Date of Last Charge:
+        item.check_type = DATE_RECORD
+        date_value = 2026-04-28
+        status = OK (within 90 days) / OVERDUE
+
+    AED Pads Adult:
+        item.check_type = SUPPLY
+        quantity_found = 1, lot_id → expiration date
+        status = OK / EXPIRED
+
+    On-Board O2 PSI:
+        item.check_type = MEASUREMENT
+        measurement_value = 1800.0
+        item.measurement_minimum = 500.0
+        status = OK / LOW
+
+    On-Board O2 Tank (presence):
+        item.check_type = SUPPLY
+        quantity_needed = 1, quantity_found = 0 or 1
+        status = OK / MISSING
 """
 
 from __future__ import annotations
 
 import enum
+from datetime import date
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Enum as SAEnum, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Date, Enum as SAEnum, Float, ForeignKey, Integer, String
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -46,10 +91,21 @@ if TYPE_CHECKING:
 
 
 class LineItemStatus(str, enum.Enum):
+    # SUPPLY statuses
     OK      = "OK"       # quantity_found >= quantity_needed, not expired
-    SHORT   = "SHORT"    # 0 < quantity_found < quantity_needed, not expired
-    MISSING = "MISSING"  # quantity_found == 0 and quantity_needed > 0
-    EXPIRED = "EXPIRED"  # lot is expired — unusable regardless of quantity
+    SHORT   = "SHORT"    # 0 < quantity_found < quantity_needed
+    MISSING = "MISSING"  # quantity_found == 0 / document not present
+    EXPIRED = "EXPIRED"  # lot expiration date has passed
+
+    # MEASUREMENT statuses
+    LOW      = "LOW"      # reading below item.measurement_minimum
+    CRITICAL = "CRITICAL" # reading below critical floor (future use)
+
+    # FUNCTIONAL status
+    FAIL = "FAIL"         # functional check did not pass
+
+    # DATE_RECORD status
+    OVERDUE = "OVERDUE"   # last charge/service date exceeds recurrence_days
 
 
 class CheckLineItem(TimestampMixin, Base):
@@ -67,27 +123,57 @@ class CheckLineItem(TimestampMixin, Base):
         ForeignKey("items.item_id"), nullable=False
     )
 
-    # Optional — the specific stock lot inspected during this check.
-    # When provided, the router validates expiration and sets status to
-    # EXPIRED if the lot has passed its expiration date.
+    # ── SUPPLY fields ─────────────────────────────────────────────────────────
+
+    # "Need" column — expected quantity (par). 0 for non-SUPPLY items.
+    quantity_needed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # "Have" column — actual count found. 0 for non-SUPPLY items.
+    quantity_found: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # Optional lot link — triggers expiration check when provided.
+    # Required for medication items; optional for dated consumables.
     lot_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("stock_lots.lot_id"), nullable=True
     )
 
-    # "Need" column on the paper form — expected quantity (par)
-    quantity_needed: Mapped[int] = mapped_column(Integer, nullable=False)
+    # ── MEASUREMENT fields ────────────────────────────────────────────────────
 
-    # "Have" column on the paper form — actual count found
-    quantity_found: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Numeric reading recorded by crew member.
+    # Examples: O2 PSI = 1800.0, temperature = 98.6, glucose = 112.0
+    # NULL for all non-MEASUREMENT items.
+    measurement_value: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
-    # Computed at write time
+    # ── FUNCTIONAL fields ─────────────────────────────────────────────────────
+
+    # True = passed, False = failed, NULL = not applicable.
+    # Examples: Battery OK = True, Lights & Sirens working = True,
+    #           Runs and Starts = True, Communication Medcom Compliant = True
+    functional_pass: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+
+    # ── DATE_RECORD fields ────────────────────────────────────────────────────
+
+    # Date recorded by crew member for maintenance events.
+    # Examples: AED last charge date, LUCAS device last charge date.
+    # Status compared against item.recurrence_days to determine OVERDUE.
+    date_value: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+
+    # ── Common fields ─────────────────────────────────────────────────────────
+
+    # Computed server-side from item.check_type + the type-specific fields.
+    # Never supplied by the client.
     status: Mapped[LineItemStatus] = mapped_column(
         SAEnum(LineItemStatus, native_enum=False), nullable=False
     )
 
+    # Optional crew notes — required when status is FAIL, EXPIRED, or OVERDUE
+    # to document what action was taken or why.
+    # e.g. "O2 PSI at 420 — tank swapped from supply room, now at 1800"
+    # e.g. "AED battery replaced, date of last charge updated to today"
     notes: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
 
-    # Relationships
+    # ── Relationships ─────────────────────────────────────────────────────────
+
     check: Mapped["DailyInventoryCheck"] = relationship(
         "DailyInventoryCheck", back_populates="line_items"
     )
@@ -101,19 +187,20 @@ class CheckLineItem(TimestampMixin, Base):
         "StockLot", back_populates="check_line_items", lazy="selectin"
     )
 
-    def __repr__(self) -> str:
-        return (
-            f"<CheckLineItem id={self.line_item_id} check_id={self.check_id} "
-            f"item_id={self.item_id} lot_id={self.lot_id} "
-            f"need={self.quantity_needed} have={self.quantity_found} status={self.status}>"
-        )
+    # ── Hybrid properties (SUPPLY items) ──────────────────────────────────────
 
     @hybrid_property
     def lot_number(self) -> Optional[str]:
-        """Lot number from the linked StockLot, for serialization convenience."""
+        """Lot number from the linked StockLot. None for non-SUPPLY items."""
         return self.lot.lot_number if self.lot is not None else None
 
     @hybrid_property
-    def expiration_date(self):
-        """Expiration date from the linked StockLot, for serialization convenience."""
+    def expiration_date(self) -> Optional[date]:
+        """Expiration date from the linked StockLot. None if no lot linked."""
         return self.lot.expiration_date if self.lot is not None else None
+
+    def __repr__(self) -> str:
+        return (
+            f"<CheckLineItem id={self.line_item_id} check_id={self.check_id} "
+            f"item_id={self.item_id} status={self.status}>"
+        )

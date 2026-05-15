@@ -2,38 +2,60 @@
 schemas/item.py
 Pydantic schemas for Item request validation and response serialization.
 
-Design decisions:
-- name uniqueness is enforced at the DB level (unique=True on the column).
-  The router catches IntegrityError and converts it to a 409 Conflict.
-- controlled_substance defaults to False — must be explicitly set to True
-  for medications tracked under the dual-signature CS workflow.
-- unit_of_measure is free-form string (e.g. "mg", "mL", "each", "pair")
-  rather than an enum — the domain has too many valid values to enumerate
-  and a lookup table would be over-engineering for Phase 2.
+## check_type field
+
+Drives which fields on CheckLineItem are used and which UI control the
+frontend renders. Default is SUPPLY — all pre-existing items are unaffected.
+
+    SUPPLY      counted/presence items (default)
+    MEASUREMENT numeric reading items (O2 PSI, temperature)
+    FUNCTIONAL  pass/fail checks (battery OK, runs & starts)
+    DATE_RECORD date recorded (AED last charge, LUCAS last charge)
+    DOCUMENT    presence-only paperwork
+
+## measurement fields (MEASUREMENT items only)
+
+    measurement_minimum  — reading below this → status LOW
+                           e.g. O2 PSI minimum 500
+    measurement_maximum  — optional ceiling (blood glucose critical high)
+
+## recurrence_days (DATE_RECORD items only)
+
+    recurrence_days — max days between recorded events before OVERDUE
+                      e.g. AED charge required every 90 days → 90
 """
 
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from ems_readykit.models.item import ItemCategory
+from ems_readykit.models.item import ItemCategory, ItemCheckType
 
 
 class ItemBase(BaseModel):
-    """Fields supplied by the caller on create."""
-
     name: str = Field(
         ...,
         min_length=1,
         max_length=150,
-        description="Unique item name",
-        examples=["Epinephrine 1mg/mL", "Gauze 4x4 Sterile"],
+        description="Unique item name matching the label on the inventory form",
+        examples=["On-Board O2 PSI", "AED Battery", "Kerlix Large"],
     )
     category: ItemCategory = Field(
         ...,
-        description="Medication | Consumable | Equipment",
+        description="Medication | Consumable | Equipment | Document",
+    )
+    check_type: ItemCheckType = Field(
+        default=ItemCheckType.SUPPLY,
+        description=(
+            "SUPPLY — counted/presence item (default)\n"
+            "MEASUREMENT — numeric reading (O2 PSI, temperature)\n"
+            "FUNCTIONAL — pass/fail check (battery OK, runs & starts)\n"
+            "DATE_RECORD — date recorded (AED last charge)\n"
+            "DOCUMENT — presence-only paperwork"
+        ),
     )
     controlled_substance: bool = Field(
         default=False,
@@ -43,12 +65,39 @@ class ItemBase(BaseModel):
         ...,
         min_length=1,
         max_length=30,
-        description="Unit of measure (e.g. 'mg', 'mL', 'each', 'pair')",
-        examples=["mL", "each", "mg"],
+        description=(
+            "Unit of measure for SUPPLY items (each, box, mL, mg...). "
+            "For MEASUREMENT items: the reading unit (PSI, °F, mg/dL). "
+            "For FUNCTIONAL and DATE_RECORD: use 'N/A'."
+        ),
+        examples=["each", "PSI", "mg/dL", "N/A"],
+    )
+    measurement_minimum: Optional[float] = Field(
+        default=None,
+        description=(
+            "MEASUREMENT items only. Reading below this value → status LOW. "
+            "e.g. O2 tank minimum 500 PSI."
+        ),
+    )
+    measurement_maximum: Optional[float] = Field(
+        default=None,
+        description=(
+            "MEASUREMENT items only. Reading above this value → status CRITICAL. "
+            "Optional — use when an upper bound matters (e.g. blood glucose)."
+        ),
+    )
+    recurrence_days: Optional[int] = Field(
+        default=None,
+        gt=0,
+        description=(
+            "DATE_RECORD items only. Maximum days between recorded events "
+            "before status → OVERDUE. "
+            "e.g. AED must be charged every 90 days → recurrence_days=90."
+        ),
     )
     active: bool = Field(
         default=True,
-        description="Inactive items are hidden from operational views but retained for audit history",
+        description="Inactive items hidden from operational views but retained for audit history",
     )
 
     @field_validator("name", "unit_of_measure", mode="before")
@@ -69,7 +118,6 @@ class ItemCreate(ItemBase):
 
 class ItemRead(ItemBase):
     """Response model for item endpoints."""
-
     model_config = ConfigDict(from_attributes=True)
 
     item_id: int

@@ -26,6 +26,7 @@ from ems_readykit.models.stock_lot import StockLot
 from ems_readykit.routers.deps import require_role
 from ems_readykit.schemas.compartment import CompartmentCreate, CompartmentRead
 from ems_readykit.schemas.inventory_location import InventoryLocationRead
+from ems_readykit.schemas.inventory_location import InventoryLocationCreate
 from ems_readykit.schemas.par_level import ParLevelCreate, ParLevelRead
 from ems_readykit.schemas.stock_lot import StockLotCreate, StockLotRead
 
@@ -64,6 +65,59 @@ def get_location(location_id: int, db: Session = Depends(get_db)) -> InventoryLo
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Inventory location {location_id} not found.",
         )
+    return location
+
+
+@router.post(
+    "/locations",
+    response_model=InventoryLocationRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a JUMP_BAG or EQUIPMENT inventory location",
+    dependencies=[Depends(require_role(*_SUPERVISOR_PLUS))],
+)
+def create_location(
+    payload: InventoryLocationCreate,
+    db: Session = Depends(get_db),
+) -> InventoryLocation:
+    """
+    Creates a JUMP_BAG or EQUIPMENT inventory location.
+
+    VEHICLE and STATION_SUPPLY_ROOM locations are system-managed and created
+    automatically when a vehicle or station is created. This endpoint is
+    provided for Jump Bags and equipment items that are not tied to a
+    specific vehicle.
+
+    Returns 422 if location_type is VEHICLE or STATION_SUPPLY_ROOM.
+    Returns 404 if the referenced station does not exist.
+    Requires Supervisor or Administrator.
+    """
+    from ems_readykit.models.inventory_location import LocationType
+    if payload.location_type in (LocationType.VEHICLE, LocationType.STATION_SUPPLY_ROOM):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"location_type '{payload.location_type.value}' is system-managed. "
+                "Only JUMP_BAG and EQUIPMENT locations can be created via this endpoint. "
+                "VEHICLE locations are created automatically with the vehicle. "
+                "STATION_SUPPLY_ROOM locations are created automatically with the station."
+            ),
+        )
+    from ems_readykit.models.station import Station
+    station = db.query(Station).filter(Station.station_id == payload.station_id).first()
+    if not station:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Station {payload.station_id} not found.",
+        )
+    location = InventoryLocation(
+        location_type=payload.location_type,
+        station_id=payload.station_id,
+        vehicle_id=payload.vehicle_id,
+        label=payload.label,
+    )
+    db.add(location)
+    db.commit()
+    db.refresh(location)
     return location
 
 
@@ -175,7 +229,10 @@ def create_compartment(
     compartment = Compartment(
         location_id=location_id,
         name=payload.name,
+        location_descriptor=payload.location_descriptor,
         sort_order=payload.sort_order,
+        parent_compartment_id=payload.parent_compartment_id,
+        restriction_note=payload.restriction_note,
         als_only=payload.als_only,
         active=payload.active,
     )

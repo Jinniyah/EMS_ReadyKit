@@ -38,6 +38,7 @@ from ems_readykit.models.check_line_item import CheckLineItem, LineItemStatus
 from ems_readykit.models.compartment import Compartment
 from ems_readykit.models.controlled_substance_check import ControlledSubstanceCheck
 from ems_readykit.models.daily_inventory_check import DailyInventoryCheck, CheckStatus
+from ems_readykit.models.item import Item
 from ems_readykit.models.station import Station
 from ems_readykit.models.stock_lot import StockLot
 from ems_readykit.models.vehicle import Vehicle
@@ -73,15 +74,65 @@ def _compute_line_item_status(
     needed: int,
     found: int,
     lot: Optional[StockLot],
+    *,
+    check_type: str = "SUPPLY",
+    measurement_value: Optional[float] = None,
+    measurement_minimum: Optional[float] = None,
+    functional_pass: Optional[bool] = None,
+    date_value: Optional[date] = None,
+    recurrence_days: Optional[int] = None,
 ) -> LineItemStatus:
     """
-    Compute per-line-item status.
-    Expiration takes priority — an expired lot is a compliance failure
-    regardless of the count found on the truck.
+    Compute per-line-item status based on item.check_type.
+
+    SUPPLY (default):
+        Expiration takes priority over quantity — an expired lot is a
+        compliance failure regardless of the count found on the truck.
+
+    MEASUREMENT (O2 PSI, temperature, glucose):
+        LOW if measurement_value < measurement_minimum.
+        OK if at or above minimum.
+
+    FUNCTIONAL (battery OK, runs & starts, lights & sirens):
+        OK if functional_pass is True.
+        FAIL if functional_pass is False.
+
+    DATE_RECORD (AED last charge, LUCAS last charge):
+        OVERDUE if days since date_value > recurrence_days.
+        OK if within recurrence window.
+
+    DOCUMENT (PCR form, protocol book):
+        MISSING if found == 0.
+        OK if found >= 1.
     """
     today = date.today()
-    if lot is not None and lot.expiration_date is not None and lot.expiration_date <= today:
-        return LineItemStatus.EXPIRED
+
+    if check_type == "MEASUREMENT":
+        if measurement_value is None:
+            return LineItemStatus.MISSING
+        if measurement_minimum is not None and measurement_value < measurement_minimum:
+            return LineItemStatus.LOW
+        return LineItemStatus.OK
+
+    if check_type == "FUNCTIONAL":
+        if functional_pass is None:
+            return LineItemStatus.MISSING
+        return LineItemStatus.OK if functional_pass else LineItemStatus.FAIL
+
+    if check_type == "DATE_RECORD":
+        if date_value is None:
+            return LineItemStatus.MISSING
+        if recurrence_days is not None:
+            days_since = (today - date_value).days
+            if days_since > recurrence_days:
+                return LineItemStatus.OVERDUE
+        return LineItemStatus.OK
+
+    # SUPPLY and DOCUMENT both use quantity logic
+    # Expiration check applies only to SUPPLY items with a lot
+    if check_type == "SUPPLY":
+        if lot is not None and lot.expiration_date is not None and lot.expiration_date <= today:
+            return LineItemStatus.EXPIRED
     if found == 0 and needed > 0:
         return LineItemStatus.MISSING
     if found < needed:
@@ -91,18 +142,33 @@ def _compute_line_item_status(
 
 def _compute_check_status(line_items: List[CheckLineItem]) -> CheckStatus:
     """
-    Derive overall check status from line item statuses.
+    Derive overall check status from all line item statuses.
     No line items → PASS (header-only check).
-    Any EXPIRED or MISSING → FAIL
-    Any SHORT               → NEEDS_RESTOCK
-    All OK                  → PASS
+
+    Priority order (worst to best):
+      FAIL     — any EXPIRED, MISSING, FAIL, or OVERDUE item
+      NEEDS_RESTOCK — any SHORT or LOW item (but no FAIL-tier items)
+      PASS     — all OK
     """
     if not line_items:
         return CheckStatus.PASS
+
     statuses = {li.status for li in line_items}
-    if LineItemStatus.EXPIRED in statuses or LineItemStatus.MISSING in statuses:
+
+    fail_statuses = {
+        LineItemStatus.EXPIRED,
+        LineItemStatus.MISSING,
+        LineItemStatus.FAIL,
+        LineItemStatus.OVERDUE,
+    }
+    restock_statuses = {
+        LineItemStatus.SHORT,
+        LineItemStatus.LOW,
+    }
+
+    if statuses & fail_statuses:
         return CheckStatus.FAIL
-    if LineItemStatus.SHORT in statuses:
+    if statuses & restock_statuses:
         return CheckStatus.NEEDS_RESTOCK
     return CheckStatus.PASS
 
@@ -231,10 +297,36 @@ def create_daily_check(
     performed_by = current_user.name
 
     # Build line item ORM objects and compute statuses
+    # For each line item, look up the item's check_type and measurement
+    # metadata so _compute_line_item_status can route correctly.
+    item_ids = {li.item_id for li in payload.line_items}
+    items_map = {
+        item.item_id: item
+        for item in db.query(Item).filter(Item.item_id.in_(item_ids)).all()
+    }
+
+    missing_items = item_ids - set(items_map.keys())
+    if missing_items:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Item(s) not found: {sorted(missing_items)}",
+        )
+
     line_item_objects: List[CheckLineItem] = []
     for li in payload.line_items:
         lot = lot_map.get(li.lot_id) if li.lot_id else None
-        li_status = _compute_line_item_status(li.quantity_needed, li.quantity_found, lot)
+        item = items_map[li.item_id]
+        li_status = _compute_line_item_status(
+            li.quantity_needed,
+            li.quantity_found,
+            lot,
+            check_type=item.check_type.value if hasattr(item.check_type, "value") else str(item.check_type),
+            measurement_value=li.measurement_value,
+            measurement_minimum=item.measurement_minimum,
+            functional_pass=li.functional_pass,
+            date_value=li.date_value,
+            recurrence_days=item.recurrence_days,
+        )
         line_item_objects.append(
             CheckLineItem(
                 compartment_id=li.compartment_id,
@@ -242,6 +334,9 @@ def create_daily_check(
                 lot_id=li.lot_id,
                 quantity_needed=li.quantity_needed,
                 quantity_found=li.quantity_found,
+                measurement_value=li.measurement_value,
+                functional_pass=li.functional_pass,
+                date_value=li.date_value,
                 status=li_status,
                 notes=li.notes,
             )

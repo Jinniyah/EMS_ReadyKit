@@ -9,7 +9,7 @@ from ems_readykit.models.station import Station
 from ems_readykit.models.vehicle import Vehicle, VehicleType
 from ems_readykit.models.inventory_location import InventoryLocation, LocationType
 from ems_readykit.models.compartment import Compartment
-from ems_readykit.models.item import Item, ItemCategory
+from ems_readykit.models.item import Item, ItemCategory, ItemCheckType
 from ems_readykit.models.stock_lot import StockLot
 from ems_readykit.models.par_level import ParLevel
 from ems_readykit.models.daily_inventory_check import DailyInventoryCheck, CheckStatus
@@ -26,6 +26,7 @@ __all__ = [
     "Compartment",
     "Item",
     "ItemCategory",
+    "ItemCheckType",
     "StockLot",
     "ParLevel",
     "DailyInventoryCheck",

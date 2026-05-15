@@ -5,7 +5,7 @@ Exports all Pydantic request/response schemas for the EMS ReadyKit API.
 
 from ems_readykit.schemas.station import StationBase, StationCreate, StationRead
 from ems_readykit.schemas.vehicle import VehicleBase, VehicleCreate, VehicleRead
-from ems_readykit.schemas.inventory_location import InventoryLocationRead
+from ems_readykit.schemas.inventory_location import InventoryLocationRead, InventoryLocationCreate
 from ems_readykit.schemas.compartment import CompartmentBase, CompartmentCreate, CompartmentRead
 from ems_readykit.schemas.item import ItemBase, ItemCreate, ItemRead
 from ems_readykit.schemas.stock_lot import StockLotBase, StockLotCreate, StockLotRead
