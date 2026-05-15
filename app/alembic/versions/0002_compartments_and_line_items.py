@@ -16,6 +16,12 @@ SQLite note:
   SQLite does not support ALTER TABLE ADD CONSTRAINT or inline FK on ADD COLUMN.
   The par_levels modification uses Alembic batch mode (copy-and-move strategy)
   to add compartment_id and the unique constraint in a single table rebuild.
+
+  PostgreSQL note:
+  PostgreSQL supports ALTER TABLE natively and must NOT use batch mode because
+  it enforces FK constraints when dropping and recreating tables — the batch
+  rebuild would fail if any rows in par_levels are referenced by other tables.
+  Dialect is checked at runtime so the same migration file works for both.
 """
 from __future__ import annotations
 
@@ -92,23 +98,43 @@ def upgrade() -> None:
     op.create_index("ix_check_line_items_lot_id", "check_line_items", ["lot_id"])
 
     # ── par_levels: add compartment_id + unique constraint ────────────────────
-    # SQLite cannot ALTER TABLE ADD CONSTRAINT or ADD COLUMN with FK.
-    # Use Alembic batch mode which rebuilds the table via copy-and-move.
-    with op.batch_alter_table("par_levels", schema=None) as batch_op:
-        batch_op.add_column(
-            sa.Column("compartment_id", sa.Integer, nullable=True)
+    # SQLite requires Alembic batch mode (copy-and-move) for ALTER TABLE
+    # ADD COLUMN and ADD CONSTRAINT.  PostgreSQL supports them natively and
+    # must NOT use batch mode because it enforces FK constraints when dropping
+    # and recreating tables — the batch rebuild would fail if other tables
+    # reference par_levels rows.
+    dialect = op.get_bind().dialect.name
+    if dialect == "sqlite":
+        with op.batch_alter_table("par_levels", schema=None) as batch_op:
+            batch_op.add_column(
+                sa.Column("compartment_id", sa.Integer, nullable=True)
+            )
+            batch_op.create_index("ix_par_levels_compartment_id", ["compartment_id"])
+            batch_op.create_unique_constraint(
+                "uq_par_item_compartment", ["item_id", "compartment_id"]
+            )
+    else:
+        op.add_column(
+            "par_levels",
+            sa.Column("compartment_id", sa.Integer, nullable=True),
         )
-        batch_op.create_index("ix_par_levels_compartment_id", ["compartment_id"])
-        batch_op.create_unique_constraint(
-            "uq_par_item_compartment", ["item_id", "compartment_id"]
+        op.create_index("ix_par_levels_compartment_id", "par_levels", ["compartment_id"])
+        op.create_unique_constraint(
+            "uq_par_item_compartment", "par_levels", ["item_id", "compartment_id"]
         )
 
 
 def downgrade() -> None:
-    with op.batch_alter_table("par_levels", schema=None) as batch_op:
-        batch_op.drop_constraint("uq_par_item_compartment", type_="unique")
-        batch_op.drop_index("ix_par_levels_compartment_id")
-        batch_op.drop_column("compartment_id")
+    dialect = op.get_bind().dialect.name
+    if dialect == "sqlite":
+        with op.batch_alter_table("par_levels", schema=None) as batch_op:
+            batch_op.drop_constraint("uq_par_item_compartment", type_="unique")
+            batch_op.drop_index("ix_par_levels_compartment_id")
+            batch_op.drop_column("compartment_id")
+    else:
+        op.drop_constraint("uq_par_item_compartment", "par_levels", type_="unique")
+        op.drop_index("ix_par_levels_compartment_id", table_name="par_levels")
+        op.drop_column("par_levels", "compartment_id")
 
     op.drop_index("ix_check_line_items_lot_id", table_name="check_line_items")
     op.drop_index("ix_check_line_items_status", table_name="check_line_items")
