@@ -82,14 +82,42 @@ jobs:
           package: /tmp/deploy.zip
 
       - name: Verify deployment health
+        # F1 free tier has no always_on — every deploy is a cold start.
+        # Cold start sequence: container spin-up → Oryx extraction →
+        # startup.sh → Key Vault call → Alembic migrations → gunicorn init.
+        # This can take 60–120s on F1. We poll every 15s for up to 3 minutes
+        # so transient slowness doesn't fail the pipeline.
         run: |
-          echo "Waiting 30s for app to start..."
-          sleep 30
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            https://${{ env.APP_NAME }}.azurewebsites.net/health)
-          echo "Health check status: $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "Health check failed with status $STATUS"
-            exit 1
+          echo "Polling health endpoint (max 3 min, 15s interval)..."
+          HEALTH_URL="https://${{ env.APP_NAME }}.azurewebsites.net/health"
+          MAX_ATTEMPTS=12
+          SLEEP_SEC=15
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$HEALTH_URL" || echo "000")
+            echo "Attempt $i/$MAX_ATTEMPTS — HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "✓ App is healthy."
+              exit 0
+            fi
+            if [ "$i" -lt "$MAX_ATTEMPTS" ]; then
+              sleep $SLEEP_SEC
+            fi
+          done
+          echo ""
+          echo "✗ Health check failed after $((MAX_ATTEMPTS * SLEEP_SEC))s."
+          echo ""
+          echo "=== Verbose response from /health ==="
+          curl -v --max-time 15 "$HEALTH_URL" 2>&1 || true
+          echo ""
+          echo "=== Last 200 lines of App Service console log ==="
+          az webapp log download \
+            --name ${{ env.APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --log-file /tmp/applogs.zip 2>/dev/null || true
+          if [ -f /tmp/applogs.zip ]; then
+            unzip -p /tmp/applogs.zip "LogFiles/Application/*.txt" 2>/dev/null \
+              | tail -200 || true
+            unzip -p /tmp/applogs.zip "LogFiles/*.log" 2>/dev/null \
+              | tail -200 || true
           fi
-          echo "App is healthy."
+          exit 1

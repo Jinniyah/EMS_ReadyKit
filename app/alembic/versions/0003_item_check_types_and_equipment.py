@@ -13,8 +13,11 @@ SQLite note:
 
 PostgreSQL note:
   PostgreSQL supports these operations natively and must NOT use batch mode
-  because it enforces FK constraints during table drop/recreate. Dialect is
-  checked at runtime so the same migration file works for both databases.
+  because it enforces FK constraints during table drop/recreate.
+  All PostgreSQL DDL uses IF NOT EXISTS / ADD COLUMN IF NOT EXISTS guards so
+  the migration is fully idempotent. A previous failed deploy may have
+  partially applied some statements; the guards prevent "already exists"
+  errors on retry.
 """
 from __future__ import annotations
 
@@ -30,7 +33,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    dialect = op.get_bind().dialect.name
+    bind = op.get_bind()
+    dialect = bind.dialect.name
 
     # ── items: add check_type and measurement/recurrence metadata ─────────────
     if dialect == "sqlite":
@@ -41,30 +45,31 @@ def upgrade() -> None:
                 nullable=False,
                 server_default="SUPPLY",
             ))
-            batch_op.add_column(sa.Column(
-                "measurement_minimum",
-                sa.Float,
-                nullable=True,
-            ))
-            batch_op.add_column(sa.Column(
-                "measurement_maximum",
-                sa.Float,
-                nullable=True,
-            ))
-            batch_op.add_column(sa.Column(
-                "recurrence_days",
-                sa.Integer,
-                nullable=True,
-            ))
+            batch_op.add_column(sa.Column("measurement_minimum", sa.Float, nullable=True))
+            batch_op.add_column(sa.Column("measurement_maximum", sa.Float, nullable=True))
+            batch_op.add_column(sa.Column("recurrence_days", sa.Integer, nullable=True))
             batch_op.create_index("ix_items_check_type", ["check_type"])
     else:
-        op.add_column("items", sa.Column(
-            "check_type", sa.String(20), nullable=False, server_default="SUPPLY",
-        ))
-        op.add_column("items", sa.Column("measurement_minimum", sa.Float, nullable=True))
-        op.add_column("items", sa.Column("measurement_maximum", sa.Float, nullable=True))
-        op.add_column("items", sa.Column("recurrence_days", sa.Integer, nullable=True))
-        op.create_index("ix_items_check_type", "items", ["check_type"])
+        bind.execute(sa.text("""
+            ALTER TABLE items
+            ADD COLUMN IF NOT EXISTS check_type VARCHAR(20) NOT NULL DEFAULT 'SUPPLY'
+        """))
+        bind.execute(sa.text("""
+            ALTER TABLE items
+            ADD COLUMN IF NOT EXISTS measurement_minimum FLOAT
+        """))
+        bind.execute(sa.text("""
+            ALTER TABLE items
+            ADD COLUMN IF NOT EXISTS measurement_maximum FLOAT
+        """))
+        bind.execute(sa.text("""
+            ALTER TABLE items
+            ADD COLUMN IF NOT EXISTS recurrence_days INTEGER
+        """))
+        bind.execute(sa.text("""
+            CREATE INDEX IF NOT EXISTS ix_items_check_type
+            ON items (check_type)
+        """))
 
     # ── check_line_items: add measurement, functional, and date fields ────────
     if dialect == "sqlite":
@@ -73,41 +78,46 @@ def upgrade() -> None:
             batch_op.add_column(sa.Column("functional_pass", sa.Boolean, nullable=True))
             batch_op.add_column(sa.Column("date_value", sa.Date, nullable=True))
     else:
-        op.add_column("check_line_items", sa.Column("measurement_value", sa.Float, nullable=True))
-        op.add_column("check_line_items", sa.Column("functional_pass", sa.Boolean, nullable=True))
-        op.add_column("check_line_items", sa.Column("date_value", sa.Date, nullable=True))
+        bind.execute(sa.text("""
+            ALTER TABLE check_line_items
+            ADD COLUMN IF NOT EXISTS measurement_value FLOAT
+        """))
+        bind.execute(sa.text("""
+            ALTER TABLE check_line_items
+            ADD COLUMN IF NOT EXISTS functional_pass BOOLEAN
+        """))
+        bind.execute(sa.text("""
+            ALTER TABLE check_line_items
+            ADD COLUMN IF NOT EXISTS date_value DATE
+        """))
 
     # ── compartments: add location descriptor, parent, restriction note ───────
     if dialect == "sqlite":
         with op.batch_alter_table("compartments", schema=None) as batch_op:
-            batch_op.add_column(sa.Column(
-                "location_descriptor", sa.String(150), nullable=True,
-            ))
-            batch_op.add_column(sa.Column(
-                "parent_compartment_id", sa.Integer, nullable=True,
-            ))
-            batch_op.add_column(sa.Column(
-                "restriction_note", sa.String(100), nullable=True,
-            ))
+            batch_op.add_column(sa.Column("location_descriptor", sa.String(150), nullable=True))
+            batch_op.add_column(sa.Column("parent_compartment_id", sa.Integer, nullable=True))
+            batch_op.add_column(sa.Column("restriction_note", sa.String(100), nullable=True))
             batch_op.create_index(
                 "ix_compartments_parent_compartment_id",
                 ["parent_compartment_id"],
             )
     else:
-        op.add_column("compartments", sa.Column(
-            "location_descriptor", sa.String(150), nullable=True,
-        ))
-        op.add_column("compartments", sa.Column(
-            "parent_compartment_id", sa.Integer, nullable=True,
-        ))
-        op.add_column("compartments", sa.Column(
-            "restriction_note", sa.String(100), nullable=True,
-        ))
-        op.create_index(
-            "ix_compartments_parent_compartment_id",
-            "compartments",
-            ["parent_compartment_id"],
-        )
+        bind.execute(sa.text("""
+            ALTER TABLE compartments
+            ADD COLUMN IF NOT EXISTS location_descriptor VARCHAR(150)
+        """))
+        bind.execute(sa.text("""
+            ALTER TABLE compartments
+            ADD COLUMN IF NOT EXISTS parent_compartment_id INTEGER
+        """))
+        bind.execute(sa.text("""
+            ALTER TABLE compartments
+            ADD COLUMN IF NOT EXISTS restriction_note VARCHAR(100)
+        """))
+        bind.execute(sa.text("""
+            CREATE INDEX IF NOT EXISTS ix_compartments_parent_compartment_id
+            ON compartments (parent_compartment_id)
+        """))
 
     # ── inventory_locations: JUMP_BAG and EQUIPMENT are VARCHAR values ────────
     # location_type is stored as VARCHAR (native_enum=False).
@@ -115,7 +125,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    dialect = op.get_bind().dialect.name
+    bind = op.get_bind()
+    dialect = bind.dialect.name
 
     if dialect == "sqlite":
         with op.batch_alter_table("compartments", schema=None) as batch_op:
@@ -136,17 +147,51 @@ def downgrade() -> None:
             batch_op.drop_column("measurement_minimum")
             batch_op.drop_column("check_type")
     else:
-        op.drop_index("ix_compartments_parent_compartment_id", table_name="compartments")
-        op.drop_column("compartments", "restriction_note")
-        op.drop_column("compartments", "parent_compartment_id")
-        op.drop_column("compartments", "location_descriptor")
+        bind.execute(sa.text("""
+            DROP INDEX IF EXISTS ix_compartments_parent_compartment_id
+        """))
+        bind.execute(sa.text("""
+            ALTER TABLE compartments
+            DROP COLUMN IF EXISTS restriction_note
+        """))
+        bind.execute(sa.text("""
+            ALTER TABLE compartments
+            DROP COLUMN IF EXISTS parent_compartment_id
+        """))
+        bind.execute(sa.text("""
+            ALTER TABLE compartments
+            DROP COLUMN IF EXISTS location_descriptor
+        """))
 
-        op.drop_column("check_line_items", "date_value")
-        op.drop_column("check_line_items", "functional_pass")
-        op.drop_column("check_line_items", "measurement_value")
+        bind.execute(sa.text("""
+            ALTER TABLE check_line_items
+            DROP COLUMN IF EXISTS date_value
+        """))
+        bind.execute(sa.text("""
+            ALTER TABLE check_line_items
+            DROP COLUMN IF EXISTS functional_pass
+        """))
+        bind.execute(sa.text("""
+            ALTER TABLE check_line_items
+            DROP COLUMN IF EXISTS measurement_value
+        """))
 
-        op.drop_index("ix_items_check_type", table_name="items")
-        op.drop_column("items", "recurrence_days")
-        op.drop_column("items", "measurement_maximum")
-        op.drop_column("items", "measurement_minimum")
-        op.drop_column("items", "check_type")
+        bind.execute(sa.text("""
+            DROP INDEX IF EXISTS ix_items_check_type
+        """))
+        bind.execute(sa.text("""
+            ALTER TABLE items
+            DROP COLUMN IF EXISTS recurrence_days
+        """))
+        bind.execute(sa.text("""
+            ALTER TABLE items
+            DROP COLUMN IF EXISTS measurement_maximum
+        """))
+        bind.execute(sa.text("""
+            ALTER TABLE items
+            DROP COLUMN IF EXISTS measurement_minimum
+        """))
+        bind.execute(sa.text("""
+            ALTER TABLE items
+            DROP COLUMN IF EXISTS check_type
+        """))
