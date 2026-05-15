@@ -45,6 +45,8 @@ All phase documents follow this standard structure:
 | Phase 5 | `phase5_frontend_pwa.md` | 📋 Planned | Progressive Web App — check wizard, supervisor dashboard, help system |
 | Phase 6 | `phase6_backend_extensions.md` | 📋 Planned | Backend extensions for Phase 5 supervisor, management, and notification modules |
 
+**Session handoff:** `session_handoff_2026-05-15.md` — complete state snapshot, next steps, prompt for next session
+
 ---
 
 ## Architecture Decision Records

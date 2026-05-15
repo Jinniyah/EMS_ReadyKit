@@ -11,6 +11,11 @@ Changes:
   - Modified: par_levels — adds nullable compartment_id FK
   - New unique constraint on par_levels: (item_id, compartment_id)
   - New indexes for common query patterns
+
+SQLite note:
+  SQLite does not support ALTER TABLE ADD CONSTRAINT or inline FK on ADD COLUMN.
+  The par_levels modification uses Alembic batch mode (copy-and-move strategy)
+  to add compartment_id and the unique constraint in a single table rebuild.
 """
 from __future__ import annotations
 
@@ -68,18 +73,15 @@ def upgrade() -> None:
             sa.ForeignKey("items.item_id"),
             nullable=False,
         ),
-        # Nullable FK to stock_lots — links the specific lot inspected.
-        # When provided, the router checks expiration_date and sets status
-        # to EXPIRED if the lot has passed its expiration date.
         sa.Column(
             "lot_id",
             sa.Integer,
             sa.ForeignKey("stock_lots.lot_id"),
             nullable=True,
         ),
-        sa.Column("quantity_needed", sa.Integer, nullable=False),
-        sa.Column("quantity_found", sa.Integer, nullable=False),
-        sa.Column("status", sa.String(10), nullable=False),  # OK / SHORT / MISSING / EXPIRED
+        sa.Column("quantity_needed", sa.Integer, nullable=False, server_default="0"),
+        sa.Column("quantity_found", sa.Integer, nullable=False, server_default="0"),
+        sa.Column("status", sa.String(10), nullable=False),
         sa.Column("notes", sa.String(300), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
@@ -89,26 +91,24 @@ def upgrade() -> None:
     op.create_index("ix_check_line_items_status", "check_line_items", ["status"])
     op.create_index("ix_check_line_items_lot_id", "check_line_items", ["lot_id"])
 
-    # ── par_levels: add compartment_id ────────────────────────────────────────
-    op.add_column(
-        "par_levels",
-        sa.Column(
-            "compartment_id",
-            sa.Integer,
-            sa.ForeignKey("compartments.compartment_id"),
-            nullable=True,
-        ),
-    )
-    op.create_index("ix_par_levels_compartment_id", "par_levels", ["compartment_id"])
-    op.create_unique_constraint(
-        "uq_par_item_compartment", "par_levels", ["item_id", "compartment_id"]
-    )
+    # ── par_levels: add compartment_id + unique constraint ────────────────────
+    # SQLite cannot ALTER TABLE ADD CONSTRAINT or ADD COLUMN with FK.
+    # Use Alembic batch mode which rebuilds the table via copy-and-move.
+    with op.batch_alter_table("par_levels", schema=None) as batch_op:
+        batch_op.add_column(
+            sa.Column("compartment_id", sa.Integer, nullable=True)
+        )
+        batch_op.create_index("ix_par_levels_compartment_id", ["compartment_id"])
+        batch_op.create_unique_constraint(
+            "uq_par_item_compartment", ["item_id", "compartment_id"]
+        )
 
 
 def downgrade() -> None:
-    op.drop_constraint("uq_par_item_compartment", "par_levels", type_="unique")
-    op.drop_index("ix_par_levels_compartment_id", table_name="par_levels")
-    op.drop_column("par_levels", "compartment_id")
+    with op.batch_alter_table("par_levels", schema=None) as batch_op:
+        batch_op.drop_constraint("uq_par_item_compartment", type_="unique")
+        batch_op.drop_index("ix_par_levels_compartment_id")
+        batch_op.drop_column("compartment_id")
 
     op.drop_index("ix_check_line_items_lot_id", table_name="check_line_items")
     op.drop_index("ix_check_line_items_status", table_name="check_line_items")
