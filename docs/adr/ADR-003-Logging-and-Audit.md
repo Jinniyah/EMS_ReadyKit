@@ -212,11 +212,49 @@ By treating audit events as **domain primitives**, the system remains defensible
 
 ---
 
+## Implementation Notes (updated 2026-05-15)
+
+### Request correlation ID
+A `request_id` (UUID) is generated per request by the logging middleware in
+`main.py` and injected into every log line via the `_EmsJsonFormatter` in
+`core/logging.py`. This allows grouping all log output for one API call in
+Log Analytics using KQL:
+
+```kql
+AppServiceConsoleLogs
+| extend log = parse_json(ResultDescription)
+| where log.request_id == "a3f2c1d4-..."
+| order by TimeGenerated asc
+```
+
+The `X-Request-ID` header is also returned in every API response, allowing
+the frontend to include it in bug reports and feedback submissions.
+
+### Request-level logging middleware
+Added to `main.py` — logs method, path, status_code, duration_ms, and
+client_ip for every request except health check and docs paths. Requests
+returning 4xx or 5xx are logged at WARNING level; 2xx/3xx at INFO.
+This provides the operational baseline for endpoint performance monitoring
+and error spike detection without SQL-level verbosity.
+
+### Structured extra fields convention
+All application log calls that include `extra={}` must use these field names
+consistently to ensure KQL queries work reliably:
+  action, entity_type, entity_id, severity, actor,
+  vehicle_id, station_id, request_id, duration_ms, status_code
+
+### Log volume estimate
+At 200 API calls/day (typical for one station, one shift):
+- Request logs: ~200 lines/day × ~500 bytes = ~100KB/day
+- Audit events (DB): ~50 rows/day × ~300 bytes = ~15KB/day
+- Log Analytics ingestion: ~3MB/month — well within free tier (5GB/month)
+
 ## Related ADRs
 
 - ADR-001: Overall System Architecture
 - ADR-002: Role-Based Access Control (RBAC) Model
 - ADR-004: Terraform Module Structure
+- ADR-005: Frontend Architecture
 
 ---
 
