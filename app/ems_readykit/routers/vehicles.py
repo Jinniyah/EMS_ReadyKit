@@ -5,8 +5,13 @@ Vehicle CRUD endpoints.
 Endpoints:
   GET  /vehicles                    — list vehicles (Supervisor, Administrator)
   POST /vehicles                    — create a vehicle (Supervisor, Administrator)
-  GET  /vehicles/{id}               — get a single vehicle (Responder, Supervisor, Administrator)
-  GET  /stations/{id}/vehicles      — list vehicles for a station (Supervisor, Administrator)
+  GET  /vehicles/{id}               — get a single vehicle (all roles)
+  GET  /stations/{id}/vehicles      — list vehicles for a station (all roles)
+
+RBAC note:
+  GET /stations/{id}/vehicles is open to all authenticated roles.
+  A Responder selecting their vehicle to start a daily check needs this.
+  Write operations remain Supervisor/Administrator only.
 """
 
 from __future__ import annotations
@@ -31,7 +36,6 @@ _SUPERVISOR_PLUS = (ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
 
 
 def _get_vehicle_or_404(vehicle_id: int, db: Session) -> Vehicle:
-    """Shared lookup used by multiple endpoints."""
     vehicle = db.query(Vehicle).filter(Vehicle.vehicle_id == vehicle_id).first()
     if not vehicle:
         raise HTTPException(
@@ -44,14 +48,14 @@ def _get_vehicle_or_404(vehicle_id: int, db: Session) -> Vehicle:
 @router.get(
     "/vehicles",
     response_model=List[VehicleRead],
-    summary="List vehicles",
+    summary="List all vehicles",
     dependencies=[Depends(require_role(*_SUPERVISOR_PLUS))],
 )
 def list_vehicles(
-    active: bool = Query(default=True, description="Filter by active status"),
+    active: bool = Query(default=True),
     db: Session = Depends(get_db),
 ) -> List[Vehicle]:
-    """Returns all vehicles matching the active filter. Requires Supervisor or Administrator."""
+    """Returns all vehicles. Requires Supervisor or Administrator."""
     return db.query(Vehicle).filter(Vehicle.active == active).all()
 
 
@@ -64,26 +68,17 @@ def list_vehicles(
 )
 def create_vehicle(payload: VehicleCreate, db: Session = Depends(get_db)) -> Vehicle:
     """
-    Creates a vehicle and its corresponding InventoryLocation in one transaction.
-    Returns 404 if the referenced station does not exist.
-    Returns 409 if the vehicle_number is already in use.
-    Requires Supervisor or Administrator role.
+    Creates a vehicle and its InventoryLocation in one transaction.
+    Returns 404 if station not found. Returns 409 if vehicle_number in use.
+    Requires Supervisor or Administrator.
     """
     station = db.query(Station).filter(Station.station_id == payload.station_id).first()
     if not station:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Station {payload.station_id} not found.",
-        )
+        raise HTTPException(status_code=404, detail=f"Station {payload.station_id} not found.")
 
-    existing = (
-        db.query(Vehicle).filter(Vehicle.vehicle_number == payload.vehicle_number).first()
-    )
+    existing = db.query(Vehicle).filter(Vehicle.vehicle_number == payload.vehicle_number).first()
     if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Vehicle number '{payload.vehicle_number}' is already in use.",
-        )
+        raise HTTPException(status_code=409, detail=f"Vehicle number '{payload.vehicle_number}' is already in use.")
 
     vehicle = Vehicle(
         station_id=payload.station_id,
@@ -113,7 +108,7 @@ def create_vehicle(payload: VehicleCreate, db: Session = Depends(get_db)) -> Veh
     dependencies=[Depends(require_role(*_ALL_ROLES))],
 )
 def get_vehicle(vehicle_id: int, db: Session = Depends(get_db)) -> Vehicle:
-    """Returns a single vehicle by ID. Returns 404 if not found. All authenticated roles."""
+    """Returns a single vehicle by ID. All authenticated roles."""
     return _get_vehicle_or_404(vehicle_id, db)
 
 
@@ -121,24 +116,21 @@ def get_vehicle(vehicle_id: int, db: Session = Depends(get_db)) -> Vehicle:
     "/stations/{station_id}/vehicles",
     response_model=List[VehicleRead],
     summary="List vehicles for a station",
-    dependencies=[Depends(require_role(*_SUPERVISOR_PLUS))],
+    dependencies=[Depends(require_role(*_ALL_ROLES))],
 )
 def list_station_vehicles(
     station_id: int,
-    active: bool = Query(default=True, description="Filter by active status"),
+    active: bool = Query(default=True),
     db: Session = Depends(get_db),
 ) -> List[Vehicle]:
     """
-    Returns all vehicles assigned to a specific station.
-    Used by supervisor compliance dashboards. Requires Supervisor or Administrator.
-    Returns 404 if the station does not exist.
+    Returns all vehicles at a station.
+    Open to all authenticated roles — Responders need this when starting a check.
+    Returns 404 if station not found.
     """
     station = db.query(Station).filter(Station.station_id == station_id).first()
     if not station:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Station {station_id} not found.",
-        )
+        raise HTTPException(status_code=404, detail=f"Station {station_id} not found.")
     return (
         db.query(Vehicle)
         .filter(Vehicle.station_id == station_id, Vehicle.active == active)

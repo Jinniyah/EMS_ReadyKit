@@ -65,3 +65,9 @@ coverage.xml
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/.env.production

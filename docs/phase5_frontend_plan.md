@@ -470,9 +470,9 @@ app/frontend/
         Spinner.jsx         ← loading state
         NotificationBell.jsx← supervisor notification indicator
       hooks/
-        useAuth.js          ← getToken(), currentUser, role check
+        useAuth.jsx          ← getToken(), currentUser, role check
         useDraft.js         ← localStorage read/write/clear
-        useApi.js           ← generic fetch hook with loading/error state
+        useApi.jsx           ← generic fetch hook with loading/error state
       utils/
         statusCalc.js       ← OK/SHORT/MISSING/EXPIRED logic
         dateHelpers.js      ← format, clamp, parse dates
@@ -575,7 +575,7 @@ GitHub Actions:
 ## Build order (revised with new requirements)
 
 ### Phase 5A — Foundation (build first, everything depends on this)
-1. `shared/api/client.js` + `shared/hooks/useAuth.js` — auth + API client
+1. `shared/api/client.js` + `shared/hooks/useAuth.jsx` — auth + API client
 2. `shared/components/ErrorBoundary.jsx` — wrap all modules from the start
 3. `shared/utils/statusCalc.js` + `dateHelpers.js` — pure logic
 4. `shared/hooks/useDraft.js` — localStorage draft

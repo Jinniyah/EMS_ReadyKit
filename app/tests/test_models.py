@@ -12,6 +12,7 @@ from datetime import date, datetime, timezone
 from ems_readykit.models import (
     AuditEvent,
     CheckStatus,
+    Compartment,
     ControlledSubstanceCheck,
     DailyInventoryCheck,
     InventoryLocation,
@@ -151,6 +152,14 @@ def test_item_and_stock_lot(db):
 
 
 def test_par_level_unique_constraint(db):
+    """
+    uq_par_item_compartment — the same item cannot appear twice in the same compartment.
+
+    The legacy uq_par_item_location (item_id, location_id) constraint was dropped
+    in migration 0004 because the same item legitimately appears in multiple
+    compartments on the same vehicle (e.g. Stethoscope in PC3 and PC18).
+    The correct uniqueness boundary is per-compartment, not per-location.
+    """
     import pytest
     from sqlalchemy.exc import IntegrityError
 
@@ -170,11 +179,38 @@ def test_par_level_unique_constraint(db):
     db.add(item)
     db.flush()
 
-    par1 = ParLevel(item_id=item.item_id, location_id=loc.location_id, min_quantity=5, max_quantity=20)
+    now = datetime.now(timezone.utc)
+    comp = Compartment(
+        location_id=loc.location_id,
+        name="Compartment A",
+        sort_order=1,
+        active=True,
+        als_only=False,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(comp)
+    db.flush()
+
+    # First par level for this item in this compartment — must succeed
+    par1 = ParLevel(
+        item_id=item.item_id,
+        location_id=loc.location_id,
+        compartment_id=comp.compartment_id,
+        min_quantity=5,
+        max_quantity=20,
+    )
     db.add(par1)
     db.flush()
 
-    par2 = ParLevel(item_id=item.item_id, location_id=loc.location_id, min_quantity=3, max_quantity=10)
+    # Duplicate: same item, same compartment — must raise IntegrityError
+    par2 = ParLevel(
+        item_id=item.item_id,
+        location_id=loc.location_id,
+        compartment_id=comp.compartment_id,
+        min_quantity=3,
+        max_quantity=10,
+    )
     db.add(par2)
     with pytest.raises(IntegrityError):
         db.flush()

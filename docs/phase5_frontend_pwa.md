@@ -540,7 +540,7 @@ app/frontend/
         Spinner.jsx
         NotificationBell.jsx
       hooks/
-        useAuth.js
+        useAuth.jsx
         useDraft.js
         useApi.js
       utils/
@@ -566,7 +566,7 @@ app/frontend/
 ## 16. Build Order
 
 ### Phase 5A — Foundation
-1. `shared/api/client.js` + `shared/hooks/useAuth.js`
+1. `shared/api/client.js` + `shared/hooks/useAuth.jsx`
 2. `shared/components/ErrorBoundary.jsx`
 3. `shared/utils/statusCalc.js` + `dateHelpers.js`
 4. `shared/hooks/useDraft.js`
@@ -826,7 +826,7 @@ When a supervisor submits a check in crew mode:
 
 ### File additions
 ```
-src/shared/hooks/useRoleMode.js    ← crew | supervisor mode state
+src/shared/hooks/useRoleMode.jsx    ← crew | supervisor mode state
 src/shared/components/
   UserPill.jsx                      ← updated: role switcher in dropdown
   CrewModeBanner.jsx                ← persistent reminder during check

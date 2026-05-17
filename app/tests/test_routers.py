@@ -469,13 +469,12 @@ class TestCheckLineItems:
 
     def test_expired_lot_sets_status_expired(self, client, auth_admin):
         sid, vid, cid, item_id = self._setup(client, auth_admin)
-        # Create a stock lot with a past expiration date
         locs = client.get("/api/v1/inventory/locations", headers=auth_admin).json()
         loc_id = next(l["location_id"] for l in locs if l["vehicle_id"] == vid)
         lot_r = client.post("/api/v1/inventory/lots", json={
             "item_id": item_id, "location_id": loc_id,
             "quantity": 2, "lot_number": "EXP-LOT",
-            "expiration_date": "2020-01-01",  # clearly expired
+            "expiration_date": "2020-01-01",
         }, headers=auth_admin)
         lot_id = lot_r.json()["lot_id"]
         response = client.post("/api/v1/checks/daily", json={
@@ -743,11 +742,16 @@ class TestRBAC:
         response = client.get("/api/v1/stations")
         assert response.status_code in (401, 403)
 
-    def test_responder_cannot_list_stations_returns_403(self, client, auth_responder):
+    def test_responder_can_list_stations(self, client, auth_responder):
+        # Responders need to list stations to select where they are working.
+        # GET /stations is intentionally open to all authenticated roles so
+        # that Cindy (who works at multiple stations) can pick her station
+        # when starting a daily inventory check.
         response = client.get("/api/v1/stations", headers=auth_responder)
-        assert response.status_code == 403
+        assert response.status_code == 200
 
     def test_responder_cannot_create_station_returns_403(self, client, auth_responder):
+        # Write operations remain Administrator-only.
         response = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers=auth_responder)
         assert response.status_code == 403
 
@@ -818,10 +822,6 @@ class TestCheckTypes:
     """
 
     def _make_env(self, client, auth_admin):
-        """
-        Returns (sid, vid, loc_id, cid): station, vehicle, inventory location,
-        and one compartment. Used as the base fixture for all check type tests.
-        """
         sr = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers=auth_admin)
         sid = sr.json()["station_id"]
         vr = client.post("/api/v1/vehicles", json={"station_id": sid, "vehicle_number": f"AMB-{_uid()}", "vehicle_type": "ALS"}, headers=auth_admin)
@@ -837,7 +837,6 @@ class TestCheckTypes:
     def _make_item(self, client, auth_admin, *, check_type: str, name: Optional[str] = None,
                    measurement_minimum: Optional[float] = None,
                    recurrence_days: Optional[int] = None) -> int:
-        """Create an item with the given check_type and optional measurement/recurrence metadata."""
         payload = {
             "name": name or f"Item-{_uid()}",
             "category": "Equipment",
@@ -861,8 +860,6 @@ class TestCheckTypes:
         assert response.status_code == 201, f"Check submission failed: {response.json()}"
         return response.json()
 
-    # ── MEASUREMENT (O2 PSI) ──────────────────────────────────────────────────
-
     def test_o2_psi_above_minimum_returns_ok(self, client, auth_admin):
         """O2 reading of 1800 PSI on an item with minimum 500 PSI → OK."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
@@ -872,8 +869,7 @@ class TestCheckTypes:
                                   line_items=[{"compartment_id": cid, "item_id": item_id,
                                                "quantity_needed": 0, "quantity_found": 0,
                                                "measurement_value": 1800.0}])
-        li = body["line_items"][0]
-        assert li["status"] == "OK"
+        assert body["line_items"][0]["status"] == "OK"
         assert body["status"] == "PASS"
 
     def test_o2_psi_at_minimum_returns_ok(self, client, auth_admin):
@@ -896,8 +892,7 @@ class TestCheckTypes:
                                   line_items=[{"compartment_id": cid, "item_id": item_id,
                                                "quantity_needed": 0, "quantity_found": 0,
                                                "measurement_value": 300.0}])
-        li = body["line_items"][0]
-        assert li["status"] == "LOW"
+        assert body["line_items"][0]["status"] == "LOW"
 
     def test_o2_psi_below_minimum_sets_check_needs_restock(self, client, auth_admin):
         """LOW measurement item escalates overall check to NEEDS_RESTOCK."""
@@ -918,11 +913,8 @@ class TestCheckTypes:
                                   check_date="2026-07-05",
                                   line_items=[{"compartment_id": cid, "item_id": item_id,
                                                "quantity_needed": 0, "quantity_found": 0}])
-        li = body["line_items"][0]
-        assert li["status"] == "MISSING"
+        assert body["line_items"][0]["status"] == "MISSING"
         assert body["status"] == "FAIL"
-
-    # ── FUNCTIONAL (battery OK, runs & starts) ────────────────────────────────
 
     def test_battery_ok_true_returns_ok(self, client, auth_admin):
         """functional_pass=True on a FUNCTIONAL item → OK."""
@@ -959,7 +951,7 @@ class TestCheckTypes:
         assert body["status"] == "FAIL"
 
     def test_functional_missing_value_returns_missing(self, client, auth_admin):
-        """FUNCTIONAL item submitted without functional_pass → MISSING (not answered)."""
+        """FUNCTIONAL item submitted without functional_pass → MISSING."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(client, auth_admin, check_type="FUNCTIONAL")
         body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid,
@@ -968,8 +960,6 @@ class TestCheckTypes:
                                                "quantity_needed": 0, "quantity_found": 0}])
         assert body["line_items"][0]["status"] == "MISSING"
         assert body["status"] == "FAIL"
-
-    # ── DATE_RECORD (AED last charge date) ───────────────────────────────────
 
     def test_recent_charge_date_returns_ok(self, client, auth_admin):
         """AED charged 10 days ago with recurrence_days=90 → OK."""
@@ -1019,10 +1009,8 @@ class TestCheckTypes:
         assert body["line_items"][0]["status"] == "MISSING"
         assert body["status"] == "FAIL"
 
-    # ── DOCUMENT (PCR form, protocol book) ────────────────────────────────────
-
     def test_document_present_returns_ok(self, client, auth_admin):
-        """DOCUMENT item with quantity_found=1 → OK (present)."""
+        """DOCUMENT item with quantity_found=1 → OK."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(client, auth_admin, check_type="DOCUMENT")
         body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid,
@@ -1033,7 +1021,7 @@ class TestCheckTypes:
         assert body["status"] == "PASS"
 
     def test_document_missing_returns_missing(self, client, auth_admin):
-        """DOCUMENT item with quantity_found=0 → MISSING (paperwork not on truck)."""
+        """DOCUMENT item with quantity_found=0 → MISSING."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(client, auth_admin, check_type="DOCUMENT")
         body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid,
@@ -1043,13 +1031,8 @@ class TestCheckTypes:
         assert body["line_items"][0]["status"] == "MISSING"
         assert body["status"] == "FAIL"
 
-    # ── Mixed check types in one check ────────────────────────────────────────
-
     def test_mixed_check_types_worst_case_determines_overall_status(self, client, auth_admin):
-        """
-        A check with one passing FUNCTIONAL item and one MISSING DOCUMENT item
-        should produce overall FAIL (MISSING is a FAIL-tier status).
-        """
+        """FUNCTIONAL pass + DOCUMENT missing → overall FAIL."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         functional_item = self._make_item(client, auth_admin, check_type="FUNCTIONAL")
         document_item = self._make_item(client, auth_admin, check_type="DOCUMENT")
@@ -1068,10 +1051,7 @@ class TestCheckTypes:
         assert body["status"] == "FAIL"
 
     def test_low_measurement_and_ok_supply_yields_needs_restock(self, client, auth_admin):
-        """
-        LOW O2 PSI + OK supply item → NEEDS_RESTOCK overall
-        (LOW is restock-tier, not fail-tier).
-        """
+        """LOW O2 PSI + OK supply → NEEDS_RESTOCK overall."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         o2_item = self._make_item(client, auth_admin, check_type="MEASUREMENT", measurement_minimum=500.0)
         supply_item = self._make_item(client, auth_admin, check_type="SUPPLY")
@@ -1089,8 +1069,6 @@ class TestCheckTypes:
         assert statuses[supply_item] == "OK"
         assert body["status"] == "NEEDS_RESTOCK"
 
-    # ── Jump Bag location ─────────────────────────────────────────────────────
-
     def test_create_jump_bag_location_returns_201(self, client, auth_admin):
         """POST /inventory/locations should create a JUMP_BAG location."""
         sr = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers=auth_admin)
@@ -1101,16 +1079,11 @@ class TestCheckTypes:
             "label": f"Jump Bag 710/712 — {_uid()}",
         }, headers=auth_admin)
         assert response.status_code == 201
-        body = response.json()
-        assert body["location_type"] == "JUMP_BAG"
-        assert body["station_id"] == sid
+        assert response.json()["location_type"] == "JUMP_BAG"
+        assert response.json()["station_id"] == sid
 
     def test_cannot_create_vehicle_location_via_api_returns_422(self, client, auth_admin):
-        """
-        POST /inventory/locations must reject VEHICLE location_type.
-        VEHICLE locations are created automatically by the vehicles router —
-        manual creation would create an orphaned location with no vehicle_id.
-        """
+        """POST /inventory/locations must reject VEHICLE location_type."""
         sr = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers=auth_admin)
         sid = sr.json()["station_id"]
         response = client.post("/api/v1/inventory/locations", json={

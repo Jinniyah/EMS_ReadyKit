@@ -40,6 +40,52 @@ git commit -m "fix: migrations 0002 and 0003 use batch mode for SQLite ALTER TAB
 git push origin main
 ```
 
+05/15/2026 1:25 PM.  I ran the above commands successfully.
+
+Here's selective output from the above commands:
+```2026-05-15 13:23:36,783 INFO sqlalchemy.engine.Engine [generated in 0.00021s] (2, 3)
+
+  ✓ Seed complete.
+    Items in catalog:      238
+    Compartments seeded:   42 (712 truck + jump bag)
+    Par levels created:    238
+
+  Vehicle 712 location ID:  2
+  Jump Bag location ID:      3
+
+  -------
+  ================================================== warnings summary ===================================================
+.venv\Lib\site-packages\starlette\formparsers.py:12
+  C:\Users\jinni\source\repos\EMS_ReadyKit\app\.venv\Lib\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================================ 90 passed, 1 warning in 1.68s ============================================
+
+git push origin main
+Enumerating objects: 20, done.
+Counting objects: 100% (20/20), done.
+Delta compression using up to 20 threads
+Compressing objects: 100% (11/11), done.
+Writing objects: 100% (11/11), 16.76 KiB | 5.59 MiB/s, done.
+Total 11 (delta 8), reused 0 (delta 0), pack-reused 0
+remote: Resolving deltas: 100% (8/8), completed with 8 local objects.
+To https://github.com/Jinniyah/EMS_ReadyKit.git
+   1044067..2eaf5ae  main -> main
+
+ ```
+ The github CI/CD pipeline provided the following failure:
+ ```
+    1m 8s
+    Run echo "Waiting 30s for app to start..."
+    Waiting 30s for app to start...
+    Health check status: 503
+    Health check failed with status 503
+    Error: Process completed with exit code 1.
+```
+
+
+
 ---
 
 ## What was built today (2026-05-15)

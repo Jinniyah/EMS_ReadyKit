@@ -1,16 +1,12 @@
 """
 models/par_level.py
-ParLevel — minimum and maximum stock quantities per item per location/compartment.
+ParLevel — minimum and maximum stock quantities per item per compartment.
 
-When quantity on hand falls below min_quantity, a low-stock condition is flagged.
-
-Phase 4 change: par levels can now be scoped to a specific compartment within
-a location, matching the paper form where each compartment has its own Need qty.
-compartment_id is nullable for backward compatibility — existing par levels
-without a compartment remain valid (vehicle-level par).
-
-Uniqueness: one par level per item per compartment (if compartment set),
-or one per item per location (if no compartment).
+Uniqueness: one par level per item per compartment (uq_par_item_compartment).
+The legacy uq_par_item_location constraint was dropped in migration 0004 —
+it incorrectly prevented the same item from appearing in multiple compartments
+on the same vehicle, which is valid and expected (e.g. Stethoscope in PC3
+and PC18 on the same truck).
 """
 
 from __future__ import annotations
@@ -32,15 +28,11 @@ if TYPE_CHECKING:
 class ParLevel(TimestampMixin, Base):
     __tablename__ = "par_levels"
     __table_args__ = (
-        # Compartment-scoped: one par per item per compartment
+        # One par level per item per compartment — the correct constraint.
+        # uq_par_item_location (item_id, location_id) was dropped in 0004.
         UniqueConstraint(
             "item_id", "compartment_id",
             name="uq_par_item_compartment",
-        ),
-        # Location-scoped (legacy): one par per item per location when no compartment
-        UniqueConstraint(
-            "item_id", "location_id",
-            name="uq_par_item_location",
         ),
     )
 
@@ -49,7 +41,6 @@ class ParLevel(TimestampMixin, Base):
     location_id: Mapped[int] = mapped_column(
         ForeignKey("inventory_locations.location_id"), nullable=False
     )
-    # Nullable — set when par is compartment-specific; null for vehicle-level par
     compartment_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("compartments.compartment_id"), nullable=True
     )
