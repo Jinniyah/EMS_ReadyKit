@@ -1,25 +1,51 @@
 /**
  * modules/check-wizard/index.jsx
- * Check wizard orchestrator.
+ * Check wizard orchestrator — 5-step flow.
  *
- * Compartment key note: all draft.compartments lookups use String(compartmentId)
- * because JSON.parse converts numeric object keys to strings.
+ * Steps:
+ *   1 — Vehicle/bag selection
+ *   2 — Compartments
+ *   3 — Items
+ *   4 — Reconcile  (shown when any warn OR fail items exist; skipped if all clear)
+ *   5 — Submit     (was Step 4 Review)
+ *   6 — Submitted  (confirmation screen, not a numbered step)
+ *
+ * Routing from Step 2 button:
+ *   draftNeedsReconcile() === true  → STEP.RECONCILE (4)
+ *   draftNeedsReconcile() === false → STEP.SUBMIT    (5)
+ *
+ * Compartment name fix:
+ *   handleUpdateItem reads the compartment name from `activeCompartment`
+ *   (always set while on Step 3) rather than from `compartmentList` (which
+ *   was never populated and always returned undefined). This ensures the
+ *   draft compartment object has a real name, which flows through to
+ *   buildAutoRepairNotes() on Step 5.
  */
 import React, { useState, useCallback, useEffect } from 'react'
-import { useAuth } from '../../shared/hooks/useAuth.jsx'
-import { useApi } from '../../shared/hooks/useApi.js'
-import { useDraft } from '../../shared/hooks/useDraft.js'
-import { todayIso } from '../../shared/utils/dateHelpers.js'
-import ErrorBoundary from '../../shared/components/ErrorBoundary.jsx'
-import WizardProgress from './components/WizardProgress.jsx'
-import Step1Vehicle from './components/Step1Vehicle.jsx'
-import Step2Compartments from './components/Step2Compartments.jsx'
-import Step3Items from './components/Step3Items.jsx'
-import Step4Review from './components/Step4Review.jsx'
-import SubmittedScreen from './components/SubmittedScreen.jsx'
-import { checkApi } from './api/checkApi.js'
+import { useAuth }             from '../../shared/hooks/useAuth.jsx'
+import { useApi }              from '../../shared/hooks/useApi.js'
+import { useDraft }            from '../../shared/hooks/useDraft.js'
+import { todayIso }            from '../../shared/utils/dateHelpers.js'
+import { draftNeedsReconcile } from '../../shared/utils/statusCalc.js'
+import ErrorBoundary           from '../../shared/components/ErrorBoundary.jsx'
+import Modal                   from '../../shared/components/Modal.jsx'
+import WizardProgress          from './components/WizardProgress.jsx'
+import Step1Vehicle            from './components/Step1Vehicle.jsx'
+import Step2Compartments       from './components/Step2Compartments.jsx'
+import Step3Items              from './components/Step3Items.jsx'
+import Step4Reconcile          from './components/Step4Reconcile.jsx'
+import Step5Submit             from './components/Step5Submit.jsx'
+import SubmittedScreen         from './components/SubmittedScreen.jsx'
+import { checkApi }            from './api/checkApi.js'
 
-const STEP = { VEHICLE: 1, COMPARTMENTS: 2, ITEMS: 3, REVIEW: 4, SUBMITTED: 5 }
+const STEP = {
+  VEHICLE:      1,
+  COMPARTMENTS: 2,
+  ITEMS:        3,
+  RECONCILE:    4,
+  SUBMIT:       5,
+  SUBMITTED:    6,
+}
 
 export default function CheckWizard({
   initialDraft = null,
@@ -28,40 +54,43 @@ export default function CheckWizard({
 }) {
   const { getToken } = useAuth()
 
-  const [step, setStep]                           = useState(STEP.VEHICLE)
-  const [vehicleId, setVehicleId]                 = useState(initialDraft?.vehicle_id ?? null)
-  const [stationId, setStationId]                 = useState(
+  const [step, setStep]               = useState(STEP.VEHICLE)
+  const [vehicleId, setVehicleId]     = useState(initialDraft?.vehicle_id ?? null)
+  const [stationId, setStationId]     = useState(
     initialDraft?.station_id ?? preselectedStation?.station_id ?? null
   )
-  const [checkDate, setCheckDate]   = useState(initialDraft?.check_date ?? todayIso())
-  const [vehicle, setVehicle]       = useState(null)
-  const [locationId, setLocationId] = useState(null)
+  const [checkDate, setCheckDate]     = useState(initialDraft?.check_date ?? todayIso())
+  const [vehicle, setVehicle]         = useState(null)
+  const [locationId, setLocationId]   = useState(initialDraft?.location_id ?? null)
+  const [selectionLabel, setSelectionLabel] = useState(initialDraft?.selection_label ?? '')
   const [activeCompartment, setActiveCompartment] = useState(null)
   const [compartmentList, setCompartmentList]     = useState([])
   const [submittedCheckId, setSubmittedCheckId]   = useState(null)
   const [submittedAt, setSubmittedAt]             = useState(null)
   const [isSubmitting, setIsSubmitting]           = useState(false)
   const [submitError, setSubmitError]             = useState(null)
+  const [showDiscardModal, setShowDiscardModal]   = useState(false)
 
   const { draft, savedAt, saveDraft, saveLineItem, clearDraft } =
-    useDraft(vehicleId, checkDate)
+    useDraft(vehicleId ?? locationId, checkDate)
 
   // Resume from initial draft
   useEffect(() => {
-    if (initialDraft && initialDraft.vehicle_id && !vehicle) {
-      setVehicleId(initialDraft.vehicle_id)
+    if (initialDraft) {
+      if (initialDraft.vehicle_id)       setVehicleId(initialDraft.vehicle_id)
+      else if (initialDraft.location_id) setLocationId(initialDraft.location_id)
       setStationId(initialDraft.station_id)
       setCheckDate(initialDraft.check_date)
+      setSelectionLabel(initialDraft.selection_label ?? '')
       setStep(STEP.COMPARTMENTS)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load inventory location when vehicle is known
+  // Resolve vehicle → location_id
   const { data: locations } = useApi(
     () => vehicleId ? checkApi.getLocations(getToken) : Promise.resolve(null),
     [vehicleId]
   )
-
   useEffect(() => {
     if (locations && vehicleId) {
       const loc = locations.find(
@@ -73,13 +102,31 @@ export default function CheckWizard({
 
   // ── Step 1 → 2 ────────────────────────────────────────────────────────────
   const handleVehicleSelect = useCallback(({
-    stationId: sid, vehicleId: vid, checkDate: cd, secondCrew, vehicle: v,
+    stationId: sid, vehicleId: vid, locationId: directLocationId,
+    checkDate: cd, secondCrew, vehicle: v, selectionLabel: label,
   }) => {
     setStationId(sid)
-    setVehicleId(vid)
     setCheckDate(cd)
-    setVehicle(v)
-    saveDraft({ vehicle_id: vid, station_id: sid, check_date: cd, second_crew: secondCrew || null })
+    setVehicle(v ?? null)
+    setSelectionLabel(label ?? '')
+
+    if (directLocationId) {
+      setVehicleId(null)
+      setLocationId(directLocationId)
+      saveDraft({
+        vehicle_id: null, location_id: directLocationId,
+        station_id: sid, check_date: cd,
+        second_crew: secondCrew || null, selection_label: label,
+      })
+    } else {
+      setVehicleId(vid)
+      setLocationId(null)
+      saveDraft({
+        vehicle_id: vid, location_id: null,
+        station_id: sid, check_date: cd,
+        second_crew: secondCrew || null, selection_label: label,
+      })
+    }
     setStep(STEP.COMPARTMENTS)
   }, [saveDraft])
 
@@ -89,25 +136,41 @@ export default function CheckWizard({
     setStep(STEP.ITEMS)
   }, [])
 
-  // ── Step 3: update one item — writes immediately to draft ─────────────────
+  // ── Step 2 advance button ─────────────────────────────────────────────────
+  const handleReview = useCallback(() => {
+    if (draftNeedsReconcile(draft?.compartments)) {
+      setStep(STEP.RECONCILE)
+    } else {
+      setStep(STEP.SUBMIT)
+    }
+  }, [draft])
+
+  // ── Step 3: update one item ───────────────────────────────────────────────
+  // Uses activeCompartment.name directly — this is always set while on Step 3
+  // and is the only reliable source of the compartment name at write time.
+  // Previously this read from compartmentList which was never populated,
+  // causing draft compartment objects to have name: '' → "Unknown compartment"
+  // in buildAutoRepairNotes() on Step 5.
   const handleUpdateItem = useCallback((compartmentId, payload) => {
-    const comp    = compartmentList.find(c => c.compartment_id === compartmentId)
     const compKey = String(compartmentId)
     saveLineItem(compartmentId, {
-      name:              comp?.name ?? '',
+      name:              activeCompartment?.name ?? draft?.compartments?.[compKey]?.name ?? '',
       status:            'in_progress',
       compartment_notes: draft?.compartments?.[compKey]?.compartment_notes ?? '',
     }, payload)
-  }, [compartmentList, draft, saveLineItem])
+  }, [activeCompartment, draft, saveLineItem])
 
-  // ── Step 3: save/complete compartment ────────────────────────────────────
+  // ── Step 3: save/complete compartment ─────────────────────────────────────
   const handleSaveCompartment = useCallback((compartmentId) => {
     const compKey = String(compartmentId)
     const cd      = draft?.compartments?.[compKey]
+    const confirmedItems = (cd?.line_items ?? []).map(li =>
+      li.confirmed ? li : { ...li, confirmed: true }
+    )
     saveDraft({
       compartments: {
         ...(draft?.compartments ?? {}),
-        [compKey]: { ...(cd ?? {}), status: 'complete' },
+        [compKey]: { ...(cd ?? {}), status: 'complete', line_items: confirmedItems },
       },
     })
     setStep(STEP.COMPARTMENTS)
@@ -119,9 +182,12 @@ export default function CheckWizard({
     setActiveCompartment(null)
   }, [])
 
-  const handleGoToReview = useCallback(() => setStep(STEP.REVIEW), [])
+  // ── Step 4 Reconcile → Step 5 Submit ──────────────────────────────────────
+  const handleReconcileContinue = useCallback(() => {
+    setStep(STEP.SUBMIT)
+  }, [])
 
-  // ── Step 4: submit ────────────────────────────────────────────────────────
+  // ── Step 5: submit ────────────────────────────────────────────────────────
   const handleSubmit = useCallback(async ({ overallNotes, repairNeeded, repairNotes }) => {
     setIsSubmitting(true)
     setSubmitError(null)
@@ -147,6 +213,7 @@ export default function CheckWizard({
       overallNotes,
       draft?.second_crew ? `Second crew: ${draft.second_crew}` : null,
       repairNeeded       ? `REPAIR NEEDED: ${repairNotes}`     : null,
+      selectionLabel     ? `Check subject: ${selectionLabel}`  : null,
     ].filter(Boolean).join('\n') || null
 
     try {
@@ -165,9 +232,16 @@ export default function CheckWizard({
     } finally {
       setIsSubmitting(false)
     }
-  }, [draft, vehicleId, stationId, checkDate, getToken, clearDraft])
+  }, [draft, vehicleId, stationId, checkDate, selectionLabel, getToken, clearDraft])
 
-  // ── Reset ─────────────────────────────────────────────────────────────────
+  // ── Discard ────────────────────────────────────────────────────────────────
+  const handleDiscardConfirm = useCallback(() => {
+    clearDraft()
+    setShowDiscardModal(false)
+    if (onExit) onExit()
+  }, [clearDraft, onExit])
+
+  // ── Reset (after submit) ──────────────────────────────────────────────────
   const handleStartNew = useCallback(() => {
     setStep(STEP.VEHICLE)
     setVehicleId(null)
@@ -175,35 +249,84 @@ export default function CheckWizard({
     setCheckDate(todayIso())
     setVehicle(null)
     setLocationId(null)
+    setSelectionLabel('')
     setActiveCompartment(null)
     setSubmittedCheckId(null)
     setSubmittedAt(null)
     setSubmitError(null)
   }, [preselectedStation])
 
-  const showAutoSaved = step >= STEP.COMPARTMENTS && step < STEP.SUBMITTED && savedAt
+  const showDiscardBtn = step >= STEP.COMPARTMENTS && step < STEP.SUBMITTED
+  const showAutoSaved  = step >= STEP.COMPARTMENTS && step < STEP.SUBMITTED && savedAt
+  const progressStep   = step === STEP.SUBMITTED ? 5 : step
 
   return (
     <div className="check-wizard">
-      {onExit && (
-        <button className="wizard-back-home" onClick={onExit} type="button" aria-label="Back to home screen">
-          ← Home
-        </button>
+
+      {/* ── Wizard header ─────────────────────────────────────────────────── */}
+      <div className="wizard-header">
+        {onExit && (
+          <button className="wizard-back-home" onClick={onExit} type="button"
+            aria-label="Back to home screen">
+            ← Home
+          </button>
+        )}
+        {showAutoSaved && (
+          <div className="autosave-indicator" aria-live="polite">
+            <span aria-hidden="true">☁</span> Auto-saved
+          </div>
+        )}
+        {showDiscardBtn && (
+          <button
+            className="btn-text btn-text--danger wizard-discard-btn"
+            onClick={() => setShowDiscardModal(true)}
+            type="button"
+            aria-label="Discard this check and return to home"
+          >
+            Discard check
+          </button>
+        )}
+      </div>
+
+      {/* ── Discard modal ─────────────────────────────────────────────────── */}
+      <Modal
+        open={showDiscardModal}
+        title="Discard this check?"
+        confirmLabel="Yes, discard"
+        cancelLabel="Keep working"
+        onConfirm={handleDiscardConfirm}
+        onCancel={() => setShowDiscardModal(false)}
+        danger
+      >
+        <p>All progress on this check will be permanently deleted.</p>
+        {(draft?.vehicle_id || draft?.location_id) && (
+          <p style={{ marginTop: '8px' }}>
+            <strong>{selectionLabel || `Vehicle #${draft?.vehicle_id}`}</strong>
+            {draft?.check_date && <> · <strong>{draft.check_date}</strong></>}
+          </p>
+        )}
+        <p style={{ marginTop: '8px', color: 'var(--color-text-muted)', fontSize: '15px' }}>
+          This cannot be undone. You can start a fresh check from the home screen.
+        </p>
+      </Modal>
+
+      {/* ── Progress bar (steps 1–5) ──────────────────────────────────────── */}
+      {step !== STEP.SUBMITTED && (
+        <WizardProgress
+          step={progressStep}
+          draft={draft}
+          compartments={compartmentList}
+        />
       )}
 
-      {showAutoSaved && (
-        <div className="autosave-indicator" aria-live="polite">
-          <span aria-hidden="true">☁</span> Auto-saved
-        </div>
-      )}
-
-      {step < STEP.SUBMITTED && (
-        <WizardProgress step={step} draft={draft} compartments={compartmentList} />
-      )}
-
+      {/* ── Steps ─────────────────────────────────────────────────────────── */}
       {step === STEP.VEHICLE && (
         <ErrorBoundary moduleName="Step 1 — Vehicle">
-          <Step1Vehicle draft={draft} preselectedStation={preselectedStation} onSelect={handleVehicleSelect} />
+          <Step1Vehicle
+            draft={draft}
+            preselectedStation={preselectedStation}
+            onSelect={handleVehicleSelect}
+          />
         </ErrorBoundary>
       )}
 
@@ -213,7 +336,7 @@ export default function CheckWizard({
             locationId={locationId}
             draft={draft}
             onSelectCompartment={handleSelectCompartment}
-            onReview={handleGoToReview}
+            onReview={handleReview}
           />
         </ErrorBoundary>
       )}
@@ -233,14 +356,30 @@ export default function CheckWizard({
         </ErrorBoundary>
       )}
 
-      {step === STEP.REVIEW && (
-        <ErrorBoundary moduleName="Step 4 — Review">
-          <Step4Review
+      {step === STEP.RECONCILE && (
+        <ErrorBoundary moduleName="Step 4 — Reconcile">
+          <Step4Reconcile
             draft={draft}
+            selectionLabel={selectionLabel}
+            onUpdateItem={handleUpdateItem}
+            onContinue={handleReconcileContinue}
+            onBack={() => setStep(STEP.COMPARTMENTS)}
+          />
+        </ErrorBoundary>
+      )}
+
+      {step === STEP.SUBMIT && (
+        <ErrorBoundary moduleName="Step 5 — Submit">
+          <Step5Submit
+            draft={draft}
+            checkDate={checkDate}
             vehicle={vehicle}
+            selectionLabel={selectionLabel}
             compartments={compartmentList}
             onSubmit={handleSubmit}
-            onBack={() => setStep(STEP.COMPARTMENTS)}
+            onBack={() => setStep(
+              draftNeedsReconcile(draft?.compartments) ? STEP.RECONCILE : STEP.COMPARTMENTS
+            )}
             isSubmitting={isSubmitting}
             submitError={submitError}
           />
@@ -252,6 +391,7 @@ export default function CheckWizard({
           checkId={submittedCheckId}
           draft={draft}
           vehicle={vehicle}
+          selectionLabel={selectionLabel}
           submittedAt={submittedAt}
           onStartNew={handleStartNew}
           onGoHome={onExit}

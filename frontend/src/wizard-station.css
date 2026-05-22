@@ -86,6 +86,16 @@
 
 .vehicle-card__info { flex: 1; }
 
+/* ── Portable location card (jump bag / equipment) ────────────────────────── */
+/* Dashed border visually distinguishes portable bags from vehicles.           */
+/* Snaps to solid when selected so the selection highlight is clean.           */
+.vehicle-card--portable {
+  border-style: dashed;
+}
+.vehicle-card--portable.vehicle-card--selected {
+  border-style: solid;
+}
+
 /* ── API error card ────────────────────────────────────────────────────────── */
 .api-error-card {
   display: flex;

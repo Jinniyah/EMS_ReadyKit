@@ -14,7 +14,14 @@ export const checkApi = {
   getStations: (getToken) =>
     apiGet('/api/v1/stations', getToken),
 
-  /** Inventory location for a vehicle (VEHICLE type) */
+  /**
+   * Non-vehicle checkable locations at a station (JUMP_BAG, EQUIPMENT).
+   * Returns InventoryLocationRead objects with location_id, location_type, label.
+   */
+  getStationLocations: (stationId, getToken) =>
+    apiGet(`/api/v1/stations/${stationId}/locations`, getToken),
+
+  /** All inventory locations (used to find VEHICLE location_id by vehicle_id) */
   getLocations: (getToken) =>
     apiGet('/api/v1/inventory/locations', getToken),
 

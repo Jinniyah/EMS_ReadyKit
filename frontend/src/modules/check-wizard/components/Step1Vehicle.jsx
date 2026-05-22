@@ -1,13 +1,30 @@
 /**
  * modules/check-wizard/components/Step1Vehicle.jsx
- * Step 1: Vehicle selection + date + second crew.
+ * Step 1: Vehicle / portable equipment selection + date + second crew.
  *
- * Station is pre-selected from the home screen — this step only shows
- * the vehicles at that station. The station context band is shown at top
- * as a visual reminder of which station we're working at.
+ * Two groups of selectable cards are shown:
  *
- * If no station was pre-selected (edge case), falls back to showing
- * the full station picker inline.
+ *   1. Vehicles — loaded from GET /stations/{id}/vehicles
+ *      Each vehicle card carries a vehicle_id; the orchestrator resolves
+ *      the corresponding location_id (VEHICLE type) from all locations.
+ *
+ *   2. Portable locations — loaded from GET /stations/{id}/locations
+ *      These are JUMP_BAG and EQUIPMENT locations not tied to one vehicle.
+ *      Each card carries the location_id directly — no vehicle_id resolution
+ *      needed. The label ("Jump Bag (Units 710/712)") is the display name.
+ *
+ * onSelect is called with:
+ *   {
+ *     stationId,
+ *     vehicleId,      // null for portable locations
+ *     locationId,     // set directly for portable; null for vehicles (resolved in orchestrator)
+ *     checkDate,
+ *     secondCrew,
+ *     vehicle,        // Vehicle object for vehicles; null for portable
+ *     selectionLabel, // display name for the submitted check
+ *   }
+ *
+ * Station is pre-selected from the home screen.
  */
 import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../../shared/hooks/useAuth.jsx'
@@ -17,18 +34,31 @@ import { todayIso, formatCheckDate, clampCheckDate, relativeIso } from '../../..
 import { stationColor } from '../../../shared/utils/stationColors.js'
 import Spinner from '../../../shared/components/Spinner.jsx'
 
+// Internal selection shape:
+//   { type: 'vehicle', vehicleId, vehicle }
+//   { type: 'location', locationId, label, locationType }
+const NO_SELECTION = null
+
 export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
   const { getToken } = useAuth()
 
-  const [vehicleId, setVehicleId]   = useState(draft?.vehicle_id ?? null)
+  const [selection, setSelection] = useState(() => {
+    // Restore from draft if resuming
+    if (draft?.vehicle_id) return { type: 'vehicle', vehicleId: draft.vehicle_id, vehicle: null }
+    if (draft?.location_id && !draft?.vehicle_id) return {
+      type: 'location', locationId: draft.location_id,
+      label: draft.selection_label ?? '', locationType: draft.location_type ?? 'JUMP_BAG',
+    }
+    return NO_SELECTION
+  })
+
   const [checkDate, setCheckDate]   = useState(draft?.check_date ?? todayIso())
   const [secondCrew, setSecondCrew] = useState(draft?.second_crew ?? '')
 
-  // Use preselected station from home screen
-  const station = preselectedStation ?? null
+  const station   = preselectedStation ?? null
   const stationId = station?.station_id ?? null
 
-  // Load vehicles for this station
+  // Load vehicles at this station
   const {
     data: vehicles,
     isLoading: loadingVehicles,
@@ -38,38 +68,67 @@ export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
     [stationId]
   )
 
-  // Auto-select vehicle if only one active vehicle exists
-  useEffect(() => {
-    const active = vehicles?.filter(v => v.active !== false) ?? []
-    if (active.length === 1 && vehicleId === null) {
-      setVehicleId(active[0].vehicle_id)
-    }
-  }, [vehicles, vehicleId])
+  // Load portable locations (jump bags, equipment) at this station
+  const {
+    data: portableLocations,
+    isLoading: loadingLocations,
+  } = useApi(
+    () => stationId ? checkApi.getStationLocations(stationId, getToken) : Promise.resolve(null),
+    [stationId]
+  )
 
-  // Reset vehicle selection if station somehow changes
+  // Auto-select if exactly one vehicle and no portable locations
   useEffect(() => {
-    setVehicleId(draft?.vehicle_id ?? null)
+    const activeVehicles = vehicles?.filter(v => v.active !== false) ?? []
+    const portables      = portableLocations ?? []
+    if (activeVehicles.length === 1 && portables.length === 0 && !selection) {
+      setSelection({ type: 'vehicle', vehicleId: activeVehicles[0].vehicle_id, vehicle: activeVehicles[0] })
+    }
+  }, [vehicles, portableLocations, selection])
+
+  // Reset selection if station changes
+  useEffect(() => {
+    setSelection(draft?.vehicle_id
+      ? { type: 'vehicle', vehicleId: draft.vehicle_id, vehicle: null }
+      : NO_SELECTION
+    )
   }, [stationId])
 
   const handleDateChange = useCallback((e) => {
     setCheckDate(clampCheckDate(e.target.value))
   }, [])
 
-  const canProceed = stationId && vehicleId && checkDate
-
-  // Station color
-  const colors = station ? stationColor(station.name, 0) : null
+  const canProceed = stationId && selection && checkDate
+  const colors     = station ? stationColor(station.name, 0) : null
 
   function handleProceed() {
     if (!canProceed) return
-    const selectedVehicle = vehicles?.find(v => v.vehicle_id === vehicleId)
-    onSelect({
-      stationId,
-      vehicleId,
-      checkDate,
-      secondCrew,
-      vehicle: selectedVehicle,
-    })
+
+    if (selection.type === 'vehicle') {
+      const v = vehicles?.find(v => v.vehicle_id === selection.vehicleId)
+      onSelect({
+        stationId,
+        vehicleId:      selection.vehicleId,
+        locationId:     null,   // orchestrator resolves from all locations
+        checkDate,
+        secondCrew,
+        vehicle:        v ?? null,
+        selectionLabel: v ? `Unit ${v.vehicle_number} ${v.vehicle_type}` : '',
+      })
+    } else {
+      // Portable location — location_id is known directly
+      onSelect({
+        stationId,
+        vehicleId:      null,
+        locationId:     selection.locationId,
+        checkDate,
+        secondCrew,
+        vehicle:        null,
+        selectionLabel: selection.label,
+        locationLabel:  selection.label,
+        locationType:   selection.locationType,
+      })
+    }
   }
 
   if (!station) {
@@ -86,10 +145,19 @@ export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
     )
   }
 
+  const isLoading = loadingVehicles || loadingLocations
+  const activeVehicles = vehicles?.filter(v => v.active !== false) ?? []
+  const portables      = portableLocations ?? []
+  const hasAnyItems    = activeVehicles.length > 0 || portables.length > 0
+
+  const proceedLabel = !selection
+    ? 'Select a vehicle or bag to continue'
+    : 'Continue to compartments →'
+
   return (
     <div className="wizard-step">
 
-      {/* Station context — visual reminder throughout the check */}
+      {/* Station context band */}
       <div
         className="station-band"
         style={{
@@ -109,24 +177,29 @@ export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
         </div>
       </div>
 
-      {/* Vehicle selection */}
+      {/* Selection group */}
       <div className="form-group">
-        <label className="form-label">Select vehicle</label>
-        {loadingVehicles ? (
-          <Spinner label="Loading vehicles…" size="sm" />
+        <label className="form-label">What are you checking?</label>
+
+        {isLoading ? (
+          <Spinner label="Loading…" size="sm" />
         ) : vehiclesError ? (
           <div className="api-error-card">
             <div className="api-error-card__icon">⚠️</div>
             <div className="api-error-card__title">Could not load vehicles</div>
             <div className="api-error-card__message">{vehiclesError.message}</div>
           </div>
+        ) : !hasAnyItems ? (
+          <p className="form-hint">No active vehicles or equipment at this station.</p>
         ) : (
-          <div className="vehicle-cards" role="radiogroup" aria-label="Select your vehicle">
-            {vehicles?.filter(v => v.active !== false).map(v => {
-              const isSelected = vehicleId === v.vehicle_id
+          <div className="vehicle-cards" role="radiogroup" aria-label="Select what you are checking">
+
+            {/* ── Vehicle cards ─────────────────────────────────────────── */}
+            {activeVehicles.map(v => {
+              const isSelected = selection?.type === 'vehicle' && selection.vehicleId === v.vehicle_id
               return (
                 <button
-                  key={v.vehicle_id}
+                  key={`vehicle-${v.vehicle_id}`}
                   role="radio"
                   aria-checked={isSelected}
                   className={`vehicle-card ${isSelected ? 'vehicle-card--selected' : ''}`}
@@ -134,7 +207,7 @@ export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
                     borderColor: colors.primary,
                     background: colors.light,
                   } : {}}
-                  onClick={() => setVehicleId(v.vehicle_id)}
+                  onClick={() => setSelection({ type: 'vehicle', vehicleId: v.vehicle_id, vehicle: v })}
                   type="button"
                 >
                   <div
@@ -157,9 +230,46 @@ export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
                 </button>
               )
             })}
-            {vehicles?.filter(v => v.active !== false).length === 0 && (
-              <p className="form-hint">No active vehicles at this station.</p>
-            )}
+
+            {/* ── Portable location cards (Jump Bags, Equipment) ────────── */}
+            {portables.map(loc => {
+              const isSelected = selection?.type === 'location' && selection.locationId === loc.location_id
+              const icon = loc.location_type === 'JUMP_BAG' ? '🎒' : '🔧'
+              return (
+                <button
+                  key={`loc-${loc.location_id}`}
+                  role="radio"
+                  aria-checked={isSelected}
+                  className={`vehicle-card vehicle-card--portable ${isSelected ? 'vehicle-card--selected' : ''}`}
+                  style={isSelected && colors ? {
+                    borderColor: colors.primary,
+                    background: colors.light,
+                  } : {}}
+                  onClick={() => setSelection({
+                    type:         'location',
+                    locationId:   loc.location_id,
+                    label:        loc.label,
+                    locationType: loc.location_type,
+                  })}
+                  type="button"
+                >
+                  <div
+                    className="vehicle-card__color-dot vehicle-card__color-dot--muted"
+                    style={{ background: colors?.primary ?? 'var(--color-brand)', opacity: 0.5 }}
+                    aria-hidden="true"
+                  />
+                  <div className="vehicle-card__info">
+                    <div className="vehicle-card__number">
+                      <span aria-hidden="true">{icon} </span>{loc.label}
+                    </div>
+                    <div className="vehicle-card__type">
+                      {loc.location_type === 'JUMP_BAG' ? 'Jump Bag' : 'Equipment'}
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
+
           </div>
         )}
       </div>
@@ -216,9 +326,7 @@ export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
         disabled={!canProceed}
         type="button"
       >
-        {!vehicleId
-          ? 'Select a vehicle to continue'
-          : 'Continue to compartments →'}
+        {proceedLabel}
       </button>
     </div>
   )

@@ -7,13 +7,39 @@
   padding-bottom: var(--space-xxl);
 }
 
+/* ── Wizard header bar ───────────────────────────────────────────────────────
+   Holds ← Home (left), Auto-saved (centre), Discard check (far right). ──── */
+.wizard-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: var(--tap-target);
+}
+
+.wizard-back-home {
+  font-size: var(--font-size-sm);
+  color: var(--color-brand);
+  text-decoration: underline;
+  min-height: var(--tap-target);
+  padding: var(--space-sm);
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .autosave-indicator {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
   font-size: 13px;
   color: var(--color-text-muted);
-  align-self: flex-end;
+  flex: 1;
+  justify-content: center;
+}
+
+.wizard-discard-btn {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 /* Wizard progress */
@@ -188,13 +214,25 @@
   color: var(--color-text-secondary);
 }
 
-.compartment-card__info       { flex: 1; }
-.compartment-card__name       { font-weight: 700; font-size: var(--font-size-md); }
-.compartment-card__location   { font-size: 14px; color: var(--color-text-secondary); margin-top: 2px; }
-.compartment-card__restriction{ font-size: 13px; color: var(--color-status-warn); margin-top: 2px; font-weight: 600; }
-.compartment-card__status     { display: flex; align-items: center; gap: var(--space-sm); }
-.compartment-card__status-text{ font-size: 14px; color: var(--color-text-muted); }
-.compartment-card__chevron    { font-size: 22px; color: var(--color-text-muted); }
+.compartment-card__info        { flex: 1; }
+.compartment-card__name        { font-weight: 700; font-size: var(--font-size-md); }
+.compartment-card__location    { font-size: 14px; color: var(--color-text-secondary); margin-top: 2px; }
+.compartment-card__restriction { font-size: 13px; color: var(--color-status-warn); margin-top: 2px; font-weight: 600; }
+
+.compartment-card__status       { display: flex; align-items: center; gap: var(--space-sm); }
+.compartment-card__status-text  { font-size: 14px; color: var(--color-text-muted); }
+.compartment-card__chevron      { font-size: 22px; color: var(--color-text-muted); }
+
+.compartment-card__status-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.compartment-card__in-progress-label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
 
 /* Step 3 header */
 .step3-header {
@@ -300,7 +338,6 @@
   margin-top: var(--space-xs);
 }
 
-/* Submitted card */
 .item-row__submitted-inner {
   display: flex; align-items: center;
   justify-content: space-between; gap: var(--space-md);
@@ -308,7 +345,10 @@
 
 .item-row__submitted-left  { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .item-row__submitted-count { font-size: var(--font-size-md); color: var(--color-text-secondary); display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--space-sm); }
-.item-row__zero-warning    { font-size: 13px; font-weight: 700; color: var(--color-status-warn); }
+
+.item-row__zero-warning  { font-size: 13px; font-weight: 700; color: var(--color-status-fail); }
+.item-row__short-warning { font-size: 13px; font-weight: 700; color: var(--color-status-warn); }
+.item-row__fail-tag        { font-size: 13px; font-weight: 700; color: var(--color-status-fail); }
 .item-row__submitted-note  { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; font-style: italic; }
 
 .item-row__edit-btn {
@@ -321,7 +361,6 @@
 }
 .item-row__edit-btn:hover { background: rgba(0,0,0,0.08); }
 
-/* Submit count button */
 .btn--submit-count {
   background: #1b5e20;
   color: #ffffff;
@@ -333,7 +372,6 @@
 .btn--submit-count:hover  { background: #2e7d32; }
 .btn--submit-count:active { background: #1b5e20; }
 
-/* All present button */
 .btn--all-present {
   background: var(--color-surface);
   color: var(--color-status-pass);
@@ -347,7 +385,6 @@
 }
 .btn--all-present:hover { background: var(--color-status-pass-bg); }
 
-/* Text buttons */
 .btn-text {
   font-size: var(--font-size-sm);
   color: var(--color-brand);
@@ -359,7 +396,6 @@
 .btn-text--muted  { color: var(--color-text-muted); }
 .btn-text--danger { color: var(--color-danger); }
 
-/* Supply counter */
 .supply-input { display: flex; flex-direction: column; gap: var(--space-sm); }
 .supply-input__counter { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: nowrap; }
 
@@ -380,7 +416,6 @@
   cursor: pointer; padding: 4px 8px; flex-shrink: 0;
 }
 
-/* Keypad */
 .keypad-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: flex-end; z-index: 400; }
 
 .keypad {
@@ -412,7 +447,6 @@
 .keypad__key:hover:not(.keypad__key--empty) { background: var(--color-border-light); }
 .keypad__actions { display: flex; gap: var(--space-md); justify-content: flex-end; }
 
-/* Functional input */
 .functional-input { display: flex; gap: var(--space-md); }
 
 .functional-btn {
@@ -425,14 +459,12 @@
 .functional-btn--pass.functional-btn--active { background: var(--color-status-pass-bg); border-color: var(--color-status-pass); color: var(--color-status-pass); }
 .functional-btn--fail.functional-btn--active { background: var(--color-status-fail-bg); border-color: var(--color-status-fail); color: var(--color-status-fail); }
 
-/* Measurement / date inputs */
 .measurement-input { display: flex; flex-direction: column; gap: var(--space-sm); }
 .measurement-input__label { font-size: var(--font-size-sm); font-weight: 600; color: var(--color-text-secondary); }
 .measurement-input__min   { color: var(--color-status-warn); font-weight: 700; }
 .measurement-input__field { font-size: var(--font-size-xl); font-weight: 700; text-align: center; }
 .date-record-input { display: flex; flex-direction: column; gap: var(--space-sm); }
 
-/* Step 4 review */
 .review-identity { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); background: var(--color-surface-raised); border-radius: var(--radius-md); font-size: var(--font-size-sm); }
 .review-identity__label { color: var(--color-text-muted); }
 .review-identity__name  { font-weight: 700; }
@@ -477,7 +509,6 @@
 
 .submitted-screen__meta { font-size: var(--font-size-sm); color: var(--color-text-muted); line-height: 1.8; }
 
-/* Two-button action row on the submitted screen */
 .submitted-screen__actions {
   display: flex;
   flex-direction: column;
@@ -503,3 +534,168 @@
 /* Badges */
 .badge     { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700; }
 .badge--als{ background: var(--color-status-fail-bg); color: var(--color-status-fail); }
+
+/* ── Step 4 Reconcile ─────────────────────────────────────────────────────── */
+
+/* Header row — title + share button side by side */
+.reconcile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+.reconcile-header .wizard-step__title { margin: 0; }
+
+.reconcile-share-btn {
+  flex-shrink: 0;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+/* All-clear confirmation panel */
+.reconcile-all-clear {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  background: var(--color-status-pass-bg);
+  border-radius: var(--radius-lg);
+  text-align: center;
+}
+.reconcile-all-clear--partial {
+  background: var(--color-surface-raised);
+}
+.reconcile-all-clear__icon  { font-size: 40px; color: var(--color-status-pass); }
+.reconcile-all-clear__title { font-size: var(--font-size-lg); font-weight: 700; color: var(--color-status-pass); }
+.reconcile-all-clear--partial .reconcile-all-clear__icon  { color: var(--color-text-secondary); }
+.reconcile-all-clear--partial .reconcile-all-clear__title { color: var(--color-text); }
+.reconcile-all-clear__sub   { font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+
+/* Section blocks */
+.reconcile-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.reconcile-section__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  color: var(--color-text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.reconcile-section__title--fail { color: var(--color-status-fail); }
+
+.reconcile-section__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--color-status-warn);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.reconcile-section__count--fail {
+  background: var(--color-status-fail);
+}
+
+.reconcile-section__hint {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-top: calc(-1 * var(--space-sm));
+}
+
+/* The list of rows */
+.reconcile-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* ── Reconcile row — shared base ─────────────────────────────────────────── */
+.reconcile-row {
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border-light);
+}
+
+.reconcile-row--short { background: var(--color-status-warn-bg); }
+.reconcile-row--fail  { background: var(--color-surface-raised); }
+
+.reconcile-row__info     { display: flex; flex-direction: column; gap: 2px; }
+.reconcile-row__name     { font-size: var(--font-size-md); font-weight: 700; }
+.reconcile-row__location { font-size: 13px; color: var(--color-text-secondary); }
+
+.reconcile-row__qty {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+.reconcile-row__shortage {
+  color: var(--color-status-warn);
+  font-weight: 700;
+}
+
+/* +/− counter inline */
+.reconcile-row__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.reconcile-row__count {
+  font-size: var(--font-size-xl);
+  font-weight: 800;
+  min-width: 40px;
+  text-align: center;
+  color: var(--color-brand);
+}
+
+/* Note textarea */
+.reconcile-row__note {
+  min-height: 60px;
+  font-size: var(--font-size-sm);
+}
+
+.reconcile-row__add-note {
+  align-self: flex-start;
+  font-size: var(--font-size-sm);
+}
+
+/* Fail-row specific */
+.reconcile-row__fail-reason {
+  font-size: 13px;
+  color: var(--color-status-fail);
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.reconcile-row__supervisor-badge {
+  align-self: flex-start;
+  background: var(--color-status-fail-bg);
+  color: var(--color-status-fail);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+/* Action row */
+.reconcile-actions {
+  display: flex;
+  gap: var(--space-md);
+  justify-content: space-between;
+  flex-wrap: wrap;
+}

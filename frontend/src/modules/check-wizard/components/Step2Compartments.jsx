@@ -2,14 +2,20 @@
  * modules/check-wizard/components/Step2Compartments.jsx
  * Step 2: Compartment list with status badges.
  *
- * Uses String(compartment_id) for all draft lookups — JSON round-trip
- * through localStorage converts numeric object keys to strings.
+ * Button logic:
+ *   draftNeedsReconcile() === true  → "Reconcile →"
+ *   draftNeedsReconcile() === false → "Review and Submit →"
+ *
+ * draftNeedsReconcile() returns true for both warn (SHORT) and fail
+ * (FUNCTIONAL FAIL, MISSING) items — so a check with only failed items
+ * (no short/missing supply) still routes through the Reconcile screen
+ * so the responder sees the supervisor-attention section.
  */
 import React from 'react'
 import { useAuth } from '../../../shared/hooks/useAuth.jsx'
 import { useApi } from '../../../shared/hooks/useApi.js'
 import { checkApi } from '../api/checkApi.js'
-import { compartmentStatus } from '../../../shared/utils/statusCalc.js'
+import { compartmentStatus, draftNeedsReconcile } from '../../../shared/utils/statusCalc.js'
 import StatusBadge from '../../../shared/components/StatusBadge.jsx'
 import Spinner from '../../../shared/components/Spinner.jsx'
 
@@ -33,11 +39,16 @@ export default function Step2Compartments({
     return cd?.status === 'complete'
   })
 
+  // Show "Reconcile →" if any warn or fail items exist across all compartments.
+  // Fail-only checks (e.g. functional fail, no short supply) must also route
+  // through Reconcile so the responder sees the supervisor-attention section.
+  const needsReconcile = allDone && draftNeedsReconcile(draft?.compartments)
+
   return (
     <div className="wizard-step">
       <h2 className="wizard-step__title">Step 2 — Compartments</h2>
       <p className="wizard-step__subtitle">
-        Tap a compartment to begin checking its items.
+        Tap a compartment to check its items. Yellow means restock needed; red flags for supervisor.
       </p>
 
       <div className="compartment-list" role="list">
@@ -45,12 +56,17 @@ export default function Step2Compartments({
           const cd         = draft?.compartments?.[String(comp.compartment_id)]
           const lineItems  = cd?.line_items ?? []
           const done       = cd?.status === 'complete'
-          const inProgress = cd?.status === 'in_progress'
-          const status     = done
+          const inProgress = !!cd && cd.status !== 'complete'
+
+          const itemStatus = (done || inProgress)
             ? compartmentStatus(lineItems)
-            : inProgress
-              ? { label: 'In progress', severity: 'warn', icon: '…' }
-              : { label: 'Not started', severity: 'ok', icon: '○' }
+            : null
+
+          const badgeStatus = itemStatus
+            ? (itemStatus.severity === 'fail'  ? 'FAIL'
+              : itemStatus.severity === 'warn' ? 'NEEDS_RESTOCK'
+              : 'PASS')
+            : null
 
           return (
             <button
@@ -59,11 +75,16 @@ export default function Step2Compartments({
               className={`compartment-card ${done ? 'compartment-card--done' : ''}`}
               onClick={() => onSelectCompartment(comp)}
               type="button"
-              aria-label={`${comp.name}${comp.location_descriptor ? ` — ${comp.location_descriptor}` : ''}, ${status.label}`}
+              aria-label={`${comp.name}${comp.location_descriptor ? ` — ${comp.location_descriptor}` : ''}, ${
+                !cd ? 'Not started'
+                : inProgress ? `In progress — ${itemStatus?.label ?? ''}`
+                : itemStatus?.label ?? ''
+              }`}
             >
               <div className="compartment-card__number" aria-hidden="true">
                 {idx + 1}
               </div>
+
               <div className="compartment-card__info">
                 <div className="compartment-card__name">{comp.name}</div>
                 {comp.location_descriptor && (
@@ -77,19 +98,21 @@ export default function Step2Compartments({
                   </div>
                 )}
               </div>
+
               <div className="compartment-card__status">
-                {done ? (
-                  <StatusBadge
-                    status={
-                      status.severity === 'fail' ? 'FAIL' :
-                      status.severity === 'warn' ? 'NEEDS_RESTOCK' : 'PASS'
-                    }
-                    size="sm"
-                  />
-                ) : (
+                {!cd ? (
                   <span className="compartment-card__status-text" aria-hidden="true">
-                    {status.icon} {status.label}
+                    ○ Not started
                   </span>
+                ) : (
+                  <div className="compartment-card__status-stack">
+                    <StatusBadge status={badgeStatus} size="sm" />
+                    {inProgress && (
+                      <span className="compartment-card__in-progress-label">
+                        In progress
+                      </span>
+                    )}
+                  </div>
                 )}
                 <span className="compartment-card__chevron" aria-hidden="true">›</span>
               </div>
@@ -100,7 +123,7 @@ export default function Step2Compartments({
 
       {!allDone && (
         <p className="wizard-step__hint">
-          Complete all compartments before submitting.
+          Complete all compartments before continuing.
         </p>
       )}
 
@@ -110,7 +133,11 @@ export default function Step2Compartments({
         disabled={!allDone}
         type="button"
       >
-        Review and submit →
+        {!allDone
+          ? 'Complete all compartments to continue'
+          : needsReconcile
+            ? 'Reconcile →'
+            : 'Review and Submit →'}
       </button>
     </div>
   )

@@ -1,6 +1,6 @@
 # EMS ReadyKit — Project Documentation Index
-# Document version: 1.0
-# Last updated: 2026-05-15
+# Document version: 1.2
+# Last updated: 2026-05-21
 
 ---
 
@@ -42,10 +42,10 @@ All phase documents follow this standard structure:
 | Phase 2 | `phase2_backend_api.md` | ✅ Complete | FastAPI application, domain model, REST endpoints, 74 automated tests |
 | Phase 3 | `phase3_auth_cicd.md` | ✅ Complete | Azure AD JWT auth, RBAC enforcement, GitHub Actions CI/CD pipeline |
 | Phase 4 | `phase4_compartments_line_items.md` | ✅ Complete | Compartment model, check line items, expiration tracking, lot validation |
-| Phase 5 | `phase5_frontend_pwa.md` | 📋 Planned | Progressive Web App — check wizard, supervisor dashboard, help system |
+| Phase 5 | `phase5_frontend_pwa.md` | 🔄 In Progress | Progressive Web App — 5A+5B complete; 5C–5H planned |
 | Phase 6 | `phase6_backend_extensions.md` | 📋 Planned | Backend extensions for Phase 5 supervisor, management, and notification modules |
 
-**Session handoff:** `session_handoff_2026-05-15.md` — complete state snapshot, next steps, prompt for next session
+**Session handoff:** `session_handoff_2026-05-15-continued.md` — most recent state snapshot
 
 ---
 
@@ -57,6 +57,8 @@ All phase documents follow this standard structure:
 | ADR-002 | `adr/ADR-002-RBAC.md` | Accepted | Group-based Azure AD RBAC + application-layer authorization |
 | ADR-003 | `adr/ADR-003-Logging-and-Audit.md` | Accepted | Centralized Log Analytics + explicit audit events |
 | ADR-004 | `adr/ADR-004-Terraform-Module-Structure.md` | Accepted | Modular Terraform organized by architectural responsibility |
+| ADR-005 | `adr/ADR-005-Frontend-Architecture.md` | Accepted | React PWA, modular architecture, localStorage draft |
+| ADR-006 | `adr/ADR-006-DDoS-Strategy.md` | 📋 Needed | DDoS Protection Standard cost/benefit tradeoff |
 
 ---
 
@@ -66,6 +68,8 @@ All phase documents follow this standard structure:
 |----------|---------|
 | `Requirements.md` | Functional and non-functional requirements; project framing |
 | `architecture.md` | Architecture diagram (Mermaid) with component relationships |
+| `backlog.md` | **Canonical backlog** — all open items across backend, frontend, infra, and docs |
+| `osi_security_review.md` | OSI layer-by-layer security analysis; coverage status and gap/action list |
 | `runbook.md` | Deployment, validation, and teardown procedures |
 | `help_content.md` | All tutorial, FAQ, and contextual help text (single source of truth) |
 | `req_build_order_plan.txt` | Original build sequence planning notes |
@@ -89,20 +93,20 @@ All phase documents follow this standard structure:
 | Azure AD authentication (Phase 3) | ✅ Live | RS256 JWT; three app roles |
 | RBAC enforcement (Phase 3) | ✅ Live | All endpoints protected |
 | GitHub Actions CI/CD (Phase 3) | ✅ Live | Test → Build → Deploy on push to main |
-| Compartments and line items (Phase 4) | ✅ Live | Alembic migration 0002 applied |
+| Compartments and line items (Phase 4) | ✅ Live | Alembic migrations applied |
 | Expiration tracking (Phase 4) | ✅ Live | EXPIRED status on check line items |
-| Frontend PWA (Phase 5) | ❌ Not started | Planning complete |
-| Backend extensions (Phase 6) | ❌ Not started | Planning complete |
+| Frontend PWA — Phase 5A Foundation | ✅ Local | useAuth, useDraft, statusCalc, ErrorBoundary, UserPill, DevBanner |
+| Frontend PWA — Phase 5B Check Wizard | ✅ Local | Steps 1–4, submitted screen, draft save/resume, all 5 check types |
+| Frontend PWA — Phase 5C–5H | ❌ Not started | See backlog.md |
+| Backend Phase 6 endpoints | ❌ Not started | See backlog.md |
 
 ### Test suite status
 
 | Metric | Value |
 |--------|-------|
-| Total tests | 90 |
-| Passing | 90 |
-| Failing | 0 |
-| Runtime | ~1.66 seconds |
-| Coverage areas | Models, routers, schema validation, RBAC, compartments, line items, expiration |
+| Backend tests | 90+ passing |
+| Frontend unit tests | statusCalc (35), dateHelpers (14), useDraft (3) |
+| Backend test gaps | TestCheckTypes class not yet written (see B-T1 in backlog.md) |
 
 ---
 
@@ -121,7 +125,7 @@ All phase documents follow this standard structure:
 | ASGI server | Gunicorn + UvicornWorker |
 | Authentication | Azure Active Directory (RS256 JWT) |
 | CI/CD | GitHub Actions |
-| Frontend (planned) | React PWA + MSAL |
+| Frontend | React 18 + Vite (PWA, no TypeScript) |
 | Frontend hosting (planned) | Azure Static Web Apps |
 | Testing | pytest + pytest-asyncio + Starlette TestClient |
 
@@ -151,52 +155,9 @@ All phase documents follow this standard structure:
 | Status computed server-side (immutable) | Tamper-resistant; enforces correct semantics | Phase 4 |
 | EXPIRED takes priority over MISSING | Conservative compliance; field safety | Phase 4 |
 | Linux zip build in CI/CD | Eliminates Windows backslash path issue permanently | Phase 3 |
-| localStorage offline draft | Never lose work mid-check; submit on completion only | Phase 5 |
-| Modular React architecture | Module failures are isolated; app never fully crashes | Phase 5 |
+| localStorage offline draft | Never lose work mid-check; submit on completion only | ADR-005 |
+| Modular React architecture | Module failures are isolated; app never fully crashes | ADR-005 |
 | Validate button per item | Ensures every item is explicitly acknowledged | Phase 5 |
 | Client-side CSV generation | No server-side export endpoint needed; simpler architecture | Phase 5 |
 | UTF-8 BOM on CSV download | Ensures correct rendering in Excel without manual re-encoding | Phase 5 |
-
----
-
-## Phase 6 Backend Backlog (Prioritized)
-
-| Priority | Endpoint | Required by |
-|----------|----------|-------------|
-| High | PATCH /api/v1/vehicles/{id} | Vehicle inactive/active module |
-| High | PATCH /api/v1/checks/daily/{id}/acknowledge | Supervisor FAIL check workflow |
-| High | GET /api/v1/checks/daily/station/{id}?from=&to= | Compliance calendar + CSV export |
-| High | POST /api/v1/vehicles/{id}/repair-requests | Vehicle repair reporting |
-| Medium | GET /api/v1/stations/{id}/users | Second crew picker; shift context |
-| Medium | PUT /api/v1/inventory/lots/{id} | Supervisor expiry correction |
-| Medium | PATCH /api/v1/inventory/par-levels/{id} | Par level deactivation (item removal) |
-| Medium | POST /api/v1/feedback | Feedback module |
-| Medium | GET/PATCH /api/v1/notifications | Notification module |
-| Medium | POST /api/v1/admin/user-requests | User onboarding request |
-| Medium | GET /api/v1/audit?from=&to= (date filter) | Audit event CSV export |
-| Medium | GET /api/v1/vehicles/{id}/repair-requests | Repair request CSV export |
-| High | POST /api/v1/inventory/transfer | Supply room restock during check |
-| High | GET /api/v1/inventory/locations/{id}/stock-summary | Supply room stock vs par view |
-
----
-
-## Data Export Summary
-
-Module 7 (Data Export) provides on-demand CSV downloads scoped by role:
-
-| Dataset | Supervisor scope | Administrator scope | Phase 6 endpoint needed? |
-|---------|-----------------|--------------------|--------------------------|
-| Daily check history | Own station | All stations | Yes — date range filter |
-| Check line items | Included in check response | Included | No — already in response |
-| Controlled substance checks | Own station vehicles | All vehicles | No — exists per vehicle |
-| Stock lots / inventory | Own station locations | All locations | No — exists per location |
-| Expiring lots | Own station | All | No — exists |
-| Items catalog | Global (read-only) | Global | No — exists |
-| Par levels | Own station | All | No — exists per location |
-| Audit events | Own station | All | Yes — date range filter |
-| Repair requests | Own station vehicles | All vehicles | Yes — new endpoint |
-
-**CSV format:** UTF-8 with BOM, RFC 4180, ISO 8601 dates, blank empty fields.
-**Generation:** Client-side from API response data (`utils/csvBuilder.js`).
-**Download trigger:** Browser file download via `utils/csvDownload.js`.
-**Filename:** `{dataset}_{scope}_{from}_to_{to}.csv`
+| Display-only role switching (crew mode) | No re-auth needed; JWT unchanged; UI hides irrelevant tools | Phase 5 |

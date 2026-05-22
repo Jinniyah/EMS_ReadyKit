@@ -3,8 +3,12 @@ seed.py
 Seed data for EMS ReadyKit development database.
 
 Stations seeded:
-    1. Newberg Township Station 1 — Ambulance 712 (BLS) + Jump Bag
+    1. Newberg Township Station 1 — Ambulance 712 (BLS) + Unit 712 Jump Bag + Unit 710 Jump Bag
     2. Marcellus Township Station 1 — Ambulance 540 (ALS)
+    3. ⚠ TEST STATION — Dev Only (Unit TEST QRV — 2 compartments, 7 items, all check types)
+
+Jump bags are one-per-ambulance, named "Unit NNN Jump Bag" so they sort
+alphabetically alongside their parent unit in Step 1 of the check wizard.
 
 The item catalog is SHARED across all stations. The same item (e.g. "Adult BVM")
 appears in both trucks — but each truck has its own compartments and its own
@@ -117,25 +121,63 @@ def make_compartment(
     return comp
 
 
+def purge_wrong_drug_cabinets(db: Session, loc: InventoryLocation, is_als: bool) -> None:
+    """
+    Remove any PC 9 drug cabinet compartments (and their par levels) that belong
+    to the wrong unit type for this location.
+    """
+    wrong_names = (
+        ["PC 9 BLS Drug Cabinet", "BLS Drug Bag"] if is_als
+        else ["PC 9 ALS Drug Cabinet", "ALS Drug Bag"]
+    )
+    for name in wrong_names:
+        comp = db.query(Compartment).filter(
+            Compartment.location_id == loc.location_id,
+            Compartment.name == name,
+        ).first()
+        if comp:
+            db.query(ParLevel).filter(
+                ParLevel.compartment_id == comp.compartment_id
+            ).delete(synchronize_session=False)
+            db.delete(comp)
+            print(f"    Purged stale compartment: '{name}' from location {loc.location_id}")
+    db.flush()
+
+
+def get_or_create_jump_bag_location(
+    db: Session, *, station_id: int, label: str
+) -> tuple[InventoryLocation, bool]:
+    """Return (location, created) for a jump bag with the given label. Idempotent."""
+    loc = db.query(InventoryLocation).filter(
+        InventoryLocation.station_id == station_id,
+        InventoryLocation.location_type == LocationType.JUMP_BAG,
+        InventoryLocation.label == label,
+    ).first()
+    if loc:
+        return loc, False
+    loc = InventoryLocation(
+        location_type=LocationType.JUMP_BAG,
+        station_id=station_id,
+        label=label,
+    )
+    db.add(loc)
+    db.flush()
+    return loc, True
+
+
 # ---------------------------------------------------------------------------
-# Shared compartment builder
-# Builds the standard Ambulance 712 inventory layout on ANY location.
-# Called for both 712 (BLS) and 540 (ALS) so they share the same structure.
-# ALS-specific compartments (PC 9 ALS Drug Cabinet) are only added when
-# is_als=True; BLS drug bag is only added when is_als=False.
+# Ambulance inventory builder
 # ---------------------------------------------------------------------------
 
 def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool) -> None:
     """Create all compartments and par levels for a standard ambulance location."""
 
-    # ── PC 1 (Airway) ─────────────────────────────────────────────────────────
     pc1 = make_compartment(db, location=loc, name="PC 1 (Airway)", sort_order=1,
                            location_descriptor="Interior, left side, forward")
     for name, qty in [("Adult BVM", 1), ("S/M CPAP", 1), ("L CPAP", 1)]:
         add_par(db, item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
                 location=loc, compartment=pc1, min_qty=qty)
 
-    # ── PC 2 (Airway) ─────────────────────────────────────────────────────────
     pc2 = make_compartment(db, location=loc, name="PC 2 (Airway)", sort_order=2,
                            location_descriptor="Interior, left side")
     for name, uom in [("Combi-Tubes 37F & 41F", "each"), ("Extra Syringes", "each"),
@@ -144,14 +186,12 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
                                             unit_of_measure=uom),
                 location=loc, compartment=pc2, min_qty=1)
 
-    # ── PC 3 (Airway) ─────────────────────────────────────────────────────────
     pc3 = make_compartment(db, location=loc, name="PC 3 (Airway)", sort_order=3,
                            location_descriptor="Interior, left side")
     for name in ["Adult NAS", "Adult NRB", "Stethoscope"]:
         add_par(db, item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
                 location=loc, compartment=pc3, min_qty=1)
 
-    # ── PC 4 (Airway) ─────────────────────────────────────────────────────────
     pc4 = make_compartment(db, location=loc, name="PC 4 (Airway)", sort_order=4,
                            location_descriptor="Interior, left side")
     for name, cat in [("OPAs/NPAs", ItemCategory.CONSUMABLE),
@@ -160,7 +200,6 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
         add_par(db, item=get_or_create_item(db, name=name, category=cat),
                 location=loc, compartment=pc4, min_qty=1)
 
-    # ── Admin Counter ─────────────────────────────────────────────────────────
     admin_counter = make_compartment(db, location=loc, name="Admin Counter", sort_order=5,
                                      location_descriptor="Interior, admin counter near driver")
     for name, cat, ct, qty in [
@@ -186,7 +225,6 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
                                             unit_of_measure=uom),
                 location=loc, compartment=admin_counter, min_qty=qty)
 
-    # ── Suction Drawer ────────────────────────────────────────────────────────
     suction = make_compartment(db, location=loc, name="Suction Drawer", sort_order=6,
                                location_descriptor="Interior, suction drawer")
     for name, qty in [("Soft Suction Tips 6F", 3), ("Soft Suction Tips 10F", 3),
@@ -194,7 +232,6 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
         add_par(db, item=get_or_create_item(db, name=name, category=ItemCategory.CONSUMABLE),
                 location=loc, compartment=suction, min_qty=qty)
 
-    # ── Admin Cabinet ─────────────────────────────────────────────────────────
     admin_cab = make_compartment(db, location=loc, name="Admin Cabinet", sort_order=7,
                                  location_descriptor="Interior, behind airway seat")
     for name, cat, ct in [
@@ -208,7 +245,6 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
                                             unit_of_measure=uom),
                 location=loc, compartment=admin_cab, min_qty=1)
 
-    # ── PC 5 (PPE) ────────────────────────────────────────────────────────────
     pc5 = make_compartment(db, location=loc, name="PC 5 (PPE)", sort_order=8,
                            location_descriptor="Interior, PPE compartment")
     for name in ["Glove Boxes Small", "Glove Boxes Medium", "Glove Boxes Large",
@@ -218,7 +254,6 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
         add_par(db, item=get_or_create_item(db, name=name, category=ItemCategory.CONSUMABLE),
                 location=loc, compartment=pc5, min_qty=1)
 
-    # ── PC 6 ──────────────────────────────────────────────────────────────────
     pc6 = make_compartment(db, location=loc, name="PC 6", sort_order=9,
                            location_descriptor="Interior")
     for name, cat in [("Wrist BP Monitor", ItemCategory.EQUIPMENT),
@@ -229,7 +264,6 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
         add_par(db, item=get_or_create_item(db, name=name, category=cat),
                 location=loc, compartment=pc6, min_qty=1)
 
-    # ── PC 7 ──────────────────────────────────────────────────────────────────
     pc7 = make_compartment(db, location=loc, name="PC 7", sort_order=10,
                            location_descriptor="Interior, patient compartment")
     for name, qty in [("Emesis Containers", 20), ("Bedpan", 1), ("C-Collars PC7", 1),
@@ -238,7 +272,6 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
         add_par(db, item=get_or_create_item(db, name=name, category=cat),
                 location=loc, compartment=pc7, min_qty=qty)
 
-    # ── PC 8 — AED, LUCAS, Portable Suction ───────────────────────────────────
     pc8 = make_compartment(db, location=loc, name="PC 8", sort_order=11,
                            location_descriptor="Interior, driver side")
     add_par(db, item=get_or_create_item(db, name="Portable Suction Unit",
@@ -254,10 +287,14 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
                                         unit_of_measure="N/A", recurrence_days=90),
             location=loc, compartment=pc8, min_qty=1)
     add_par(db, item=get_or_create_item(db, name="AED Pads Adult",
-                                        category=ItemCategory.CONSUMABLE),
+                                        category=ItemCategory.CONSUMABLE,
+                                        check_type=ItemCheckType.DATE_RECORD,
+                                        unit_of_measure="N/A"),
             location=loc, compartment=pc8, min_qty=1)
     add_par(db, item=get_or_create_item(db, name="AED Pads Pediatric",
-                                        category=ItemCategory.CONSUMABLE),
+                                        category=ItemCategory.CONSUMABLE,
+                                        check_type=ItemCheckType.DATE_RECORD,
+                                        unit_of_measure="N/A"),
             location=loc, compartment=pc8, min_qty=1)
     add_par(db, item=get_or_create_item(db, name="LUCAS Device",
                                         category=ItemCategory.EQUIPMENT),
@@ -268,9 +305,9 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
                                         unit_of_measure="N/A", recurrence_days=30),
             location=loc, compartment=pc8, min_qty=1)
 
-    # ── PC 9 — Drug Cabinet (BLS or ALS depending on unit type) ──────────────
+    purge_wrong_drug_cabinets(db, loc, is_als)
+
     if is_als:
-        # ALS Drug Cabinet — controlled substances, dual-signature required
         pc9 = make_compartment(db, location=loc, name="PC 9 ALS Drug Cabinet",
                                sort_order=12,
                                location_descriptor="Interior, ALS drug cabinet",
@@ -292,33 +329,24 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
                                                 controlled_substance=controlled),
                     location=loc, compartment=pc9, min_qty=1)
 
-        # ALS Drug Bag contents
         als_drug = make_compartment(db, location=loc, name="ALS Drug Bag",
                                     sort_order=13,
                                     location_descriptor="Interior, PC 9 ALS drug cabinet",
                                     als_only=True)
         for name, controlled in [
-            ("Intranasal Naloxone",   False),
-            ("Albuterol Inhalation",  False),
-            ("Low Dose Aspirin",      False),
-            ("Epinephrine IM",        False),
-            ("Adenosine",             False),
-            ("Amiodarone",            False),
-            ("Atropine",              False),
-            ("Dopamine",              False),
-            ("Sodium Bicarbonate",    False),
-            ("Dextrose 50%",          False),
-            ("Nitroglycerin SL",      False),
-            ("Syringes BLS",          False),
-            ("Needles BLS",           False),
-            ("Alcohol Preps BLS",     False),
+            ("Intranasal Naloxone",   False), ("Albuterol Inhalation",  False),
+            ("Low Dose Aspirin",      False), ("Epinephrine IM",        False),
+            ("Adenosine",             False), ("Amiodarone",            False),
+            ("Atropine",              False), ("Dopamine",              False),
+            ("Sodium Bicarbonate",    False), ("Dextrose 50%",          False),
+            ("Nitroglycerin SL",      False), ("Syringes BLS",          False),
+            ("Needles BLS",           False), ("Alcohol Preps BLS",     False),
         ]:
             add_par(db, item=get_or_create_item(db, name=name,
                                                 category=ItemCategory.MEDICATION,
                                                 controlled_substance=controlled),
                     location=loc, compartment=als_drug, min_qty=1)
     else:
-        # BLS Drug Cabinet — no controlled substances
         pc9 = make_compartment(db, location=loc, name="PC 9 BLS Drug Cabinet",
                                sort_order=12,
                                location_descriptor="Interior, BLS drug cabinet")
@@ -340,21 +368,18 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
             add_par(db, item=get_or_create_item(db, name=name, category=ItemCategory.MEDICATION),
                     location=loc, compartment=bls_drug, min_qty=1)
 
-    # ── PC 10 (Linens) ───────────────────────────────────────────────────────
     pc10 = make_compartment(db, location=loc, name="PC 10 (Linens)", sort_order=14,
                             location_descriptor="Interior, linen storage")
     for name in ["Sheets", "Blankets"]:
         add_par(db, item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
                 location=loc, compartment=pc10, min_qty=1)
 
-    # ── PC 11 (Linens) ───────────────────────────────────────────────────────
     pc11 = make_compartment(db, location=loc, name="PC 11 (Linens)", sort_order=15,
                             location_descriptor="Interior, linen storage")
     for name in ["Pillow Cases", "Towels PC11"]:
         add_par(db, item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
                 location=loc, compartment=pc11, min_qty=1)
 
-    # ── Bench ─────────────────────────────────────────────────────────────────
     bench = make_compartment(db, location=loc, name="Bench", sort_order=16,
                              location_descriptor="Interior, squad bench")
     for name, qty in [("Multi-Cuff BP Cuff System", 1), ("SpO2 Monitor", 1),
@@ -364,7 +389,6 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
         add_par(db, item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
                 location=loc, compartment=bench, min_qty=qty)
 
-    # ── Glove Compartment ─────────────────────────────────────────────────────
     glove_comp = make_compartment(db, location=loc, name="Glove Compartment", sort_order=17,
                                   location_descriptor="Interior, glove storage")
     for size in ["Small", "Medium", "Large", "X-Large"]:
@@ -372,7 +396,6 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
                                             category=ItemCategory.CONSUMABLE),
                 location=loc, compartment=glove_comp, min_qty=1)
 
-    # ── PC 12 (Trauma) ───────────────────────────────────────────────────────
     pc12 = make_compartment(db, location=loc, name="PC 12 (Trauma)", sort_order=18,
                             location_descriptor="Interior, trauma supplies")
     for name, qty in [("Burn Sheets", 1), ("Trauma Dressings", 1), ("Hot Packs", 1),
@@ -382,7 +405,6 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
         add_par(db, item=get_or_create_item(db, name=name, category=cat),
                 location=loc, compartment=pc12, min_qty=qty)
 
-    # ── PC 13 (Trauma) ───────────────────────────────────────────────────────
     pc13 = make_compartment(db, location=loc, name="PC 13 (Trauma)", sort_order=19,
                             location_descriptor="Interior, trauma supplies")
     for name, qty in [
@@ -395,7 +417,6 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
         add_par(db, item=get_or_create_item(db, name=name, category=ItemCategory.CONSUMABLE),
                 location=loc, compartment=pc13, min_qty=qty)
 
-    # ── PC 14 ─────────────────────────────────────────────────────────────────
     pc14 = make_compartment(db, location=loc, name="PC 14", sort_order=20,
                             location_descriptor="Interior, rear")
     for name, qty in [
@@ -409,21 +430,18 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
         add_par(db, item=get_or_create_item(db, name=name, category=cat),
                 location=loc, compartment=pc14, min_qty=qty)
 
-    # ── PC 15 (Infant Airway) ─────────────────────────────────────────────────
     pc15 = make_compartment(db, location=loc, name="PC 15 (Infant Airway)", sort_order=21,
                             location_descriptor="Interior")
     for name in ["Infant NRB", "Infant NAS", "Infant BVM"]:
         add_par(db, item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
                 location=loc, compartment=pc15, min_qty=1)
 
-    # ── PC 16 (Pediatric Airway) ──────────────────────────────────────────────
     pc16 = make_compartment(db, location=loc, name="PC 16 (Pediatric Airway)", sort_order=22,
                             location_descriptor="Interior")
     for name in ["Pediatric NRB", "Pediatric NAS", "Pediatric BVM", "Pediatric Nebulizer"]:
         add_par(db, item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
                 location=loc, compartment=pc16, min_qty=1)
 
-    # ── Charger Counter ───────────────────────────────────────────────────────
     charger = make_compartment(db, location=loc, name="Charger Counter", sort_order=23,
                                location_descriptor="Interior, charger counter")
     for name in ["Pediatric First-In Bag", "Cot Battery Charger",
@@ -431,14 +449,12 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
         add_par(db, item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
                 location=loc, compartment=charger, min_qty=1)
 
-    # ── PC 17 ─────────────────────────────────────────────────────────────────
     pc17 = make_compartment(db, location=loc, name="PC 17", sort_order=24,
                             location_descriptor="Interior")
     add_par(db, item=get_or_create_item(db, name="Patient Restraints",
                                         category=ItemCategory.EQUIPMENT),
             location=loc, compartment=pc17, min_qty=1)
 
-    # ── PC 18 (Tools & Glucometer) ────────────────────────────────────────────
     pc18 = make_compartment(db, location=loc, name="PC 18 (Tools)", sort_order=25,
                             location_descriptor="Interior")
     for name in ["Stethoscope PC18", "Thermometer PC18", "Ring Cutter",
@@ -456,7 +472,6 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
                                         category=ItemCategory.EQUIPMENT),
             location=loc, compartment=pc18, min_qty=1)
 
-    # ── Stretcher ─────────────────────────────────────────────────────────────
     stretcher = make_compartment(db, location=loc, name="Stretcher", sort_order=26,
                                  location_descriptor="Patient stretcher / cot")
     add_par(db, item=get_or_create_item(db, name="Stretcher O2 Tank w/ Regulator",
@@ -473,7 +488,6 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
                                         check_type=ItemCheckType.FUNCTIONAL, unit_of_measure="N/A"),
             location=loc, compartment=stretcher, min_qty=1)
 
-    # ── Driver Side EC 1 ──────────────────────────────────────────────────────
     ds_ec1 = make_compartment(db, location=loc, name="Driver Side EC 1", sort_order=30,
                               location_descriptor="Exterior, driver side, forward bay")
     for name in ["Long-board Splints", "K.E.D. Board", "Adult Traction Splint",
@@ -490,7 +504,6 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
                                         measurement_minimum=500.0, measurement_maximum=2200.0),
             location=loc, compartment=ds_ec1, min_qty=1)
 
-    # ── Driverside EC 2 ───────────────────────────────────────────────────────
     ds_ec2 = make_compartment(db, location=loc, name="Driverside EC 2", sort_order=31,
                               location_descriptor="Exterior, driver side, middle bay")
     for name, qty in [("Scene Light", 1), ("Water Bottles", 10), ("Bio-Hazard Bags", 1),
@@ -500,25 +513,21 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
         add_par(db, item=get_or_create_item(db, name=name, category=cat),
                 location=loc, compartment=ds_ec2, min_qty=qty)
 
-    # ── Driver Side EC 3 ──────────────────────────────────────────────────────
     ds_ec3 = make_compartment(db, location=loc, name="Driver Side EC 3", sort_order=32,
                               location_descriptor="Exterior, driver side, rear bay")
     for name in ["Mega-Movers DS3", "Stair Chair"]:
         add_par(db, item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
                 location=loc, compartment=ds_ec3, min_qty=1)
 
-    # ── Passenger Side EC 1 ───────────────────────────────────────────────────
     make_compartment(db, location=loc, name="Passenger Side EC 1", sort_order=33,
                      location_descriptor="Exterior, passenger side, forward bay")
 
-    # ── Passenger Side EC 2 ───────────────────────────────────────────────────
     ps_ec2 = make_compartment(db, location=loc, name="Passenger Side EC 2", sort_order=34,
                               location_descriptor="Exterior, passenger side, middle bay")
     for name in ["Fire Extinguisher", "Jumper Cables", "Traction Splint PS"]:
         add_par(db, item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
                 location=loc, compartment=ps_ec2, min_qty=1)
 
-    # ── Passenger Side EC 3 ───────────────────────────────────────────────────
     ps_ec3 = make_compartment(db, location=loc, name="Passenger Side EC 3", sort_order=35,
                               location_descriptor="Exterior, passenger side, rear bay")
     for name, qty in [("Long Board", 2), ("Short Board", 2), ("Board Straps", 2),
@@ -528,7 +537,6 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
                                             unit_of_measure=uom),
                 location=loc, compartment=ps_ec3, min_qty=qty)
 
-    # ── Truck Operations ──────────────────────────────────────────────────────
     truck_ops = make_compartment(db, location=loc, name="Truck Operations", sort_order=40,
                                  location_descriptor="Operational vehicle systems check")
     for name in [
@@ -550,7 +558,6 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
                                             category=ItemCategory.CONSUMABLE),
                 location=loc, compartment=truck_ops, min_qty=1)
 
-    # ── Under Hood (restricted) ───────────────────────────────────────────────
     under_hood = make_compartment(
         db, location=loc, name="Under Hood", sort_order=99,
         location_descriptor="Engine compartment",
@@ -564,6 +571,10 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
                                             unit_of_measure="N/A"),
                 location=loc, compartment=under_hood, min_qty=1)
 
+
+# ---------------------------------------------------------------------------
+# Jump bag inventory builder
+# ---------------------------------------------------------------------------
 
 def build_jump_bag(db: Session, jb: InventoryLocation) -> None:
     """Build the standard jump bag compartments and par levels."""
@@ -659,6 +670,119 @@ def build_jump_bag(db: Session, jb: InventoryLocation) -> None:
 
 
 # ---------------------------------------------------------------------------
+# TEST unit inventory builder
+# ---------------------------------------------------------------------------
+
+def build_test_inventory(db: Session, loc: InventoryLocation) -> None:
+    """
+    Build a minimal test inventory covering all 5 check types plus a
+    deliberate SHORT item (to trigger the Reconcile step) and a deliberate
+    FUNCTIONAL FAIL item (to show the supervisor section in Reconcile).
+
+    Layout:
+        Compartment 1 — Check Type Sampler  (5 items, all green if counted correctly)
+            [TEST] Supply Item         SUPPLY       need 3
+            [TEST] O2 PSI Reading      MEASUREMENT  min 500 PSI
+            [TEST] Equipment Battery   FUNCTIONAL   pass/fail
+            [TEST] Last Service Date   DATE_RECORD
+            [TEST] Protocol Document   DOCUMENT     need 1
+
+        Compartment 2 — Reconcile Trigger   (2 items, always forces Reconcile step)
+            [TEST] Short Supply        SUPPLY       need 5  ← intentionally short at 2
+            [TEST] Broken Equipment    FUNCTIONAL   ← intentionally fails → supervisor section
+
+    All item names are prefixed [TEST] so they are identifiable in any list.
+    """
+
+    # ── Compartment 1 — Check Type Sampler ───────────────────────────────────
+    comp1 = make_compartment(
+        db, location=loc, name="Compartment 1 — Check Types", sort_order=1,
+        location_descriptor="⚠ Test data only — covers all 5 check types",
+    )
+
+    # SUPPLY: count-based item — tap + three times to meet par
+    add_par(
+        db,
+        item=get_or_create_item(db, name="[TEST] Supply Item",
+                                category=ItemCategory.CONSUMABLE,
+                                check_type=ItemCheckType.SUPPLY,
+                                unit_of_measure="each"),
+        location=loc, compartment=comp1, min_qty=3,
+    )
+
+    # MEASUREMENT: PSI reading — enter any number ≥ 500
+    add_par(
+        db,
+        item=get_or_create_item(db, name="[TEST] O2 PSI Reading",
+                                category=ItemCategory.EQUIPMENT,
+                                check_type=ItemCheckType.MEASUREMENT,
+                                unit_of_measure="PSI",
+                                measurement_minimum=500.0,
+                                measurement_maximum=2200.0),
+        location=loc, compartment=comp1, min_qty=1,
+    )
+
+    # FUNCTIONAL: pass/fail — tap Pass to clear green
+    add_par(
+        db,
+        item=get_or_create_item(db, name="[TEST] Equipment Battery",
+                                category=ItemCategory.EQUIPMENT,
+                                check_type=ItemCheckType.FUNCTIONAL,
+                                unit_of_measure="N/A"),
+        location=loc, compartment=comp1, min_qty=1,
+    )
+
+    # DATE_RECORD: pick today's date
+    add_par(
+        db,
+        item=get_or_create_item(db, name="[TEST] Last Service Date",
+                                category=ItemCategory.EQUIPMENT,
+                                check_type=ItemCheckType.DATE_RECORD,
+                                unit_of_measure="N/A",
+                                recurrence_days=30),
+        location=loc, compartment=comp1, min_qty=1,
+    )
+
+    # DOCUMENT: presence check — tap All 1 present to clear green
+    add_par(
+        db,
+        item=get_or_create_item(db, name="[TEST] Protocol Document",
+                                category=ItemCategory.DOCUMENT,
+                                check_type=ItemCheckType.DOCUMENT,
+                                unit_of_measure="N/A"),
+        location=loc, compartment=comp1, min_qty=1,
+    )
+
+    # ── Compartment 2 — Reconcile Trigger ─────────────────────────────────────
+    comp2 = make_compartment(
+        db, location=loc, name="Compartment 2 — Reconcile Trigger", sort_order=2,
+        location_descriptor="⚠ Intentional short + fail — forces Reconcile step",
+    )
+
+    # SHORT SUPPLY: need 5 — the responder will see this as yellow on Step 2
+    # and will land on Step 4 Reconcile. Tap + five times to clear it.
+    add_par(
+        db,
+        item=get_or_create_item(db, name="[TEST] Short Supply",
+                                category=ItemCategory.CONSUMABLE,
+                                check_type=ItemCheckType.SUPPLY,
+                                unit_of_measure="each"),
+        location=loc, compartment=comp2, min_qty=5,
+    )
+
+    # FUNCTIONAL FAIL: tap Fail to exercise the red/supervisor section in Reconcile.
+    # This item does NOT block submission — it appears read-only in Reconcile.
+    add_par(
+        db,
+        item=get_or_create_item(db, name="[TEST] Broken Equipment",
+                                category=ItemCategory.EQUIPMENT,
+                                check_type=ItemCheckType.FUNCTIONAL,
+                                unit_of_measure="N/A"),
+        location=loc, compartment=comp2, min_qty=1,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Main seed
 # ---------------------------------------------------------------------------
 
@@ -666,7 +790,7 @@ def seed(db: Session) -> None:
 
     # =========================================================================
     # STATION 1 — Newberg Township
-    # Ambulance 712 (BLS) + Jump Bag shared with 710
+    # Ambulance 712 (BLS) + Unit 712 Jump Bag + Unit 710 Jump Bag
     # =========================================================================
     print("Seeding Newberg Township Station 1...")
 
@@ -679,7 +803,6 @@ def seed(db: Session) -> None:
         db.flush()
         print(f"  Created station: {newberg.name}")
 
-    # Supply room
     if not db.query(InventoryLocation).filter(
         InventoryLocation.station_id == newberg.station_id,
         InventoryLocation.location_type == LocationType.STATION_SUPPLY_ROOM,
@@ -689,7 +812,6 @@ def seed(db: Session) -> None:
                                  label="Newberg Station 1 Supply Room"))
         db.flush()
 
-    # Vehicle 712 — BLS
     v712 = db.query(Vehicle).filter(Vehicle.vehicle_number == "712").first()
     if not v712:
         v712 = Vehicle(station_id=newberg.station_id, vehicle_number="712",
@@ -699,49 +821,61 @@ def seed(db: Session) -> None:
         loc712 = InventoryLocation(location_type=LocationType.VEHICLE,
                                    station_id=newberg.station_id,
                                    vehicle_id=v712.vehicle_id,
-                                   label="Unit 712 — BLS Ambulance")
+                                   label="Unit 712 BLS")
         db.add(loc712)
         db.flush()
-        print(f"  Created vehicle 712 (BLS)")
+        print("  Created vehicle 712 (BLS)")
     else:
-        # Correct type if previously seeded as ALS
         if v712.vehicle_type != VehicleType.BLS:
             print(f"  Correcting Vehicle 712: {v712.vehicle_type} → BLS")
             v712.vehicle_type = VehicleType.BLS
             db.flush()
         loc712 = db.query(InventoryLocation).filter(
             InventoryLocation.vehicle_id == v712.vehicle_id).first()
+        if loc712 and loc712.label != "Unit 712 BLS":
+            print(f"  Renaming 712 location: '{loc712.label}' → 'Unit 712 BLS'")
+            loc712.label = "Unit 712 BLS"
+            db.flush()
 
-    # Jump Bag (shared 710/712)
-    jb_loc = db.query(InventoryLocation).filter(
+    old_shared_jb = db.query(InventoryLocation).filter(
         InventoryLocation.station_id == newberg.station_id,
         InventoryLocation.location_type == LocationType.JUMP_BAG,
+        InventoryLocation.label == "Jump Bag (Units 710/712)",
     ).first()
-    if not jb_loc:
-        jb_loc = InventoryLocation(location_type=LocationType.JUMP_BAG,
-                                   station_id=newberg.station_id,
-                                   label="Jump Bag (Units 710/712)")
-        db.add(jb_loc)
+    if old_shared_jb:
+        old_shared_jb.label = "Unit 712 Jump Bag"
         db.flush()
-        print("  Created jump bag location")
+        print("  Renamed legacy jump bag → 'Unit 712 Jump Bag'")
 
-    print("  Building 712 inventory...")
+    jb_712, created_712 = get_or_create_jump_bag_location(
+        db, station_id=newberg.station_id, label="Unit 712 Jump Bag"
+    )
+    if created_712:
+        print("  Created Unit 712 Jump Bag location")
+
+    jb_710, created_710 = get_or_create_jump_bag_location(
+        db, station_id=newberg.station_id, label="Unit 710 Jump Bag"
+    )
+    if created_710:
+        print("  Created Unit 710 Jump Bag location")
+
+    print("  Building Unit 712 ambulance inventory...")
     build_ambulance_inventory(db, loc712, is_als=False)
-    build_jump_bag(db, jb_loc)
+    print("  Building Unit 712 Jump Bag inventory...")
+    build_jump_bag(db, jb_712)
+    print("  Building Unit 710 Jump Bag inventory...")
+    build_jump_bag(db, jb_710)
 
     newberg_comp_count = db.query(Compartment).filter(
-        Compartment.location_id.in_([loc712.location_id, jb_loc.location_id])
+        Compartment.location_id.in_([loc712.location_id, jb_712.location_id, jb_710.location_id])
     ).count()
     newberg_par_count = db.query(ParLevel).filter(
-        ParLevel.location_id.in_([loc712.location_id, jb_loc.location_id])
+        ParLevel.location_id.in_([loc712.location_id, jb_712.location_id, jb_710.location_id])
     ).count()
 
     # =========================================================================
     # STATION 2 — Marcellus Township
     # Ambulance 540 (ALS)
-    # Same inventory structure as 712 but with ALS drug cabinet.
-    # Items are shared from the global catalog — only new compartments and
-    # par levels are created for 540's own location.
     # =========================================================================
     print("\nSeeding Marcellus Township Station 1...")
 
@@ -754,7 +888,6 @@ def seed(db: Session) -> None:
         db.flush()
         print(f"  Created station: {marcellus.name}")
 
-    # Supply room
     if not db.query(InventoryLocation).filter(
         InventoryLocation.station_id == marcellus.station_id,
         InventoryLocation.location_type == LocationType.STATION_SUPPLY_ROOM,
@@ -764,7 +897,6 @@ def seed(db: Session) -> None:
                                  label="Marcellus Station 1 Supply Room"))
         db.flush()
 
-    # Vehicle 540 — ALS
     v540 = db.query(Vehicle).filter(Vehicle.vehicle_number == "540").first()
     if not v540:
         v540 = Vehicle(station_id=marcellus.station_id, vehicle_number="540",
@@ -774,15 +906,19 @@ def seed(db: Session) -> None:
         loc540 = InventoryLocation(location_type=LocationType.VEHICLE,
                                    station_id=marcellus.station_id,
                                    vehicle_id=v540.vehicle_id,
-                                   label="Unit 540 — ALS Ambulance")
+                                   label="Unit 540 ALS")
         db.add(loc540)
         db.flush()
-        print(f"  Created vehicle 540 (ALS)")
+        print("  Created vehicle 540 (ALS)")
     else:
         loc540 = db.query(InventoryLocation).filter(
             InventoryLocation.vehicle_id == v540.vehicle_id).first()
+        if loc540 and loc540.label != "Unit 540 ALS":
+            print(f"  Renaming 540 location: '{loc540.label}' → 'Unit 540 ALS'")
+            loc540.label = "Unit 540 ALS"
+            db.flush()
 
-    print("  Building 540 inventory...")
+    print("  Building Unit 540 ambulance inventory...")
     build_ambulance_inventory(db, loc540, is_als=True)
 
     marcellus_comp_count = db.query(Compartment).filter(
@@ -790,6 +926,67 @@ def seed(db: Session) -> None:
     ).count()
     marcellus_par_count = db.query(ParLevel).filter(
         ParLevel.location_id == loc540.location_id
+    ).count()
+
+    # =========================================================================
+    # STATION 3 — ⚠ TEST STATION (Dev Only)
+    #
+    # Purpose: fast end-to-end testing of all 5 wizard steps in under 5 min.
+    # Contains 2 compartments and 7 items covering all check types plus a
+    # deliberate SHORT (forces Reconcile) and deliberate FAIL (shows supervisor
+    # section in Reconcile). DO NOT use for real inventory checks.
+    #
+    # Unit TEST QRV shows in Step 1 alongside real vehicles. Station name and
+    # vehicle number make it impossible to mistake for real operational data.
+    # =========================================================================
+    print("\nSeeding ⚠ TEST STATION — Dev Only...")
+
+    test_station = db.query(Station).filter(
+        Station.name == "⚠ TEST STATION — Dev Only"
+    ).first()
+    if not test_station:
+        test_station = Station(
+            name="⚠ TEST STATION — Dev Only",
+            address="Dev Environment",
+            region="⚠ Not a real station",
+            active=True,
+        )
+        db.add(test_station)
+        db.flush()
+        print("  Created test station")
+
+    v_test = db.query(Vehicle).filter(Vehicle.vehicle_number == "TEST").first()
+    if not v_test:
+        v_test = Vehicle(
+            station_id=test_station.station_id,
+            vehicle_number="TEST",
+            vehicle_type=VehicleType.QRV,
+            active=True,
+        )
+        db.add(v_test)
+        db.flush()
+        loc_test = InventoryLocation(
+            location_type=LocationType.VEHICLE,
+            station_id=test_station.station_id,
+            vehicle_id=v_test.vehicle_id,
+            label="Unit TEST ⚠ Dev Only",
+        )
+        db.add(loc_test)
+        db.flush()
+        print("  Created Unit TEST (QRV)")
+    else:
+        loc_test = db.query(InventoryLocation).filter(
+            InventoryLocation.vehicle_id == v_test.vehicle_id
+        ).first()
+
+    print("  Building Unit TEST inventory (2 compartments, 7 items)...")
+    build_test_inventory(db, loc_test)
+
+    test_comp_count = db.query(Compartment).filter(
+        Compartment.location_id == loc_test.location_id
+    ).count()
+    test_par_count = db.query(ParLevel).filter(
+        ParLevel.location_id == loc_test.location_id
     ).count()
 
     # =========================================================================
@@ -804,18 +1001,36 @@ def seed(db: Session) -> None:
 
   Global item catalog:    {total_items} items
 
-  Newberg Township Station 1 (Unit 712 — BLS):
-    Compartments:         {newberg_comp_count}
-    Par levels:           {newberg_par_count}
-    Location ID (712):    {loc712.location_id}
-    Location ID (JB):     {jb_loc.location_id}
+  Newberg Township Station 1:
+    Unit 712 BLS:         location_id={loc712.location_id}
+    Unit 712 Jump Bag:    location_id={jb_712.location_id}
+    Unit 710 Jump Bag:    location_id={jb_710.location_id}
+    Compartments (all):   {newberg_comp_count}
+    Par levels (all):     {newberg_par_count}
     Station ID:           {newberg.station_id}
 
-  Marcellus Township Station 1 (Unit 540 — ALS):
+  Marcellus Township Station 1:
+    Unit 540 ALS:         location_id={loc540.location_id}
     Compartments:         {marcellus_comp_count}
     Par levels:           {marcellus_par_count}
-    Location ID (540):    {loc540.location_id}
     Station ID:           {marcellus.station_id}
+
+  ⚠ TEST STATION — Dev Only:
+    Unit TEST (QRV):      location_id={loc_test.location_id}
+    Compartments:         {test_comp_count}
+    Par levels:           {test_par_count}
+    Station ID:           {test_station.station_id}
+
+  Test walkthrough (< 5 min):
+    Step 1 — Select "⚠ TEST STATION" → "Unit TEST ⚠ Dev Only"
+    Step 2 — Two compartments shown
+    Step 3a — Compartment 1: tap through each check type (Supply ×3,
+              PSI reading ≥500, Pass for battery, pick today's date, doc present)
+    Step 3b — Compartment 2: count [TEST] Short Supply to anything < 5 (yellow),
+              tap Fail for [TEST] Broken Equipment (red)
+    Step 4 — Reconcile: tap + on Short Supply until count = 5; Broken Equipment
+              shows read-only in supervisor section; "Continue to Submit →" unlocks
+    Step 5 — Submit: add notes if desired, tap "Submit check"
 """)
 
 
