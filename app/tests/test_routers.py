@@ -8,10 +8,18 @@ simplicity. RBAC-specific tests use the appropriate role fixture.
 performed_by / primary_signer are now set from the JWT identity in the router,
 so the request body values are ignored — tests no longer need to assert on
 the specific name submitted.
+
+Phase 5 change:
+  test_create_daily_check_duplicate_returns_409 replaced with
+  test_multiple_checks_same_vehicle_same_day_all_succeed — multiple checks
+  per vehicle per day are now explicitly allowed and tested.
+  test_station_compliance_today updated to assert 2 checks are returned
+  when 2 are submitted.
 """
 
 from __future__ import annotations
 
+import time
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
@@ -580,12 +588,29 @@ class TestCheckEndpoints:
         }, headers=auth_admin)
         assert response.status_code == 422
 
-    def test_create_daily_check_duplicate_returns_409(self, client, auth_admin):
+    def test_multiple_checks_same_vehicle_same_day_all_succeed(self, client, auth_admin):
+        """
+        Multiple checks for the same vehicle on the same calendar day are
+        explicitly supported. Post-call restock checks, shift-start / shift-end
+        checks, and any other station-specific cadence all require this.
+        Each check must have a distinct timestamp — the natural discriminator.
+        """
         sid, vid = self._make_station_and_vehicle(client, auth_admin)
-        payload = {"vehicle_id": vid, "station_id": sid, "check_date": "2026-06-15", "timestamp": _utcnow()}
-        client.post("/api/v1/checks/daily", json=payload, headers=auth_admin)
-        response = client.post("/api/v1/checks/daily", json=payload, headers=auth_admin)
-        assert response.status_code == 409
+        payload_base = {"vehicle_id": vid, "station_id": sid, "check_date": "2026-06-15"}
+
+        r1 = client.post("/api/v1/checks/daily", json={**payload_base, "timestamp": _utcnow(), "notes": "Shift-start check"}, headers=auth_admin)
+        assert r1.status_code == 201, f"First check failed: {r1.json()}"
+
+        time.sleep(0.01)
+        r2 = client.post("/api/v1/checks/daily", json={**payload_base, "timestamp": _utcnow(), "notes": "Post-call restock check"}, headers=auth_admin)
+        assert r2.status_code == 201, f"Second check failed: {r2.json()}"
+
+        time.sleep(0.01)
+        r3 = client.post("/api/v1/checks/daily", json={**payload_base, "timestamp": _utcnow(), "notes": "Shift-end check"}, headers=auth_admin)
+        assert r3.status_code == 201, f"Third check failed: {r3.json()}"
+
+        ids = {r1.json()["check_id"], r2.json()["check_id"], r3.json()["check_id"]}
+        assert len(ids) == 3
 
     def test_create_daily_check_invalid_vehicle_returns_404(self, client, auth_admin):
         response = client.post("/api/v1/checks/daily", json={
@@ -604,15 +629,20 @@ class TestCheckEndpoints:
         assert event is not None
         assert event.severity == "INFO"
 
-    def test_station_compliance_today(self, client, auth_admin):
+    def test_station_compliance_today_returns_all_checks(self, client, auth_admin):
+        """All checks submitted today are returned — including multiple per vehicle."""
         sid, vid = self._make_station_and_vehicle(client, auth_admin)
         today = datetime.now(timezone.utc).date().isoformat()
         client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vid, "station_id": sid, "check_date": today, "timestamp": _utcnow(),
+            "vehicle_id": vid, "station_id": sid, "check_date": today, "timestamp": _utcnow(), "notes": "First check",
+        }, headers=auth_admin)
+        time.sleep(0.01)
+        client.post("/api/v1/checks/daily", json={
+            "vehicle_id": vid, "station_id": sid, "check_date": today, "timestamp": _utcnow(), "notes": "Second check",
         }, headers=auth_admin)
         response = client.get(f"/api/v1/checks/daily/station/{sid}/today", headers=auth_admin)
         assert response.status_code == 200
-        assert len(response.json()) == 1
+        assert len(response.json()) == 2
 
     def test_create_cs_check_als_vehicle_returns_201(self, client, auth_admin):
         _, vid = self._make_station_and_vehicle(client, auth_admin, vtype="ALS")
@@ -743,15 +773,10 @@ class TestRBAC:
         assert response.status_code in (401, 403)
 
     def test_responder_can_list_stations(self, client, auth_responder):
-        # Responders need to list stations to select where they are working.
-        # GET /stations is intentionally open to all authenticated roles so
-        # that Cindy (who works at multiple stations) can pick her station
-        # when starting a daily inventory check.
         response = client.get("/api/v1/stations", headers=auth_responder)
         assert response.status_code == 200
 
     def test_responder_cannot_create_station_returns_403(self, client, auth_responder):
-        # Write operations remain Administrator-only.
         response = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers=auth_responder)
         assert response.status_code == 403
 
@@ -816,9 +841,6 @@ class TestCheckTypes:
       FUNCTIONAL   — pass/fail operational check (battery OK, runs & starts)
       DATE_RECORD  — date recorded; OVERDUE if days since > recurrence_days
       DOCUMENT     — presence-only paperwork; MISSING if found == 0
-
-    Each test builds a minimal station/vehicle/compartment/item fixture inline so
-    the test is fully self-contained and readable as documentation.
     """
 
     def _make_env(self, client, auth_admin):
@@ -861,189 +883,129 @@ class TestCheckTypes:
         return response.json()
 
     def test_o2_psi_above_minimum_returns_ok(self, client, auth_admin):
-        """O2 reading of 1800 PSI on an item with minimum 500 PSI → OK."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(client, auth_admin, check_type="MEASUREMENT", measurement_minimum=500.0)
-        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid,
-                                  check_date="2026-07-01",
-                                  line_items=[{"compartment_id": cid, "item_id": item_id,
-                                               "quantity_needed": 0, "quantity_found": 0,
-                                               "measurement_value": 1800.0}])
+        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid, check_date="2026-07-01",
+                                  line_items=[{"compartment_id": cid, "item_id": item_id, "quantity_needed": 0, "quantity_found": 0, "measurement_value": 1800.0}])
         assert body["line_items"][0]["status"] == "OK"
         assert body["status"] == "PASS"
 
     def test_o2_psi_at_minimum_returns_ok(self, client, auth_admin):
-        """O2 reading exactly at minimum (500 PSI) is OK, not LOW."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(client, auth_admin, check_type="MEASUREMENT", measurement_minimum=500.0)
-        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid,
-                                  check_date="2026-07-02",
-                                  line_items=[{"compartment_id": cid, "item_id": item_id,
-                                               "quantity_needed": 0, "quantity_found": 0,
-                                               "measurement_value": 500.0}])
+        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid, check_date="2026-07-02",
+                                  line_items=[{"compartment_id": cid, "item_id": item_id, "quantity_needed": 0, "quantity_found": 0, "measurement_value": 500.0}])
         assert body["line_items"][0]["status"] == "OK"
 
     def test_o2_psi_below_minimum_returns_low(self, client, auth_admin):
-        """O2 reading of 300 PSI on an item with minimum 500 PSI → LOW."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(client, auth_admin, check_type="MEASUREMENT", measurement_minimum=500.0)
-        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid,
-                                  check_date="2026-07-03",
-                                  line_items=[{"compartment_id": cid, "item_id": item_id,
-                                               "quantity_needed": 0, "quantity_found": 0,
-                                               "measurement_value": 300.0}])
+        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid, check_date="2026-07-03",
+                                  line_items=[{"compartment_id": cid, "item_id": item_id, "quantity_needed": 0, "quantity_found": 0, "measurement_value": 300.0}])
         assert body["line_items"][0]["status"] == "LOW"
 
     def test_o2_psi_below_minimum_sets_check_needs_restock(self, client, auth_admin):
-        """LOW measurement item escalates overall check to NEEDS_RESTOCK."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(client, auth_admin, check_type="MEASUREMENT", measurement_minimum=500.0)
-        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid,
-                                  check_date="2026-07-04",
-                                  line_items=[{"compartment_id": cid, "item_id": item_id,
-                                               "quantity_needed": 0, "quantity_found": 0,
-                                               "measurement_value": 200.0}])
+        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid, check_date="2026-07-04",
+                                  line_items=[{"compartment_id": cid, "item_id": item_id, "quantity_needed": 0, "quantity_found": 0, "measurement_value": 200.0}])
         assert body["status"] == "NEEDS_RESTOCK"
 
     def test_measurement_missing_value_returns_missing(self, client, auth_admin):
-        """MEASUREMENT item submitted without measurement_value → MISSING."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(client, auth_admin, check_type="MEASUREMENT", measurement_minimum=500.0)
-        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid,
-                                  check_date="2026-07-05",
-                                  line_items=[{"compartment_id": cid, "item_id": item_id,
-                                               "quantity_needed": 0, "quantity_found": 0}])
+        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid, check_date="2026-07-05",
+                                  line_items=[{"compartment_id": cid, "item_id": item_id, "quantity_needed": 0, "quantity_found": 0}])
         assert body["line_items"][0]["status"] == "MISSING"
         assert body["status"] == "FAIL"
 
     def test_battery_ok_true_returns_ok(self, client, auth_admin):
-        """functional_pass=True on a FUNCTIONAL item → OK."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(client, auth_admin, check_type="FUNCTIONAL")
-        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid,
-                                  check_date="2026-07-06",
-                                  line_items=[{"compartment_id": cid, "item_id": item_id,
-                                               "quantity_needed": 0, "quantity_found": 0,
-                                               "functional_pass": True}])
+        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid, check_date="2026-07-06",
+                                  line_items=[{"compartment_id": cid, "item_id": item_id, "quantity_needed": 0, "quantity_found": 0, "functional_pass": True}])
         assert body["line_items"][0]["status"] == "OK"
         assert body["status"] == "PASS"
 
     def test_battery_ok_false_returns_fail(self, client, auth_admin):
-        """functional_pass=False on a FUNCTIONAL item → FAIL."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(client, auth_admin, check_type="FUNCTIONAL")
-        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid,
-                                  check_date="2026-07-07",
-                                  line_items=[{"compartment_id": cid, "item_id": item_id,
-                                               "quantity_needed": 0, "quantity_found": 0,
-                                               "functional_pass": False}])
+        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid, check_date="2026-07-07",
+                                  line_items=[{"compartment_id": cid, "item_id": item_id, "quantity_needed": 0, "quantity_found": 0, "functional_pass": False}])
         assert body["line_items"][0]["status"] == "FAIL"
 
     def test_functional_fail_sets_check_fail(self, client, auth_admin):
-        """FAIL line item from FUNCTIONAL check escalates overall check to FAIL."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(client, auth_admin, check_type="FUNCTIONAL")
-        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid,
-                                  check_date="2026-07-08",
-                                  line_items=[{"compartment_id": cid, "item_id": item_id,
-                                               "quantity_needed": 0, "quantity_found": 0,
-                                               "functional_pass": False}])
+        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid, check_date="2026-07-08",
+                                  line_items=[{"compartment_id": cid, "item_id": item_id, "quantity_needed": 0, "quantity_found": 0, "functional_pass": False}])
         assert body["status"] == "FAIL"
 
     def test_functional_missing_value_returns_missing(self, client, auth_admin):
-        """FUNCTIONAL item submitted without functional_pass → MISSING."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(client, auth_admin, check_type="FUNCTIONAL")
-        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid,
-                                  check_date="2026-07-09",
-                                  line_items=[{"compartment_id": cid, "item_id": item_id,
-                                               "quantity_needed": 0, "quantity_found": 0}])
+        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid, check_date="2026-07-09",
+                                  line_items=[{"compartment_id": cid, "item_id": item_id, "quantity_needed": 0, "quantity_found": 0}])
         assert body["line_items"][0]["status"] == "MISSING"
         assert body["status"] == "FAIL"
 
     def test_recent_charge_date_returns_ok(self, client, auth_admin):
-        """AED charged 10 days ago with recurrence_days=90 → OK."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(client, auth_admin, check_type="DATE_RECORD", recurrence_days=90)
         recent_date = (date.today() - timedelta(days=10)).isoformat()
-        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid,
-                                  check_date="2026-07-10",
-                                  line_items=[{"compartment_id": cid, "item_id": item_id,
-                                               "quantity_needed": 0, "quantity_found": 0,
-                                               "date_value": recent_date}])
+        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid, check_date="2026-07-10",
+                                  line_items=[{"compartment_id": cid, "item_id": item_id, "quantity_needed": 0, "quantity_found": 0, "date_value": recent_date}])
         assert body["line_items"][0]["status"] == "OK"
         assert body["status"] == "PASS"
 
     def test_overdue_charge_date_returns_overdue(self, client, auth_admin):
-        """AED last charged 100 days ago with recurrence_days=90 → OVERDUE."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(client, auth_admin, check_type="DATE_RECORD", recurrence_days=90)
         overdue_date = (date.today() - timedelta(days=100)).isoformat()
-        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid,
-                                  check_date="2026-07-11",
-                                  line_items=[{"compartment_id": cid, "item_id": item_id,
-                                               "quantity_needed": 0, "quantity_found": 0,
-                                               "date_value": overdue_date}])
+        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid, check_date="2026-07-11",
+                                  line_items=[{"compartment_id": cid, "item_id": item_id, "quantity_needed": 0, "quantity_found": 0, "date_value": overdue_date}])
         assert body["line_items"][0]["status"] == "OVERDUE"
 
     def test_overdue_sets_check_fail(self, client, auth_admin):
-        """OVERDUE DATE_RECORD item escalates overall check to FAIL."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(client, auth_admin, check_type="DATE_RECORD", recurrence_days=30)
         overdue_date = (date.today() - timedelta(days=35)).isoformat()
-        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid,
-                                  check_date="2026-07-12",
-                                  line_items=[{"compartment_id": cid, "item_id": item_id,
-                                               "quantity_needed": 0, "quantity_found": 0,
-                                               "date_value": overdue_date}])
+        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid, check_date="2026-07-12",
+                                  line_items=[{"compartment_id": cid, "item_id": item_id, "quantity_needed": 0, "quantity_found": 0, "date_value": overdue_date}])
         assert body["status"] == "FAIL"
 
     def test_date_record_missing_value_returns_missing(self, client, auth_admin):
-        """DATE_RECORD item submitted without date_value → MISSING."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(client, auth_admin, check_type="DATE_RECORD", recurrence_days=90)
-        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid,
-                                  check_date="2026-07-13",
-                                  line_items=[{"compartment_id": cid, "item_id": item_id,
-                                               "quantity_needed": 0, "quantity_found": 0}])
+        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid, check_date="2026-07-13",
+                                  line_items=[{"compartment_id": cid, "item_id": item_id, "quantity_needed": 0, "quantity_found": 0}])
         assert body["line_items"][0]["status"] == "MISSING"
         assert body["status"] == "FAIL"
 
     def test_document_present_returns_ok(self, client, auth_admin):
-        """DOCUMENT item with quantity_found=1 → OK."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(client, auth_admin, check_type="DOCUMENT")
-        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid,
-                                  check_date="2026-07-14",
-                                  line_items=[{"compartment_id": cid, "item_id": item_id,
-                                               "quantity_needed": 1, "quantity_found": 1}])
+        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid, check_date="2026-07-14",
+                                  line_items=[{"compartment_id": cid, "item_id": item_id, "quantity_needed": 1, "quantity_found": 1}])
         assert body["line_items"][0]["status"] == "OK"
         assert body["status"] == "PASS"
 
     def test_document_missing_returns_missing(self, client, auth_admin):
-        """DOCUMENT item with quantity_found=0 → MISSING."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(client, auth_admin, check_type="DOCUMENT")
-        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid,
-                                  check_date="2026-07-15",
-                                  line_items=[{"compartment_id": cid, "item_id": item_id,
-                                               "quantity_needed": 1, "quantity_found": 0}])
+        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid, check_date="2026-07-15",
+                                  line_items=[{"compartment_id": cid, "item_id": item_id, "quantity_needed": 1, "quantity_found": 0}])
         assert body["line_items"][0]["status"] == "MISSING"
         assert body["status"] == "FAIL"
 
     def test_mixed_check_types_worst_case_determines_overall_status(self, client, auth_admin):
-        """FUNCTIONAL pass + DOCUMENT missing → overall FAIL."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         functional_item = self._make_item(client, auth_admin, check_type="FUNCTIONAL")
         document_item = self._make_item(client, auth_admin, check_type="DOCUMENT")
-        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid,
-                                  check_date="2026-07-16",
+        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid, check_date="2026-07-16",
                                   line_items=[
-                                      {"compartment_id": cid, "item_id": functional_item,
-                                       "quantity_needed": 0, "quantity_found": 0,
-                                       "functional_pass": True},
-                                      {"compartment_id": cid, "item_id": document_item,
-                                       "quantity_needed": 1, "quantity_found": 0},
+                                      {"compartment_id": cid, "item_id": functional_item, "quantity_needed": 0, "quantity_found": 0, "functional_pass": True},
+                                      {"compartment_id": cid, "item_id": document_item, "quantity_needed": 1, "quantity_found": 0},
                                   ])
         statuses = {li["item_id"]: li["status"] for li in body["line_items"]}
         assert statuses[functional_item] == "OK"
@@ -1051,18 +1013,13 @@ class TestCheckTypes:
         assert body["status"] == "FAIL"
 
     def test_low_measurement_and_ok_supply_yields_needs_restock(self, client, auth_admin):
-        """LOW O2 PSI + OK supply → NEEDS_RESTOCK overall."""
         sid, vid, loc_id, cid = self._make_env(client, auth_admin)
         o2_item = self._make_item(client, auth_admin, check_type="MEASUREMENT", measurement_minimum=500.0)
         supply_item = self._make_item(client, auth_admin, check_type="SUPPLY")
-        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid,
-                                  check_date="2026-07-17",
+        body = self._submit_check(client, auth_admin, sid=sid, vid=vid, cid=cid, check_date="2026-07-17",
                                   line_items=[
-                                      {"compartment_id": cid, "item_id": o2_item,
-                                       "quantity_needed": 0, "quantity_found": 0,
-                                       "measurement_value": 100.0},
-                                      {"compartment_id": cid, "item_id": supply_item,
-                                       "quantity_needed": 2, "quantity_found": 2},
+                                      {"compartment_id": cid, "item_id": o2_item, "quantity_needed": 0, "quantity_found": 0, "measurement_value": 100.0},
+                                      {"compartment_id": cid, "item_id": supply_item, "quantity_needed": 2, "quantity_found": 2},
                                   ])
         statuses = {li["item_id"]: li["status"] for li in body["line_items"]}
         assert statuses[o2_item] == "LOW"
@@ -1070,25 +1027,19 @@ class TestCheckTypes:
         assert body["status"] == "NEEDS_RESTOCK"
 
     def test_create_jump_bag_location_returns_201(self, client, auth_admin):
-        """POST /inventory/locations should create a JUMP_BAG location."""
         sr = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers=auth_admin)
         sid = sr.json()["station_id"]
         response = client.post("/api/v1/inventory/locations", json={
-            "location_type": "JUMP_BAG",
-            "station_id": sid,
-            "label": f"Jump Bag 710/712 — {_uid()}",
+            "location_type": "JUMP_BAG", "station_id": sid, "label": f"Jump Bag 710/712 — {_uid()}",
         }, headers=auth_admin)
         assert response.status_code == 201
         assert response.json()["location_type"] == "JUMP_BAG"
         assert response.json()["station_id"] == sid
 
     def test_cannot_create_vehicle_location_via_api_returns_422(self, client, auth_admin):
-        """POST /inventory/locations must reject VEHICLE location_type."""
         sr = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers=auth_admin)
         sid = sr.json()["station_id"]
         response = client.post("/api/v1/inventory/locations", json={
-            "location_type": "VEHICLE",
-            "station_id": sid,
-            "label": "Should not be allowed",
+            "location_type": "VEHICLE", "station_id": sid, "label": "Should not be allowed",
         }, headers=auth_admin)
         assert response.status_code == 422

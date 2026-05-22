@@ -1,5 +1,5 @@
 # EMS ReadyKit — Project Backlog
-# Document version: 1.4
+# Document version: 1.8
 # Last updated: 2026-05-22
 # Source: Consolidated from phase docs, session handoffs, chat history, OSI review
 
@@ -20,14 +20,12 @@ Update `docs/project_index.md` when a phase changes overall status.
 
 | # | Item | Priority | Status | Source |
 |---|------|----------|--------|--------|
-| B-T1 | Write `TestCheckTypes` class: MEASUREMENT (O2 PSI above/below minimum), FUNCTIONAL (battery OK/fail), DATE_RECORD (AED charge date recent/overdue), DOCUMENT (present/missing), Jump Bag location creation | High | 📋 | Handoff 2026-05-15 |
-| B-T2 | Verify total test count reaches 90+ and all pass after check type tests are added | High | 📋 | Handoff 2026-05-15 |
+| B-T1 | Write `TestCheckTypes` class: MEASUREMENT, FUNCTIONAL, DATE_RECORD, DOCUMENT, Jump Bag location | High | ✅ Done | Session 2026-05-22 |
+| B-T2 | Update `test_create_daily_check_duplicate_returns_409` → `test_multiple_checks_same_vehicle_same_day_all_succeed` | High | ✅ Done | Session 2026-05-22 |
 
 ---
 
 ## 2. Backend — Phase 6 Endpoints
-
-All endpoints below are planned in `docs/phase6_backend_extensions.md` and required by Phase 5 frontend modules.
 
 | # | Endpoint | Description | Priority | Status | Required by |
 |---|----------|-------------|----------|--------|-------------|
@@ -53,20 +51,23 @@ All endpoints below are planned in `docs/phase6_backend_extensions.md` and requi
 
 ---
 
-## 3. Backend — Data Model Changes (Phase 6 Migration)
-
-New migration needed: `0005_phase6_extensions` (or next available number).
+## 3. Backend — Data Model Changes
 
 | # | Item | Priority | Status |
 |---|------|----------|--------|
-| B-M1 | New table: `repair_requests` (vehicle_id FK, severity, status lifecycle, description, resolution_notes, filed_by, acknowledged_by, resolved_by, timestamps) | High | 📋 |
-| B-M2 | New table: `notifications` (type, recipient_role, title, body, linked_entity_type, linked_entity_id, created_at, read, read_at) | Medium | 📋 |
-| B-M3 | New table: `feedback_entries` (type, severity, description, current_screen, allow_followup, submitted_by, submitted_at) | Medium | 📋 |
-| B-M4 | New table: `user_requests` (name, email, requested_role, station_id, start_date, notes, requested_by, requested_at, status, completed_at) | Medium | 📋 |
-| B-M5 | Alter `vehicles`: add `active` (Boolean), `inactive_reason` (String), `inactive_since` (DateTime) | High | 📋 |
-| B-M6 | Alter `par_levels`: add `active` (Boolean), `deactivated_at` (DateTime), `deactivation_reason` (String) | Medium | 📋 |
-| B-M7 | Alter `daily_inventory_checks`: add `reviewed_by` (String), `reviewed_at` (DateTime), `corrective_action` (String) | High | 📋 |
-| B-M8 | Alter `daily_inventory_checks`: add `started_by` (String) for check handoff between crew members mid-shift | Medium | 📋 |
+| B-M0 | Migration 0005: drop `uq_check_vehicle_date`; replace with non-unique `ix_check_vehicle_date` index | High | ✅ Done |
+| B-M1 | New table: `repair_requests` | High | 📋 |
+| B-M2 | New table: `notifications` | Medium | 📋 |
+| B-M3 | New table: `feedback_entries` | Medium | 📋 |
+| B-M4 | New table: `user_requests` | Medium | 📋 |
+| B-M5 | Alter `vehicles`: add `active`, `inactive_reason`, `inactive_since` | High | 📋 |
+| B-M6 | Alter `par_levels`: add `active`, `deactivated_at`, `deactivation_reason` | Medium | 📋 |
+| B-M7 | Alter `daily_inventory_checks`: add `reviewed_by`, `reviewed_at`, `corrective_action` | High | 📋 |
+| B-M8 | Alter `daily_inventory_checks`: add `started_by` for check handoff | Medium | 📋 |
+| B-M9 | Alter `daily_inventory_checks`: add `deleted_at` (DateTime, nullable), `deleted_by` (String, nullable), `deletion_reason` (String, nullable), `force_deleted` (Boolean) for soft-delete support | High | 📋 |
+| B-M10 | Alter `stations`: add `allow_check_modification` (Boolean, default False) — controls whether supervisors can acknowledge/correct submitted checks at this station; Administrator-only to toggle | High | 📋 |
+| B-M11 | Alter `stations`: add `primary_color` (String, nullable) — hex color code set by Supervisor; drives station band and vehicle card colors across all users at that station | Medium | 📋 |
+| B-M12 | New table: `user_preferences` — stores per-user preferences: `user_oid` (Azure AD OID), `default_station_id` (FK nullable), `display_name` (String nullable). Scoped to the authenticated user; no cross-user access. | Medium | 📋 |
 
 ---
 
@@ -74,21 +75,19 @@ New migration needed: `0005_phase6_extensions` (or next available number).
 
 | # | Item | Priority | Status | Source |
 |---|------|----------|--------|--------|
-| B-Q1 | Add structured `logger` calls (with `extra={}` fields) to `inventory.py`, `stations.py`, `vehicles.py`, `items.py` on all mutating operations | Medium | 📋 | OSI review L7-1 |
-| B-Q2 | Standardise `extra={}` logging fields in `core/auth.py` to match the shape used in `checks.py` | Low | 📋 | OSI review L7-2 |
+| B-Q1 | Add structured `logger` calls to `inventory.py`, `stations.py`, `vehicles.py`, `items.py` | Medium | 📋 | OSI review L7-1 |
+| B-Q2 | Standardise `extra={}` logging fields in `core/auth.py` | Low | 📋 | OSI review L7-2 |
 
 ---
 
 ## 5. Frontend — Phase 5C: Help System
 
-Phase 5A (foundation) and 5B (check wizard) are complete.
-
 | # | Item | Priority | Status | Source |
 |---|------|----------|--------|--------|
-| F-5C1 | First-run tutorial — 8 steps, auto-shown on first login, replayable from Help menu, skip button | High | 📋 | Phase 5 plan |
+| F-5C1 | First-run tutorial — 8 steps, auto-shown on first login, replayable, skip button | High | 📋 | Phase 5 plan |
 | F-5C2 | Contextual screen help — "?" button on each wizard step, opens as bottom sheet | High | 📋 | Phase 5 plan |
 | F-5C3 | Searchable FAQ — client-side filter, crew and supervisor sections, 15 questions | Medium | 📋 | Phase 5 plan |
-| F-5C4 | Create `src/modules/help/content.js` as single source of truth for all help text | Medium | 📋 | Phase 5 plan |
+| F-5C4 | Create `src/modules/help/content.js` as single source of truth for help text | Medium | 📋 | Phase 5 plan |
 
 ---
 
@@ -97,7 +96,7 @@ Phase 5A (foundation) and 5B (check wizard) are complete.
 | # | Item | Priority | Status | Source |
 |---|------|----------|--------|--------|
 | F-5D1 | Item catalog search component | Medium | 📋 | Phase 5 plan |
-| F-5D2 | Add item form — Responder sends request to supervisor; Supervisor/Administrator adds directly | Medium | 📋 | Phase 5 plan |
+| F-5D2 | Add item form — Responder requests; Supervisor/Administrator adds directly | Medium | 📋 | Phase 5 plan |
 | F-5D3 | Remove item with mandatory documented reason | Medium | 📋 | Phase 5 plan |
 
 ---
@@ -108,7 +107,7 @@ Phase 5A (foundation) and 5B (check wizard) are complete.
 |---|------|----------|--------|--------|
 | F-5E1 | Repair request form (all roles) — severity selector, description, URGENT escalation | High | 📋 | Phase 5 plan |
 | F-5E2 | Mark vehicle inactive toggle — Supervisor+ only; requires B-E1 | High | ⛔ Blocked on B-E1 | Phase 5 plan |
-| F-5E3 | Repair request status tracking display (FILED → ACKNOWLEDGED → IN_PROGRESS → RESOLVED) | Medium | 📋 | Phase 5 UX review |
+| F-5E3 | Repair request status tracking display | Medium | 📋 | Phase 5 UX review |
 
 ---
 
@@ -130,10 +129,10 @@ Phase 5A (foundation) and 5B (check wizard) are complete.
 
 | # | Item | Priority | Status | Source |
 |---|------|----------|--------|--------|
-| F-5G1 | Feedback module — floating button (hidden during active check), bug/enhancement/general form | Medium | 📋 | Phase 5 plan |
-| F-5G2 | User management module — supervisor submits onboarding request; requires B-E14 | Medium | ⛔ Blocked on B-E14 | Phase 5 plan |
-| F-5G3 | Data export — CSV download for check history, audit events, repair requests (role-scoped) | Medium | 📋 | Phase 5 plan |
-| F-5G4 | Role switcher (crew mode for supervisors) — display-only; hides supervisor tools; amber CREW MODE badge | Low | 📋 | Phase 5 plan |
+| F-5G1 | Feedback module — floating button, bug/enhancement/general form | Medium | 📋 | Phase 5 plan |
+| F-5G2 | User management module — requires B-E14 | Medium | ⛔ Blocked on B-E14 | Phase 5 plan |
+| F-5G3 | Data export — CSV download for check history, audit events, repair requests | Medium | 📋 | Phase 5 plan |
+| F-5G4 | Role switcher (crew mode for supervisors) — display-only; amber CREW MODE badge | Low | 📋 | Phase 5 plan |
 
 ---
 
@@ -141,84 +140,190 @@ Phase 5A (foundation) and 5B (check wizard) are complete.
 
 | # | Item | Priority | Status | Source |
 |---|------|----------|--------|--------|
-| F-5H1 | Terraform module: Azure Static Web Apps (`iac/Terraform/modules/frontend/`) | High | 📋 | Phase 5 plan |
+| F-5H1 | Terraform module: Azure Static Web Apps | High | 📋 | Phase 5 plan |
 | F-5H2 | GitHub Actions frontend build + deploy job | High | 📋 | Phase 5 plan |
-| F-5H3 | Add Static Web App URL to `WEBSITES_CORS_ALLOWED_ORIGINS` in App Service app settings (Terraform `app` module) | High | 📋 | Phase 5 plan |
-| F-5H4 | Register Static Web App URL as SPA redirect URI in Azure AD App Registration | High | 📋 | Phase 5 plan |
+| F-5H3 | Add Static Web App URL to CORS allowed origins (Terraform `app` module) | High | 📋 | Phase 5 plan |
+| F-5H4 | Register Static Web App URL as SPA redirect URI in Azure AD | High | 📋 | Phase 5 plan |
 
 ---
 
 ## 11. Frontend — Check Wizard UX Improvements
 
-Identified during field UX review and ongoing feedback sessions.
-
 | # | Item | Priority | Status | Source |
 |---|------|----------|--------|--------|
-| F-UX1 | Station picker on home screen — Cindy (multi-station supervisor) needs to set station before anything else; color-coded station cards | High | ✅ Done | Session 2026-05-16 |
-| F-UX2 | Left/right chevron navigation between compartments inside the item counting screen — eliminates 3-tap navigation between compartments | Medium | 📋 | UX review |
-| F-UX3 | "Jump to unvalidated" sticky button — scrolls to first unchecked item when compartment has 10+ items | Medium | 📋 | UX review gap #8 |
-| F-UX4 | Expired item replacement prompt — after EXPIRED validation: "Was it replaced?" flow with new lot entry or reason | Medium | 📋 | UX review gap #9 |
-| F-UX5 | Check handoff support — when second user opens an in-progress draft, show handoff screen; both names on record; requires B-M8 | Medium | ⛔ Blocked on B-M8 | UX review |
-| F-UX6 | Compartment location descriptor visible on cards ("Left rear · driver side"); supervisor configures during setup | Medium | 📋 | UX review gap #6 |
-| F-UX7 | "Last checked today" indicator on vehicle cards — show check time and status from today's completed check if any | High | 📋 | UX review gap #2 |
-| F-UX8 | Item count on compartment cards ("Compartment #7 · 14 items") | Low | 📋 | UX review gap #13 |
-| F-UX9 | Two-state submit: "Saved to device" → "Submitted to server ✓"; queue locally when offline and auto-submit on reconnect | Low | 📋 | UX review gap #16 |
-| F-UX10 | "Caller/spotter view" — large-text display mode for two-person checks | Low | 📋 | UX review gap #11 |
-| F-UX11 | Discard check button inside wizard (Steps 2–4) with confirmation modal — clears draft and returns to home | Medium | ✅ Done | Session 2026-05-21 |
-| F-UX12 | Three-tier item row color: green (meets need), yellow (short but non-zero), red (zero / fail) | High | ✅ Done | Session 2026-05-21 |
-| F-UX13 | Surface short/fail status on Step 2 compartment list — badge reflects worst-case item status, not just done/in-progress | High | ✅ Done | Session 2026-05-21 |
-| F-UX14 | Save compartment force-confirms all touched items — same locked display whether medic used + or Submit count | High | ✅ Done | Session 2026-05-21 |
-| F-UX15 | Jump bag and portable equipment as selectable cards on Step 1 alongside vehicles — dashed border, 🎒 icon, separate check submission | High | ✅ Done | Session 2026-05-21 |
-| F-UX16 | One jump bag per ambulance — Unit 710 Jump Bag and Unit 712 Jump Bag; sort by label for natural grouping | Medium | ✅ Done | Session 2026-05-21 |
-| F-UX17 | Step 4 Reconcile (shopping list) — interactive restock list between compartments and final submit; inline +/− counters write to draft; fail items read-only; share/copy button for texting partner; skipped automatically when nothing is short | High | ✅ Done | Session 2026-05-22 |
-| F-UX18 | Wizard renumbered to 5 steps: Vehicle → Compartments → Items → Reconcile → Submit | High | ✅ Done | Session 2026-05-22 |
-| F-UX19 | Step 2 button label adapts: "Reconcile →" when short or fail items exist, "Review and Submit →" when all clear | Medium | ✅ Done | Session 2026-05-22 |
-| F-UX20 | Step 5 back button routes to Reconcile if items need attention, or directly to Compartments if all clear | Medium | ✅ Done | Session 2026-05-22 |
-| F-UX21 | Minimal test unit (Unit TEST QRV) — 2 compartments, 7 items, covers all 5 check types, forces Reconcile step, completes in under 5 min | Medium | ✅ Done | Session 2026-05-22 |
-| F-UX22 | Bug fix: Reconcile skipped when only fail (no short) items — now routes to Reconcile for warn OR fail severity | High | ✅ Done | Session 2026-05-22 |
-| F-UX23 | Bug fix: Check date blank on Step 5 — now passed as direct prop from orchestrator state, not read from draft | High | ✅ Done | Session 2026-05-22 |
-| F-UX24 | Bug fix: Overall status always showed Pass — now uses deriveDraftItemStatus() fallback for draft items without API status field | High | ✅ Done | Session 2026-05-22 |
-| F-UX25 | Bug fix: Repair needed auto-selected and pre-filled with failing item list when fail-severity items exist in draft | High | ✅ Done | Session 2026-05-22 |
-| F-UX26 | Bug fix: Repair notes showed "Unknown compartment" — handleUpdateItem now reads compartment name from activeCompartment state | High | ✅ Done | Session 2026-05-22 |
+| F-UX1 | Station picker on home screen | High | ✅ Done | Session 2026-05-16 |
+| F-UX2 | Left/right chevron navigation between compartments | Medium | 📋 | UX review |
+| F-UX3 | "Jump to unvalidated" sticky button | Medium | 📋 | UX review gap #8 |
+| F-UX4 | Expired item replacement prompt | Medium | 📋 | UX review gap #9 |
+| F-UX5 | Check handoff support — requires B-M8 | Medium | ⛔ Blocked on B-M8 | UX review |
+| F-UX6 | Compartment location descriptor on cards | Medium | 📋 | UX review gap #6 |
+| F-UX7 | "Last checked today" indicator on vehicle cards | High | 📋 | UX review gap #2 |
+| F-UX8 | Item count on compartment cards | Low | 📋 | UX review gap #13 |
+| F-UX9 | Two-state submit with offline queue | Low | 📋 | UX review gap #16 |
+| F-UX10 | "Caller/spotter view" large-text mode | Low | 📋 | UX review gap #11 |
+| F-UX11 | Discard check button with confirmation modal | Medium | ✅ Done | Session 2026-05-21 |
+| F-UX12 | Three-tier item row color (green/yellow/red) | High | ✅ Done | Session 2026-05-21 |
+| F-UX13 | Surface short/fail on Step 2 compartment badges | High | ✅ Done | Session 2026-05-21 |
+| F-UX14 | Save compartment force-confirms all touched items | High | ✅ Done | Session 2026-05-21 |
+| F-UX15 | Jump bag / portable cards on Step 1 | High | ✅ Done | Session 2026-05-21 |
+| F-UX16 | One jump bag per ambulance with alpha-sort grouping | Medium | ✅ Done | Session 2026-05-21 |
+| F-UX17 | Step 4 Reconcile — interactive shopping list with share/copy | High | ✅ Done | Session 2026-05-22 |
+| F-UX18 | Wizard renumbered to 5 steps | High | ✅ Done | Session 2026-05-22 |
+| F-UX19 | Step 2 button label: "Reconcile →" vs "Review and Submit →" | Medium | ✅ Done | Session 2026-05-22 |
+| F-UX20 | Step 5 back button routes to Reconcile or Compartments intelligently | Medium | ✅ Done | Session 2026-05-22 |
+| F-UX21 | Minimal test unit (Unit TEST QRV) — all check types in < 5 min | Medium | ✅ Done | Session 2026-05-22 |
+| F-UX22 | Bug fix: Reconcile routing for fail-only checks | High | ✅ Done | Session 2026-05-22 |
+| F-UX23 | Bug fix: Check date blank on Step 5 | High | ✅ Done | Session 2026-05-22 |
+| F-UX24 | Bug fix: Overall status always showed Pass | High | ✅ Done | Session 2026-05-22 |
+| F-UX25 | Bug fix: Repair needed auto-selected and pre-filled from fail items | High | ✅ Done | Session 2026-05-22 |
+| F-UX26 | Bug fix: Repair notes showed "Unknown compartment" | High | ✅ Done | Session 2026-05-22 |
+| F-UX27 | DATE_RECORD "Today" button — one tap sets date and locks card | Low | ✅ Done | Session 2026-05-22 |
+| F-UX28 | Multiple checks per day — draft key uses started_at; home screen groups drafts with picker modal | High | ✅ Done | Session 2026-05-22 |
+| F-UX29 | Backend: drop uq_check_vehicle_date; remove 409 guard; allow unlimited checks per day | High | ✅ Done | Session 2026-05-22 |
+| F-UX30 | DraftBanner uses selection_label — fixes null label for jump bag checks | Medium | ✅ Done | Session 2026-05-22 |
+| F-UX31 | Reconcile "Add N" top-off button — inline with +/− controls, matches Step 3 layout exactly | Medium | ✅ Done | Session 2026-05-22 |
 
 ---
 
-## 12. Infrastructure / Security
+## 12. Check History Module (new)
 
-| # | Item | Priority | Status | Source |
-|---|------|----------|--------|--------|
-| I-1 | Add Azure Firewall (or Azure Firewall Basic) to `modules/network` with UDR forcing `0.0.0.0/0` through it; FQDN allow-list for Azure AD, SQL, Key Vault | Medium | 📋 | OSI review L3-1 |
-| I-2 | Re-add route table to all three subnets once Firewall is in place | Medium | ⛔ Blocked on I-1 | OSI review L3-2 |
-| I-3 | Add `HTTPSRedirectMiddleware` to `main.py`, gated to `settings.is_production` | Low | 📋 | OSI review L6-1 |
-| I-4 | Add `X-Content-Type-Options: nosniff` and `X-Frame-Options: DENY` response headers to `main.py` | Low | 📋 | OSI review L7-3 |
-| I-5 | Document Azure AD token lifetime and confirm Continuous Access Evaluation (CAE) is enabled; add to `docs/runbook.md` | Low | 📋 | OSI review L5-1 |
-| I-6 | Write `docs/adr/ADR-006-DDoS-Strategy.md` documenting the DDoS Protection Standard cost/benefit tradeoff | Low | 📋 | OSI review L4-1 |
-| I-7 | Confirm Azure deployment healthy after F1 quota reset — health endpoint should return 200 consistently | High | 📋 | Handoff 2026-05-15 |
+Covers the full lifecycle of a submitted check — viewing, correcting, and managing records.
+Requires B-M9 (soft delete fields), B-M10 (allow_check_modification setting), and B-E2 (acknowledge endpoint).
+
+### 12a. Backend — Check History Endpoints
+
+| # | Endpoint | Description | Priority | Status | Notes |
+|---|----------|-------------|----------|--------|-------|
+| CH-B1 | `GET /api/v1/checks/daily/my-history?from=&to=` | Responder: list checks submitted by the current user, scoped to their station, most recent first. Excludes soft-deleted records. | High | 📋 | All roles |
+| CH-B2 | `GET /api/v1/checks/daily/{id}/detail` | All roles: full check detail — header + all line items + lot numbers + computed status. Responders can only access their own checks; Supervisor+ can access any check at their station. | High | 📋 | Extends existing `GET /checks/daily/{id}` RBAC |
+| CH-B3 | `DELETE /api/v1/checks/daily/{id}` | Supervisor+: soft-delete a check. Sets `deleted_at`, `deleted_by`, `deletion_reason`. Hidden from all normal views immediately. Preserved in audit log. Hard-deleted automatically after 90 days. Requires B-M9. | High | 📋 | Supervisor+ |
+| CH-B4 | `DELETE /api/v1/checks/daily/{id}/force` | Administrator only: force hard-delete bypassing the 90-day window. Required for PII spill response (e.g. a responder accidentally captured a SSN or DL number in a notes field). Writes an audit event containing actor, timestamp, and stated reason — but never the PII itself. Requires explicit confirmation payload. | High | 📋 | Administrator only |
+| CH-B5 | `GET /api/v1/checks/daily/deleted?station_id=` | Administrator only: list soft-deleted checks within 90-day window. Shows deletion metadata. Allows force-delete or restore. | Medium | 📋 | Administrator only |
+| CH-B6 | `PATCH /api/v1/checks/daily/{id}/restore` | Administrator only: restore a soft-deleted check within the 90-day window (before auto-hard-delete). | Low | 📋 | Administrator only |
+
+### 12b. Backend — Check Modification Setting
+
+| # | Item | Description | Priority | Status |
+|---|------|-------------|----------|--------|
+| CH-B7 | `PATCH /api/v1/stations/{id}/settings` | Administrator only: update station settings including `allow_check_modification`. Returns updated station settings object. | High | 📋 |
+| CH-B8 | `GET /api/v1/stations/{id}/settings` | Supervisor+: read station settings (allow_check_modification, primary_color, etc.). Used by frontend to conditionally show acknowledgement controls. | High | 📋 |
+
+### 12c. Frontend — Responder Check History
+
+| # | Item | Priority | Status | Notes |
+|---|------|----------|--------|-------|
+| CH-F1 | "My Checks" screen on home page — list of the current user's submitted checks, grouped by date, most recent first. Shows vehicle/location label, date, time, overall status badge. | High | 📋 | Responder+ |
+| CH-F2 | Check detail view (read-only for Responders) — full compartment/item breakdown, lot numbers, expiry dates, overall status. Same layout as the Step 5 summary but read-only. | High | 📋 | Responder+ |
+| CH-F3 | Check detail shows acknowledgement if present — if a supervisor has added a corrective note, display it clearly so the responder can see the outcome | Medium | 📋 | Responder+ |
+
+### 12d. Frontend — Supervisor/Administrator Check Management
+
+| # | Item | Priority | Status | Notes |
+|---|------|----------|--------|-------|
+| CH-F4 | Check history list for supervisors — all checks at their station, filterable by vehicle/date/status. Soft-deleted checks hidden by default. | High | 📋 | Supervisor+ |
+| CH-F5 | Soft-delete check — Supervisor+ can delete a check with a mandatory reason field. Confirmation modal clearly states the 90-day hard-delete policy. Writes to audit log. Requires B-M9, CH-B3. | High | 📋 | Supervisor+ |
+| CH-F6 | Acknowledgement / corrective note — when `allow_check_modification` is on for the station, Supervisor can open a submitted check and add an acknowledgement with corrective notes. Same workflow as B-E2. Toggle is hidden when setting is off. | High | ⛔ Blocked on B-M10, CH-B8 | Supervisor+ |
+| CH-F7 | Deleted records management screen (Administrator) — list of soft-deleted checks within 90-day window. Options: restore or force hard-delete. Force hard-delete requires a typed confirmation reason (mirrors the "type DELETE to confirm" pattern for irreversible actions). | High | 📋 | Administrator only |
+| CH-F8 | Force hard-delete confirmation — two-step modal: (1) show deletion reason field and warn about PII policy, (2) require typing "PERMANENTLY DELETE" to confirm. Writes audit event with reason but never echoes the suspected PII content. | High | 📋 | Administrator only |
 
 ---
 
-## 13. Documentation
+## 13. Settings Module (new)
 
-| # | Item | Priority | Status | Source |
-|---|------|----------|--------|--------|
-| D-1 | Update `project_index.md` ADR table: rename ADR-005 slot to `ADR-006-DDoS-Strategy.md` (ADR-005 is already `ADR-005-Frontend-Architecture.md`) | Low | ✅ Done | This session |
-| D-2 | Write a session handoff document at the end of each development session | Ongoing | 📋 | Convention |
-| D-3 | Update `docs/phase5_frontend_pwa.md` status from "Planned" to "In Progress" | Low | 📋 | Phase 5A+5B complete |
-| D-4 | Update `docs/phase5_frontend_pwa.md` to mark 5A and 5B as complete | Low | 📋 | Handoff 2026-05-15 |
+A dedicated Settings section providing a clean, predictable home for all configuration —
+station settings, user preferences, and asset/user management. Prevents admin actions
+from being scattered across the operational UI.
+
+### 13a. Backend — Settings Endpoints
+
+| # | Endpoint | Description | Priority | Status |
+|---|----------|-------------|----------|--------|
+| S-B1 | `GET /api/v1/settings/station/{id}` | Supervisor+: get all settings for a station (color, allow_check_modification, cadence requirements). Consolidated view for the Settings UI. | High | 📋 |
+| S-B2 | `PATCH /api/v1/settings/station/{id}` | Scoped by field: `primary_color` → Supervisor+; `allow_check_modification` → Administrator only. Returns updated settings. Requires B-M10, B-M11. | High | 📋 |
+| S-B3 | `GET /api/v1/settings/user` | Any role: get personal preferences for current user (default_station_id, display_name). | Medium | 📋 |
+| S-B4 | `PATCH /api/v1/settings/user` | Any role: update personal preferences. Scoped to authenticated user only — cannot modify another user's preferences. Requires B-M12. | Medium | 📋 |
+
+### 13b. Frontend — Settings Navigation
+
+| # | Item | Priority | Status | Notes |
+|---|------|----------|--------|-------|
+| S-F1 | Settings entry point in main navigation — accessible from the home screen header or hamburger menu. Shows only the sections relevant to the current role (Responder sees User Preferences only; Supervisor sees Station Settings + User Preferences; Administrator sees all). | High | 📋 | All roles |
+
+### 13c. Frontend — Station Settings (Supervisor+)
+
+| # | Item | Priority | Status | Notes |
+|---|------|----------|--------|-------|
+| S-F2 | Station color picker — Supervisor sets the station's primary color. Live preview of the station band and vehicle card. Change applies immediately for all users at that station. Requires B-M11, S-B2. | Medium | 📋 | Supervisor+ |
+| S-F3 | Allow check modification toggle — Administrator-only toggle. Shows current state with clear explanation of what enabling it allows. Requires B-M10, S-B2. | High | 📋 | Administrator only |
+
+### 13d. Frontend — User Preferences (all roles)
+
+| # | Item | Priority | Status | Notes |
+|---|------|----------|--------|-------|
+| S-F4 | Default station selector — for multi-station users (like Cindy). Sets which station is pre-selected on the home screen. Requires B-M12, S-B4. | Medium | 📋 | All roles |
+| S-F5 | Display name / preferred name — overrides the Azure AD display name within the app. Useful when legal name differs from what colleagues use. Requires B-M12, S-B4. | Low | 📋 | All roles |
+
+### 13e. Frontend — Asset Management (Administrator only)
+
+Consolidates admin actions currently scattered across the app into one place.
+
+| # | Item | Priority | Status | Notes |
+|---|------|----------|--------|-------|
+| S-F6 | Station management — create, edit, deactivate stations. Deactivation hides from all check workflows but preserves historical records. | High | 📋 | Administrator only |
+| S-F7 | Vehicle / portable equipment management — add, edit, deactivate vehicles and jump bags per station. Deactivation prevents new checks but preserves history. | High | 📋 | Administrator only |
+| S-F8 | Par level management — view and edit par levels per vehicle/compartment. Currently only possible via seed script. Requires B-E9 for soft-deactivation. | Medium | 📋 | Administrator only |
+| S-F9 | User onboarding management — view pending user requests, approve/reject, assign role and station. Consolidates B-E14/B-E15. | Medium | 📋 | Administrator only |
 
 ---
 
-## 14. Open Questions — Awaiting Decision
+## 14. Infrastructure / Security
 
-These were flagged in phase docs and have not yet been answered.
+| # | Item | Priority | Status | Source |
+|---|------|----------|--------|--------|
+| I-1 | Add Azure Firewall to `modules/network` with UDR; FQDN allow-list | Medium | 📋 | OSI review L3-1 |
+| I-2 | Re-add route table to subnets once Firewall is in place | Medium | ⛔ Blocked on I-1 | OSI review L3-2 |
+| I-3 | Add `HTTPSRedirectMiddleware` to `main.py` (production-gated) | Low | 📋 | OSI review L6-1 |
+| I-4 | Add `X-Content-Type-Options` and `X-Frame-Options` headers | Low | 📋 | OSI review L7-3 |
+| I-5 | Document Azure AD token lifetime and confirm CAE enabled | Low | 📋 | OSI review L5-1 |
+| I-6 | Write `docs/adr/ADR-006-DDoS-Strategy.md` | Low | 📋 | OSI review L4-1 |
+| I-7 | Confirm Azure deployment healthy after F1 quota reset | High | 📋 | Handoff 2026-05-15 |
+
+---
+
+## 15. Documentation
+
+| # | Item | Priority | Status | Source |
+|---|------|----------|--------|--------|
+| D-1 | Update `project_index.md` ADR table (ADR-006 slot) | Low | ✅ Done | Session 2026-05-22 |
+| D-2 | Write session handoff document at end of each session | Ongoing | 📋 | Convention |
+| D-3 | Update `phase5_frontend_pwa.md` status to "In Progress" | Low | 📋 | Phase 5A+5B complete |
+| D-4 | Update `phase5_frontend_pwa.md` to mark 5A and 5B complete | Low | 📋 | Handoff 2026-05-15 |
+| D-5 | Write `docs/deployment_flow.md` — end-to-end deployment sequence (infra → DB → backend → frontend) as a single ordered reference | Medium | 📋 | Session 2026-05-22 |
+| D-6 | Write `docs/production_strategy.md` — App Service tier upgrade path, VNet integration, PostgreSQL HA, geo-redundancy, scaling triggers, SLA targets, DR | Medium | 📋 | Session 2026-05-22 |
+| D-7 | Write `docs/deployment_guide.md` — complete from-scratch guide for a new deployer; deferred until feature-complete | Low | 📋 | Session 2026-05-22 |
+| D-8 | Add audience-based "Who should read what" section to `README.md` — maps architects, infra engineers, app devs, security/compliance, ops/SRE to their relevant docs | Medium | 📋 | Session 2026-05-22 |
+| D-9 | Write `docs/api_contract.md` — versioning policy, deprecation lifecycle, breaking vs non-breaking change rules | Medium | 📋 | Session 2026-05-22 |
+| D-10 | Create visual ERD in `docs/models/erd.md` (Mermaid) — all 11 models, FK relationships, cardinality, key constraints | Low | 📋 | Session 2026-05-22 |
+| D-11 | Add README badges: Python version + License (shields.io static badges — no CI changes needed) | Low | 📋 | Session 2026-05-22 |
+| D-12 | Add README test coverage badge — requires `pytest-cov` + Codecov wired into CI | Low | 📋 | Session 2026-05-22 |
+| D-13 | Write `docs/security.md` — auth model, RBAC, encryption, audit schema, OSI posture, compliance-facing reference | Medium | 📋 | Session 2026-05-22 |
+| D-14 | Write `docs/operations.md` — health endpoints, alert thresholds, on-call runbook, log queries, rollback, DB backup/restore | Medium | 📋 | Session 2026-05-22 |
+| D-15 | Document PII emergency delete procedure in `docs/operations.md` — step-by-step: identify, force-hard-delete via admin UI, verify audit event, notify relevant parties. What to never put in notes fields. | High | 📋 | Session 2026-05-22 |
+
+---
+
+## 16. Open Questions — Awaiting Decision
 
 | # | Question | Owner | Source |
 |---|----------|-------|--------|
-| Q-1 | Should notification delivery include email via Azure Communication Services, or in-app only? | Project owner | Phase 6 plan |
-| Q-2 | Should the Microsoft Graph API user lookup (station users list) be cached locally in the database? | Engineering | Phase 6 plan |
-| Q-3 | Is a 90-day maximum range sufficient for the compliance calendar date query? | Project owner | Phase 6 plan |
-| Q-4 | Should BLOCKING severity feedback bugs auto-create a GitHub issue? | Project owner | Phase 6 plan |
-| Q-5 | Should the supply room reorder tracking (mark ordered, mark received) be included in Phase 6 or deferred to Phase 7? | Project owner | Phase 5 supply room plan |
+| Q-1 | Notification delivery: email (Azure Comms) or in-app only? | Project owner | Phase 6 plan |
+| Q-2 | Microsoft Graph user lookup: cache in DB? | Engineering | Phase 6 plan |
+| Q-3 | 90-day max range sufficient for compliance calendar? | Project owner | Phase 6 plan |
+| Q-4 | BLOCKING feedback bugs auto-create GitHub issue? | Project owner | Phase 6 plan |
+| Q-5 | Supply room reorder tracking in Phase 6 or defer to Phase 7? | Project owner | Phase 5 plan |
+| Q-6 | Auto-hard-delete after 90 days: run as a scheduled Azure Function, or an Alembic-triggered cleanup job on startup? | Engineering | Session 2026-05-22 |
+| Q-7 | Check modification setting default: off (conservative, most stations) or on (permissive)? Currently modeled as default False. | Project owner | Session 2026-05-22 |
+| Q-8 | Should restored soft-deleted checks (CH-B6) re-appear in the responder's history view, or only in the admin deleted-records screen? | Project owner | Session 2026-05-22 |
 
 ---
 
@@ -226,9 +331,9 @@ These were flagged in phase docs and have not yet been answered.
 
 | Area | Not started | In progress | Blocked | Done |
 |------|-------------|-------------|---------|------|
-| Backend — Tests | 2 | 0 | 0 | 0 |
+| Backend — Tests | 0 | 0 | 0 | 2 |
 | Backend — Phase 6 Endpoints | 17 | 0 | 0 | 1 |
-| Backend — Data Models | 8 | 0 | 0 | 0 |
+| Backend — Data Models | 12 | 0 | 0 | 1 |
 | Backend — Code Quality | 2 | 0 | 0 | 0 |
 | Frontend — Phase 5C Help | 4 | 0 | 0 | 0 |
 | Frontend — Phase 5D Item Mgmt | 3 | 0 | 0 | 0 |
@@ -236,7 +341,11 @@ These were flagged in phase docs and have not yet been answered.
 | Frontend — Phase 5F Supervisor | 4 | 0 | 3 | 0 |
 | Frontend — Phase 5G Supporting | 2 | 0 | 2 | 0 |
 | Frontend — Phase 5H Infra | 4 | 0 | 0 | 0 |
-| Frontend — UX Improvements | 7 | 0 | 1 | 18 |
+| Frontend — UX Improvements | 7 | 0 | 1 | 23 |
+| Check History — Backend | 8 | 0 | 0 | 0 |
+| Check History — Frontend | 8 | 0 | 1 | 0 |
+| Settings — Backend | 4 | 0 | 0 | 0 |
+| Settings — Frontend | 9 | 0 | 0 | 0 |
 | Infrastructure / Security | 6 | 0 | 1 | 0 |
-| Documentation | 3 | 0 | 0 | 1 |
-| **Total** | **64** | **0** | **9** | **20** |
+| Documentation | 14 | 0 | 0 | 1 |
+| **Total** | **106** | **0** | **10** | **28** |

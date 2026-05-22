@@ -4,17 +4,15 @@
  *
  * Layout:
  *   1. Station selector — always visible at top.
- *      Cindy works at multiple stations. She picks hers once; it persists
- *      in localStorage so she doesn't pick it every shift.
- *      Tapping "Change" reopens the picker.
- *
- *   2. Draft resume banners — only for the currently selected station.
- *      A draft for Newberg/712 will NOT appear when Cindy is at Marcellus.
- *
+ *   2. Draft resume banners — one per vehicle/location group for the current station.
+ *      Multiple in-progress checks for the same vehicle are grouped into one banner.
  *   3. Action cards — Start a check, Vehicle Status, etc.
  *
- * Station color: the selected station's brand color is shown in the
- * station band AND applied to the app header via --station-primary on <body>.
+ * Phase 5 change — multiple checks per day:
+ *   useDraftIndex now returns groups (one per vehicle/location) instead of flat
+ *   draft entries. DraftBanner receives the group and handles the single-vs-multi
+ *   resume UX internally. handleResume receives (key, draft) explicitly so
+ *   old-format draft keys are honoured without reconstruction.
  */
 import React, { useState, useEffect, lazy, Suspense } from 'react'
 import { useAuth } from '../shared/hooks/useAuth.jsx'
@@ -47,9 +45,10 @@ function saveStation(station) {
 export default function HomePage() {
   const { user, getToken } = useAuth()
 
-  const [activeWizard, setActiveWizard]     = useState(null)
+  const [activeWizard, setActiveWizard]       = useState(null)
+  const [activeDraftKey, setActiveDraftKey]   = useState(null)
   const [selectedStation, setSelectedStation] = useState(loadSavedStation)
-  const [pickingStation, setPickingStation] = useState(false)
+  const [pickingStation, setPickingStation]   = useState(false)
 
   const {
     data: stations,
@@ -57,11 +56,10 @@ export default function HomePage() {
     error: stationsError,
   } = useApi(() => checkApi.getStations(getToken), [])
 
-  // Only show drafts for the currently active station —
-  // Cindy must not see a resume banner for Newberg while working at Marcellus.
-  const drafts = useDraftIndex(selectedStation?.station_id ?? null)
+  // Groups: one per vehicle/location for the current station.
+  // Multiple in-progress checks for the same vehicle appear as one group.
+  const draftGroups = useDraftIndex(selectedStation?.station_id ?? null)
 
-  // Auto-select if only one station exists
   useEffect(() => {
     if (!selectedStation && stations?.length === 1) {
       const s = stations[0]
@@ -70,9 +68,6 @@ export default function HomePage() {
     }
   }, [stations, selectedStation])
 
-  // Apply station color to the app header via CSS custom property on <body>.
-  // The .app-header CSS reads var(--station-primary) so the header color
-  // changes automatically when the station changes.
   useEffect(() => {
     const idx = stations?.findIndex(s => s.station_id === selectedStation?.station_id) ?? 0
     if (selectedStation) {
@@ -95,23 +90,39 @@ export default function HomePage() {
     setPickingStation(false)
   }
 
-  function handleStartNew() { setActiveWizard('new') }
+  function handleStartNew() {
+    setActiveDraftKey(null)
+    setActiveWizard('new')
+  }
 
-  function handleResume(draft) {
-    // Restore the station context for this draft
+  /**
+   * Resume an existing draft.
+   * @param {string} key   — the exact localStorage key for this draft
+   * @param {object} draft — the draft object from localStorage
+   */
+  function handleResume(key, draft) {
+    // Restore station context for this draft
     if (draft.station_id && stations) {
       const draftStation = stations.find(s => s.station_id === draft.station_id)
       if (draftStation) { setSelectedStation(draftStation); saveStation(draftStation) }
     }
+    setActiveDraftKey(key)
     setActiveWizard(draft)
   }
 
+  /**
+   * Discard a single draft by key.
+   * Called by DraftBanner for individual discards within a group.
+   */
   function handleDiscard(key) {
     localStorage.removeItem(key)
     window.dispatchEvent(new Event('storage'))
   }
 
-  function handleWizardExit() { setActiveWizard(null) }
+  function handleWizardExit() {
+    setActiveWizard(null)
+    setActiveDraftKey(null)
+  }
 
   // ── Active wizard ─────────────────────────────────────────────────────────
   if (activeWizard) {
@@ -120,6 +131,7 @@ export default function HomePage() {
         <Suspense fallback={<Spinner label="Loading check wizard…" />}>
           <CheckWizard
             initialDraft={activeWizard === 'new' ? null : activeWizard}
+            initialDraftKey={activeDraftKey}
             preselectedStation={selectedStation}
             onExit={handleWizardExit}
           />
@@ -128,7 +140,6 @@ export default function HomePage() {
     )
   }
 
-  // Station color for the currently selected station
   const stationIdx = stations?.findIndex(s => s.station_id === selectedStation?.station_id) ?? 0
   const colors = selectedStation
     ? stationColor(selectedStation.name, stationIdx >= 0 ? stationIdx : 0)
@@ -137,7 +148,6 @@ export default function HomePage() {
   return (
     <div className="home-page">
 
-      {/* Greeting */}
       <div className="home-page__greeting">
         <h1 className="home-page__title">
           Good {_timeOfDay()}, {user?.name?.split(' ')[0] ?? 'there'}
@@ -145,7 +155,6 @@ export default function HomePage() {
         <p className="home-page__subtitle">{user?.role}</p>
       </div>
 
-      {/* Station selector */}
       <ErrorBoundary moduleName="Station Selector">
         {loadingStations ? (
           <Spinner label="Loading stations…" size="sm" />
@@ -170,23 +179,22 @@ export default function HomePage() {
         )}
       </ErrorBoundary>
 
-      {/* Draft resume banners — station-filtered */}
-      {drafts.length > 0 && (
+      {/* Draft resume banners — one per vehicle/location group */}
+      {draftGroups.length > 0 && (
         <ErrorBoundary moduleName="Draft Banners">
           <section aria-label="In-progress checks">
-            {drafts.map(({ key, draft }) => (
+            {draftGroups.map(group => (
               <DraftBanner
-                key={key}
-                draft={draft}
-                onResume={() => handleResume(draft)}
-                onDiscard={() => handleDiscard(key)}
+                key={group.groupKey}
+                group={group}
+                onResume={handleResume}
+                onDiscard={handleDiscard}
               />
             ))}
           </section>
         </ErrorBoundary>
       )}
 
-      {/* Action cards */}
       <section className="home-page__section" aria-label="Available actions">
         <h2 className="home-page__section-title">Actions</h2>
         <div className="home-page__cards">
@@ -255,7 +263,6 @@ export default function HomePage() {
   )
 }
 
-// ── StationBand ───────────────────────────────────────────────────────────────
 function StationBand({ station, colors, onChangeStation, showChange }) {
   return (
     <div
@@ -286,7 +293,6 @@ function StationBand({ station, colors, onChangeStation, showChange }) {
   )
 }
 
-// ── StationPicker ─────────────────────────────────────────────────────────────
 function StationPicker({ stations, currentStation, onSelect, onCancel }) {
   return (
     <div className="station-picker">
@@ -312,19 +318,13 @@ function StationPicker({ stations, currentStation, onSelect, onCancel }) {
               type="button"
               aria-label={`${s.name}${s.region ? `, ${s.region}` : ''}${isSelected ? ' — current' : ''}`}
             >
-              <div
-                className="station-card__color-bar"
-                style={{ background: sc.primary }}
-                aria-hidden="true"
-              />
+              <div className="station-card__color-bar" style={{ background: sc.primary }} aria-hidden="true" />
               <div className="station-card__body">
                 <div className="station-card__name">{s.name}</div>
                 {s.region && <div className="station-card__region">{s.region}</div>}
               </div>
               {isSelected && (
-                <div className="station-card__check" style={{ color: sc.primary }} aria-hidden="true">
-                  ✓
-                </div>
+                <div className="station-card__check" style={{ color: sc.primary }} aria-hidden="true">✓</div>
               )}
             </button>
           )

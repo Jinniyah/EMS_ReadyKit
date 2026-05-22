@@ -25,13 +25,20 @@ const TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
   hour12: true,
 })
 
+const SHORT_DATETIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  month:  'short',
+  day:    'numeric',
+  hour:   'numeric',
+  minute: '2-digit',
+  hour12: true,
+})
+
 /**
  * "Tuesday, May 13, 2026" — used on Step 1 check date display.
  * @param {string} isoDate — YYYY-MM-DD
  */
 export function formatCheckDate(isoDate) {
   if (!isoDate) return ''
-  // Parse as local date (not UTC) so we don't get off-by-one-day errors
   const [y, m, d] = isoDate.split('-').map(Number)
   return DATE_FORMATTER.format(new Date(y, m - 1, d))
 }
@@ -44,6 +51,16 @@ export function formatShortDate(isoDate) {
   if (!isoDate) return ''
   const [y, m, d] = isoDate.split('-').map(Number)
   return SHORT_DATE_FORMATTER.format(new Date(y, m - 1, d))
+}
+
+/**
+ * "May 22 at 2:32 PM" — used in the multi-draft picker to distinguish
+ * multiple in-progress checks for the same vehicle on the same day.
+ * @param {string | Date} datetime
+ */
+export function formatShortDatetime(datetime) {
+  if (!datetime) return ''
+  return SHORT_DATETIME_FORMATTER.format(new Date(datetime))
 }
 
 /**
@@ -84,7 +101,6 @@ export function todayIso() {
 
 /**
  * Returns YYYY-MM-DD for a date that is `offsetDays` away from today.
- * Negative values go back; positive go forward.
  * @param {number} offsetDays
  */
 export function relativeIso(offsetDays) {
@@ -118,13 +134,12 @@ export function isExpired(isoDate) {
 }
 
 /**
- * Clamps a YYYY-MM-DD string to the allowed check date range:
- * no future dates, no more than maxDaysBack days ago (default 7).
+ * Clamps a YYYY-MM-DD string to the allowed check date range.
  * @param {string} isoDate
  * @param {number} maxDaysBack
  */
 export function clampCheckDate(isoDate, maxDaysBack = 7) {
-  const today   = todayIso()
+  const today    = todayIso()
   const earliest = relativeIso(-maxDaysBack)
   if (isoDate > today)    return today
   if (isoDate < earliest) return earliest

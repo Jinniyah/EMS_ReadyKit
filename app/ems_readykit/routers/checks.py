@@ -2,6 +2,12 @@
 routers/checks.py
 Daily inventory check and controlled substance check endpoints.
 
+Phase 5 change:
+- Removed the try/except IntegrityError → 409 CONFLICT guard.
+  Multiple checks per vehicle per calendar day are now allowed.
+  The timestamp column is the natural discriminator for a check event.
+  Timestamp is set at draft creation time and carried through to submission.
+
 Phase 4 changes:
 - POST /checks/daily now accepts line_items with optional lot_id
 - lot_id links to a specific StockLot — enables expiration verification
@@ -23,7 +29,6 @@ from datetime import date, datetime, timezone
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ems_readykit.core.auth import (
@@ -129,7 +134,6 @@ def _compute_line_item_status(
         return LineItemStatus.OK
 
     # SUPPLY and DOCUMENT both use quantity logic
-    # Expiration check applies only to SUPPLY items with a lot
     if check_type == "SUPPLY":
         if lot is not None and lot.expiration_date is not None and lot.expiration_date <= today:
             return LineItemStatus.EXPIRED
@@ -146,9 +150,9 @@ def _compute_check_status(line_items: List[CheckLineItem]) -> CheckStatus:
     No line items → PASS (header-only check).
 
     Priority order (worst to best):
-      FAIL     — any EXPIRED, MISSING, FAIL, or OVERDUE item
+      FAIL          — any EXPIRED, MISSING, FAIL, or OVERDUE item
       NEEDS_RESTOCK — any SHORT or LOW item (but no FAIL-tier items)
-      PASS     — all OK
+      PASS          — all OK
     """
     if not line_items:
         return CheckStatus.PASS
@@ -223,10 +227,16 @@ def create_daily_check(
     current_user: CurrentUser = Depends(require_role(*_ALL_ROLES)),
 ) -> DailyInventoryCheck:
     """
-    Submits a daily inventory check for a vehicle.
+    Submits an inventory check for a vehicle or portable location.
 
-    Optionally include line_items to record per-compartment item counts.
-    Each line item maps to one row on the paper form (Need / Have columns).
+    Multiple checks per vehicle per calendar day are explicitly supported:
+      - Post-call restock checks after supplies are consumed on a call
+      - Shift-start and shift-end checks for legal compliance
+      - Any other station-specific check cadence
+
+    The timestamp field is the natural unique discriminator for a check
+    event within a day. It should be set at draft creation time and carried
+    through unchanged to submission.
 
     When lot_id is provided on a line item, the router:
       - Validates the lot exists and belongs to the correct item
@@ -234,7 +244,7 @@ def create_daily_check(
       - Sets status to EXPIRED if expiration_date <= today
 
     The overall check status is computed automatically from line items:
-      FAIL          = any EXPIRED or MISSING items
+      FAIL          = any EXPIRED, MISSING, FAIL, or OVERDUE items
       NEEDS_RESTOCK = any SHORT items
       PASS          = all OK (or no line items)
 
@@ -272,7 +282,6 @@ def create_daily_check(
         lots = db.query(StockLot).filter(StockLot.lot_id.in_(lot_ids)).all()
         lot_map = {lot.lot_id: lot for lot in lots}
 
-        # Check all lot IDs exist
         missing_lots = lot_ids - set(lot_map.keys())
         if missing_lots:
             raise HTTPException(
@@ -280,7 +289,6 @@ def create_daily_check(
                 detail=f"Stock lot(s) not found: {sorted(missing_lots)}",
             )
 
-        # Validate each lot belongs to the correct item
         for li in payload.line_items:
             if li.lot_id is not None:
                 lot = lot_map[li.lot_id]
@@ -296,9 +304,6 @@ def create_daily_check(
 
     performed_by = current_user.name
 
-    # Build line item ORM objects and compute statuses
-    # For each line item, look up the item's check_type and measurement
-    # metadata so _compute_line_item_status can route correctly.
     item_ids = {li.item_id for li in payload.line_items}
     items_map = {
         item.item_id: item
@@ -355,17 +360,7 @@ def create_daily_check(
         line_items=line_item_objects,
     )
     db.add(check)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"A daily inventory check for vehicle {payload.vehicle_id} "
-                f"on {payload.check_date} already exists."
-            ),
-        )
+    db.commit()
     db.refresh(check)
 
     expired_count = sum(1 for li in line_item_objects if li.status == LineItemStatus.EXPIRED)
@@ -425,12 +420,16 @@ def get_daily_check(check_id: int, db: Session = Depends(get_db)) -> DailyInvent
 def list_vehicle_daily_checks(
     vehicle_id: int, db: Session = Depends(get_db)
 ) -> List[DailyInventoryCheck]:
-    """Returns all daily inventory checks for a vehicle, most recent first. All authenticated roles."""
+    """
+    Returns all daily inventory checks for a vehicle, most recent first.
+    Multiple checks per day are returned — each is a distinct check event.
+    All authenticated roles.
+    """
     _get_vehicle_or_404(vehicle_id, db)
     return (
         db.query(DailyInventoryCheck)
         .filter(DailyInventoryCheck.vehicle_id == vehicle_id)
-        .order_by(DailyInventoryCheck.check_date.desc())
+        .order_by(DailyInventoryCheck.timestamp.desc())
         .all()
     )
 
@@ -444,7 +443,11 @@ def list_vehicle_daily_checks(
 def get_station_compliance_today(
     station_id: int, db: Session = Depends(get_db)
 ) -> List[DailyInventoryCheck]:
-    """Returns all completed daily checks for a station for today. Requires Supervisor or Administrator."""
+    """
+    Returns all completed daily checks for a station for today.
+    Multiple checks per vehicle may be present — all are returned.
+    Requires Supervisor or Administrator.
+    """
     station = db.query(Station).filter(Station.station_id == station_id).first()
     if not station:
         raise HTTPException(
@@ -458,6 +461,7 @@ def get_station_compliance_today(
             DailyInventoryCheck.station_id == station_id,
             DailyInventoryCheck.check_date == today,
         )
+        .order_by(DailyInventoryCheck.timestamp.desc())
         .all()
     )
 

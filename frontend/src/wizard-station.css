@@ -62,7 +62,7 @@
   font-size: 16px;
 }
 
-/* Station context band — appears below station grid when one is selected */
+/* Station context band */
 .station-context-band {
   display: flex;
   align-items: center;
@@ -87,14 +87,8 @@
 .vehicle-card__info { flex: 1; }
 
 /* ── Portable location card (jump bag / equipment) ────────────────────────── */
-/* Dashed border visually distinguishes portable bags from vehicles.           */
-/* Snaps to solid when selected so the selection highlight is clean.           */
-.vehicle-card--portable {
-  border-style: dashed;
-}
-.vehicle-card--portable.vehicle-card--selected {
-  border-style: solid;
-}
+.vehicle-card--portable { border-style: dashed; }
+.vehicle-card--portable.vehicle-card--selected { border-style: solid; }
 
 /* ── API error card ────────────────────────────────────────────────────────── */
 .api-error-card {
@@ -120,4 +114,77 @@
   border-radius: var(--radius-sm);
   max-width: 100%;
   word-break: break-all;
+}
+
+/* ── Multi-draft picker overlay ────────────────────────────────────────────── */
+/* Shown when a draft group has more than one in-progress check.              */
+/* Full-screen bottom sheet — same pattern as the keypad overlay.             */
+.draft-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+  z-index: 500;
+}
+
+.draft-picker {
+  width: 100%;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.draft-picker__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.draft-picker__title {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+}
+
+.draft-picker__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.draft-picker__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-md);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  text-align: left;
+  min-height: var(--tap-target);
+  transition: background var(--transition);
+}
+
+.draft-picker__item:hover { background: var(--color-border-light); }
+
+.draft-picker__item-label {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.draft-picker__item-time {
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.draft-picker__item-meta {
+  font-size: 13px;
+  color: var(--color-text-muted);
 }

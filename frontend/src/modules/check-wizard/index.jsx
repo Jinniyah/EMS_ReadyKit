@@ -2,24 +2,30 @@
  * modules/check-wizard/index.jsx
  * Check wizard orchestrator — 5-step flow.
  *
+ * Phase 5 change — multiple checks per day:
+ *
+ *   started_at:
+ *     An ISO timestamp generated at draft creation time (Step 1 → Step 2
+ *     transition). It serves two purposes:
+ *       1. Draft key discriminator — ems_draft_{vehicleId}_{startedAt}
+ *          so multiple drafts for the same vehicle/date have unique keys.
+ *       2. Submission timestamp — passed to the API as `timestamp` so the
+ *          DB record reflects when the check was started, not when Submit
+ *          was tapped. Consistent with the model comment.
+ *
+ *   initialDraftKey:
+ *     When resuming an existing draft, HomePage passes the exact localStorage
+ *     key so useDraft can load it directly without key reconstruction. This
+ *     ensures old-format keys (ems_draft_{vehicleId}_{checkDate}) continue
+ *     working after the key format change.
+ *
  * Steps:
  *   1 — Vehicle/bag selection
  *   2 — Compartments
  *   3 — Items
- *   4 — Reconcile  (shown when any warn OR fail items exist; skipped if all clear)
- *   5 — Submit     (was Step 4 Review)
- *   6 — Submitted  (confirmation screen, not a numbered step)
- *
- * Routing from Step 2 button:
- *   draftNeedsReconcile() === true  → STEP.RECONCILE (4)
- *   draftNeedsReconcile() === false → STEP.SUBMIT    (5)
- *
- * Compartment name fix:
- *   handleUpdateItem reads the compartment name from `activeCompartment`
- *   (always set while on Step 3) rather than from `compartmentList` (which
- *   was never populated and always returned undefined). This ensures the
- *   draft compartment object has a real name, which flows through to
- *   buildAutoRepairNotes() on Step 5.
+ *   4 — Reconcile  (shown when any warn OR fail items exist)
+ *   5 — Submit
+ *   6 — Submitted  (confirmation, not a numbered step)
  */
 import React, { useState, useCallback, useEffect } from 'react'
 import { useAuth }             from '../../shared/hooks/useAuth.jsx'
@@ -48,20 +54,22 @@ const STEP = {
 }
 
 export default function CheckWizard({
-  initialDraft = null,
+  initialDraft    = null,
+  initialDraftKey = null,   // explicit localStorage key when resuming
   preselectedStation = null,
   onExit = null,
 }) {
   const { getToken } = useAuth()
 
   const [step, setStep]               = useState(STEP.VEHICLE)
-  const [vehicleId, setVehicleId]     = useState(initialDraft?.vehicle_id ?? null)
+  const [vehicleId, setVehicleId]     = useState(initialDraft?.vehicle_id   ?? null)
   const [stationId, setStationId]     = useState(
     initialDraft?.station_id ?? preselectedStation?.station_id ?? null
   )
-  const [checkDate, setCheckDate]     = useState(initialDraft?.check_date ?? todayIso())
+  const [checkDate, setCheckDate]     = useState(initialDraft?.check_date   ?? todayIso())
+  const [startedAt, setStartedAt]     = useState(initialDraft?.started_at   ?? null)
   const [vehicle, setVehicle]         = useState(null)
-  const [locationId, setLocationId]   = useState(initialDraft?.location_id ?? null)
+  const [locationId, setLocationId]   = useState(initialDraft?.location_id  ?? null)
   const [selectionLabel, setSelectionLabel] = useState(initialDraft?.selection_label ?? '')
   const [activeCompartment, setActiveCompartment] = useState(null)
   const [compartmentList, setCompartmentList]     = useState([])
@@ -71,8 +79,9 @@ export default function CheckWizard({
   const [submitError, setSubmitError]             = useState(null)
   const [showDiscardModal, setShowDiscardModal]   = useState(false)
 
+  // useDraft accepts an explicit key when resuming so old-format keys work.
   const { draft, savedAt, saveDraft, saveLineItem, clearDraft } =
-    useDraft(vehicleId ?? locationId, checkDate)
+    useDraft(vehicleId ?? locationId, startedAt, initialDraftKey)
 
   // Resume from initial draft
   useEffect(() => {
@@ -81,6 +90,7 @@ export default function CheckWizard({
       else if (initialDraft.location_id) setLocationId(initialDraft.location_id)
       setStationId(initialDraft.station_id)
       setCheckDate(initialDraft.check_date)
+      setStartedAt(initialDraft.started_at ?? null)
       setSelectionLabel(initialDraft.selection_label ?? '')
       setStep(STEP.COMPARTMENTS)
     }
@@ -105,8 +115,13 @@ export default function CheckWizard({
     stationId: sid, vehicleId: vid, locationId: directLocationId,
     checkDate: cd, secondCrew, vehicle: v, selectionLabel: label,
   }) => {
+    // Generate the started_at timestamp once at draft creation time.
+    // This becomes both the draft key discriminator and the submission timestamp.
+    const now = new Date().toISOString()
+
     setStationId(sid)
     setCheckDate(cd)
+    setStartedAt(now)
     setVehicle(v ?? null)
     setSelectionLabel(label ?? '')
 
@@ -114,17 +129,25 @@ export default function CheckWizard({
       setVehicleId(null)
       setLocationId(directLocationId)
       saveDraft({
-        vehicle_id: null, location_id: directLocationId,
-        station_id: sid, check_date: cd,
-        second_crew: secondCrew || null, selection_label: label,
+        vehicle_id:      null,
+        location_id:     directLocationId,
+        station_id:      sid,
+        check_date:      cd,
+        started_at:      now,
+        second_crew:     secondCrew || null,
+        selection_label: label,
       })
     } else {
       setVehicleId(vid)
       setLocationId(null)
       saveDraft({
-        vehicle_id: vid, location_id: null,
-        station_id: sid, check_date: cd,
-        second_crew: secondCrew || null, selection_label: label,
+        vehicle_id:      vid,
+        location_id:     null,
+        station_id:      sid,
+        check_date:      cd,
+        started_at:      now,
+        second_crew:     secondCrew || null,
+        selection_label: label,
       })
     }
     setStep(STEP.COMPARTMENTS)
@@ -146,11 +169,6 @@ export default function CheckWizard({
   }, [draft])
 
   // ── Step 3: update one item ───────────────────────────────────────────────
-  // Uses activeCompartment.name directly — this is always set while on Step 3
-  // and is the only reliable source of the compartment name at write time.
-  // Previously this read from compartmentList which was never populated,
-  // causing draft compartment objects to have name: '' → "Unknown compartment"
-  // in buildAutoRepairNotes() on Step 5.
   const handleUpdateItem = useCallback((compartmentId, payload) => {
     const compKey = String(compartmentId)
     saveLineItem(compartmentId, {
@@ -216,11 +234,19 @@ export default function CheckWizard({
       selectionLabel     ? `Check subject: ${selectionLabel}`  : null,
     ].filter(Boolean).join('\n') || null
 
+    // Use started_at as the submission timestamp — it reflects when the check
+    // was begun, not when Submit was tapped. Falls back to now() for old-format
+    // drafts that pre-date the started_at field.
+    const submissionTimestamp = draft?.started_at ?? startedAt ?? new Date().toISOString()
+
     try {
       const result = await checkApi.submitCheck({
-        vehicle_id: vehicleId, station_id: stationId,
-        check_date: checkDate, timestamp: new Date().toISOString(),
-        notes, line_items: lineItems,
+        vehicle_id: vehicleId,
+        station_id: stationId,
+        check_date: checkDate,
+        timestamp:  submissionTimestamp,
+        notes,
+        line_items: lineItems,
       }, getToken)
 
       clearDraft()
@@ -232,7 +258,7 @@ export default function CheckWizard({
     } finally {
       setIsSubmitting(false)
     }
-  }, [draft, vehicleId, stationId, checkDate, selectionLabel, getToken, clearDraft])
+  }, [draft, vehicleId, stationId, checkDate, startedAt, selectionLabel, getToken, clearDraft])
 
   // ── Discard ────────────────────────────────────────────────────────────────
   const handleDiscardConfirm = useCallback(() => {
@@ -247,6 +273,7 @@ export default function CheckWizard({
     setVehicleId(null)
     setStationId(preselectedStation?.station_id ?? null)
     setCheckDate(todayIso())
+    setStartedAt(null)
     setVehicle(null)
     setLocationId(null)
     setSelectionLabel('')
@@ -312,11 +339,7 @@ export default function CheckWizard({
 
       {/* ── Progress bar (steps 1–5) ──────────────────────────────────────── */}
       {step !== STEP.SUBMITTED && (
-        <WizardProgress
-          step={progressStep}
-          draft={draft}
-          compartments={compartmentList}
-        />
+        <WizardProgress step={progressStep} draft={draft} compartments={compartmentList} />
       )}
 
       {/* ── Steps ─────────────────────────────────────────────────────────── */}

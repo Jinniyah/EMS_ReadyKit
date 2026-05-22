@@ -26,10 +26,9 @@
  *                       Pass  → locks card immediately (confirmed=true).
  *                       Fail  → stays in edit mode (confirmed=false), opens
  *                               notes box so medic can document reason.
- *                               Card locks when medic taps "Confirm fail"
- *                               or when "Save compartment" is tapped.
- *   DATE_RECORD       — Date picker only. Blurring with a value locks the
- *                       card (confirmed=true). No Submit button.
+ *   DATE_RECORD       — "Today" button locks card immediately with today's date.
+ *                       Date picker available for other dates; blurring with a
+ *                       value also locks the card.
  *   MEASUREMENT       — Numeric input + "Submit count" button.
  *
  * "Save compartment" is the ONLY navigation trigger — confirmed is purely
@@ -37,7 +36,7 @@
  */
 import React, { useState, useRef, useCallback } from 'react'
 import { checkTypeLabel } from '../../../shared/utils/statusCalc.js'
-import { formatShortDate, isExpired } from '../../../shared/utils/dateHelpers.js'
+import { formatShortDate, isExpired, todayIso } from '../../../shared/utils/dateHelpers.js'
 
 export default function ItemRow({
   item,
@@ -51,7 +50,6 @@ export default function ItemRow({
   const quantityNeeded = parLevel?.min_quantity ?? 0
   const touchedRef     = useRef(false)
 
-  // Notes box: open if there's already a saved note, or if currently failing
   const isFailing = checkType === 'FUNCTIONAL' &&
     draftItem?.functional_pass === false &&
     !draftItem?.confirmed
@@ -65,9 +63,6 @@ export default function ItemRow({
     }
   }, [item.item_id, onTouched])
 
-  // ── Core update function — writes everything to draft immediately ──────────
-  // check_type is always included so deriveDraftItemStatus() on Step 2
-  // can correctly classify this item without the full API item object.
   const persist = useCallback((fields) => {
     touch()
     onUpdate({
@@ -84,7 +79,6 @@ export default function ItemRow({
     })
   }, [touch, onUpdate, item.item_id, checkType, quantityNeeded, draftItem])
 
-  // ── Quantity helpers (SUPPLY / DOCUMENT) ──────────────────────────────────
   const currentQty = draftItem?.quantity_found ?? 0
 
   const handleIncrement = useCallback(() => {
@@ -97,18 +91,14 @@ export default function ItemRow({
 
   const handleSetQty = useCallback((val) => {
     const n = parseInt(val, 10)
-    if (!isNaN(n) && n >= 0) {
-      persist({ quantity_found: n, confirmed: false })
-    }
+    if (!isNaN(n) && n >= 0) persist({ quantity_found: n, confirmed: false })
   }, [persist])
 
-  // ── All present — sets quantity to needed AND confirms ────────────────────
   const handleAllPresent = useCallback(() => {
     persist({ quantity_found: quantityNeeded, confirmed: true })
     if (navigator.vibrate) navigator.vibrate([40])
   }, [persist, quantityNeeded])
 
-  // ── Submit count — confirms current values (SUPPLY / MEASUREMENT) ─────────
   const handleSubmitCount = useCallback(() => {
     persist({ confirmed: true })
     if (navigator.vibrate) {
@@ -116,12 +106,10 @@ export default function ItemRow({
     }
   }, [persist, draftItem])
 
-  // ── Measurement ───────────────────────────────────────────────────────────
   const handleMeasurement = useCallback((val) => {
     persist({ measurement_value: parseFloat(val) || null, confirmed: false })
   }, [persist])
 
-  // ── Functional (Pass / Fail) ───────────────────────────────────────────────
   const handleFunctional = useCallback((val) => {
     if (val === true) {
       persist({ functional_pass: true, confirmed: true })
@@ -135,6 +123,8 @@ export default function ItemRow({
   }, [persist])
 
   // ── Date record ───────────────────────────────────────────────────────────
+  // onChange keeps confirmed=false while the picker is open.
+  // onBlur (and the Today button) lock the card with confirmed=true.
   const handleDateChange = useCallback((val) => {
     persist({ date_value: val || null, confirmed: false })
   }, [persist])
@@ -143,20 +133,24 @@ export default function ItemRow({
     if (val) persist({ date_value: val, confirmed: true })
   }, [persist])
 
-  // ── Notes ─────────────────────────────────────────────────────────────────
+  // "Today" — sets today's ISO date and immediately locks the card.
+  // Mirrors the exact same confirm path as handleDateBlur so the card
+  // collapses to the green summary view in one tap.
+  const handleDateToday = useCallback(() => {
+    const today = todayIso()
+    persist({ date_value: today, confirmed: true })
+    if (navigator.vibrate) navigator.vibrate([40])
+  }, [persist])
+
   const handleNotes = useCallback((val) => {
     persist({ notes: val.trim() || null })
   }, [persist])
 
-  // ── Edit (pencil) — un-confirms, keeps all values ─────────────────────────
   const handleEdit = useCallback(() => {
     persist({ confirmed: false })
-    if (draftItem?.notes || draftItem?.functional_pass === false) {
-      setShowNotes(true)
-    }
+    if (draftItem?.notes || draftItem?.functional_pass === false) setShowNotes(true)
   }, [persist, draftItem])
 
-  // ── Keypad ────────────────────────────────────────────────────────────────
   const [showKeypad, setShowKeypad] = useState(false)
   const [keypadValue, setKeypadValue] = useState('0')
 
@@ -171,18 +165,15 @@ export default function ItemRow({
     setShowKeypad(false)
   }, [handleSetQty, keypadValue])
 
-  // ── Derived display values ────────────────────────────────────────────────
-  const hasDraft    = draftItem !== null
-  const confirmed   = draftItem?.confirmed ?? false
-
-  const isCountType     = checkType === 'SUPPLY' || checkType === 'DOCUMENT'
-  const isZeroCount     = isCountType && (draftItem?.quantity_found ?? 0) === 0
-  const isShortCount    = isCountType &&
+  const hasDraft         = draftItem !== null
+  const confirmed        = draftItem?.confirmed ?? false
+  const isCountType      = checkType === 'SUPPLY' || checkType === 'DOCUMENT'
+  const isZeroCount      = isCountType && (draftItem?.quantity_found ?? 0) === 0
+  const isShortCount     = isCountType &&
     quantityNeeded > 0 &&
     (draftItem?.quantity_found ?? 0) > 0 &&
     (draftItem?.quantity_found ?? 0) < quantityNeeded
-  const isFunctionalFail = hasDraft &&
-    checkType === 'FUNCTIONAL' &&
+  const isFunctionalFail = hasDraft && checkType === 'FUNCTIONAL' &&
     draftItem?.functional_pass === false
 
   const rowBg = !hasDraft
@@ -200,13 +191,9 @@ export default function ItemRow({
     return `${draftItem?.quantity_found ?? 0} / ${quantityNeeded}`
   })()
 
-  const isFailPending = checkType === 'FUNCTIONAL' &&
-    draftItem?.functional_pass === false &&
-    !confirmed
-  const showSubmitButton = checkType === 'SUPPLY' ||
-                           checkType === 'DOCUMENT' ||
-                           checkType === 'MEASUREMENT' ||
-                           isFailPending
+  const isFailPending    = checkType === 'FUNCTIONAL' && draftItem?.functional_pass === false && !confirmed
+  const showSubmitButton = checkType === 'SUPPLY' || checkType === 'DOCUMENT' ||
+                           checkType === 'MEASUREMENT' || isFailPending
 
   // ── Confirmed (locked) display ────────────────────────────────────────────
   if (confirmed) {
@@ -226,15 +213,9 @@ export default function ItemRow({
             </div>
             <div className="item-row__submitted-count">
               {countLabel}
-              {isZeroCount && (
-                <span className="item-row__zero-warning"> ⚠ check count</span>
-              )}
-              {isShortCount && (
-                <span className="item-row__short-warning"> ↓ short</span>
-              )}
-              {isFunctionalFail && (
-                <span className="item-row__fail-tag"> ✗ Failed</span>
-              )}
+              {isZeroCount      && <span className="item-row__zero-warning"> ⚠ check count</span>}
+              {isShortCount     && <span className="item-row__short-warning"> ↓ short</span>}
+              {isFunctionalFail && <span className="item-row__fail-tag"> ✗ Failed</span>}
             </div>
             {draftItem?.notes && (
               <div className="item-row__submitted-note">📝 {draftItem.notes}</div>
@@ -254,10 +235,7 @@ export default function ItemRow({
 
   // ── Edit display ──────────────────────────────────────────────────────────
   return (
-    <div
-      className="item-row item-row--pending"
-      style={{ '--row-bg': rowBg }}
-    >
+    <div className="item-row item-row--pending" style={{ '--row-bg': rowBg }}>
       <div className="item-row__header">
         <div className="item-row__name">
           {item.name}
@@ -288,35 +266,15 @@ export default function ItemRow({
       <div className="item-row__input">
         {(checkType === 'SUPPLY' || checkType === 'DOCUMENT') && (
           <div className="supply-input__counter">
-            <button
-              className="counter-btn"
-              onClick={handleDecrement}
-              disabled={currentQty <= 0}
-              type="button"
-              aria-label="Decrease quantity"
-            >−</button>
-
-            <button
-              className="counter-value"
-              onClick={openKeypad}
-              type="button"
-              aria-label={`Quantity: ${currentQty}. Tap to type.`}
-            >{currentQty}</button>
-
-            <button
-              className="counter-btn"
-              onClick={handleIncrement}
-              type="button"
-              aria-label="Increase quantity"
-            >+</button>
-
+            <button className="counter-btn" onClick={handleDecrement}
+              disabled={currentQty <= 0} type="button" aria-label="Decrease quantity">−</button>
+            <button className="counter-value" onClick={openKeypad} type="button"
+              aria-label={`Quantity: ${currentQty}. Tap to type.`}>{currentQty}</button>
+            <button className="counter-btn" onClick={handleIncrement}
+              type="button" aria-label="Increase quantity">+</button>
             {quantityNeeded > 0 && (
-              <button
-                className="btn btn--all-present"
-                onClick={handleAllPresent}
-                type="button"
-                aria-label={`All ${quantityNeeded} present`}
-              >
+              <button className="btn btn--all-present" onClick={handleAllPresent}
+                type="button" aria-label={`All ${quantityNeeded} present`}>
                 All {quantityNeeded} present
               </button>
             )}
@@ -333,10 +291,7 @@ export default function ItemRow({
         )}
 
         {checkType === 'FUNCTIONAL' && (
-          <FunctionalInput
-            value={draftItem?.functional_pass ?? null}
-            onChange={handleFunctional}
-          />
+          <FunctionalInput value={draftItem?.functional_pass ?? null} onChange={handleFunctional} />
         )}
 
         {checkType === 'DATE_RECORD' && (
@@ -344,6 +299,7 @@ export default function ItemRow({
             value={draftItem?.date_value ?? ''}
             onChange={handleDateChange}
             onBlur={handleDateBlur}
+            onToday={handleDateToday}
           />
         )}
       </div>
@@ -351,9 +307,7 @@ export default function ItemRow({
       {showNotes && (
         <div className="item-row__notes">
           {isFailPending && (
-            <p className="item-row__notes-prompt">
-              Document the reason for failure (optional)
-            </p>
+            <p className="item-row__notes-prompt">Document the reason for failure (optional)</p>
           )}
           <textarea
             ref={notesRef}
@@ -370,21 +324,16 @@ export default function ItemRow({
 
       <div className="item-row__actions">
         {!showNotes ? (
-          <button
-            className="btn-text"
+          <button className="btn-text" type="button"
             onClick={() => { setShowNotes(true); setTimeout(() => notesRef.current?.focus(), 50) }}
-            type="button"
-            aria-label={`Add note for ${item.name}`}
-          >+ Note</button>
+            aria-label={`Add note for ${item.name}`}>+ Note</button>
         ) : <div />}
 
         {showSubmitButton && (
-          <button
-            className="btn btn--submit-count"
-            onClick={handleSubmitCount}
-            type="button"
-            aria-label={isFailPending ? `Confirm fail for ${item.name}` : `Submit count for ${item.name}`}
-          >{isFailPending ? 'Confirm fail' : 'Submit count'}</button>
+          <button className="btn btn--submit-count" onClick={handleSubmitCount} type="button"
+            aria-label={isFailPending ? `Confirm fail for ${item.name}` : `Submit count for ${item.name}`}>
+            {isFailPending ? 'Confirm fail' : 'Submit count'}
+          </button>
         )}
       </div>
 
@@ -393,27 +342,20 @@ export default function ItemRow({
           <div className="keypad">
             <div className="keypad__context">Need: {quantityNeeded}</div>
             <input
-              className="keypad__display"
-              type="number"
-              inputMode="numeric"
-              value={keypadValue}
-              onChange={e => setKeypadValue(e.target.value)}
-              autoFocus
-              min={0}
-              aria-label="Quantity"
+              className="keypad__display" type="number" inputMode="numeric"
+              value={keypadValue} onChange={e => setKeypadValue(e.target.value)}
+              autoFocus min={0} aria-label="Quantity"
             />
             <div className="keypad__buttons">
               {['1','2','3','4','5','6','7','8','9','','0','⌫'].map((k, i) => (
-                <button
-                  key={i}
+                <button key={i}
                   className={`keypad__key ${!k ? 'keypad__key--empty' : ''}`}
                   onClick={() => {
                     if (!k) return
                     if (k === '⌫') setKeypadValue(v => v.slice(0, -1) || '0')
                     else setKeypadValue(v => v === '0' ? k : v + k)
                   }}
-                  type="button"
-                  aria-label={k === '⌫' ? 'Backspace' : k || undefined}
+                  type="button" aria-label={k === '⌫' ? 'Backspace' : k || undefined}
                 >{k}</button>
               ))}
             </div>
@@ -451,32 +393,40 @@ function MeasurementInput({ value, onChange, unit, minimum }) {
 function FunctionalInput({ value, onChange }) {
   return (
     <div className="functional-input" role="radiogroup" aria-label="Pass or fail">
-      <button
-        role="radio" aria-checked={value === true}
+      <button role="radio" aria-checked={value === true}
         className={`functional-btn functional-btn--pass ${value === true ? 'functional-btn--active' : ''}`}
-        onClick={() => onChange(true)} type="button"
-      >✓ Pass</button>
-      <button
-        role="radio" aria-checked={value === false}
+        onClick={() => onChange(true)} type="button">✓ Pass</button>
+      <button role="radio" aria-checked={value === false}
         className={`functional-btn functional-btn--fail ${value === false ? 'functional-btn--active' : ''}`}
-        onClick={() => onChange(false)} type="button"
-      >✗ Fail</button>
+        onClick={() => onChange(false)} type="button">✗ Fail</button>
     </div>
   )
 }
 
-function DateRecordInput({ value, onChange, onBlur }) {
+function DateRecordInput({ value, onChange, onBlur, onToday }) {
   return (
     <div className="date-record-input">
-      <label className="measurement-input__label">Date recorded</label>
-      <input
-        type="date" className="form-input"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        onBlur={e => onBlur(e.target.value)}
-        max={new Date().toISOString().slice(0, 10)}
-        aria-label="Date recorded"
-      />
+      <div className="date-record-input__row">
+        <div className="date-record-input__picker">
+          <label className="measurement-input__label">Date recorded</label>
+          <input
+            type="date" className="form-input"
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            onBlur={e => onBlur(e.target.value)}
+            max={new Date().toISOString().slice(0, 10)}
+            aria-label="Date recorded"
+          />
+        </div>
+        <button
+          className="btn btn--today"
+          onClick={onToday}
+          type="button"
+          aria-label="Set date to today and confirm"
+        >
+          Today
+        </button>
+      </div>
     </div>
   )
 }
