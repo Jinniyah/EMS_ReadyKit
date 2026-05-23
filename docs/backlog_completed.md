@@ -53,6 +53,17 @@
 
 ---
 
+## Frontend — Check History
+| # | Item | Completed |
+|---|------|-----------|
+| CH-F1 | "My Checks" screen — user's submitted checks grouped by date | 2026-05-23 |
+| CH-F2 | Check detail view (read-only for Responders) | 2026-05-23 |
+| CH-F3 | Show supervisor acknowledgement on check detail | 2026-05-23 |
+| CH-F4 | Supervisor check history list — filterable by status | 2026-05-23 |
+| CH-F5 | Soft-delete check (Supervisor+) — mandatory reason, 90-day warning | 2026-05-23 |
+
+---
+
 ## Frontend — UX Improvements
 | # | Item | Completed |
 |---|------|-----------|

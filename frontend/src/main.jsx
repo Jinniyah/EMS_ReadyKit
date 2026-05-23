@@ -10,6 +10,7 @@ import { msalConfig } from './shared/api/authConfig.js'
 import './index.css'
 import './wizard.css'
 import './wizard-station.css'
+import './submitted-screen-patch.css'
 
 const isDev = import.meta.env.VITE_APP_ENV !== 'production'
 const msalInstance = isDev ? null : new PublicClientApplication(msalConfig)

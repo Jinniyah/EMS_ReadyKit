@@ -1,38 +1,13 @@
 /**
  * modules/check-wizard/index.jsx
  * Check wizard orchestrator — 5-step flow.
- *
- * Phase 5 change — multiple checks per day:
- *
- *   started_at:
- *     An ISO timestamp generated at draft creation time (Step 1 → Step 2
- *     transition). It serves two purposes:
- *       1. Draft key discriminator — ems_draft_{vehicleId}_{startedAt}
- *          so multiple drafts for the same vehicle/date have unique keys.
- *       2. Submission timestamp — passed to the API as `timestamp` so the
- *          DB record reflects when the check was started, not when Submit
- *          was tapped. Consistent with the model comment.
- *
- *   initialDraftKey:
- *     When resuming an existing draft, HomePage passes the exact localStorage
- *     key so useDraft can load it directly without key reconstruction. This
- *     ensures old-format keys (ems_draft_{vehicleId}_{checkDate}) continue
- *     working after the key format change.
- *
- * Steps:
- *   1 — Vehicle/bag selection
- *   2 — Compartments
- *   3 — Items
- *   4 — Reconcile  (shown when any warn OR fail items exist)
- *   5 — Submit
- *   6 — Submitted  (confirmation, not a numbered step)
  */
 import React, { useState, useCallback, useEffect } from 'react'
 import { useAuth }             from '../../shared/hooks/useAuth.jsx'
 import { useApi }              from '../../shared/hooks/useApi.js'
 import { useDraft }            from '../../shared/hooks/useDraft.js'
 import { todayIso }            from '../../shared/utils/dateHelpers.js'
-import { draftNeedsReconcile } from '../../shared/utils/statusCalc.js'
+import { draftNeedsReconcile, deriveDraftItemStatus, lineItemStatus } from '../../shared/utils/statusCalc.js'
 import ErrorBoundary           from '../../shared/components/ErrorBoundary.jsx'
 import Modal                   from '../../shared/components/Modal.jsx'
 import WizardProgress          from './components/WizardProgress.jsx'
@@ -53,9 +28,23 @@ const STEP = {
   SUBMITTED:    6,
 }
 
+/** Derive overall status from draft compartments — mirrors backend logic */
+function deriveOverallStatus(compartments) {
+  const allItems = Object.values(compartments ?? {}).flatMap(c => c.line_items ?? [])
+  const hasFail = allItems.some(li => {
+    const s = li.status ?? deriveDraftItemStatus(li)
+    return s ? lineItemStatus(s).severity === 'fail' : false
+  })
+  const hasWarn = !hasFail && allItems.some(li => {
+    const s = li.status ?? deriveDraftItemStatus(li)
+    return s ? lineItemStatus(s).severity === 'warn' : false
+  })
+  return hasFail ? 'FAIL' : hasWarn ? 'NEEDS_RESTOCK' : 'PASS'
+}
+
 export default function CheckWizard({
   initialDraft    = null,
-  initialDraftKey = null,   // explicit localStorage key when resuming
+  initialDraftKey = null,
   preselectedStation = null,
   onExit = null,
 }) {
@@ -75,15 +64,16 @@ export default function CheckWizard({
   const [compartmentList, setCompartmentList]     = useState([])
   const [submittedCheckId, setSubmittedCheckId]   = useState(null)
   const [submittedAt, setSubmittedAt]             = useState(null)
+  const [submittedStatus, setSubmittedStatus]     = useState(null)  // NEW
+  const [submittedRepairNeeded, setSubmittedRepairNeeded] = useState(false) // NEW
+  const [submittedRepairNotes, setSubmittedRepairNotes]   = useState('')    // NEW
   const [isSubmitting, setIsSubmitting]           = useState(false)
   const [submitError, setSubmitError]             = useState(null)
   const [showDiscardModal, setShowDiscardModal]   = useState(false)
 
-  // useDraft accepts an explicit key when resuming so old-format keys work.
   const { draft, savedAt, saveDraft, saveLineItem, clearDraft } =
     useDraft(vehicleId ?? locationId, startedAt, initialDraftKey)
 
-  // Resume from initial draft
   useEffect(() => {
     if (initialDraft) {
       if (initialDraft.vehicle_id)       setVehicleId(initialDraft.vehicle_id)
@@ -96,7 +86,6 @@ export default function CheckWizard({
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Resolve vehicle → location_id
   const { data: locations } = useApi(
     () => vehicleId ? checkApi.getLocations(getToken) : Promise.resolve(null),
     [vehicleId]
@@ -110,15 +99,11 @@ export default function CheckWizard({
     }
   }, [locations, vehicleId])
 
-  // ── Step 1 → 2 ────────────────────────────────────────────────────────────
   const handleVehicleSelect = useCallback(({
     stationId: sid, vehicleId: vid, locationId: directLocationId,
     checkDate: cd, secondCrew, vehicle: v, selectionLabel: label,
   }) => {
-    // Generate the started_at timestamp once at draft creation time.
-    // This becomes both the draft key discriminator and the submission timestamp.
     const now = new Date().toISOString()
-
     setStationId(sid)
     setCheckDate(cd)
     setStartedAt(now)
@@ -129,37 +114,27 @@ export default function CheckWizard({
       setVehicleId(null)
       setLocationId(directLocationId)
       saveDraft({
-        vehicle_id:      null,
-        location_id:     directLocationId,
-        station_id:      sid,
-        check_date:      cd,
-        started_at:      now,
-        second_crew:     secondCrew || null,
-        selection_label: label,
+        vehicle_id: null, location_id: directLocationId,
+        station_id: sid, check_date: cd, started_at: now,
+        second_crew: secondCrew || null, selection_label: label,
       })
     } else {
       setVehicleId(vid)
       setLocationId(null)
       saveDraft({
-        vehicle_id:      vid,
-        location_id:     null,
-        station_id:      sid,
-        check_date:      cd,
-        started_at:      now,
-        second_crew:     secondCrew || null,
-        selection_label: label,
+        vehicle_id: vid, location_id: null,
+        station_id: sid, check_date: cd, started_at: now,
+        second_crew: secondCrew || null, selection_label: label,
       })
     }
     setStep(STEP.COMPARTMENTS)
   }, [saveDraft])
 
-  // ── Step 2 → 3 ────────────────────────────────────────────────────────────
   const handleSelectCompartment = useCallback((comp) => {
     setActiveCompartment(comp)
     setStep(STEP.ITEMS)
   }, [])
 
-  // ── Step 2 advance button ─────────────────────────────────────────────────
   const handleReview = useCallback(() => {
     if (draftNeedsReconcile(draft?.compartments)) {
       setStep(STEP.RECONCILE)
@@ -168,7 +143,6 @@ export default function CheckWizard({
     }
   }, [draft])
 
-  // ── Step 3: update one item ───────────────────────────────────────────────
   const handleUpdateItem = useCallback((compartmentId, payload) => {
     const compKey = String(compartmentId)
     saveLineItem(compartmentId, {
@@ -178,7 +152,6 @@ export default function CheckWizard({
     }, payload)
   }, [activeCompartment, draft, saveLineItem])
 
-  // ── Step 3: save/complete compartment ─────────────────────────────────────
   const handleSaveCompartment = useCallback((compartmentId) => {
     const compKey = String(compartmentId)
     const cd      = draft?.compartments?.[compKey]
@@ -200,15 +173,16 @@ export default function CheckWizard({
     setActiveCompartment(null)
   }, [])
 
-  // ── Step 4 Reconcile → Step 5 Submit ──────────────────────────────────────
   const handleReconcileContinue = useCallback(() => {
     setStep(STEP.SUBMIT)
   }, [])
 
-  // ── Step 5: submit ────────────────────────────────────────────────────────
   const handleSubmit = useCallback(async ({ overallNotes, repairNeeded, repairNotes }) => {
     setIsSubmitting(true)
     setSubmitError(null)
+
+    // Capture status and repair details BEFORE clearing the draft
+    const overallStatus = deriveOverallStatus(draft?.compartments)
 
     const lineItems = []
     for (const cd of Object.values(draft?.compartments ?? {})) {
@@ -221,8 +195,8 @@ export default function CheckWizard({
           lot_id:            li.lot_id            ?? null,
           measurement_value: li.measurement_value ?? null,
           functional_pass:   li.functional_pass   ?? null,
-          date_value:        li.date_value         ?? null,
-          notes:             li.notes              ?? null,
+          date_value:        li.date_value        ?? null,
+          notes:             li.notes             ?? null,
         })
       }
     }
@@ -234,9 +208,6 @@ export default function CheckWizard({
       selectionLabel     ? `Check subject: ${selectionLabel}`  : null,
     ].filter(Boolean).join('\n') || null
 
-    // Use started_at as the submission timestamp — it reflects when the check
-    // was begun, not when Submit was tapped. Falls back to now() for old-format
-    // drafts that pre-date the started_at field.
     const submissionTimestamp = draft?.started_at ?? startedAt ?? new Date().toISOString()
 
     try {
@@ -252,6 +223,9 @@ export default function CheckWizard({
       clearDraft()
       setSubmittedCheckId(result.check_id)
       setSubmittedAt(new Date())
+      setSubmittedStatus(overallStatus)
+      setSubmittedRepairNeeded(repairNeeded)
+      setSubmittedRepairNotes(repairNotes ?? '')
       setStep(STEP.SUBMITTED)
     } catch (err) {
       setSubmitError(err.message ?? 'Submission failed — please try again.')
@@ -260,14 +234,12 @@ export default function CheckWizard({
     }
   }, [draft, vehicleId, stationId, checkDate, startedAt, selectionLabel, getToken, clearDraft])
 
-  // ── Discard ────────────────────────────────────────────────────────────────
   const handleDiscardConfirm = useCallback(() => {
     clearDraft()
     setShowDiscardModal(false)
     if (onExit) onExit()
   }, [clearDraft, onExit])
 
-  // ── Reset (after submit) ──────────────────────────────────────────────────
   const handleStartNew = useCallback(() => {
     setStep(STEP.VEHICLE)
     setVehicleId(null)
@@ -280,6 +252,9 @@ export default function CheckWizard({
     setActiveCompartment(null)
     setSubmittedCheckId(null)
     setSubmittedAt(null)
+    setSubmittedStatus(null)
+    setSubmittedRepairNeeded(false)
+    setSubmittedRepairNotes('')
     setSubmitError(null)
   }, [preselectedStation])
 
@@ -290,7 +265,6 @@ export default function CheckWizard({
   return (
     <div className="check-wizard">
 
-      {/* ── Wizard header ─────────────────────────────────────────────────── */}
       <div className="wizard-header">
         {onExit && (
           <button className="wizard-back-home" onClick={onExit} type="button"
@@ -315,7 +289,6 @@ export default function CheckWizard({
         )}
       </div>
 
-      {/* ── Discard modal ─────────────────────────────────────────────────── */}
       <Modal
         open={showDiscardModal}
         title="Discard this check?"
@@ -337,12 +310,10 @@ export default function CheckWizard({
         </p>
       </Modal>
 
-      {/* ── Progress bar (steps 1–5) ──────────────────────────────────────── */}
       {step !== STEP.SUBMITTED && (
         <WizardProgress step={progressStep} draft={draft} compartments={compartmentList} />
       )}
 
-      {/* ── Steps ─────────────────────────────────────────────────────────── */}
       {step === STEP.VEHICLE && (
         <ErrorBoundary moduleName="Step 1 — Vehicle">
           <Step1Vehicle
@@ -416,6 +387,9 @@ export default function CheckWizard({
           vehicle={vehicle}
           selectionLabel={selectionLabel}
           submittedAt={submittedAt}
+          overallStatus={submittedStatus}
+          repairNeeded={submittedRepairNeeded}
+          repairNotes={submittedRepairNotes}
           onStartNew={handleStartNew}
           onGoHome={onExit}
         />

@@ -1,29 +1,24 @@
 # EMS ReadyKit — Active Backlog
-# v1.16 | Updated: 2026-05-23
+# v1.18 | Updated: 2026-05-23
 # Completed items → backlog_completed.md
 # Priority: High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
 # ✅ SESSION COMPLETE 2026-05-23
-# CI/CD green. App live in Azure. Migration chain 0001→0007 confirmed clean.
-# Vehicle & Equipment Status screen live and working in dev.
+# See backlog_completed.md for full list.
+# Key items completed this session:
+#   - CI/CD fixed, app live in Azure
+#   - Migrations 0006 + 0007, 9 endpoints, 151 tests passing
+#   - Vehicle & Equipment Status frontend (F-5E1/2/3, VE-F1)
+#   - Check History frontend (CH-F1/2/3/4/5)
+#   - FAIL check → repair request flow (F-UX33)
+#     SubmittedScreen now shows outcome-appropriate content:
+#       PASS → "cleared for service"
+#       NEEDS_RESTOCK → "can go out, restock when possible"
+#       FAIL → never says cleared; prominent "File Repair Request Now" button
 #
-# Completed today:
-#   - Deployment fix (0003a migration, deploy.yml polling)
-#   - Cluster 1: Repair requests + vehicle inactive (B-M1, B-M5, B-E1, B-E4, B-E16, B-E17)
-#   - Cluster 2: Check acknowledgement + soft-delete + history (B-M7, B-M9, B-E2, CH-B1/B2/B3)
-#   - I-7: Azure deployment verified healthy — 151 tests, 100% passing
-#   - F-5E1, F-5E2, F-5E3, VE-F1: Vehicle & Equipment Status frontend screen
-#
-# NEXT SESSION: Check History frontend (CH-F1 through CH-F5)
-#   CH-F1: "My Checks" screen — user's submitted checks grouped by date
-#   CH-F2: Check detail view (read-only for Responders)
-#   CH-F3: Show supervisor acknowledgement on check detail
-#   CH-F4: Supervisor check history list — filterable by vehicle/date/status
-#   CH-F5: Soft-delete check (Supervisor+) — mandatory reason, 90-day warning
-#   New module: src/modules/check-history/
-#   API calls: GET /checks/daily/my-history, GET /checks/daily/{id}/detail,
-#              DELETE /checks/daily/{id} (with body via fetch directly)
-#   After that: commit and push; then Supervisor Dashboard (F-5F1, F-5F3/4/5/7)
+# NEXT SESSION: Commit everything, then Phase 5H (Azure Static Web Apps).
+# F-5H1 → F-5H4: Terraform module + GitHub Actions deploy job.
+# After 5H: Supervisor Dashboard (F-5F1, F-5F3/4/5/7).
 
 ---
 
@@ -57,8 +52,8 @@
 | B-M6 | Alter `par_levels`: add `active`, `deactivated_at`, `deactivation_reason` | Medium | 📋 |
 | B-M8 | Alter `daily_inventory_checks`: add `started_by` (check handoff) | Medium | 📋 |
 | B-M10 | Alter `stations`: add `allow_check_modification` (Boolean, default False) | High | 📋 |
-| B-M11 | Alter `stations`: add `primary_color` (String, nullable) — hex, set by Supervisor | Medium | 📋 |
-| B-M12 | New table: `user_preferences` — `user_oid`, `default_station_id`, `display_name` | Medium | 📋 |
+| B-M11 | Alter `stations`: add `primary_color` (String, nullable) | Medium | 📋 |
+| B-M12 | New table: `user_preferences` | Medium | 📋 |
 | B-M13 | Alter `inventory_lots`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 |
 | B-M14 | New table: `loaned_items` | Medium | 📋 |
 | RET-M1 | Alter `vehicles`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 |
@@ -90,12 +85,12 @@
 ## 5. Backend — Retirement Endpoints
 | # | Endpoint | Description | Pri | Status | Notes |
 |---|----------|-------------|-----|--------|-------|
-| RET-B1 | `PATCH /vehicles/{id}/retire` | Retire vehicle; hidden from workflows; history preserved | High | 📋 | Supervisor+ |
+| RET-B1 | `PATCH /vehicles/{id}/retire` | Retire vehicle | High | 📋 | Supervisor+ |
 | RET-B2 | `PATCH /locations/{id}/retire` | Retire jump bag / portable location | High | 📋 | Supervisor+ |
 | RET-B3 | `PATCH /stations/{id}/retire` | Retire station | High | 📋 | Admin only |
-| RET-B4 | `GET /admin/retired?type=&station_id=` | List retired objects with metadata | Medium | 📋 | Admin only |
+| RET-B4 | `GET /admin/retired?type=&station_id=` | List retired objects | Medium | 📋 | Admin only |
 | RET-B5 | `PATCH /inventory/lots/{id}/retire` | Retire a specific lot | High | 📋 | Supervisor+; needs B-M13 |
-| RET-B6 | `GET /inventory/lots/retired?location_id=` | List retired lots at a location | Medium | 📋 | Supervisor+ |
+| RET-B6 | `GET /inventory/lots/retired?location_id=` | List retired lots | Medium | 📋 | Supervisor+ |
 
 ---
 
@@ -128,7 +123,7 @@
 
 ---
 
-## 9. Frontend — Vehicle & Equipment Status (remaining)
+## 9. Frontend — V&E Status (remaining)
 | # | Item | Pri | Status | Needs |
 |---|------|-----|--------|-------|
 | VE-F2 | Open loans panel — unresolved loans per vehicle; Resolve button per row | Medium | 📋 | LOAN-B3 |
@@ -186,14 +181,9 @@
 
 ---
 
-## 14. Frontend — Check History
+## 14. Frontend — Check History (remaining)
 | # | Item | Pri | Status | Needs |
 |---|------|-----|--------|-------|
-| CH-F1 | "My Checks" screen — user's submitted checks grouped by date | High | 📋 | |
-| CH-F2 | Check detail view (read-only for Responders) | High | 📋 | |
-| CH-F3 | Show supervisor acknowledgement on check detail | Medium | 📋 | |
-| CH-F4 | Supervisor check history list — filterable by vehicle/date/status | High | 📋 | |
-| CH-F5 | Soft-delete check (Supervisor+) — mandatory reason, 90-day hard-delete warning | High | 📋 | |
 | CH-F6 | Acknowledgement / corrective note on submitted check | High | ⛔ | B-M10, CH-B8 |
 | CH-F7 | Deleted records screen (Admin) — restore or force hard-delete | High | 📋 | |
 | CH-F8 | Force hard-delete confirmation — type "PERMANENTLY DELETE" to confirm | High | 📋 | |
@@ -289,10 +279,10 @@
 | Frontend — Phase 5F Supervisor | 5 | 2 | 7 |
 | Frontend — Phase 5G Supporting | 3 | 1 | 4 |
 | Frontend — Phase 5H Infra | 4 | 0 | 4 |
-| Frontend — Check Wizard UX | 9 | 1 | 10 |
-| Frontend — Check History | 7 | 1 | 8 |
+| Frontend — Check Wizard UX | 10 | 1 | 11 |
+| Frontend — Check History (remaining) | 2 | 1 | 3 |
 | Frontend — Settings | 9 | 0 | 9 |
 | Frontend — Retirement Actions | 5 | 0 | 5 |
 | Infrastructure / Security | 5 | 1 | 6 |
 | Documentation | 15 | 0 | 15 |
-| **Total** | **125** | **6** | **131** |
+| **Total** | **121** | **6** | **127** |

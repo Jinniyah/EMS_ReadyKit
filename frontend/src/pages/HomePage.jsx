@@ -2,9 +2,8 @@
  * pages/HomePage.jsx
  * Application home screen.
  *
- * Phase 5E change:
- *   - Vehicle Status card now navigates to the Vehicle & Equipment Status module.
- *   - "Vehicle Status" renamed to "Vehicle & Equipment Status" (VE-F1).
+ * Phase 5E: Vehicle & Equipment Status module
+ * Phase 5 (CH-F1–F5): Check History module
  */
 import React, { useState, useEffect, lazy, Suspense } from 'react'
 import { useAuth } from '../shared/hooks/useAuth.jsx'
@@ -19,6 +18,7 @@ import { checkApi } from '../modules/check-wizard/api/checkApi.js'
 
 const CheckWizard         = lazy(() => import('../modules/check-wizard/index.jsx'))
 const VehicleStatusScreen = lazy(() => import('../modules/vehicles/index.jsx'))
+const CheckHistoryScreen  = lazy(() => import('../modules/check-history/index.jsx'))
 
 const STATION_STORAGE_KEY = 'ems_selected_station'
 
@@ -40,7 +40,7 @@ export default function HomePage() {
 
   const [activeWizard, setActiveWizard]       = useState(null)
   const [activeDraftKey, setActiveDraftKey]   = useState(null)
-  const [activeModule, setActiveModule]       = useState(null) // 'vehicles' | null
+  const [activeModule, setActiveModule]       = useState(null) // 'vehicles' | 'history' | null
   const [selectedStation, setSelectedStation] = useState(loadSavedStation)
   const [pickingStation, setPickingStation]   = useState(false)
 
@@ -122,12 +122,26 @@ export default function HomePage() {
     )
   }
 
-  // ── Vehicle & Equipment Status module ─────────────────────────────────────
+  // ── Vehicle & Equipment Status ────────────────────────────────────────────
   if (activeModule === 'vehicles') {
     return (
       <ErrorBoundary moduleName="Vehicle & Equipment Status">
         <Suspense fallback={<Spinner label="Loading…" />}>
           <VehicleStatusScreen
+            station={selectedStation}
+            onBack={() => setActiveModule(null)}
+          />
+        </Suspense>
+      </ErrorBoundary>
+    )
+  }
+
+  // ── Check History ─────────────────────────────────────────────────────────
+  if (activeModule === 'history') {
+    return (
+      <ErrorBoundary moduleName="Check History">
+        <Suspense fallback={<Spinner label="Loading…" />}>
+          <CheckHistoryScreen
             station={selectedStation}
             onBack={() => setActiveModule(null)}
           />
@@ -217,7 +231,6 @@ export default function HomePage() {
             </div>
           </ErrorBoundary>
 
-          {/* Vehicle & Equipment Status — now live (VE-F1, F-5E1/2/3) */}
           <ErrorBoundary moduleName="Vehicle Status Card">
             <div className="module-card">
               <div className="module-card__icon" aria-hidden="true">🚑</div>
@@ -226,8 +239,28 @@ export default function HomePage() {
                 <div className="module-card__description">Report a repair or mark out of service</div>
               </div>
               <button
-                className="btn btn--secondary"
+                className="btn btn--primary"
+                style={colors ? { background: colors.primary } : {}}
                 onClick={() => setActiveModule('vehicles')}
+                disabled={!selectedStation}
+                type="button"
+              >
+                Open
+              </button>
+            </div>
+          </ErrorBoundary>
+
+          <ErrorBoundary moduleName="Check History Card">
+            <div className="module-card">
+              <div className="module-card__icon" aria-hidden="true">📋</div>
+              <div className="module-card__content">
+                <div className="module-card__title">Check History</div>
+                <div className="module-card__description">View past checks, acknowledge issues</div>
+              </div>
+              <button
+                className="btn btn--primary"
+                style={colors ? { background: colors.primary } : {}}
+                onClick={() => setActiveModule('history')}
                 disabled={!selectedStation}
                 type="button"
               >
