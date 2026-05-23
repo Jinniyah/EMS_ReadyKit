@@ -111,6 +111,12 @@ def resolve_database_url(settings: Settings) -> str:
     If KEY_VAULT_URI is configured, retrieve the PostgreSQL connection string
     from Azure Key Vault using the App Service Managed Identity.
     Falls back to DATABASE_URL from environment for local development.
+
+    connection_timeout=10 on ManagedIdentityCredential caps how long we wait
+    for the Azure IMDS token endpoint. Without a timeout, a slow/unready
+    identity service on F1 cold start can hang indefinitely — no exception is
+    raised, startup.sh produces no output, and Azure eventually stops the
+    instance after the health check eviction window expires.
     """
     if not settings.key_vault_uri:
         return settings.database_url
@@ -119,7 +125,7 @@ def resolve_database_url(settings: Settings) -> str:
         from azure.identity import ManagedIdentityCredential
         from azure.keyvault.secrets import SecretClient
 
-        credential = ManagedIdentityCredential()
+        credential = ManagedIdentityCredential(connection_timeout=10)
         client = SecretClient(vault_url=settings.key_vault_uri, credential=credential)
         secret = client.get_secret("sql-connection-string")
         logging.getLogger(__name__).info(

@@ -43,6 +43,29 @@ echo "Using alembic : $(which alembic)"
 echo "alembic.ini   : $(ls -la alembic.ini 2>/dev/null || echo NOT FOUND)"
 echo "alembic dir   : $(ls -la alembic/ 2>/dev/null || echo NOT FOUND)"
 
+# ── Pre-flight: confirm DB is reachable before running migrations ──────────────
+# This surfaces a real error message if the DB is unreachable or the connection
+# string is wrong, rather than letting alembic hang silently and starve the
+# health check. connect_timeout=10 prevents an indefinite hang on network issues.
+echo "Checking database connectivity..."
+python -c "
+from ems_readykit.core.config import get_settings, resolve_database_url
+from sqlalchemy import create_engine, text
+
+settings = get_settings()
+url = resolve_database_url(settings)
+
+# Use connect_args for PostgreSQL; SQLite ignores unknown args safely.
+connect_args = {}
+if url.startswith('postgresql'):
+    connect_args['connect_timeout'] = 10
+
+engine = create_engine(url, connect_args=connect_args)
+with engine.connect() as conn:
+    conn.execute(text('SELECT 1'))
+print('Database reachable.')
+" || { echo "ERROR: Database not reachable. Aborting startup."; exit 1; }
+
 # ── Run database migrations ────────────────────────────────────────────────────
 # Alembic reads alembic.ini from the current directory (APP_PATH).
 # Safe to run on every startup — idempotent (no-op if already at head).
