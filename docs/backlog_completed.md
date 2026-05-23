@@ -43,6 +43,16 @@
 
 ---
 
+## Frontend — Phase 5E / Vehicle & Equipment Status
+| # | Item | Completed |
+|---|------|-----------|
+| F-5E1 | Repair request form — severity selector, description, URGENT escalation | 2026-05-23 |
+| F-5E2 | Mark vehicle inactive toggle (Supervisor+) | 2026-05-23 |
+| F-5E3 | Repair request status tracking display | 2026-05-23 |
+| VE-F1 | Rename "Vehicle Status" → "Vehicle & Equipment Status" throughout app | 2026-05-23 |
+
+---
+
 ## Frontend — UX Improvements
 | # | Item | Completed |
 |---|------|-----------|
@@ -68,6 +78,13 @@
 | F-UX29 | Backend: drop uq_check_vehicle_date; remove 409 guard; allow unlimited checks per day | 2026-05-22 |
 | F-UX30 | DraftBanner uses selection_label — fixes null label for jump bag checks | 2026-05-22 |
 | F-UX31 | Reconcile "Add N" top-off button — inline with +/− controls | 2026-05-22 |
+
+---
+
+## Infrastructure / Security
+| # | Item | Completed |
+|---|------|-----------|
+| I-7 | Confirm Azure deployment healthy after F1 quota reset | 2026-05-23 |
 
 ---
 

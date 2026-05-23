@@ -1,56 +1,29 @@
 # EMS ReadyKit — Active Backlog
-# v1.14 | Updated: 2026-05-23
+# v1.16 | Updated: 2026-05-23
 # Completed items → backlog_completed.md
 # Priority: High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
-# ⚠️  SESSION NOTE 2026-05-23
+# ✅ SESSION COMPLETE 2026-05-23
+# CI/CD green. App live in Azure. Migration chain 0001→0007 confirmed clean.
+# Vehicle & Equipment Status screen live and working in dev.
 #
-# --- DEPLOYMENT FIX (committed, awaiting verification) ---
-# Three fixes committed to main, waiting for next successful CI/CD run:
-#   1. app/alembic/versions/0003a_widen_alembic_version.py (NEW)
-#      — Widens alembic_version.version_num VARCHAR(32) → VARCHAR(64).
-#        Root cause: revision ID "0003_item_check_types_and_equipment" is 36 chars.
-#   2. app/alembic/versions/0003_item_check_types_and_equipment.py (UPDATED)
-#      — down_revision → "0003a_widen_alembic_version"
-#   3. .github/workflows/deploy.yml (UPDATED)
-#      — Health check polling: 12×15s → 20×30s (10 min).
-# Key Vault 403 (ForbiddenByFirewall) in logs is EXPECTED. Not the outage cause.
-# VERIFY: migration chain 0001→…→0003a→0003→0004→0005→0006→0007 completes cleanly.
+# Completed today:
+#   - Deployment fix (0003a migration, deploy.yml polling)
+#   - Cluster 1: Repair requests + vehicle inactive (B-M1, B-M5, B-E1, B-E4, B-E16, B-E17)
+#   - Cluster 2: Check acknowledgement + soft-delete + history (B-M7, B-M9, B-E2, CH-B1/B2/B3)
+#   - I-7: Azure deployment verified healthy — 151 tests, 100% passing
+#   - F-5E1, F-5E2, F-5E3, VE-F1: Vehicle & Equipment Status frontend screen
 #
-# --- COMPLETED THIS SESSION ---
-# Cluster 1: Repair requests + vehicle inactive (B-M1, B-M5, B-E1, B-E4, B-E16, B-E17)
-# Cluster 2: Check acknowledgement + soft-delete + history (B-M7, B-M9, B-E2, CH-B1/B2/B3)
-# All 151 tests passing. Full suite clean. Ready to commit both clusters together.
-#
-# Suggested commit message:
-#   feat: repair requests, vehicle inactive, check history + soft-delete
-#
-#   Cluster 1 — B-M1, B-M5, B-E1, B-E4, B-E16, B-E17:
-#   - Migration 0006: repair_requests table, inactive_reason/inactive_since on vehicles
-#   - RepairRequest model, schemas, router (4 endpoints), 21 tests
-#
-#   Cluster 2 — B-M7, B-M9, B-E2, CH-B1, CH-B2, CH-B3:
-#   - Migration 0007: acknowledgement + soft-delete fields on daily_inventory_checks
-#   - check_history router (4 endpoints), 21 tests
-#   - checks.py: GET /checks/daily/{id} now excludes soft-deleted records
-#   - All lists exclude soft-deleted records
-#
-# --- NEXT SESSION PLAN ---
-# Frontend: Vehicle & Equipment Status screen (F-5E1, F-5E2, F-5E3, VE-F1).
-# Backend is fully unblocked — B-E1/B-E4/B-E16/B-E17 all deployed.
-# This is the first pure frontend session in a while.
-#
-# Files to create/update:
-#   src/modules/vehicles/VehicleStatusScreen.jsx  — NEW
-#     - Inactive toggle (Supervisor+) — calls PATCH /vehicles/{id}
-#     - Repair request form — severity selector, description, URGENT banner
-#     - Repair request list — filterable by status, most recent first
-#     - Status tracking display — OPEN/IN_PROGRESS/RESOLVED badges
-#   src/modules/vehicles/repairRequests.js  — NEW (API calls)
-#   src/App.jsx or nav — add "Vehicle & Equipment Status" menu entry (rename from Vehicle Status)
-#
-# After that: Check History frontend (CH-F1 through CH-F5) — the backend
-# for CH-B1/B2/B3 is now live and ready.
+# NEXT SESSION: Check History frontend (CH-F1 through CH-F5)
+#   CH-F1: "My Checks" screen — user's submitted checks grouped by date
+#   CH-F2: Check detail view (read-only for Responders)
+#   CH-F3: Show supervisor acknowledgement on check detail
+#   CH-F4: Supervisor check history list — filterable by vehicle/date/status
+#   CH-F5: Soft-delete check (Supervisor+) — mandatory reason, 90-day warning
+#   New module: src/modules/check-history/
+#   API calls: GET /checks/daily/my-history, GET /checks/daily/{id}/detail,
+#              DELETE /checks/daily/{id} (with body via fetch directly)
+#   After that: commit and push; then Supervisor Dashboard (F-5F1, F-5F3/4/5/7)
 
 ---
 
@@ -155,13 +128,9 @@
 
 ---
 
-## 9. Frontend — Phase 5E / Vehicle & Equipment Status
+## 9. Frontend — Vehicle & Equipment Status (remaining)
 | # | Item | Pri | Status | Needs |
 |---|------|-----|--------|-------|
-| F-5E1 | Repair request form — severity selector, description, URGENT escalation | High | 📋 | |
-| F-5E2 | Mark vehicle inactive toggle (Supervisor+) | High | 📋 | |
-| F-5E3 | Repair request status tracking display | Medium | 📋 | |
-| VE-F1 | Rename "Vehicle Status" → "Vehicle & Equipment Status" throughout app | Low | 📋 | |
 | VE-F2 | Open loans panel — unresolved loans per vehicle; Resolve button per row | Medium | 📋 | LOAN-B3 |
 | VE-F3 | Log a loan form — lot picker + destination note field | Medium | 📋 | LOAN-B1 |
 | VE-F4 | Resolve loan modal — optional note, calls LOAN-B2 | Medium | 📋 | LOAN-B2 |
@@ -266,7 +235,6 @@
 | I-4 | `X-Content-Type-Options` and `X-Frame-Options` headers | Low | 📋 | |
 | I-5 | Document Azure AD token lifetime; confirm CAE enabled | Low | 📋 | |
 | I-6 | Write `docs/adr/ADR-006-DDoS-Strategy.md` | Low | 📋 | |
-| I-7 | Confirm Azure deployment healthy after F1 quota reset | High | 🔄 | See session note |
 
 ---
 
@@ -317,7 +285,7 @@
 | Backend — Loaned Items | 4 | 0 | 4 |
 | Frontend — Phase 5C Help | 4 | 0 | 4 |
 | Frontend — Phase 5D Item Mgmt | 3 | 0 | 3 |
-| Frontend — Phase 5E / V&E Status | 7 | 0 | 7 |
+| Frontend — V&E Status (remaining) | 3 | 0 | 3 |
 | Frontend — Phase 5F Supervisor | 5 | 2 | 7 |
 | Frontend — Phase 5G Supporting | 3 | 1 | 4 |
 | Frontend — Phase 5H Infra | 4 | 0 | 4 |
@@ -325,6 +293,6 @@
 | Frontend — Check History | 7 | 1 | 8 |
 | Frontend — Settings | 9 | 0 | 9 |
 | Frontend — Retirement Actions | 5 | 0 | 5 |
-| Infrastructure / Security | 6 | 1 | 7 |
+| Infrastructure / Security | 5 | 1 | 6 |
 | Documentation | 15 | 0 | 15 |
-| **Total** | **130** | **6** | **136** |
+| **Total** | **125** | **6** | **131** |

@@ -2,17 +2,9 @@
  * pages/HomePage.jsx
  * Application home screen.
  *
- * Layout:
- *   1. Station selector — always visible at top.
- *   2. Draft resume banners — one per vehicle/location group for the current station.
- *      Multiple in-progress checks for the same vehicle are grouped into one banner.
- *   3. Action cards — Start a check, Vehicle Status, etc.
- *
- * Phase 5 change — multiple checks per day:
- *   useDraftIndex now returns groups (one per vehicle/location) instead of flat
- *   draft entries. DraftBanner receives the group and handles the single-vs-multi
- *   resume UX internally. handleResume receives (key, draft) explicitly so
- *   old-format draft keys are honoured without reconstruction.
+ * Phase 5E change:
+ *   - Vehicle Status card now navigates to the Vehicle & Equipment Status module.
+ *   - "Vehicle Status" renamed to "Vehicle & Equipment Status" (VE-F1).
  */
 import React, { useState, useEffect, lazy, Suspense } from 'react'
 import { useAuth } from '../shared/hooks/useAuth.jsx'
@@ -25,7 +17,8 @@ import DraftBanner from '../modules/check-wizard/components/DraftBanner.jsx'
 import Spinner from '../shared/components/Spinner.jsx'
 import { checkApi } from '../modules/check-wizard/api/checkApi.js'
 
-const CheckWizard = lazy(() => import('../modules/check-wizard/index.jsx'))
+const CheckWizard         = lazy(() => import('../modules/check-wizard/index.jsx'))
+const VehicleStatusScreen = lazy(() => import('../modules/vehicles/index.jsx'))
 
 const STATION_STORAGE_KEY = 'ems_selected_station'
 
@@ -47,6 +40,7 @@ export default function HomePage() {
 
   const [activeWizard, setActiveWizard]       = useState(null)
   const [activeDraftKey, setActiveDraftKey]   = useState(null)
+  const [activeModule, setActiveModule]       = useState(null) // 'vehicles' | null
   const [selectedStation, setSelectedStation] = useState(loadSavedStation)
   const [pickingStation, setPickingStation]   = useState(false)
 
@@ -56,8 +50,6 @@ export default function HomePage() {
     error: stationsError,
   } = useApi(() => checkApi.getStations(getToken), [])
 
-  // Groups: one per vehicle/location for the current station.
-  // Multiple in-progress checks for the same vehicle appear as one group.
   const draftGroups = useDraftIndex(selectedStation?.station_id ?? null)
 
   useEffect(() => {
@@ -95,13 +87,7 @@ export default function HomePage() {
     setActiveWizard('new')
   }
 
-  /**
-   * Resume an existing draft.
-   * @param {string} key   — the exact localStorage key for this draft
-   * @param {object} draft — the draft object from localStorage
-   */
   function handleResume(key, draft) {
-    // Restore station context for this draft
     if (draft.station_id && stations) {
       const draftStation = stations.find(s => s.station_id === draft.station_id)
       if (draftStation) { setSelectedStation(draftStation); saveStation(draftStation) }
@@ -110,10 +96,6 @@ export default function HomePage() {
     setActiveWizard(draft)
   }
 
-  /**
-   * Discard a single draft by key.
-   * Called by DraftBanner for individual discards within a group.
-   */
   function handleDiscard(key) {
     localStorage.removeItem(key)
     window.dispatchEvent(new Event('storage'))
@@ -134,6 +116,20 @@ export default function HomePage() {
             initialDraftKey={activeDraftKey}
             preselectedStation={selectedStation}
             onExit={handleWizardExit}
+          />
+        </Suspense>
+      </ErrorBoundary>
+    )
+  }
+
+  // ── Vehicle & Equipment Status module ─────────────────────────────────────
+  if (activeModule === 'vehicles') {
+    return (
+      <ErrorBoundary moduleName="Vehicle & Equipment Status">
+        <Suspense fallback={<Spinner label="Loading…" />}>
+          <VehicleStatusScreen
+            station={selectedStation}
+            onBack={() => setActiveModule(null)}
           />
         </Suspense>
       </ErrorBoundary>
@@ -179,7 +175,6 @@ export default function HomePage() {
         )}
       </ErrorBoundary>
 
-      {/* Draft resume banners — one per vehicle/location group */}
       {draftGroups.length > 0 && (
         <ErrorBoundary moduleName="Draft Banners">
           <section aria-label="In-progress checks">
@@ -222,6 +217,25 @@ export default function HomePage() {
             </div>
           </ErrorBoundary>
 
+          {/* Vehicle & Equipment Status — now live (VE-F1, F-5E1/2/3) */}
+          <ErrorBoundary moduleName="Vehicle Status Card">
+            <div className="module-card">
+              <div className="module-card__icon" aria-hidden="true">🚑</div>
+              <div className="module-card__content">
+                <div className="module-card__title">Vehicle &amp; Equipment Status</div>
+                <div className="module-card__description">Report a repair or mark out of service</div>
+              </div>
+              <button
+                className="btn btn--secondary"
+                onClick={() => setActiveModule('vehicles')}
+                disabled={!selectedStation}
+                type="button"
+              >
+                Open
+              </button>
+            </div>
+          </ErrorBoundary>
+
           {canAccess(user, 'supervisor') && (
             <ErrorBoundary moduleName="Dashboard Card">
               <div className="module-card module-card--disabled">
@@ -235,22 +249,11 @@ export default function HomePage() {
             </ErrorBoundary>
           )}
 
-          <ErrorBoundary moduleName="Vehicle Status Card">
-            <div className="module-card module-card--disabled">
-              <div className="module-card__icon" aria-hidden="true">🚑</div>
-              <div className="module-card__content">
-                <div className="module-card__title">Vehicle Status</div>
-                <div className="module-card__description">Report a repair or mark out of service</div>
-                <div className="module-card__badge">Coming in Phase 5E</div>
-              </div>
-            </div>
-          </ErrorBoundary>
-
           <ErrorBoundary moduleName="Help Card">
             <div className="module-card module-card--disabled">
               <div className="module-card__icon" aria-hidden="true">?</div>
               <div className="module-card__content">
-                <div className="module-card__title">Help & Tutorial</div>
+                <div className="module-card__title">Help &amp; Tutorial</div>
                 <div className="module-card__description">How-to guide, FAQ, contextual help</div>
                 <div className="module-card__badge">Coming in Phase 5C</div>
               </div>

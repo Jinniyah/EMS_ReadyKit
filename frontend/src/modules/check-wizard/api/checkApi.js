@@ -6,9 +6,13 @@
 import { apiGet, apiPost } from '../../../shared/api/client.js'
 
 export const checkApi = {
-  /** Vehicles at a station the user can check */
+  /**
+   * Active vehicles at a station the user can check.
+   * Passes active=true so inactive/out-of-service vehicles are excluded —
+   * you cannot start a check on a vehicle that's out of service.
+   */
   getVehicles: (stationId, getToken) =>
-    apiGet(`/api/v1/stations/${stationId}/vehicles`, getToken),
+    apiGet(`/api/v1/stations/${stationId}/vehicles?active=true`, getToken),
 
   /** All stations (needed to derive stationId for responder) */
   getStations: (getToken) =>

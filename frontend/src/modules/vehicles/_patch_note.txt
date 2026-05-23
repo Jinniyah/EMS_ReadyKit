@@ -1,0 +1,18 @@
+          {/* Vehicle & Equipment Status — now live (VE-F1, F-5E1/2/3) */}
+          <ErrorBoundary moduleName="Vehicle Status Card">
+            <div className="module-card">
+              <div className="module-card__icon" aria-hidden="true">🚑</div>
+              <div className="module-card__content">
+                <div className="module-card__title">Vehicle &amp; Equipment Status</div>
+                <div className="module-card__description">Report a repair or mark out of service</div>
+              </div>
+              <button
+                className="btn btn--secondary"
+                onClick={() => setActiveModule('vehicles')}
+                disabled={!selectedStation}
+                type="button"
+              >
+                Open
+              </button>
+            </div>
+          </ErrorBoundary>
