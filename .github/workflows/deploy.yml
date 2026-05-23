@@ -85,13 +85,14 @@ jobs:
         # F1 free tier has no always_on — every deploy is a cold start.
         # Cold start sequence: container spin-up → Oryx extraction →
         # startup.sh → Key Vault call → Alembic migrations → gunicorn init.
-        # This can take 60–120s on F1. We poll every 15s for up to 3 minutes
-        # so transient slowness doesn't fail the pipeline.
+        # This can take 60–120s on F1. We poll every 30s for up to ~10 minutes.
+        # Long interval reduces request count against the F1 quota while still
+        # catching a healthy app within one polling cycle of it coming up.
         run: |
-          echo "Polling health endpoint (max 3 min, 15s interval)..."
+          echo "Polling health endpoint (max 10 min, 30s interval)..."
           HEALTH_URL="https://${{ env.APP_NAME }}.azurewebsites.net/health"
-          MAX_ATTEMPTS=12
-          SLEEP_SEC=15
+          MAX_ATTEMPTS=20
+          SLEEP_SEC=30
           for i in $(seq 1 $MAX_ATTEMPTS); do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$HEALTH_URL" || echo "000")
             echo "Attempt $i/$MAX_ATTEMPTS — HTTP $STATUS"

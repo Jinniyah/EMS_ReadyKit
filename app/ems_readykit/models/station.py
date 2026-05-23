@@ -17,23 +17,27 @@ from ems_readykit.models.base import TimestampMixin
 if TYPE_CHECKING:
     from ems_readykit.models.vehicle import Vehicle
     from ems_readykit.models.inventory_location import InventoryLocation
+    from ems_readykit.models.repair_request import RepairRequest
 
 
 class Station(TimestampMixin, Base):
     __tablename__ = "stations"
 
     station_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
-    address: Mapped[str] = mapped_column(String(255), nullable=False)
-    region: Mapped[str] = mapped_column(String(100), nullable=False)
-    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    name:       Mapped[str] = mapped_column(String(100), nullable=False)
+    address:    Mapped[str] = mapped_column(String(255), nullable=False)
+    region:     Mapped[str] = mapped_column(String(100), nullable=False)
+    active:     Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    # Relationships
+    # ── Relationships ─────────────────────────────────────────────────────────
     vehicles: Mapped[List["Vehicle"]] = relationship(
         "Vehicle", back_populates="station", cascade="all, delete-orphan"
     )
     inventory_locations: Mapped[List["InventoryLocation"]] = relationship(
         "InventoryLocation", back_populates="station"
+    )
+    repair_requests: Mapped[List["RepairRequest"]] = relationship(
+        "RepairRequest", back_populates="station"
     )
 
     def __repr__(self) -> str:

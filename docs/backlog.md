@@ -1,17 +1,67 @@
 # EMS ReadyKit — Active Backlog
-# v1.10 | Updated: 2026-05-23
+# v1.13 | Updated: 2026-05-23
 # Completed items → backlog_completed.md
 # Priority: High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
+
+# ⚠️  SESSION NOTE 2026-05-23
+#
+# --- DEPLOYMENT FIX (committed, awaiting verification) ---
+# Three fixes committed to main, waiting for next successful CI/CD run:
+#   1. app/alembic/versions/0003a_widen_alembic_version.py (NEW)
+#      — Widens alembic_version.version_num VARCHAR(32) → VARCHAR(64) on PostgreSQL.
+#        Root cause of outage: revision ID "0003_item_check_types_and_equipment" is
+#        36 chars — too long for the column. SQLite unaffected (TEXT has no limit).
+#   2. app/alembic/versions/0003_item_check_types_and_equipment.py (UPDATED)
+#      — down_revision changed to "0003a_widen_alembic_version" so it runs first.
+#   3. .github/workflows/deploy.yml (UPDATED)
+#      — Health check polling: 12×15s (3 min) → 20×30s (10 min) to reduce
+#        request rate against F1 quota during cold start.
+# Key Vault 403 (ForbiddenByFirewall) in logs is EXPECTED — fallback to
+# DATABASE_URL env var works correctly. Not the cause of the outage.
+# VERIFY: next push to main should complete migration chain 0001→…→0003a→0003→0004→0005→0006
+# and health check should reach HTTP 200 within the 10-minute window.
+#
+# --- COMPLETED THIS SESSION ---
+# Repair requests + vehicle inactive cluster (B-M1, B-M5, B-E1, B-E4, B-E16, B-E17)
+# All 21 tests passing. Full suite clean. Ready to commit.
+# Suggested commit message:
+#   feat: repair requests + vehicle inactive status (B-M1, B-M5, B-E1, B-E4, B-E16, B-E17)
+#
+# --- NEXT SESSION PLAN ---
+# Supervisor acknowledgement + check history cluster. Same pattern: one migration,
+# one router, tests.
+#
+# Step 1 — Migration 0007_check_acknowledgement_and_soft_delete.py:
+#   - B-M7: Alter `daily_inventory_checks` — add reviewed_by, reviewed_at,
+#            corrective_action VARCHAR(500)
+#   - B-M9: Alter `daily_inventory_checks` — add deleted_at, deleted_by,
+#            deletion_reason VARCHAR(300), force_deleted BOOLEAN DEFAULT FALSE
+#   Both SQLite (batch) and PostgreSQL (IF NOT EXISTS) paths required.
+#
+# Step 2 — Model update:
+#   - app/ems_readykit/models/daily_inventory_check.py — add the 7 new fields
+#
+# Step 3 — Schema updates:
+#   - app/ems_readykit/schemas/daily_inventory_check.py — add AcknowledgeRequest,
+#     update DailyInventoryCheckRead to expose new fields
+#
+# Step 4 — Router additions (add to existing checks.py or new file):
+#   - CH-B1: GET  /checks/daily/my-history?from=&to=
+#   - CH-B2: GET  /checks/daily/{id}/detail
+#   - CH-B3: DELETE /checks/daily/{id}  — soft delete (Supervisor+)
+#   - B-E2:  PATCH /checks/daily/{id}/acknowledge  — corrective action (Supervisor+)
+#
+# Step 5 — Tests: test_check_history.py
+#   Cover: history list scoping, detail RBAC, soft delete, acknowledge,
+#   cannot-view-deleted, 90-day policy notes in responses.
 
 ---
 
 ## 1. Backend — Phase 6 Endpoints
 | # | Endpoint | Description | Pri | Status | Needs |
 |---|----------|-------------|-----|--------|-------|
-| B-E1 | `PATCH /vehicles/{id}` | Mark vehicle active/inactive | High | 📋 | |
-| B-E2 | `PATCH /checks/daily/{id}/acknowledge` | Supervisor acknowledges FAIL with corrective action | High | 📋 | |
+| B-E2 | `PATCH /checks/daily/{id}/acknowledge` | Supervisor acknowledges FAIL with corrective action | High | 📋 | B-M7 |
 | B-E3 | `GET /checks/daily/station/{id}?from=&to=` | Date-range compliance query | High | 📋 | |
-| B-E4 | `POST /vehicles/{id}/repair-requests` | File repair request; URGENT notifies supervisor | High | 📋 | |
 | B-E5 | `POST /inventory/transfer` | Move stock between supply room and vehicle | High | 📋 | |
 | B-E6 | `GET /inventory/locations/{id}/stock-summary` | Stock vs par per item | High | 📋 | |
 | B-E7 | `GET /stations/{id}/users` | Active users at station via MS Graph | Medium | 📋 | |
@@ -23,8 +73,6 @@
 | B-E13 | `PATCH /notifications/{id}/read` | Mark notification read | Medium | 📋 | |
 | B-E14 | `POST /admin/user-requests` | Supervisor submits user onboarding request | Medium | 📋 | |
 | B-E15 | `GET /admin/user-requests` | List user requests (Administrator only) | Medium | 📋 | |
-| B-E16 | `PATCH /vehicles/{id}/repair-requests/{rid}` | Update repair request status | Medium | 📋 | |
-| B-E17 | `GET /vehicles/{id}/repair-requests` | List repair requests for vehicle | Medium | 📋 | |
 | B-E18 | `GET /audit?from=&to=` | Date-range audit export | Medium | 📋 | |
 
 *All paths prefixed `/api/v1/`*
@@ -34,11 +82,9 @@
 ## 2. Backend — Data Models
 | # | Item | Pri | Status |
 |---|------|-----|--------|
-| B-M1 | New table: `repair_requests` | High | 📋 |
 | B-M2 | New table: `notifications` | Medium | 📋 |
 | B-M3 | New table: `feedback_entries` | Medium | 📋 |
 | B-M4 | New table: `user_requests` | Medium | 📋 |
-| B-M5 | Alter `vehicles`: add `active`, `inactive_reason`, `inactive_since` | High | 📋 |
 | B-M6 | Alter `par_levels`: add `active`, `deactivated_at`, `deactivation_reason` | Medium | 📋 |
 | B-M7 | Alter `daily_inventory_checks`: add `reviewed_by`, `reviewed_at`, `corrective_action` | High | 📋 |
 | B-M8 | Alter `daily_inventory_checks`: add `started_by` (check handoff) | Medium | 📋 |
@@ -122,7 +168,7 @@
 | # | Item | Pri | Status | Needs |
 |---|------|-----|--------|-------|
 | F-5E1 | Repair request form — severity selector, description, URGENT escalation | High | 📋 | |
-| F-5E2 | Mark vehicle inactive toggle (Supervisor+) | High | ⛔ | B-E1 |
+| F-5E2 | Mark vehicle inactive toggle (Supervisor+) | High | 📋 | ~~B-E1~~ done |
 | F-5E3 | Repair request status tracking display | Medium | 📋 | |
 | VE-F1 | Rename "Vehicle Status" → "Vehicle & Equipment Status" throughout app | Low | 📋 | |
 | VE-F2 | Open loans panel — lists unresolved loans for vehicle; each row has Resolve button | Medium | 📋 | LOAN-B3 |
@@ -229,7 +275,7 @@
 | I-4 | `X-Content-Type-Options` and `X-Frame-Options` headers | Low | 📋 | |
 | I-5 | Document Azure AD token lifetime; confirm CAE enabled | Low | 📋 | |
 | I-6 | Write `docs/adr/ADR-006-DDoS-Strategy.md` | Low | 📋 | |
-| I-7 | Confirm Azure deployment healthy after F1 quota reset | High | 📋 | |
+| I-7 | Confirm Azure deployment healthy after F1 quota reset | High | 🔄 | See session note at top of file |
 
 ---
 
@@ -272,16 +318,16 @@
 ## Summary
 | Area | 📋 | ⛔ | Total |
 |------|----|----|-------|
-| Backend — Phase 6 Endpoints | 18 | 0 | 18 |
-| Backend — Data Models | 18 | 0 | 18 |
+| Backend — Phase 6 Endpoints | 13 | 0 | 13 |
+| Backend — Data Models | 16 | 0 | 16 |
 | Backend — Code Quality | 2 | 0 | 2 |
 | Backend — Check History | 8 | 0 | 8 |
 | Backend — Retirement | 6 | 0 | 6 |
 | Backend — Loaned Items | 4 | 0 | 4 |
 | Frontend — Phase 5C Help | 4 | 0 | 4 |
 | Frontend — Phase 5D Item Mgmt | 3 | 0 | 3 |
-| Frontend — Phase 5E / V&E Status | 6 | 1 | 7 |
-| Frontend — Phase 5F Supervisor | 5 | 2 | 7 |
+| Frontend — Phase 5E / V&E Status | 7 | 0 | 7 |
+| Frontend — Phase 5F Supervisor | 4 | 3 | 7 |
 | Frontend — Phase 5G Supporting | 3 | 1 | 4 |
 | Frontend — Phase 5H Infra | 4 | 0 | 4 |
 | Frontend — Check Wizard UX | 9 | 1 | 10 |
@@ -290,4 +336,4 @@
 | Frontend — Retirement Actions | 5 | 0 | 5 |
 | Infrastructure / Security | 6 | 1 | 7 |
 | Documentation | 15 | 0 | 15 |
-| **Total** | **141** | **7** | **148** |
+| **Total** | **135** | **7** | **142** |

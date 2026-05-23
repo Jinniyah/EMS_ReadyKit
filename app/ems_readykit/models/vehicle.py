@@ -7,9 +7,11 @@ Type determines controlled-substance applicability (ALS ambulances only).
 from __future__ import annotations
 
 import enum
-from typing import TYPE_CHECKING, List
+from datetime import datetime
+from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import String, Boolean, ForeignKey, Enum as SAEnum
+from sqlalchemy import Boolean, DateTime, ForeignKey, String
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ems_readykit.core.database import Base
@@ -20,6 +22,7 @@ if TYPE_CHECKING:
     from ems_readykit.models.inventory_location import InventoryLocation
     from ems_readykit.models.daily_inventory_check import DailyInventoryCheck
     from ems_readykit.models.controlled_substance_check import ControlledSubstanceCheck
+    from ems_readykit.models.repair_request import RepairRequest
 
 
 class VehicleType(str, enum.Enum):
@@ -31,15 +34,19 @@ class VehicleType(str, enum.Enum):
 class Vehicle(TimestampMixin, Base):
     __tablename__ = "vehicles"
 
-    vehicle_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    station_id: Mapped[int] = mapped_column(ForeignKey("stations.station_id"), nullable=False)
+    vehicle_id:     Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    station_id:     Mapped[int] = mapped_column(ForeignKey("stations.station_id"), nullable=False)
     vehicle_number: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
-    vehicle_type: Mapped[VehicleType] = mapped_column(
+    vehicle_type:   Mapped[VehicleType] = mapped_column(
         SAEnum(VehicleType, native_enum=False), nullable=False
     )
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    # Relationships
+    # Set when active is flipped to False — explains why and when.
+    inactive_reason: Mapped[Optional[str]]      = mapped_column(String(200), nullable=True)
+    inactive_since:  Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # ── Relationships ─────────────────────────────────────────────────────────
     station: Mapped["Station"] = relationship("Station", back_populates="vehicles")
     inventory_location: Mapped["InventoryLocation"] = relationship(
         "InventoryLocation",
@@ -51,6 +58,9 @@ class Vehicle(TimestampMixin, Base):
     )
     cs_checks: Mapped[List["ControlledSubstanceCheck"]] = relationship(
         "ControlledSubstanceCheck", back_populates="vehicle"
+    )
+    repair_requests: Mapped[List["RepairRequest"]] = relationship(
+        "RepairRequest", back_populates="vehicle", cascade="all, delete-orphan"
     )
 
     @property

@@ -30,6 +30,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from ems_readykit.core.config import get_settings
 from ems_readykit.core.logging import configure_logging, set_request_id
 from ems_readykit.routers import audit, checks, inventory, items, stations, vehicles
+from ems_readykit.routers import repair_requests
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -64,7 +65,6 @@ def create_app() -> FastAPI:
         for this request, enabling Log Analytics grouping.
         Excludes health check and docs paths to reduce log volume.
         """
-        # Always generate a request ID — correlates all logs for this request
         request_id = set_request_id(
             request.headers.get("X-Request-ID")
         )
@@ -93,7 +93,6 @@ def create_app() -> FastAPI:
                 },
             )
 
-        # Return request_id in response header for client-side correlation
         response.headers["X-Request-ID"] = request_id
         return response
 
@@ -108,16 +107,15 @@ def create_app() -> FastAPI:
 
     # ── API Routers ────────────────────────────────────────────────────────────
     # All routes versioned under /api/v1 for forward compatibility.
-    app.include_router(stations.router,  prefix=API_PREFIX)
-    app.include_router(vehicles.router,  prefix=API_PREFIX)
-    app.include_router(items.router,     prefix=API_PREFIX)
-    app.include_router(inventory.router, prefix=API_PREFIX)
-    app.include_router(checks.router,    prefix=API_PREFIX)
-    app.include_router(audit.router,     prefix=API_PREFIX)
+    app.include_router(stations.router,         prefix=API_PREFIX)
+    app.include_router(vehicles.router,         prefix=API_PREFIX)
+    app.include_router(repair_requests.router,  prefix=API_PREFIX)
+    app.include_router(items.router,            prefix=API_PREFIX)
+    app.include_router(inventory.router,        prefix=API_PREFIX)
+    app.include_router(checks.router,           prefix=API_PREFIX)
+    app.include_router(audit.router,            prefix=API_PREFIX)
 
     # ── Health check ──────────────────────────────────────────────────────────
-    # Excluded from request logging to avoid noise.
-    # Returns 200 when the app is running — used by CI/CD health verification.
     @app.get("/health", tags=["system"])
     def health():
         return {"status": "ok", "env": settings.app_env}

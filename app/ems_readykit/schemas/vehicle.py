@@ -10,15 +10,17 @@ Design decisions:
   re-implement the ALS check logic client-side.
 - station_id is required on create — vehicles always belong to a station.
   The router validates the station exists before persisting.
+- inactive_reason and inactive_since are set by PATCH /vehicles/{id} (Supervisor+)
+  when flipping active to False. They are read-only on the response.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# Import directly from the model — single source of truth for the enum
 from ems_readykit.models.vehicle import VehicleType
 
 
@@ -52,21 +54,35 @@ class VehicleCreate(VehicleBase):
     pass
 
 
+class VehicleUpdate(BaseModel):
+    """
+    Request body for PATCH /vehicles/{id} (Supervisor+).
+    Allows toggling active status with a mandatory reason when deactivating.
+    """
+    active:          bool = Field(..., description="True = in service; False = out of service")
+    inactive_reason: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        description="Required when active is False — explain why the vehicle is being taken out of service",
+    )
+
+
 class VehicleRead(VehicleBase):
     """
     Response model for vehicle endpoints.
-    Includes DB-generated fields and the computed requires_controlled_substance_check
-    property so callers don't need to replicate the ALS business rule.
+    Includes DB-generated fields, the computed requires_controlled_substance_check
+    property, and the inactive metadata fields.
     """
 
     model_config = ConfigDict(from_attributes=True)
 
-    vehicle_id: int
-    created_at: datetime
-    updated_at: datetime
+    vehicle_id:      int
+    inactive_reason: Optional[str]
+    inactive_since:  Optional[datetime]
+    created_at:      datetime
+    updated_at:      datetime
 
     # Computed from vehicle_type — included here for client convenience.
-    # This is a read-only derived field; it cannot be set on create/update.
     requires_controlled_substance_check: bool = Field(
         description="True for ALS vehicles only — computed from vehicle_type"
     )

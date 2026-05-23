@@ -15,6 +15,8 @@
 | # | Item | Completed |
 |---|------|-----------|
 | B-M0 | Migration 0005: drop `uq_check_vehicle_date`; replace with non-unique `ix_check_vehicle_date` | 2026-05-22 |
+| B-M1 | New table: `repair_requests` | 2026-05-23 |
+| B-M5 | Alter `vehicles`: add `inactive_reason`, `inactive_since` | 2026-05-23 |
 
 ---
 
@@ -22,6 +24,10 @@
 | # | Item | Completed |
 |---|------|-----------|
 | B-E0 | `GET /api/v1/stations/{id}/locations` — list checkable non-vehicle locations | 2026-05-22 |
+| B-E1 | `PATCH /vehicles/{id}` — mark vehicle active/inactive | 2026-05-23 |
+| B-E4 | `POST /vehicles/{id}/repair-requests` — file repair request | 2026-05-23 |
+| B-E16 | `PATCH /vehicles/{id}/repair-requests/{rid}` — update repair request status | 2026-05-23 |
+| B-E17 | `GET /vehicles/{id}/repair-requests` — list repair requests for vehicle | 2026-05-23 |
 
 ---
 
