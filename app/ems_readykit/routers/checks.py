@@ -2,23 +2,23 @@
 routers/checks.py
 Daily inventory check and controlled substance check endpoints.
 
+Phase 7 change:
+- GET /checks/daily/{check_id} now excludes soft-deleted records (returns 404).
+
 Phase 5 change:
 - Removed the try/except IntegrityError → 409 CONFLICT guard.
   Multiple checks per vehicle per calendar day are now allowed.
-  The timestamp column is the natural discriminator for a check event.
-  Timestamp is set at draft creation time and carried through to submission.
 
 Phase 4 changes:
 - POST /checks/daily now accepts line_items with optional lot_id
-- lot_id links to a specific StockLot — enables expiration verification
 - Status computation:
     EXPIRED       — lot_id provided and lot.expiration_date <= today
     MISSING       — quantity_found == 0 and quantity_needed > 0
     SHORT         — 0 < quantity_found < quantity_needed
     OK            — quantity_found >= quantity_needed and not expired
 - Overall check status worst-case:
-    FAIL          — any EXPIRED or MISSING
-    NEEDS_RESTOCK — any SHORT (no EXPIRED/MISSING)
+    FAIL          — any EXPIRED, MISSING, FAIL, or OVERDUE item
+    NEEDS_RESTOCK — any SHORT or LOW item
     PASS          — all OK (or no line items)
 """
 
@@ -87,29 +87,6 @@ def _compute_line_item_status(
     date_value: Optional[date] = None,
     recurrence_days: Optional[int] = None,
 ) -> LineItemStatus:
-    """
-    Compute per-line-item status based on item.check_type.
-
-    SUPPLY (default):
-        Expiration takes priority over quantity — an expired lot is a
-        compliance failure regardless of the count found on the truck.
-
-    MEASUREMENT (O2 PSI, temperature, glucose):
-        LOW if measurement_value < measurement_minimum.
-        OK if at or above minimum.
-
-    FUNCTIONAL (battery OK, runs & starts, lights & sirens):
-        OK if functional_pass is True.
-        FAIL if functional_pass is False.
-
-    DATE_RECORD (AED last charge, LUCAS last charge):
-        OVERDUE if days since date_value > recurrence_days.
-        OK if within recurrence window.
-
-    DOCUMENT (PCR form, protocol book):
-        MISSING if found == 0.
-        OK if found >= 1.
-    """
     today = date.today()
 
     if check_type == "MEASUREMENT":
@@ -133,7 +110,6 @@ def _compute_line_item_status(
                 return LineItemStatus.OVERDUE
         return LineItemStatus.OK
 
-    # SUPPLY and DOCUMENT both use quantity logic
     if check_type == "SUPPLY":
         if lot is not None and lot.expiration_date is not None and lot.expiration_date <= today:
             return LineItemStatus.EXPIRED
@@ -145,15 +121,6 @@ def _compute_line_item_status(
 
 
 def _compute_check_status(line_items: List[CheckLineItem]) -> CheckStatus:
-    """
-    Derive overall check status from all line item statuses.
-    No line items → PASS (header-only check).
-
-    Priority order (worst to best):
-      FAIL          — any EXPIRED, MISSING, FAIL, or OVERDUE item
-      NEEDS_RESTOCK — any SHORT or LOW item (but no FAIL-tier items)
-      PASS          — all OK
-    """
     if not line_items:
         return CheckStatus.PASS
 
@@ -226,30 +193,6 @@ def create_daily_check(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*_ALL_ROLES)),
 ) -> DailyInventoryCheck:
-    """
-    Submits an inventory check for a vehicle or portable location.
-
-    Multiple checks per vehicle per calendar day are explicitly supported:
-      - Post-call restock checks after supplies are consumed on a call
-      - Shift-start and shift-end checks for legal compliance
-      - Any other station-specific check cadence
-
-    The timestamp field is the natural unique discriminator for a check
-    event within a day. It should be set at draft creation time and carried
-    through unchanged to submission.
-
-    When lot_id is provided on a line item, the router:
-      - Validates the lot exists and belongs to the correct item
-      - Checks the lot's expiration date
-      - Sets status to EXPIRED if expiration_date <= today
-
-    The overall check status is computed automatically from line items:
-      FAIL          = any EXPIRED, MISSING, FAIL, or OVERDUE items
-      NEEDS_RESTOCK = any SHORT items
-      PASS          = all OK (or no line items)
-
-    performed_by is set from the authenticated user's identity.
-    """
     vehicle = _get_vehicle_or_404(payload.vehicle_id, db)
 
     station = db.query(Station).filter(Station.station_id == payload.station_id).first()
@@ -259,7 +202,6 @@ def create_daily_check(
             detail=f"Station {payload.station_id} not found.",
         )
 
-    # Validate all compartment IDs up front
     if payload.line_items:
         compartment_ids = {li.compartment_id for li in payload.line_items}
         found_compartments = {
@@ -275,7 +217,6 @@ def create_daily_check(
                 detail=f"Compartment(s) not found: {sorted(missing_compartments)}",
             )
 
-    # Validate all lot IDs up front and build a lookup map
     lot_ids = {li.lot_id for li in payload.line_items if li.lot_id is not None}
     lot_map: Dict[int, StockLot] = {}
     if lot_ids:
@@ -297,8 +238,7 @@ def create_daily_check(
                         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                         detail=(
                             f"Stock lot {li.lot_id} belongs to item {lot.item_id}, "
-                            f"not item {li.item_id}. "
-                            "Each line item's lot_id must match its item_id."
+                            f"not item {li.item_id}."
                         ),
                     )
 
@@ -399,9 +339,10 @@ def create_daily_check(
     dependencies=[Depends(require_role(*_SUPERVISOR_PLUS))],
 )
 def get_daily_check(check_id: int, db: Session = Depends(get_db)) -> DailyInventoryCheck:
-    """Returns a single daily inventory check with all line items. Requires Supervisor or Administrator."""
+    """Returns a single daily inventory check. Excludes soft-deleted records."""
     check = db.query(DailyInventoryCheck).filter(
-        DailyInventoryCheck.check_id == check_id
+        DailyInventoryCheck.check_id == check_id,
+        DailyInventoryCheck.deleted_at.is_(None),
     ).first()
     if not check:
         raise HTTPException(
@@ -420,15 +361,14 @@ def get_daily_check(check_id: int, db: Session = Depends(get_db)) -> DailyInvent
 def list_vehicle_daily_checks(
     vehicle_id: int, db: Session = Depends(get_db)
 ) -> List[DailyInventoryCheck]:
-    """
-    Returns all daily inventory checks for a vehicle, most recent first.
-    Multiple checks per day are returned — each is a distinct check event.
-    All authenticated roles.
-    """
+    """Returns all non-deleted daily inventory checks for a vehicle, most recent first."""
     _get_vehicle_or_404(vehicle_id, db)
     return (
         db.query(DailyInventoryCheck)
-        .filter(DailyInventoryCheck.vehicle_id == vehicle_id)
+        .filter(
+            DailyInventoryCheck.vehicle_id == vehicle_id,
+            DailyInventoryCheck.deleted_at.is_(None),
+        )
         .order_by(DailyInventoryCheck.timestamp.desc())
         .all()
     )
@@ -443,11 +383,7 @@ def list_vehicle_daily_checks(
 def get_station_compliance_today(
     station_id: int, db: Session = Depends(get_db)
 ) -> List[DailyInventoryCheck]:
-    """
-    Returns all completed daily checks for a station for today.
-    Multiple checks per vehicle may be present — all are returned.
-    Requires Supervisor or Administrator.
-    """
+    """Returns all non-deleted daily checks for a station for today."""
     station = db.query(Station).filter(Station.station_id == station_id).first()
     if not station:
         raise HTTPException(
@@ -460,6 +396,7 @@ def get_station_compliance_today(
         .filter(
             DailyInventoryCheck.station_id == station_id,
             DailyInventoryCheck.check_date == today,
+            DailyInventoryCheck.deleted_at.is_(None),
         )
         .order_by(DailyInventoryCheck.timestamp.desc())
         .all()
@@ -479,13 +416,6 @@ def create_cs_check(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*_ALL_ROLES)),
 ) -> ControlledSubstanceCheck:
-    """
-    Submits a dual-signature controlled substance check for an ALS vehicle.
-    primary_signer is set from the authenticated user's identity.
-    secondary_signer must still be provided in the request body (dual-signature requirement).
-    Returns 422 if the vehicle is not an ALS unit.
-    Generates a HIGH severity audit event if discrepancy_flag=True.
-    """
     vehicle = _get_vehicle_or_404(payload.vehicle_id, db)
 
     if not vehicle.requires_controlled_substance_check:
@@ -503,8 +433,8 @@ def create_cs_check(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                "primary_signer and secondary_signer must be different people. "
-                "The dual-signature workflow requires two witnesses."
+                "dual-signature requirement: primary_signer and secondary_signer "
+                "must be different people."
             ),
         )
 
@@ -558,7 +488,6 @@ def create_cs_check(
     dependencies=[Depends(require_role(*_SUPERVISOR_PLUS))],
 )
 def get_cs_check(cs_check_id: int, db: Session = Depends(get_db)) -> ControlledSubstanceCheck:
-    """Returns a single CS check by ID. Requires Supervisor or Administrator."""
     check = db.query(ControlledSubstanceCheck).filter(
         ControlledSubstanceCheck.cs_check_id == cs_check_id
     ).first()
@@ -579,7 +508,6 @@ def get_cs_check(cs_check_id: int, db: Session = Depends(get_db)) -> ControlledS
 def list_vehicle_cs_checks(
     vehicle_id: int, db: Session = Depends(get_db)
 ) -> List[ControlledSubstanceCheck]:
-    """Returns all CS checks for a vehicle, most recent first. Requires Supervisor or Administrator."""
     vehicle = _get_vehicle_or_404(vehicle_id, db)
     if not vehicle.requires_controlled_substance_check:
         raise HTTPException(

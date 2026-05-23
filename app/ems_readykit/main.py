@@ -30,7 +30,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from ems_readykit.core.config import get_settings
 from ems_readykit.core.logging import configure_logging, set_request_id
 from ems_readykit.routers import audit, checks, inventory, items, stations, vehicles
-from ems_readykit.routers import repair_requests
+from ems_readykit.routers import check_history, repair_requests
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -39,7 +39,6 @@ settings = get_settings()
 
 API_PREFIX = "/api/v1"
 
-# Paths excluded from request logging (health check noise)
 _LOG_EXCLUDED_PATHS = {"/health", "/docs", "/redoc", "/openapi.json", "/favicon.ico"}
 
 
@@ -56,25 +55,13 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json",
     )
 
-    # ── Request logging middleware ─────────────────────────────────────────────
     @app.middleware("http")
     async def log_requests(request: Request, call_next) -> Response:
-        """
-        Log every API request with method, path, status code, and duration.
-        Assigns a correlation request_id that flows through all log lines
-        for this request, enabling Log Analytics grouping.
-        Excludes health check and docs paths to reduce log volume.
-        """
-        request_id = set_request_id(
-            request.headers.get("X-Request-ID")
-        )
-
+        request_id = set_request_id(request.headers.get("X-Request-ID"))
         start = time.monotonic()
         response = await call_next(request)
         duration_ms = round((time.monotonic() - start) * 1000, 1)
-
         path = request.url.path
-
         if path not in _LOG_EXCLUDED_PATHS:
             log_level = logging.WARNING if response.status_code >= 400 else logging.INFO
             logger.log(
@@ -92,11 +79,9 @@ def create_app() -> FastAPI:
                     "client_ip":   request.client.host if request.client else None,
                 },
             )
-
         response.headers["X-Request-ID"] = request_id
         return response
 
-    # ── CORS ──────────────────────────────────────────────────────────────────
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -106,16 +91,17 @@ def create_app() -> FastAPI:
     )
 
     # ── API Routers ────────────────────────────────────────────────────────────
-    # All routes versioned under /api/v1 for forward compatibility.
-    app.include_router(stations.router,         prefix=API_PREFIX)
-    app.include_router(vehicles.router,         prefix=API_PREFIX)
-    app.include_router(repair_requests.router,  prefix=API_PREFIX)
-    app.include_router(items.router,            prefix=API_PREFIX)
-    app.include_router(inventory.router,        prefix=API_PREFIX)
-    app.include_router(checks.router,           prefix=API_PREFIX)
-    app.include_router(audit.router,            prefix=API_PREFIX)
+    # check_history MUST be registered before checks so that
+    # /checks/daily/my-history is matched before /checks/daily/{check_id}
+    app.include_router(stations.router,        prefix=API_PREFIX)
+    app.include_router(vehicles.router,        prefix=API_PREFIX)
+    app.include_router(repair_requests.router, prefix=API_PREFIX)
+    app.include_router(check_history.router,   prefix=API_PREFIX)
+    app.include_router(checks.router,          prefix=API_PREFIX)
+    app.include_router(items.router,           prefix=API_PREFIX)
+    app.include_router(inventory.router,       prefix=API_PREFIX)
+    app.include_router(audit.router,           prefix=API_PREFIX)
 
-    # ── Health check ──────────────────────────────────────────────────────────
     @app.get("/health", tags=["system"])
     def health():
         return {"status": "ok", "env": settings.app_env}

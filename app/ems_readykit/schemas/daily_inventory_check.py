@@ -2,13 +2,15 @@
 schemas/daily_inventory_check.py
 Pydantic schemas for DailyInventoryCheck request validation and response serialization.
 
+Phase 7 additions:
+  AcknowledgeRequest   — body for PATCH /checks/daily/{id}/acknowledge
+  SoftDeleteRequest    — body for DELETE /checks/daily/{id}
+  DailyInventoryCheckRead now exposes acknowledgement and soft-delete fields.
+
 Phase 4 change: line_items added to both Create and Read schemas.
-- On create, line_items is optional (empty list = header-only check, backward compatible)
-- overall status is auto-computed from line items in the router:
-    PASS          = all line items OK (or no line items)
-    NEEDS_RESTOCK = any line item SHORT
-    FAIL          = any line item MISSING
-- performed_by is set from JWT identity, not from the request body
+- On create, line_items is optional (empty = header-only check, backward compatible)
+- Overall status is auto-computed from line items in the router.
+- performed_by is set from JWT identity, not from the request body.
 """
 
 from __future__ import annotations
@@ -26,32 +28,12 @@ _DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 class DailyInventoryCheckBase(BaseModel):
-    """Fields common to create and read schemas."""
-
-    vehicle_id: int = Field(..., gt=0, description="Vehicle being checked")
-    station_id: int = Field(..., gt=0, description="Station the vehicle belongs to")
-    check_date: str = Field(
-        ...,
-        description="Calendar date of the check in YYYY-MM-DD format",
-        examples=["2026-05-09"],
-    )
-    performed_by: Optional[str] = Field(
-        default=None,
-        max_length=100,
-        description=(
-            "Name of the person performing the check. "
-            "Set automatically from the authenticated user's identity on create."
-        ),
-    )
-    timestamp: datetime = Field(
-        ...,
-        description="Exact UTC timestamp when the check was completed",
-    )
-    notes: Optional[str] = Field(
-        default=None,
-        max_length=500,
-        description="Optional free-text notes about the overall check",
-    )
+    vehicle_id:   int = Field(..., gt=0)
+    station_id:   int = Field(..., gt=0)
+    check_date:   str = Field(..., examples=["2026-05-23"])
+    performed_by: Optional[str] = Field(default=None, max_length=100)
+    timestamp:    datetime
+    notes:        Optional[str] = Field(default=None, max_length=500)
 
     @field_validator("check_date")
     @classmethod
@@ -62,32 +44,49 @@ class DailyInventoryCheckBase(BaseModel):
 
 
 class DailyInventoryCheckCreate(DailyInventoryCheckBase):
-    """
-    Request body for POST /checks/daily.
+    """Request body for POST /checks/daily."""
+    line_items: List[CheckLineItemCreate] = Field(default_factory=list)
 
-    line_items is optional — submitting without line items creates a
-    header-only check (status defaults to PASS). Submitting line items
-    causes the router to compute the overall status automatically.
-    """
-    line_items: List[CheckLineItemCreate] = Field(
-        default_factory=list,
-        description=(
-            "Line-by-line item counts per compartment. "
-            "Each entry maps to one row on the paper form (Need / Have). "
-            "Leave empty for a header-only check."
-        ),
+
+class AcknowledgeRequest(BaseModel):
+    """Body for PATCH /checks/daily/{id}/acknowledge (Supervisor+)."""
+    corrective_action: str = Field(
+        ...,
+        min_length=5,
+        max_length=500,
+        description="Required description of corrective action taken",
+    )
+
+
+class SoftDeleteRequest(BaseModel):
+    """Body for DELETE /checks/daily/{id} (Supervisor+)."""
+    deletion_reason: str = Field(
+        ...,
+        min_length=5,
+        max_length=300,
+        description="Required reason for deleting this check record",
     )
 
 
 class DailyInventoryCheckRead(DailyInventoryCheckBase):
-    """Response model for daily inventory check endpoints."""
+    """Response model — includes all fields including acknowledgement and soft-delete metadata."""
 
     model_config = ConfigDict(from_attributes=True)
 
-    check_id: int
-    status: CheckStatus = Field(
-        description="PASS = all OK; NEEDS_RESTOCK = any SHORT; FAIL = any MISSING"
-    )
+    check_id:   int
+    status:     CheckStatus
     line_items: List[CheckLineItemRead] = Field(default_factory=list)
+
+    # Acknowledgement (B-M7)
+    reviewed_by:       Optional[str]
+    reviewed_at:       Optional[datetime]
+    corrective_action: Optional[str]
+
+    # Soft delete (B-M9)
+    deleted_at:      Optional[datetime]
+    deleted_by:      Optional[str]
+    deletion_reason: Optional[str]
+    force_deleted:   bool
+
     created_at: datetime
     updated_at: datetime

@@ -17,6 +17,8 @@
 | B-M0 | Migration 0005: drop `uq_check_vehicle_date`; replace with non-unique `ix_check_vehicle_date` | 2026-05-22 |
 | B-M1 | New table: `repair_requests` | 2026-05-23 |
 | B-M5 | Alter `vehicles`: add `inactive_reason`, `inactive_since` | 2026-05-23 |
+| B-M7 | Alter `daily_inventory_checks`: add `reviewed_by`, `reviewed_at`, `corrective_action` | 2026-05-23 |
+| B-M9 | Alter `daily_inventory_checks`: add `deleted_at`, `deleted_by`, `deletion_reason`, `force_deleted` | 2026-05-23 |
 
 ---
 
@@ -25,9 +27,19 @@
 |---|------|-----------|
 | B-E0 | `GET /api/v1/stations/{id}/locations` — list checkable non-vehicle locations | 2026-05-22 |
 | B-E1 | `PATCH /vehicles/{id}` — mark vehicle active/inactive | 2026-05-23 |
+| B-E2 | `PATCH /checks/daily/{id}/acknowledge` — supervisor corrective action | 2026-05-23 |
 | B-E4 | `POST /vehicles/{id}/repair-requests` — file repair request | 2026-05-23 |
 | B-E16 | `PATCH /vehicles/{id}/repair-requests/{rid}` — update repair request status | 2026-05-23 |
 | B-E17 | `GET /vehicles/{id}/repair-requests` — list repair requests for vehicle | 2026-05-23 |
+
+---
+
+## Backend — Check History Endpoints
+| # | Item | Completed |
+|---|------|-----------|
+| CH-B1 | `GET /checks/daily/my-history` — current user's submitted checks | 2026-05-23 |
+| CH-B2 | `GET /checks/daily/{id}/detail` — full check detail with RBAC scoping | 2026-05-23 |
+| CH-B3 | `DELETE /checks/daily/{id}` — soft-delete with mandatory reason | 2026-05-23 |
 
 ---
 

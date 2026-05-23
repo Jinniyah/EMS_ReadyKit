@@ -1,5 +1,5 @@
 # EMS ReadyKit — Active Backlog
-# v1.13 | Updated: 2026-05-23
+# v1.14 | Updated: 2026-05-23
 # Completed items → backlog_completed.md
 # Priority: High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
@@ -8,59 +8,55 @@
 # --- DEPLOYMENT FIX (committed, awaiting verification) ---
 # Three fixes committed to main, waiting for next successful CI/CD run:
 #   1. app/alembic/versions/0003a_widen_alembic_version.py (NEW)
-#      — Widens alembic_version.version_num VARCHAR(32) → VARCHAR(64) on PostgreSQL.
-#        Root cause of outage: revision ID "0003_item_check_types_and_equipment" is
-#        36 chars — too long for the column. SQLite unaffected (TEXT has no limit).
+#      — Widens alembic_version.version_num VARCHAR(32) → VARCHAR(64).
+#        Root cause: revision ID "0003_item_check_types_and_equipment" is 36 chars.
 #   2. app/alembic/versions/0003_item_check_types_and_equipment.py (UPDATED)
-#      — down_revision changed to "0003a_widen_alembic_version" so it runs first.
+#      — down_revision → "0003a_widen_alembic_version"
 #   3. .github/workflows/deploy.yml (UPDATED)
-#      — Health check polling: 12×15s (3 min) → 20×30s (10 min) to reduce
-#        request rate against F1 quota during cold start.
-# Key Vault 403 (ForbiddenByFirewall) in logs is EXPECTED — fallback to
-# DATABASE_URL env var works correctly. Not the cause of the outage.
-# VERIFY: next push to main should complete migration chain 0001→…→0003a→0003→0004→0005→0006
-# and health check should reach HTTP 200 within the 10-minute window.
+#      — Health check polling: 12×15s → 20×30s (10 min).
+# Key Vault 403 (ForbiddenByFirewall) in logs is EXPECTED. Not the outage cause.
+# VERIFY: migration chain 0001→…→0003a→0003→0004→0005→0006→0007 completes cleanly.
 #
 # --- COMPLETED THIS SESSION ---
-# Repair requests + vehicle inactive cluster (B-M1, B-M5, B-E1, B-E4, B-E16, B-E17)
-# All 21 tests passing. Full suite clean. Ready to commit.
+# Cluster 1: Repair requests + vehicle inactive (B-M1, B-M5, B-E1, B-E4, B-E16, B-E17)
+# Cluster 2: Check acknowledgement + soft-delete + history (B-M7, B-M9, B-E2, CH-B1/B2/B3)
+# All 151 tests passing. Full suite clean. Ready to commit both clusters together.
+#
 # Suggested commit message:
-#   feat: repair requests + vehicle inactive status (B-M1, B-M5, B-E1, B-E4, B-E16, B-E17)
+#   feat: repair requests, vehicle inactive, check history + soft-delete
+#
+#   Cluster 1 — B-M1, B-M5, B-E1, B-E4, B-E16, B-E17:
+#   - Migration 0006: repair_requests table, inactive_reason/inactive_since on vehicles
+#   - RepairRequest model, schemas, router (4 endpoints), 21 tests
+#
+#   Cluster 2 — B-M7, B-M9, B-E2, CH-B1, CH-B2, CH-B3:
+#   - Migration 0007: acknowledgement + soft-delete fields on daily_inventory_checks
+#   - check_history router (4 endpoints), 21 tests
+#   - checks.py: GET /checks/daily/{id} now excludes soft-deleted records
+#   - All lists exclude soft-deleted records
 #
 # --- NEXT SESSION PLAN ---
-# Supervisor acknowledgement + check history cluster. Same pattern: one migration,
-# one router, tests.
+# Frontend: Vehicle & Equipment Status screen (F-5E1, F-5E2, F-5E3, VE-F1).
+# Backend is fully unblocked — B-E1/B-E4/B-E16/B-E17 all deployed.
+# This is the first pure frontend session in a while.
 #
-# Step 1 — Migration 0007_check_acknowledgement_and_soft_delete.py:
-#   - B-M7: Alter `daily_inventory_checks` — add reviewed_by, reviewed_at,
-#            corrective_action VARCHAR(500)
-#   - B-M9: Alter `daily_inventory_checks` — add deleted_at, deleted_by,
-#            deletion_reason VARCHAR(300), force_deleted BOOLEAN DEFAULT FALSE
-#   Both SQLite (batch) and PostgreSQL (IF NOT EXISTS) paths required.
+# Files to create/update:
+#   src/modules/vehicles/VehicleStatusScreen.jsx  — NEW
+#     - Inactive toggle (Supervisor+) — calls PATCH /vehicles/{id}
+#     - Repair request form — severity selector, description, URGENT banner
+#     - Repair request list — filterable by status, most recent first
+#     - Status tracking display — OPEN/IN_PROGRESS/RESOLVED badges
+#   src/modules/vehicles/repairRequests.js  — NEW (API calls)
+#   src/App.jsx or nav — add "Vehicle & Equipment Status" menu entry (rename from Vehicle Status)
 #
-# Step 2 — Model update:
-#   - app/ems_readykit/models/daily_inventory_check.py — add the 7 new fields
-#
-# Step 3 — Schema updates:
-#   - app/ems_readykit/schemas/daily_inventory_check.py — add AcknowledgeRequest,
-#     update DailyInventoryCheckRead to expose new fields
-#
-# Step 4 — Router additions (add to existing checks.py or new file):
-#   - CH-B1: GET  /checks/daily/my-history?from=&to=
-#   - CH-B2: GET  /checks/daily/{id}/detail
-#   - CH-B3: DELETE /checks/daily/{id}  — soft delete (Supervisor+)
-#   - B-E2:  PATCH /checks/daily/{id}/acknowledge  — corrective action (Supervisor+)
-#
-# Step 5 — Tests: test_check_history.py
-#   Cover: history list scoping, detail RBAC, soft delete, acknowledge,
-#   cannot-view-deleted, 90-day policy notes in responses.
+# After that: Check History frontend (CH-F1 through CH-F5) — the backend
+# for CH-B1/B2/B3 is now live and ready.
 
 ---
 
 ## 1. Backend — Phase 6 Endpoints
 | # | Endpoint | Description | Pri | Status | Needs |
 |---|----------|-------------|-----|--------|-------|
-| B-E2 | `PATCH /checks/daily/{id}/acknowledge` | Supervisor acknowledges FAIL with corrective action | High | 📋 | B-M7 |
 | B-E3 | `GET /checks/daily/station/{id}?from=&to=` | Date-range compliance query | High | 📋 | |
 | B-E5 | `POST /inventory/transfer` | Move stock between supply room and vehicle | High | 📋 | |
 | B-E6 | `GET /inventory/locations/{id}/stock-summary` | Stock vs par per item | High | 📋 | |
@@ -86,18 +82,16 @@
 | B-M3 | New table: `feedback_entries` | Medium | 📋 |
 | B-M4 | New table: `user_requests` | Medium | 📋 |
 | B-M6 | Alter `par_levels`: add `active`, `deactivated_at`, `deactivation_reason` | Medium | 📋 |
-| B-M7 | Alter `daily_inventory_checks`: add `reviewed_by`, `reviewed_at`, `corrective_action` | High | 📋 |
 | B-M8 | Alter `daily_inventory_checks`: add `started_by` (check handoff) | Medium | 📋 |
-| B-M9 | Alter `daily_inventory_checks`: add `deleted_at`, `deleted_by`, `deletion_reason`, `force_deleted` | High | 📋 |
-| B-M10 | Alter `stations`: add `allow_check_modification` (Boolean, default False) — Administrator-only toggle | High | 📋 |
+| B-M10 | Alter `stations`: add `allow_check_modification` (Boolean, default False) | High | 📋 |
 | B-M11 | Alter `stations`: add `primary_color` (String, nullable) — hex, set by Supervisor | Medium | 📋 |
 | B-M12 | New table: `user_preferences` — `user_oid`, `default_station_id`, `display_name` | Medium | 📋 |
-| B-M13 | Alter `inventory_lots`: add `retired_at`, `retired_by`, `retirement_reason`. Retired lot hidden from active inventory/checks; completed check history preserved; hard-deleted 5 yrs after `retired_at`. | High | 📋 |
-| B-M14 | New table: `loaned_items` — `lot_id`, `vehicle_id`, `loaned_by`, `loaned_at`, `destination_note` (free text), `resolved_at`, `resolved_by` | Medium | 📋 |
-| RET-M1 | Alter `vehicles`: add `retired_at`, `retired_by`, `retirement_reason` (permanent; separate from inactive) | High | 📋 |
+| B-M13 | Alter `inventory_lots`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 |
+| B-M14 | New table: `loaned_items` | Medium | 📋 |
+| RET-M1 | Alter `vehicles`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 |
 | RET-M2 | Alter `locations`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 |
 | RET-M3 | Alter `stations`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 |
-| RET-M4 | Scheduled nightly job: hard-delete retired objects (vehicle/location/station/lot) where `retired_at` > 5 yrs. Writes audit event per deletion. | High | 📋 |
+| RET-M4 | Scheduled nightly job: hard-delete retired objects where `retired_at` > 5 yrs | High | 📋 |
 
 ---
 
@@ -112,10 +106,7 @@
 ## 4. Backend — Check History Endpoints
 | # | Endpoint | Description | Pri | Status | Notes |
 |---|----------|-------------|-----|--------|-------|
-| CH-B1 | `GET /checks/daily/my-history?from=&to=` | Current user's submitted checks, most recent first | High | 📋 | All roles |
-| CH-B2 | `GET /checks/daily/{id}/detail` | Full check detail; Responders own only, Supervisor+ any at station | High | 📋 | |
-| CH-B3 | `DELETE /checks/daily/{id}` | Supervisor+ soft-delete; hidden immediately; hard-deleted after 90 days | High | 📋 | Needs B-M9 |
-| CH-B4 | `DELETE /checks/daily/{id}/force` | Administrator force hard-delete (PII spill). Audit event written; PII never logged. | High | 📋 | Admin only |
+| CH-B4 | `DELETE /checks/daily/{id}/force` | Administrator force hard-delete (PII spill) | High | 📋 | Admin only |
 | CH-B5 | `GET /checks/daily/deleted?station_id=` | List soft-deleted checks within 90-day window | Medium | 📋 | Admin only |
 | CH-B6 | `PATCH /checks/daily/{id}/restore` | Restore soft-deleted check within 90-day window | Low | 📋 | Admin only |
 | CH-B7 | `PATCH /stations/{id}/settings` | Update station settings incl. `allow_check_modification` | High | 📋 | Admin only |
@@ -128,9 +119,9 @@
 |---|----------|-------------|-----|--------|-------|
 | RET-B1 | `PATCH /vehicles/{id}/retire` | Retire vehicle; hidden from workflows; history preserved | High | 📋 | Supervisor+ |
 | RET-B2 | `PATCH /locations/{id}/retire` | Retire jump bag / portable location | High | 📋 | Supervisor+ |
-| RET-B3 | `PATCH /stations/{id}/retire` | Retire station; all vehicles/locations implicitly hidden | High | 📋 | Admin only |
+| RET-B3 | `PATCH /stations/{id}/retire` | Retire station | High | 📋 | Admin only |
 | RET-B4 | `GET /admin/retired?type=&station_id=` | List retired objects with metadata | Medium | 📋 | Admin only |
-| RET-B5 | `PATCH /inventory/lots/{id}/retire` | Retire a specific lot (e.g. discontinued item). Completed checks unaffected. | High | 📋 | Supervisor+; needs B-M13 |
+| RET-B5 | `PATCH /inventory/lots/{id}/retire` | Retire a specific lot | High | 📋 | Supervisor+; needs B-M13 |
 | RET-B6 | `GET /inventory/lots/retired?location_id=` | List retired lots at a location | Medium | 📋 | Supervisor+ |
 
 ---
@@ -138,7 +129,7 @@
 ## 6. Backend — Loaned Item Endpoints
 | # | Endpoint | Description | Pri | Status | Notes |
 |---|----------|-------------|-----|--------|-------|
-| LOAN-B1 | `POST /equipment/loans` | Record a loan: `lot_id`, `vehicle_id`, `destination_note` | Medium | 📋 | All roles; needs B-M14 |
+| LOAN-B1 | `POST /equipment/loans` | Record a loan | Medium | 📋 | All roles; needs B-M14 |
 | LOAN-B2 | `PATCH /equipment/loans/{id}/resolve` | Mark loan resolved | Medium | 📋 | All roles |
 | LOAN-B3 | `GET /equipment/loans?vehicle_id=&resolved=false` | Open loans for a vehicle | Medium | 📋 | Supervisor+ |
 | LOAN-B4 | `GET /equipment/loans/my?resolved=false` | Current user's open loans | Medium | 📋 | All roles |
@@ -168,10 +159,10 @@
 | # | Item | Pri | Status | Needs |
 |---|------|-----|--------|-------|
 | F-5E1 | Repair request form — severity selector, description, URGENT escalation | High | 📋 | |
-| F-5E2 | Mark vehicle inactive toggle (Supervisor+) | High | 📋 | ~~B-E1~~ done |
+| F-5E2 | Mark vehicle inactive toggle (Supervisor+) | High | 📋 | |
 | F-5E3 | Repair request status tracking display | Medium | 📋 | |
 | VE-F1 | Rename "Vehicle Status" → "Vehicle & Equipment Status" throughout app | Low | 📋 | |
-| VE-F2 | Open loans panel — lists unresolved loans for vehicle; each row has Resolve button | Medium | 📋 | LOAN-B3 |
+| VE-F2 | Open loans panel — unresolved loans per vehicle; Resolve button per row | Medium | 📋 | LOAN-B3 |
 | VE-F3 | Log a loan form — lot picker + destination note field | Medium | 📋 | LOAN-B1 |
 | VE-F4 | Resolve loan modal — optional note, calls LOAN-B2 | Medium | 📋 | LOAN-B2 |
 
@@ -184,7 +175,7 @@
 | F-5F2 | Monthly compliance calendar — color-coded per vehicle per day | High | ⛔ | B-E3 |
 | F-5F3 | Check detail view — all line items, lot numbers, expiry dates | High | 📋 | |
 | F-5F4 | Print layout — legally defensible record with chain of custody + signature lines | High | 📋 | |
-| F-5F5 | Supervisor acknowledgement + corrective action on FAIL checks | High | ⛔ | B-E2 |
+| F-5F5 | Supervisor acknowledgement + corrective action on FAIL checks | High | 📋 | |
 | F-5F6 | Notification bell with unread badge | Medium | ⛔ | B-E12 |
 | F-5F7 | Supply room stock view (stock vs par, color coded, reorder form) | Medium | 📋 | |
 
@@ -222,7 +213,7 @@
 | F-UX8 | Item count on compartment cards | Low | 📋 | |
 | F-UX9 | Two-state submit with offline queue | Low | 📋 | |
 | F-UX10 | "Caller/spotter view" large-text mode | Low | 📋 | |
-| F-UX32 | BORROWED badge on loaned items during check; shortcut to V&E Status to resolve | Medium | 📋 | B-M14 |
+| F-UX32 | BORROWED badge on loaned items during check; shortcut to V&E Status | Medium | 📋 | B-M14 |
 
 ---
 
@@ -233,7 +224,7 @@
 | CH-F2 | Check detail view (read-only for Responders) | High | 📋 | |
 | CH-F3 | Show supervisor acknowledgement on check detail | Medium | 📋 | |
 | CH-F4 | Supervisor check history list — filterable by vehicle/date/status | High | 📋 | |
-| CH-F5 | Soft-delete check (Supervisor+) — mandatory reason, 90-day hard-delete warning | High | 📋 | B-M9, CH-B3 |
+| CH-F5 | Soft-delete check (Supervisor+) — mandatory reason, 90-day hard-delete warning | High | 📋 | |
 | CH-F6 | Acknowledgement / corrective note on submitted check | High | ⛔ | B-M10, CH-B8 |
 | CH-F7 | Deleted records screen (Admin) — restore or force hard-delete | High | 📋 | |
 | CH-F8 | Force hard-delete confirmation — type "PERMANENTLY DELETE" to confirm | High | 📋 | |
@@ -244,11 +235,11 @@
 | # | Item | Pri | Status | Needs |
 |---|------|-----|--------|-------|
 | S-F1 | Settings nav entry — role-scoped visibility | High | 📋 | |
-| S-F2 | Station color picker (Supervisor+) — live preview | Medium | 📋 | B-M11, S-B2 |
-| S-F3 | Allow check modification toggle (Admin only) | High | 📋 | B-M10, S-B2 |
-| S-F4 | Default station selector (all roles) | Medium | 📋 | B-M12, S-B4 |
-| S-F5 | Display name / preferred name override (all roles) | Low | 📋 | B-M12, S-B4 |
-| S-F6 | Station management — create, edit, retire. 5-yr hard-delete warning on retire. | High | 📋 | RET-B3/B4 |
+| S-F2 | Station color picker (Supervisor+) — live preview | Medium | 📋 | B-M11 |
+| S-F3 | Allow check modification toggle (Admin only) | High | 📋 | B-M10 |
+| S-F4 | Default station selector (all roles) | Medium | 📋 | B-M12 |
+| S-F5 | Display name / preferred name override (all roles) | Low | 📋 | B-M12 |
+| S-F6 | Station management — create, edit, retire | High | 📋 | RET-B3/B4 |
 | S-F7 | Vehicle / portable equipment management — add, edit, retire | High | 📋 | RET-B1/B2 |
 | S-F8 | Par level management — view and edit per vehicle/compartment | Medium | 📋 | B-E9 |
 | S-F9 | User onboarding management — approve/reject, assign role + station | Medium | 📋 | B-E14/15 |
@@ -258,10 +249,10 @@
 ## 16. Frontend — Retirement Actions
 | # | Item | Pri | Status | Needs |
 |---|------|-----|--------|-------|
-| RET-F1 | Retire vehicle (Supervisor+) — mandatory reason, permanent warning, 5-yr policy stated | High | 📋 | RET-B1 |
+| RET-F1 | Retire vehicle (Supervisor+) | High | 📋 | RET-B1 |
 | RET-F2 | Retire jump bag / portable location (Supervisor+) | High | 📋 | RET-B2 |
-| RET-F3 | Retire inventory lot (Supervisor+) — use case: item discontinued/made illegal | High | 📋 | RET-B5, B-M13 |
-| RET-F4 | Retire station (Admin only) — warns all vehicles/locations hidden, 5-yr policy | High | 📋 | RET-B3 |
+| RET-F3 | Retire inventory lot (Supervisor+) | High | 📋 | RET-B5, B-M13 |
+| RET-F4 | Retire station (Admin only) | High | 📋 | RET-B3 |
 | RET-F5 | Retired objects list (Admin) — filterable by type, read-only | Medium | 📋 | RET-B4 |
 
 ---
@@ -275,7 +266,7 @@
 | I-4 | `X-Content-Type-Options` and `X-Frame-Options` headers | Low | 📋 | |
 | I-5 | Document Azure AD token lifetime; confirm CAE enabled | Low | 📋 | |
 | I-6 | Write `docs/adr/ADR-006-DDoS-Strategy.md` | Low | 📋 | |
-| I-7 | Confirm Azure deployment healthy after F1 quota reset | High | 🔄 | See session note at top of file |
+| I-7 | Confirm Azure deployment healthy after F1 quota reset | High | 🔄 | See session note |
 
 ---
 
@@ -291,12 +282,12 @@
 | D-8 | README "Who should read what" section — audience-based doc map | Medium | 📋 |
 | D-9 | `docs/api_contract.md` — versioning, deprecation, breaking change rules | Medium | 📋 |
 | D-10 | Visual ERD in `docs/models/erd.md` (Mermaid) | Low | 📋 |
-| D-11 | README badges: Python version + License (shields.io static) | Low | 📋 |
+| D-11 | README badges: Python version + License | Low | 📋 |
 | D-12 | README test coverage badge — needs `pytest-cov` + Codecov in CI | Low | 📋 |
 | D-13 | `docs/security.md` — auth, RBAC, encryption, audit, OSI posture | Medium | 📋 |
 | D-14 | `docs/operations.md` — health, alerts, on-call runbook, log queries, rollback, DB backup | Medium | 📋 |
 | D-15 | PII emergency delete procedure in `docs/operations.md` | High | 📋 |
-| D-16 | `docs/data_retention_policy.md` — retention windows for all object types, hard-delete schedule, compliance rationale | High | 📋 |
+| D-16 | `docs/data_retention_policy.md` — retention windows for all object types | High | 📋 |
 
 ---
 
@@ -319,15 +310,15 @@
 | Area | 📋 | ⛔ | Total |
 |------|----|----|-------|
 | Backend — Phase 6 Endpoints | 13 | 0 | 13 |
-| Backend — Data Models | 16 | 0 | 16 |
+| Backend — Data Models | 14 | 0 | 14 |
 | Backend — Code Quality | 2 | 0 | 2 |
-| Backend — Check History | 8 | 0 | 8 |
+| Backend — Check History | 5 | 0 | 5 |
 | Backend — Retirement | 6 | 0 | 6 |
 | Backend — Loaned Items | 4 | 0 | 4 |
 | Frontend — Phase 5C Help | 4 | 0 | 4 |
 | Frontend — Phase 5D Item Mgmt | 3 | 0 | 3 |
 | Frontend — Phase 5E / V&E Status | 7 | 0 | 7 |
-| Frontend — Phase 5F Supervisor | 4 | 3 | 7 |
+| Frontend — Phase 5F Supervisor | 5 | 2 | 7 |
 | Frontend — Phase 5G Supporting | 3 | 1 | 4 |
 | Frontend — Phase 5H Infra | 4 | 0 | 4 |
 | Frontend — Check Wizard UX | 9 | 1 | 10 |
@@ -336,4 +327,4 @@
 | Frontend — Retirement Actions | 5 | 0 | 5 |
 | Infrastructure / Security | 6 | 1 | 7 |
 | Documentation | 15 | 0 | 15 |
-| **Total** | **135** | **7** | **142** |
+| **Total** | **130** | **6** | **136** |
