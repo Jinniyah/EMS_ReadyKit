@@ -5,15 +5,15 @@
  * Used only in production (VITE_APP_ENV=production).
  * In development, DevAuthProvider in useAuth.jsx replaces MSAL entirely.
  *
- * Environment variables are set via .env.local (never committed):
- *   VITE_AZURE_CLIENT_ID  — App Registration client ID
- *   VITE_AZURE_TENANT_ID  — Azure AD tenant ID
+ * Required GitHub secrets (injected at build time by deploy.yml):
+ *   VITE_AZURE_AD_CLIENT_ID  — App Registration client ID
+ *   VITE_AZURE_AD_TENANT_ID  — Azure AD tenant ID
  */
 
 export const msalConfig = {
   auth: {
-    clientId: import.meta.env.VITE_AZURE_CLIENT_ID ?? '',
-    authority: `https://login.microsoftonline.com/${import.meta.env.VITE_AZURE_TENANT_ID ?? 'common'}`,
+    clientId: import.meta.env.VITE_AZURE_AD_CLIENT_ID ?? '',
+    authority: `https://login.microsoftonline.com/${import.meta.env.VITE_AZURE_AD_TENANT_ID ?? 'common'}`,
     redirectUri: window.location.origin,
     postLogoutRedirectUri: window.location.origin,
   },
@@ -33,8 +33,6 @@ export const msalConfig = {
   },
 }
 
-// Scopes requested when acquiring an access token for the API.
-// The API audience matches the App Registration Application ID URI.
 export const apiTokenRequest = {
-  scopes: [`api://${import.meta.env.VITE_AZURE_CLIENT_ID}/user_impersonation`],
+  scopes: [`api://${import.meta.env.VITE_AZURE_AD_CLIENT_ID}/user_impersonation`],
 }
