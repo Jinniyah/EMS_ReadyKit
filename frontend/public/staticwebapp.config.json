@@ -1,8 +1,7 @@
 {
   "routes": [
     {
-      "route": "/api/*",
-      "rewrite": "/api/*"
+      "route": "/assets/*"
     },
     {
       "route": "/*",
@@ -12,10 +11,13 @@
   ],
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/assets/*", "/favicon.ico"]
+    "exclude": ["/assets/*", "/favicon.ico", "/*.js", "/*.css"]
   },
   "mimeTypes": {
-    ".json": "application/json"
+    ".js":   "application/javascript",
+    ".mjs":  "application/javascript",
+    ".json": "application/json",
+    ".css":  "text/css"
   },
   "globalHeaders": {
     "X-Content-Type-Options": "nosniff",
