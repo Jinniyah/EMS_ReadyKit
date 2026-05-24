@@ -1,5 +1,5 @@
 # EMS ReadyKit — Completed Items
-# Last updated: 2026-05-23
+# Last updated: 2026-05-24
 
 ---
 
@@ -64,7 +64,7 @@
 
 ---
 
-## Frontend — UX Improvements
+## Frontend — Check Wizard UX
 | # | Item | Completed |
 |---|------|-----------|
 | F-UX1 | Station picker on home screen | 2026-05-16 |
@@ -89,13 +89,24 @@
 | F-UX29 | Backend: drop uq_check_vehicle_date; remove 409 guard; allow unlimited checks per day | 2026-05-22 |
 | F-UX30 | DraftBanner uses selection_label — fixes null label for jump bag checks | 2026-05-22 |
 | F-UX31 | Reconcile "Add N" top-off button — inline with +/− controls | 2026-05-22 |
+| F-UX33 | FAIL check → repair request prompt on submitted screen | 2026-05-23 |
+
+---
+
+## Frontend — Phase 5H: Infrastructure
+| # | Item | Completed |
+|---|------|-----------|
+| F-5H1 | Terraform module: Azure Static Web Apps (centralus) | 2026-05-24 |
+| F-5H2 | GitHub Actions 4-job pipeline: test-backend, build-frontend, deploy-backend, deploy-frontend | 2026-05-24 |
+| F-5H3 | SWA URL added to CORS allowed origins (Terraform app module) | 2026-05-24 |
+| F-5H4 | SWA URL registered as SPA redirect URI in Azure AD | 2026-05-24 |
 
 ---
 
 ## Infrastructure / Security
 | # | Item | Completed |
 |---|------|-----------|
-| I-7 | Confirm Azure deployment healthy after F1 quota reset | 2026-05-23 |
+| I-7 | Confirm Azure deployment healthy — App Service B1, VNet integration, CI/CD green | 2026-05-24 |
 
 ---
 

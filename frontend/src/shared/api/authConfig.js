@@ -10,10 +10,13 @@
  *   VITE_AZURE_AD_TENANT_ID  — Azure AD tenant ID
  */
 
+const clientId = import.meta.env.VITE_AZURE_AD_CLIENT_ID ?? ''
+const tenantId = import.meta.env.VITE_AZURE_AD_TENANT_ID ?? 'common'
+
 export const msalConfig = {
   auth: {
-    clientId: import.meta.env.VITE_AZURE_AD_CLIENT_ID ?? '',
-    authority: `https://login.microsoftonline.com/${import.meta.env.VITE_AZURE_AD_TENANT_ID ?? 'common'}`,
+    clientId,
+    authority: `https://login.microsoftonline.com/${tenantId}`,
     redirectUri: window.location.origin,
     postLogoutRedirectUri: window.location.origin,
   },
@@ -33,6 +36,8 @@ export const msalConfig = {
   },
 }
 
+// api.access is the scope defined in the App Registration (Expose an API).
+// This matches the Terraform identity_rbac module oauth2_permission_scope definition.
 export const apiTokenRequest = {
-  scopes: [`api://${import.meta.env.VITE_AZURE_AD_CLIENT_ID}/user_impersonation`],
+  scopes: [`api://${clientId}/api.access`],
 }
