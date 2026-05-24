@@ -11,8 +11,29 @@ output "log_analytics_workspace_id" {
 }
 
 output "app_service_url" {
-  description = "Default hostname of the deployed App Service"
+  description = "Default hostname of the App Service (backend API)"
   value       = module.app.app_service_url
+}
+
+output "frontend_url" {
+  description = "Full HTTPS URL of the Static Web App (React frontend)"
+  value       = module.static_web_app.url
+}
+
+output "frontend_hostname" {
+  description = "Hostname of the Static Web App — use when configuring Azure AD redirect URIs (F-5H4)"
+  value       = module.static_web_app.hostname
+}
+
+output "frontend_deployment_token" {
+  description = "SWA deployment token — store as AZURE_STATIC_WEB_APPS_API_TOKEN GitHub secret"
+  value       = module.static_web_app.api_key
+  sensitive   = true
+}
+
+output "swa_resource_id" {
+  description = "Resource ID of the Static Web App — copy into temp.tfvars as static_web_app_resource_id, then set create_swa_exemption=true and re-run terraform apply"
+  value       = module.static_web_app.static_web_app_id
 }
 
 output "key_vault_uri" {
@@ -21,7 +42,7 @@ output "key_vault_uri" {
 }
 
 output "pg_server_fqdn" {
-  description = "Fully qualified domain name of the PostgreSQL Flexible Server"
+  description = "FQDN of the PostgreSQL Flexible Server"
   value       = module.data.pg_server_fqdn
 }
 
@@ -41,6 +62,6 @@ output "vnet_id" {
 }
 
 output "github_actions_client_id" {
-  description = "Client ID of the GitHub Actions service principal — use with az ad sp create-for-rbac to generate AZURE_CREDENTIALS"
+  description = "Client ID of the GitHub Actions service principal"
   value       = module.identity_rbac.github_actions_client_id
 }

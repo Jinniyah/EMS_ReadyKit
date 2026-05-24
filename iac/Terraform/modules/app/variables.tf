@@ -67,7 +67,7 @@ variable "log_analytics_workspace_id" {
 
 variable "office_ip_cidr" {
   type        = string
-  description = "Office or admin IP in CIDR notation to allow SCM/Kudu access (e.g. \"203.0.113.5/32\"). Leave empty to deny all SCM access."
+  description = "Office or admin IP in CIDR notation to allow SCM/Kudu access. Leave empty to deny all SCM access."
   default     = ""
 
   validation {
@@ -78,7 +78,7 @@ variable "office_ip_cidr" {
 
 variable "allowed_admin_ips" {
   type        = list(string)
-  description = "Public IP addresses (CIDR) allowed to access the app Key Vault during Terraform runs (e.g. [\"203.0.113.5/32\"])"
+  description = "Public IP addresses (CIDR) allowed to access the app Key Vault during Terraform runs"
   default     = []
 }
 
@@ -90,6 +90,12 @@ variable "tenant_id" {
 variable "client_id" {
   type        = string
   description = "App Registration client ID — set as AZURE_AD_CLIENT_ID app setting for JWT validation"
+}
+
+variable "frontend_url" {
+  type        = string
+  description = "Full HTTPS URL of the Static Web App frontend — added to CORS allowed_origins on the App Service. F-5H3."
+  default     = ""
 }
 
 variable "tags" {

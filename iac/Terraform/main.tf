@@ -12,7 +12,6 @@ resource "azurerm_resource_group" "ems_rg" {
   tags     = local.common_tags
 }
 
-# ── Resource Group delete lock ─────────────────────────────────────────────────
 resource "azurerm_management_lock" "rg_lock" {
   name       = "delete-lock"
   scope      = azurerm_resource_group.ems_rg.id
@@ -20,17 +19,13 @@ resource "azurerm_management_lock" "rg_lock" {
   notes      = "Protect EMS ReadyKit resource group from accidental deletion."
 }
 
-# ── Budget alert ───────────────────────────────────────────────────────────────
 resource "azurerm_consumption_budget_resource_group" "main" {
   name              = "budget-${local.name_prefix}"
   resource_group_id = azurerm_resource_group.ems_rg.id
+  amount            = var.monthly_budget_usd
+  time_grain        = "Monthly"
 
-  amount     = var.monthly_budget_usd
-  time_grain = "Monthly"
-
-  time_period {
-    start_date = var.budget_start_date
-  }
+  time_period { start_date = var.budget_start_date }
 
   notification {
     enabled        = true
@@ -49,7 +44,6 @@ resource "azurerm_consumption_budget_resource_group" "main" {
   }
 }
 
-# ── Logging (deployed first — needed for diagnostics) ─────────────────────────
 module "logging" {
   source = "./modules/logging"
 
@@ -59,7 +53,6 @@ module "logging" {
   tags                = local.common_tags
 }
 
-# ── Networking ────────────────────────────────────────────────────────────────
 module "network" {
   source = "./modules/network"
 
@@ -69,16 +62,11 @@ module "network" {
   tags                       = local.common_tags
 }
 
-# ── tfstate storage account (for CI/CD RBAC) ─────────────────────────────────
-# The backend storage account lives in a separate resource group managed
-# outside this root module. We look it up by name so we can grant the
-# GitHub Actions service principal Storage Blob Data Contributor on it.
 data "azurerm_storage_account" "tfstate" {
   name                = "emsreadykittfstate"
   resource_group_name = "tfstate-rg"
 }
 
-# ── Identity & RBAC ───────────────────────────────────────────────────────────
 module "identity_rbac" {
   source = "./modules/identity_rbac"
 
@@ -90,15 +78,15 @@ module "identity_rbac" {
 }
 
 # ── Policy ────────────────────────────────────────────────────────────────────
+# Allows northcentralus (primary) and centralus (required for Static Web Apps).
 module "policy" {
   source = "./modules/policy"
 
-  subscription_id     = local.subscription_id
+  subscription_id   = local.subscription_id
   resource_group_name = azurerm_resource_group.ems_rg.name
-  allowed_location    = local.location
+  allowed_locations = ["northcentralus", "centralus"]
 }
 
-# ── Storage ───────────────────────────────────────────────────────────────────
 module "storage" {
   source = "./modules/storage"
 
@@ -108,8 +96,6 @@ module "storage" {
   log_analytics_workspace_id = module.logging.workspace_id
   tags                       = local.common_tags
 }
-
-# ── Platform secrets ──────────────────────────────────────────────────────────
 
 resource "random_password" "pg_admin" {
   length           = 24
@@ -127,22 +113,18 @@ resource "random_string" "kv_suffix" {
   upper   = false
 }
 
-# Platform Key Vault for infrastructure secrets.
-# Purge protection relaxed in dev for easier iteration.
 resource "azurerm_key_vault" "platform" {
   name                = "kv${random_string.kv_suffix.result}"
   location            = azurerm_resource_group.ems_rg.location
   resource_group_name = azurerm_resource_group.ems_rg.name
   tenant_id           = data.azurerm_client_config.current.tenant_id
-
-  sku_name                   = "standard"
+  sku_name            = "standard"
   purge_protection_enabled   = local.is_dev ? false : true
   soft_delete_retention_days = local.is_dev ? 7 : 90
 
   access_policy {
-    tenant_id = data.azurerm_client_config.current.tenant_id
-    object_id = data.azurerm_client_config.current.object_id
-
+    tenant_id          = data.azurerm_client_config.current.tenant_id
+    object_id          = data.azurerm_client_config.current.object_id
     secret_permissions = ["Get", "List", "Set", "Delete", "Purge"]
   }
 
@@ -159,11 +141,9 @@ resource "azurerm_key_vault_secret" "pg_admin_password" {
   name         = "pg-admin-password"
   value        = random_password.pg_admin.result
   key_vault_id = azurerm_key_vault.platform.id
-
-  depends_on = [azurerm_key_vault.platform]
+  depends_on   = [azurerm_key_vault.platform]
 }
 
-# ── Data (PostgreSQL) ─────────────────────────────────────────────────────────
 module "data" {
   source = "./modules/data"
 
@@ -179,7 +159,20 @@ module "data" {
   depends_on = [azurerm_key_vault_secret.pg_admin_password]
 }
 
-# ── Application (App Service + Key Vault) ─────────────────────────────────────
+# ── Static Web App ─────────────────────────────────────────────────────────────
+# Must be in centralus — northcentralus is not supported by Azure Static Web Apps.
+# The policy now allows both northcentralus and centralus so no exemption is needed.
+module "static_web_app" {
+  source = "./modules/static_web_app"
+
+  resource_group_name        = azurerm_resource_group.ems_rg.name
+  location                   = "centralus"
+  name_prefix                = local.name_prefix
+  sku_tier                   = var.static_web_app_sku
+  log_analytics_workspace_id = module.logging.workspace_id
+  tags                       = local.common_tags
+}
+
 module "app" {
   source = "./modules/app"
 
@@ -198,10 +191,10 @@ module "app" {
   allowed_admin_ips          = var.allowed_admin_ips
   tenant_id                  = module.identity_rbac.tenant_id
   client_id                  = module.identity_rbac.client_id
+  frontend_url               = module.static_web_app.url
   tags                       = local.common_tags
 }
 
-# ── SIEM — Security Onion (optional) ─────────────────────────────────────────
 module "siem" {
   source = "./modules/siem"
   count  = var.enable_siem ? 1 : 0
