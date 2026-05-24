@@ -1,9 +1,6 @@
 /**
  * pages/HomePage.jsx
  * Application home screen.
- *
- * Phase 5E: Vehicle & Equipment Status module
- * Phase 5 (CH-F1–F5): Check History module
  */
 import React, { useState, useEffect, lazy, Suspense } from 'react'
 import { useAuth } from '../shared/hooks/useAuth.jsx'
@@ -16,9 +13,10 @@ import DraftBanner from '../modules/check-wizard/components/DraftBanner.jsx'
 import Spinner from '../shared/components/Spinner.jsx'
 import { checkApi } from '../modules/check-wizard/api/checkApi.js'
 
-const CheckWizard         = lazy(() => import('../modules/check-wizard/index.jsx'))
-const VehicleStatusScreen = lazy(() => import('../modules/vehicles/index.jsx'))
-const CheckHistoryScreen  = lazy(() => import('../modules/check-history/index.jsx'))
+const CheckWizard          = lazy(() => import('../modules/check-wizard/index.jsx'))
+const VehicleStatusScreen  = lazy(() => import('../modules/vehicles/index.jsx'))
+const CheckHistoryScreen   = lazy(() => import('../modules/check-history/index.jsx'))
+const SupervisorDashboard  = lazy(() => import('../modules/supervisor/index.jsx'))
 
 const STATION_STORAGE_KEY = 'ems_selected_station'
 
@@ -40,7 +38,7 @@ export default function HomePage() {
 
   const [activeWizard, setActiveWizard]       = useState(null)
   const [activeDraftKey, setActiveDraftKey]   = useState(null)
-  const [activeModule, setActiveModule]       = useState(null) // 'vehicles' | 'history' | null
+  const [activeModule, setActiveModule]       = useState(null)
   const [selectedStation, setSelectedStation] = useState(loadSavedStation)
   const [pickingStation, setPickingStation]   = useState(false)
 
@@ -106,7 +104,12 @@ export default function HomePage() {
     setActiveDraftKey(null)
   }
 
-  // ── Active wizard ─────────────────────────────────────────────────────────
+  const stationIdx = stations?.findIndex(s => s.station_id === selectedStation?.station_id) ?? 0
+  const colors = selectedStation
+    ? stationColor(selectedStation.name, stationIdx >= 0 ? stationIdx : 0)
+    : null
+
+  // ── Active modules ────────────────────────────────────────────────────────
   if (activeWizard) {
     return (
       <ErrorBoundary moduleName="Check Wizard">
@@ -122,7 +125,6 @@ export default function HomePage() {
     )
   }
 
-  // ── Vehicle & Equipment Status ────────────────────────────────────────────
   if (activeModule === 'vehicles') {
     return (
       <ErrorBoundary moduleName="Vehicle & Equipment Status">
@@ -136,7 +138,6 @@ export default function HomePage() {
     )
   }
 
-  // ── Check History ─────────────────────────────────────────────────────────
   if (activeModule === 'history') {
     return (
       <ErrorBoundary moduleName="Check History">
@@ -150,10 +151,18 @@ export default function HomePage() {
     )
   }
 
-  const stationIdx = stations?.findIndex(s => s.station_id === selectedStation?.station_id) ?? 0
-  const colors = selectedStation
-    ? stationColor(selectedStation.name, stationIdx >= 0 ? stationIdx : 0)
-    : null
+  if (activeModule === 'supervisor') {
+    return (
+      <ErrorBoundary moduleName="Supervisor Dashboard">
+        <Suspense fallback={<Spinner label="Loading…" />}>
+          <SupervisorDashboard
+            station={selectedStation}
+            onBack={() => setActiveModule(null)}
+          />
+        </Suspense>
+      </ErrorBoundary>
+    )
+  }
 
   return (
     <div className="home-page">
@@ -269,15 +278,24 @@ export default function HomePage() {
             </div>
           </ErrorBoundary>
 
+          {/* Supervisor Dashboard — visible to Supervisor+ only */}
           {canAccess(user, 'supervisor') && (
             <ErrorBoundary moduleName="Dashboard Card">
-              <div className="module-card module-card--disabled">
+              <div className="module-card">
                 <div className="module-card__icon" aria-hidden="true">📊</div>
                 <div className="module-card__content">
                   <div className="module-card__title">Compliance Dashboard</div>
-                  <div className="module-card__description">Today's status, calendar, check details</div>
-                  <div className="module-card__badge">Coming in Phase 5F</div>
+                  <div className="module-card__description">Today's status, FAIL alerts, check details</div>
                 </div>
+                <button
+                  className="btn btn--primary"
+                  style={colors ? { background: colors.primary } : {}}
+                  onClick={() => setActiveModule('supervisor')}
+                  disabled={!selectedStation}
+                  type="button"
+                >
+                  Open
+                </button>
               </div>
             </ErrorBoundary>
           )}

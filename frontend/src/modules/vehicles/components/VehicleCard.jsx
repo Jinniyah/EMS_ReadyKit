@@ -1,7 +1,7 @@
 /**
  * components/VehicleCard.jsx
- * Expandable card — vehicle identity always spans full width at top,
- * action buttons stack full-width below in the expanded body.
+ * Expandable card — fetches active repair requests by default.
+ * Supervisor can toggle to see resolved requests.
  */
 
 import React, { useState } from 'react'
@@ -55,23 +55,35 @@ function InactiveConfirmForm({ onConfirm, onCancel, isSubmitting }) {
 
 export default function VehicleCard({ vehicle, onVehicleUpdated }) {
   const { user, getToken } = useAuth()
-  const [expanded, setExpanded]         = useState(false)
-  const [activePanel, setActivePanel]   = useState(null)
-  const [submitError, setSubmitError]   = useState(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isUpdating, setIsUpdating]     = useState(false)
+  const [expanded, setExpanded]           = useState(false)
+  const [activePanel, setActivePanel]     = useState(null)
+  const [showResolved, setShowResolved]   = useState(false)
+  const [submitError, setSubmitError]     = useState(null)
+  const [isSubmitting, setIsSubmitting]   = useState(false)
+  const [isUpdating, setIsUpdating]       = useState(false)
 
   const isSupervisor = canAccess(user, 'supervisor')
 
+  // Fetch active requests by default — supervisors see what needs attention now.
+  // Resolved requests are hidden unless explicitly requested.
   const {
     data: repairs,
     isLoading: loadingRepairs,
     error: repairsError,
     refetch: refetchRepairs,
   } = useApi(
-    () => expanded ? vehicleApi.getRepairRequests(vehicle.vehicle_id, getToken) : Promise.resolve(null),
-    [expanded, vehicle.vehicle_id]
+    () => {
+      if (!expanded || !isSupervisor) return Promise.resolve(null)
+      return vehicleApi.getRepairRequests(vehicle.vehicle_id, getToken)
+    },
+    [expanded, vehicle.vehicle_id, isSupervisor]
   )
+
+  // Split into active and resolved
+  const activeRepairs   = (repairs ?? []).filter(r => r.status !== 'RESOLVED')
+  const resolvedRepairs = (repairs ?? []).filter(r => r.status === 'RESOLVED')
+  const displayRepairs  = showResolved ? repairs ?? [] : activeRepairs
+  const openCount       = activeRepairs.length
 
   async function handleStatusToggle(payload) {
     setIsSubmitting(true)
@@ -115,12 +127,9 @@ export default function VehicleCard({ vehicle, onVehicleUpdated }) {
     }
   }
 
-  const openCount = (repairs ?? []).filter(r => r.status !== 'RESOLVED').length
-
   return (
     <div className={`vehicle-card ${!vehicle.active ? 'vehicle-card--inactive' : ''}`}>
 
-      {/* ── Header row: identity left, status badges + chevron right ── */}
       <button
         className="vehicle-card__header"
         onClick={() => { setExpanded(e => !e); setActivePanel(null) }}
@@ -149,7 +158,6 @@ export default function VehicleCard({ vehicle, onVehicleUpdated }) {
         </div>
       </button>
 
-      {/* ── Expanded body: always below the header ── */}
       {expanded && (
         <div className="vehicle-card__body">
 
@@ -157,14 +165,12 @@ export default function VehicleCard({ vehicle, onVehicleUpdated }) {
             <div className="vehicle-card__error" role="alert">⚠ {submitError}</div>
           )}
 
-          {/* Out-of-service reason strip */}
           {!vehicle.active && vehicle.inactive_reason && (
             <div className="vehicle-card__inactive-strip">
               {vehicle.inactive_reason}
             </div>
           )}
 
-          {/* Action buttons — shown when no panel is open */}
           {activePanel === null && (
             <div className="vehicle-card__actions">
               <button
@@ -198,7 +204,6 @@ export default function VehicleCard({ vehicle, onVehicleUpdated }) {
             </div>
           )}
 
-          {/* Inline panels */}
           {activePanel === 'repair-form' && (
             <RepairRequestForm
               vehicle={vehicle}
@@ -216,17 +221,35 @@ export default function VehicleCard({ vehicle, onVehicleUpdated }) {
             />
           )}
 
-          {/* Repair request list — Supervisor+ only */}
+          {/* Repair request list — active by default */}
           {isSupervisor && (
             <div className="vehicle-card__section">
-              <h4 className="vehicle-card__section-title">Repair Requests</h4>
+              <div className="vehicle-card__section-header">
+                <h4 className="vehicle-card__section-title">
+                  Repair Requests
+                  {openCount > 0 && (
+                    <span className="vehicle-card__open-count"> ({openCount} open)</span>
+                  )}
+                </h4>
+                {resolvedRepairs.length > 0 && (
+                  <button
+                    className="btn-text vehicle-card__toggle-resolved"
+                    onClick={() => setShowResolved(v => !v)}
+                    type="button"
+                  >
+                    {showResolved
+                      ? 'Hide resolved'
+                      : `Show ${resolvedRepairs.length} resolved`}
+                  </button>
+                )}
+              </div>
               {loadingRepairs ? (
                 <div className="vehicle-card__loading">Loading…</div>
               ) : repairsError ? (
                 <div className="vehicle-card__error">Could not load repair requests.</div>
               ) : (
                 <RepairRequestList
-                  requests={repairs}
+                  requests={displayRepairs}
                   canManage={isSupervisor}
                   onUpdate={handleRepairUpdate}
                   isUpdating={isUpdating}
