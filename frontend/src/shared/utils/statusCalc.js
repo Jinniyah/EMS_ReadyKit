@@ -85,6 +85,10 @@ export function lineItemStatus(status) {
  * that only exists on API response objects after submission. This function
  * mirrors server-side _compute_line_item_status so the frontend can derive
  * meaningful status from raw draft fields alone.
+ *
+ * MEASUREMENT items require `min_value` to be stored in the draft payload
+ * (persisted by ItemRow alongside `measurement_value`) so that LOW can be
+ * detected here without a separate API call.
  */
 export function deriveDraftItemStatus(draftItem) {
   if (!draftItem) return null
@@ -96,9 +100,16 @@ export function deriveDraftItemStatus(draftItem) {
     if (draftItem.functional_pass === false) return 'FAIL'
     return null
   }
+
   if (checkType === 'MEASUREMENT') {
-    return draftItem.measurement_value != null ? 'OK' : null
+    const val = draftItem.measurement_value
+    if (val == null) return null
+    // Compare against min_value if stored in draft — returns LOW if below threshold
+    const min = draftItem.min_value ?? null
+    if (min != null && val < min) return 'LOW'
+    return 'OK'
   }
+
   if (checkType === 'DATE_RECORD') {
     return draftItem.date_value ? 'OK' : null
   }
@@ -128,12 +139,6 @@ export function hasWarnItem(lineItems) {
     })
 }
 
-/**
- * Returns true if the draft has any warn-severity (SHORT) items across
- * all compartments. Used to decide "Reconcile →" vs "Review and Submit →"
- * on Step 2, and to collect the interactive shopping list on Step 4.
- * @param {object} draftCompartments — draft.compartments object
- */
 export function draftHasShortItems(draftCompartments) {
   for (const cd of Object.values(draftCompartments ?? {})) {
     for (const li of cd.line_items ?? []) {
@@ -144,17 +149,6 @@ export function draftHasShortItems(draftCompartments) {
   return false
 }
 
-/**
- * Returns true if the draft has ANY items needing attention on Step 4 —
- * either warn-severity (SHORT → interactive restock) or fail-severity
- * (FUNCTIONAL FAIL, MISSING → read-only supervisor section).
- *
- * This drives the Step 2 → Step 4 routing decision. If either tier has
- * items, show Reconcile so the responder sees the full picture before
- * submitting. Replacing draftHasShortItems() for routing purposes.
- *
- * @param {object} draftCompartments — draft.compartments object
- */
 export function draftNeedsReconcile(draftCompartments) {
   for (const cd of Object.values(draftCompartments ?? {})) {
     for (const li of cd.line_items ?? []) {
@@ -176,12 +170,6 @@ export function compartmentStatus(lineItems) {
 
 // ── Reconcile list helpers ────────────────────────────────────────────────────
 
-/**
- * Collects all warn-severity (SHORT) line items across the entire draft.
- * Used by Step 4 Reconcile for the interactive restock list.
- * @param {object} draftCompartments — draft.compartments object
- * @returns {Array<object>}
- */
 export function collectShortItems(draftCompartments) {
   const result = []
   for (const cd of Object.values(draftCompartments ?? {})) {
@@ -195,6 +183,8 @@ export function collectShortItems(draftCompartments) {
           check_type:       li.check_type ?? 'SUPPLY',
           quantity_found:   li.quantity_found  ?? 0,
           quantity_needed:  li.quantity_needed ?? 0,
+          measurement_value: li.measurement_value ?? null,
+          min_value:        li.min_value ?? null,
           compartment_id:   li.compartment_id  ?? cd.compartment_id,
           compartment_name: cd.name ?? '',
           notes:            li.notes ?? '',
@@ -205,13 +195,6 @@ export function collectShortItems(draftCompartments) {
   return result
 }
 
-/**
- * Collects all fail-severity line items across the entire draft.
- * Shown read-only in Reconcile ("needs supervisor attention").
- * Also used by Step 5 to auto-populate the repair notes field.
- * @param {object} draftCompartments — draft.compartments object
- * @returns {Array<object>}
- */
 export function collectFailItems(draftCompartments) {
   const result = []
   for (const cd of Object.values(draftCompartments ?? {})) {
@@ -236,33 +219,19 @@ export function collectFailItems(draftCompartments) {
   return result
 }
 
-/**
- * Builds a human-readable repair notes string from fail-severity draft items.
- * Used to auto-populate the repair notes field on Step 5.
- *
- * Example output:
- *   "Compartment 2 — Reconcile Trigger:\n
- *    • [TEST] Broken Equipment — Functional check failed\n"
- *
- * @param {object} draftCompartments — draft.compartments object
- * @returns {string} — empty string if no fail items
- */
 export function buildAutoRepairNotes(draftCompartments) {
   const failItems = collectFailItems(draftCompartments)
   if (!failItems.length) return ''
 
-  // Group by compartment name for readability
   const byCompartment = {}
   for (const item of failItems) {
     const key = item.compartment_name || 'Unknown compartment'
     if (!byCompartment[key]) byCompartment[key] = []
-
     const reason = item.check_type === 'FUNCTIONAL'
       ? 'Functional check failed'
       : item.quantity_found === 0
         ? 'Count is zero'
         : 'Check failed'
-
     byCompartment[key].push(`• ${item.item_name} — ${reason}`)
   }
 

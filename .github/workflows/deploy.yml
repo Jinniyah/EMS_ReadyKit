@@ -17,6 +17,7 @@ env:
   FRONTEND_DIR:    frontend
   RESOURCE_GROUP:  rg-ems-readykit-dev
   APP_NAME:        app-ems-readykit-dev
+  BACKEND_URL:     https://app-ems-readykit-dev.azurewebsites.net
 
 jobs:
   # ── Job 1: Backend tests ────────────────────────────────────────────────────
@@ -62,10 +63,10 @@ jobs:
       - name: Build
         working-directory: ${{ env.FRONTEND_DIR }}
         env:
-          VITE_API_BASE_URL: ""
+          # Full backend URL — SWA has no server-side proxy, so relative paths
+          # don't work in production. The backend App Service handles CORS.
+          VITE_API_BASE_URL: ${{ env.BACKEND_URL }}
           VITE_APP_ENV: production
-          # Azure AD credentials injected at build time so MSAL can authenticate.
-          # Set VITE_AZURE_AD_TENANT_ID and VITE_AZURE_AD_CLIENT_ID as GitHub secrets.
           VITE_AZURE_AD_TENANT_ID: ${{ secrets.VITE_AZURE_AD_TENANT_ID }}
           VITE_AZURE_AD_CLIENT_ID: ${{ secrets.VITE_AZURE_AD_CLIENT_ID }}
         run: npm run build
@@ -112,7 +113,7 @@ jobs:
       - name: Verify backend health
         run: |
           echo "Polling health endpoint (max 10 min, 30s interval)..."
-          HEALTH_URL="https://${{ env.APP_NAME }}.azurewebsites.net/health"
+          HEALTH_URL="${{ env.BACKEND_URL }}/health"
           MAX_ATTEMPTS=20
           SLEEP_SEC=30
           for i in $(seq 1 $MAX_ATTEMPTS); do

@@ -510,10 +510,12 @@
 .functional-btn--pass.functional-btn--active { background: var(--color-status-pass-bg); border-color: var(--color-status-pass); color: var(--color-status-pass); }
 .functional-btn--fail.functional-btn--active { background: var(--color-status-fail-bg); border-color: var(--color-status-fail); color: var(--color-status-fail); }
 
-.measurement-input { display: flex; flex-direction: column; gap: var(--space-sm); }
-.measurement-input__label { font-size: var(--font-size-sm); font-weight: 600; color: var(--color-text-secondary); }
-.measurement-input__min   { color: var(--color-status-warn); font-weight: 700; }
-.measurement-input__field { font-size: var(--font-size-xl); font-weight: 700; text-align: center; }
+.measurement-input              { display: flex; flex-direction: column; gap: var(--space-sm); }
+.measurement-input__label       { font-size: var(--font-size-sm); font-weight: 600; color: var(--color-text-secondary); }
+.measurement-input__min         { color: var(--color-status-warn); font-weight: 700; }
+.measurement-input__min--low    { color: var(--color-status-fail); }
+.measurement-input__field       { font-size: var(--font-size-xl); font-weight: 700; text-align: center; }
+.measurement-input__field--low  { border-color: var(--color-status-warn); background: var(--color-status-warn-bg); }
 
 .review-identity { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); background: var(--color-surface-raised); border-radius: var(--radius-md); font-size: var(--font-size-sm); }
 .review-identity__label { color: var(--color-text-muted); }

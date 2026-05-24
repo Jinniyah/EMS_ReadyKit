@@ -1,14 +1,12 @@
 /**
  * modules/check-wizard/components/Step4Reconcile.jsx
- * Step 4 — Reconcile: interactive shopping list of short/missing items.
+ * Step 4 — Reconcile: interactive shopping list of short/missing/low items.
  *
- * Controls row mirrors Step 3 Items exactly:
- *   [ − ]  [ count ]  [ + ]  [ Add N ]
- *
- * "Add N" sits to the right of + — same position as "All N present" on
- * Step 3 — so the interface is immediately familiar. One tap tops off the
- * count to par and the row disappears. The −/+ are still there for when the
- * responder grabbed a different number than the full shortage.
+ * SUPPLY/DOCUMENT items show the count +/− controls.
+ * MEASUREMENT items show a read-only "reading was X, minimum is Y" row —
+ *   they cannot be topped off by the responder; they need physical action
+ *   (e.g. refill O2 tank) and then a re-check. So they appear in the
+ *   supervisor attention section, not the interactive restock section.
  */
 import React, { useState, useCallback, useMemo } from 'react'
 import { collectShortItems, collectFailItems } from '../../../shared/utils/statusCalc.js'
@@ -22,9 +20,16 @@ export default function Step4Reconcile({
 }) {
   const [shareStatus, setShareStatus] = useState(null)
 
-  const shortItems  = useMemo(() => collectShortItems(draft?.compartments), [draft])
-  const failItems   = useMemo(() => collectFailItems(draft?.compartments),  [draft])
-  const allResolved = shortItems.length === 0
+  const allShortItems = useMemo(() => collectShortItems(draft?.compartments), [draft])
+  const failItems     = useMemo(() => collectFailItems(draft?.compartments),  [draft])
+
+  // Split short items: interactive restock (SUPPLY/DOCUMENT) vs
+  // read-only low-reading items (MEASUREMENT) which need physical action
+  const restockItems      = allShortItems.filter(i => i.check_type === 'SUPPLY' || i.check_type === 'DOCUMENT')
+  const lowReadingItems   = allShortItems.filter(i => i.check_type === 'MEASUREMENT')
+
+  // All interactive restock items must be resolved before continuing
+  const allResolved = restockItems.length === 0
 
   const _getLineItem = useCallback((item) => {
     const cd = draft?.compartments?.[String(item.compartment_id)]
@@ -60,17 +65,21 @@ export default function Step4Reconcile({
   const buildShareText = useCallback(() => {
     const date  = draft?.check_date ?? new Date().toISOString().slice(0, 10)
     const label = selectionLabel || 'Check'
-    const shortLines = shortItems.map(i =>
+    const restockLines = restockItems.map(i =>
       `• ${i.item_name} — have ${i.quantity_found}, need ${i.quantity_needed} (${i.compartment_name})`
+    )
+    const lowLines = lowReadingItems.map(i =>
+      `• ${i.item_name} — reading ${i.measurement_value}, min ${i.min_value} (${i.compartment_name}) ⚠ needs attention`
     )
     const failLines = failItems.map(i =>
       `• ${i.item_name} — ${i.check_type === 'FUNCTIONAL' ? 'functional fail' : 'missing'} (${i.compartment_name}) ⚠ supervisor`
     )
     const sections = []
-    if (shortLines.length) sections.push(`NEED TO RESTOCK:\n${shortLines.join('\n')}`)
-    if (failLines.length)  sections.push(`NEEDS SUPERVISOR:\n${failLines.join('\n')}`)
+    if (restockLines.length) sections.push(`NEED TO RESTOCK:\n${restockLines.join('\n')}`)
+    if (lowLines.length)     sections.push(`LOW READINGS:\n${lowLines.join('\n')}`)
+    if (failLines.length)    sections.push(`NEEDS SUPERVISOR:\n${failLines.join('\n')}`)
     return [`🚑 Reconcile List — ${label}`, date, '', ...sections, '', '— EMS ReadyKit'].join('\n')
-  }, [draft, selectionLabel, shortItems, failItems])
+  }, [draft, selectionLabel, restockItems, lowReadingItems, failItems])
 
   const handleShare = useCallback(async () => {
     const text = buildShareText()
@@ -88,18 +97,21 @@ export default function Step4Reconcile({
     : navigator.share           ? '📤 Share list'
     : '📋 Copy list'
 
+  const hasAnything = allShortItems.length > 0 || failItems.length > 0
+
   return (
     <div className="wizard-step">
 
       <div className="reconcile-header">
         <h2 className="wizard-step__title">Step 4 — Reconcile</h2>
-        {(shortItems.length > 0 || failItems.length > 0) && (
+        {hasAnything && (
           <button className="btn btn--secondary reconcile-share-btn" onClick={handleShare}
             type="button" aria-label="Share or copy the reconcile list">{shareLabel}</button>
         )}
       </div>
 
-      {allResolved && failItems.length === 0 && (
+      {/* All clear */}
+      {allResolved && failItems.length === 0 && lowReadingItems.length === 0 && (
         <div className="reconcile-all-clear">
           <div className="reconcile-all-clear__icon" aria-hidden="true">✓</div>
           <div className="reconcile-all-clear__title">All items resolved</div>
@@ -107,17 +119,18 @@ export default function Step4Reconcile({
         </div>
       )}
 
-      {shortItems.length > 0 && (
+      {/* Interactive restock items — SUPPLY/DOCUMENT only */}
+      {restockItems.length > 0 && (
         <div className="reconcile-section">
           <h3 className="reconcile-section__title">
             Needs restocking
-            <span className="reconcile-section__count">{shortItems.length}</span>
+            <span className="reconcile-section__count">{restockItems.length}</span>
           </h3>
           <p className="reconcile-section__hint">
             Tap "Add N" to top off, or use −/+ if you grabbed a different number.
           </p>
           <div className="reconcile-list">
-            {shortItems.map(item => (
+            {restockItems.map(item => (
               <ReconcileRow
                 key={`${item.compartment_id}-${item.item_id}`}
                 item={item}
@@ -131,16 +144,36 @@ export default function Step4Reconcile({
         </div>
       )}
 
-      {allResolved && failItems.length > 0 && (
-        <div className="reconcile-all-clear reconcile-all-clear--partial">
-          <div className="reconcile-all-clear__icon" aria-hidden="true">✓</div>
-          <div className="reconcile-all-clear__title">Restock complete</div>
-          <div className="reconcile-all-clear__sub">
-            The items below need supervisor attention and are logged automatically.
+      {/* Low readings — MEASUREMENT items below minimum */}
+      {lowReadingItems.length > 0 && (
+        <div className="reconcile-section">
+          <h3 className="reconcile-section__title">
+            Low readings
+            <span className="reconcile-section__count">{lowReadingItems.length}</span>
+          </h3>
+          <p className="reconcile-section__hint">
+            These readings are below minimum. Address the issue, then re-check.
+          </p>
+          <div className="reconcile-list">
+            {lowReadingItems.map(item => (
+              <LowReadingRow key={`${item.compartment_id}-${item.item_id}`} item={item} />
+            ))}
           </div>
         </div>
       )}
 
+      {/* Partial completion banner */}
+      {allResolved && (failItems.length > 0 || lowReadingItems.length > 0) && (
+        <div className="reconcile-all-clear reconcile-all-clear--partial">
+          <div className="reconcile-all-clear__icon" aria-hidden="true">✓</div>
+          <div className="reconcile-all-clear__title">Restock complete</div>
+          <div className="reconcile-all-clear__sub">
+            The items below need attention and are flagged automatically.
+          </div>
+        </div>
+      )}
+
+      {/* Fail items — need supervisor */}
       {failItems.length > 0 && (
         <div className="reconcile-section reconcile-section--fail">
           <h3 className="reconcile-section__title reconcile-section__title--fail">
@@ -148,7 +181,7 @@ export default function Step4Reconcile({
             <span className="reconcile-section__count reconcile-section__count--fail">{failItems.length}</span>
           </h3>
           <p className="reconcile-section__hint">
-            These items cannot be resolved during a daily check. They are flagged automatically and do not block submission.
+            These items cannot be resolved during a daily check. They are flagged automatically.
           </p>
           <div className="reconcile-list">
             {failItems.map(item => (
@@ -161,17 +194,16 @@ export default function Step4Reconcile({
       <div className="reconcile-actions">
         <button className="btn btn--secondary" onClick={onBack} type="button">← Back</button>
         <button className="btn btn--primary btn--large" onClick={onContinue} disabled={!allResolved} type="button">
-          {allResolved ? 'Continue to Submit →' : `${shortItems.length} item${shortItems.length !== 1 ? 's' : ''} remaining`}
+          {allResolved
+            ? 'Continue to Submit →'
+            : `${restockItems.length} item${restockItems.length !== 1 ? 's' : ''} remaining`}
         </button>
       </div>
     </div>
   )
 }
 
-// ── ReconcileRow ──────────────────────────────────────────────────────────────
-// Controls row: [ − ] [ count ] [ + ] [ Add N ]
-// Matches the Step 3 supply counter layout exactly — same classes, same order,
-// so the interface feels identical and requires no relearning.
+// ── ReconcileRow — SUPPLY/DOCUMENT items ─────────────────────────────────────
 function ReconcileRow({ item, onIncrement, onDecrement, onTopOff, onNoteChange }) {
   const [showNote, setShowNote] = useState(!!item.notes)
   const shortage = item.quantity_needed - item.quantity_found
@@ -187,19 +219,13 @@ function ReconcileRow({ item, onIncrement, onDecrement, onTopOff, onNoteChange }
         </div>
       </div>
 
-      {/* Single control row: − count + [Add N]  ← matches Step 3 exactly */}
       <div className="supply-input__counter">
         <button className="counter-btn" onClick={() => onDecrement(item)}
           disabled={item.quantity_found <= 0} type="button"
           aria-label={`Decrease count for ${item.item_name}`}>−</button>
-
-        <span className="reconcile-row__count" aria-live="polite">
-          {item.quantity_found}
-        </span>
-
+        <span className="reconcile-row__count" aria-live="polite">{item.quantity_found}</span>
         <button className="counter-btn" onClick={() => onIncrement(item)}
           type="button" aria-label={`Increase count for ${item.item_name}`}>+</button>
-
         <button className="btn btn--all-present" onClick={() => onTopOff(item)}
           type="button" aria-label={`Add ${shortage} ${item.item_name} to meet par`}>
           Add {shortage}
@@ -218,15 +244,37 @@ function ReconcileRow({ item, onIncrement, onDecrement, onTopOff, onNoteChange }
         />
       ) : (
         <button className="btn-text reconcile-row__add-note"
-          onClick={() => setShowNote(true)} type="button">
-          + Add note
-        </button>
+          onClick={() => setShowNote(true)} type="button">+ Add note</button>
       )}
     </div>
   )
 }
 
-// ── FailRow ───────────────────────────────────────────────────────────────────
+// ── LowReadingRow — MEASUREMENT items below minimum ───────────────────────────
+// These cannot be "topped off" by the responder — they need physical action
+// (e.g. refill O2, recharge AED) and then a re-check. Show the actual reading
+// and the minimum so the responder knows what they are dealing with.
+function LowReadingRow({ item }) {
+  return (
+    <div className="reconcile-row reconcile-row--short">
+      <div className="reconcile-row__info">
+        <div className="reconcile-row__name">{item.item_name}</div>
+        <div className="reconcile-row__location">{item.compartment_name}</div>
+        <div className="reconcile-row__qty">
+          Reading <strong>{item.measurement_value}</strong>
+          {item.min_value != null && (
+            <> · Minimum <strong>{item.min_value}</strong>
+              <span className="reconcile-row__shortage"> — below minimum</span>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="reconcile-row__supervisor-badge">Address &amp; re-check</div>
+    </div>
+  )
+}
+
+// ── FailRow — FUNCTIONAL/MISSING items ───────────────────────────────────────
 function FailRow({ item }) {
   const reason = item.check_type === 'FUNCTIONAL'
     ? 'Functional check failed'
