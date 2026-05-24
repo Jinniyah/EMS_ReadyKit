@@ -64,6 +64,10 @@ jobs:
         env:
           VITE_API_BASE_URL: ""
           VITE_APP_ENV: production
+          # Azure AD credentials injected at build time so MSAL can authenticate.
+          # Set VITE_AZURE_AD_TENANT_ID and VITE_AZURE_AD_CLIENT_ID as GitHub secrets.
+          VITE_AZURE_AD_TENANT_ID: ${{ secrets.VITE_AZURE_AD_TENANT_ID }}
+          VITE_AZURE_AD_CLIENT_ID: ${{ secrets.VITE_AZURE_AD_CLIENT_ID }}
         run: npm run build
 
       - name: Upload build artifact
@@ -125,9 +129,6 @@ jobs:
           exit 1
 
   # ── Job 4: Deploy frontend ──────────────────────────────────────────────────
-  # app_location points to the pre-built dist directory directly.
-  # output_location is empty because the files are already at app_location root.
-  # skip_app_build=true tells the SWA action not to run npm build again.
   deploy-frontend:
     name: Deploy frontend to Azure Static Web Apps
     runs-on: ubuntu-latest
