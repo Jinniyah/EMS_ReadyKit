@@ -1,5 +1,5 @@
 # EMS ReadyKit — Active Backlog
-# v1.18 | Updated: 2026-05-23
+# v1.19 | Updated: 2026-05-23
 # Completed items → backlog_completed.md
 # Priority: High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
@@ -229,23 +229,43 @@
 ---
 
 ## 18. Documentation
-| # | Item | Pri | Status |
-|---|------|-----|--------|
-| D-2 | Session handoff document at end of each session | Ongoing | 📋 |
-| D-3 | Update `phase5_frontend_pwa.md` status to "In Progress" | Low | 📋 |
-| D-4 | Mark 5A and 5B complete in `phase5_frontend_pwa.md` | Low | 📋 |
-| D-5 | `docs/deployment_flow.md` — infra → DB → backend → frontend sequence | Medium | 📋 |
-| D-6 | `docs/production_strategy.md` — scaling, HA, geo-redundancy, SLA, DR | Medium | 📋 |
-| D-7 | `docs/deployment_guide.md` — from-scratch guide; defer until feature-complete | Low | 📋 |
-| D-8 | README "Who should read what" section — audience-based doc map | Medium | 📋 |
-| D-9 | `docs/api_contract.md` — versioning, deprecation, breaking change rules | Medium | 📋 |
-| D-10 | Visual ERD in `docs/models/erd.md` (Mermaid) | Low | 📋 |
-| D-11 | README badges: Python version + License | Low | 📋 |
-| D-12 | README test coverage badge — needs `pytest-cov` + Codecov in CI | Low | 📋 |
-| D-13 | `docs/security.md` — auth, RBAC, encryption, audit, OSI posture | Medium | 📋 |
-| D-14 | `docs/operations.md` — health, alerts, on-call runbook, log queries, rollback, DB backup | Medium | 📋 |
-| D-15 | PII emergency delete procedure in `docs/operations.md` | High | 📋 |
-| D-16 | `docs/data_retention_policy.md` — retention windows for all object types | High | 📋 |
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| D-R1 | **Documentation audit** — full review of all existing and planned docs | High | 📋 | See criteria below |
+
+### D-R1 Criteria
+Review every file in `docs/` plus `README.md` against these questions:
+
+**Value:**
+- Does this document need to exist, or does it duplicate something better expressed in code/tests?
+- Does it add value to the application (operational reference)?
+- Does it add value to the portfolio (demonstrates enterprise engineering judgment)?
+- Could two documents be merged without losing anything?
+
+**Security best practices (enterprise cloud standard):**
+- Does `docs/security.md` cover: auth model, RBAC matrix, token lifecycle, encryption at rest/in transit, secrets management, audit log schema, threat model, incident response?
+- Do ADRs document security decisions and their rationale (e.g. why Azure AD over custom auth)?
+- Is the data retention policy (`docs/data_retention_policy.md`) defensible for a healthcare-adjacent system?
+- Is the PII emergency procedure in `docs/operations.md` complete and unambiguous?
+
+**Portfolio signal (enterprise cloud software engineer):**
+- Does `README.md` lead with the problem being solved, not the tech stack?
+- Is the architecture documented at the right level — decision-oriented (ADRs) rather than just descriptive?
+- Does the documentation demonstrate you understand the full lifecycle: design → build → deploy → operate → retire?
+- Is there a clear separation between what the system does now vs. what's planned?
+
+**Quality:**
+- Is every document precise, concise, and free of filler?
+- Are there sections that exist only because "docs should have this" rather than because someone will read them?
+- Is the tone consistent — professional but not bureaucratic?
+- Are all code examples and command snippets correct and tested?
+
+**Output of the review:**
+- List of docs to keep as-is
+- List of docs to rewrite (with specific issues)
+- List of docs to merge
+- List of planned docs to drop entirely
+- List of gaps that genuinely need filling (especially security)
 
 ---
 
@@ -284,5 +304,5 @@
 | Frontend — Settings | 9 | 0 | 9 |
 | Frontend — Retirement Actions | 5 | 0 | 5 |
 | Infrastructure / Security | 5 | 1 | 6 |
-| Documentation | 15 | 0 | 15 |
-| **Total** | **121** | **6** | **127** |
+| Documentation | 1 | 0 | 1 |
+| **Total** | **113** | **6** | **119** |
