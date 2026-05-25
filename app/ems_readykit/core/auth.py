@@ -98,6 +98,11 @@ def _validate_azure_token(token: str) -> CurrentUser:
     """
     Validate an Azure AD access token and return the resolved CurrentUser.
     Raises HTTP 401 on any validation failure.
+
+    Azure AD can issue access tokens with the audience set to either:
+      - The bare client ID GUID:  "a780b97f-..."
+      - The api:// URI form:       "api://a780b97f-..."
+    Both are valid; we accept either.
     """
     settings = get_settings()
 
@@ -106,6 +111,14 @@ def _validate_azure_token(token: str) -> CurrentUser:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Auth is not configured on this server.",
         )
+
+    # Build the accepted audience list — bare GUID + api:// URI form.
+    client_id = settings.azure_ad_client_id or ""
+    accepted_audiences = list({
+        settings.azure_ad_audience,          # "api://{client_id}"
+        client_id,                           # bare GUID
+        f"api://{client_id}",               # explicit api:// in case audience differs
+    } - {""})
 
     try:
         client = _get_jwks_client()
@@ -123,12 +136,10 @@ def _validate_azure_token(token: str) -> CurrentUser:
             token,
             signing_key.key,
             algorithms=["RS256"],
-            audience=settings.azure_ad_audience,
+            audience=accepted_audiences,
             issuer=settings.token_issuer,
             options={
                 "require": ["exp", "nbf", "iss", "aud"],
-                # Guest users (External Identities / B2B) may not have 'oid'
-                # in the access token — 'sub' is always present and stable.
             },
         )
     except jwt.ExpiredSignatureError as exc:
@@ -145,8 +156,7 @@ def _validate_azure_token(token: str) -> CurrentUser:
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
 
-    # Validate tenant — the 'tid' claim is the authoritative tenant identifier.
-    # Issuer-based validation alone is insufficient for multi-tenant guest scenarios.
+    # Validate tenant — 'tid' is the authoritative tenant identifier.
     token_tid = payload.get("tid")
     if token_tid and token_tid != settings.azure_ad_tenant_id:
         logger.warning(
@@ -164,8 +174,7 @@ def _validate_azure_token(token: str) -> CurrentUser:
     if unknown:
         logger.warning("Token contained unrecognised roles: %s", unknown)
 
-    # Use 'oid' (object ID) as the stable user identifier; fall back to 'sub'.
-    # Guest users always have 'sub' but 'oid' may be absent in some token flows.
+    # 'oid' is the stable user identifier; fall back to 'sub'.
     user_id = payload.get("oid") or payload.get("sub", "unknown")
 
     return CurrentUser(
