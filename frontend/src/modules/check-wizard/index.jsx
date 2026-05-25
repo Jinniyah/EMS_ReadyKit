@@ -5,11 +5,12 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { useAuth }             from '../../shared/hooks/useAuth.jsx'
 import { useApi }              from '../../shared/hooks/useApi.js'
-import { useDraft }            from '../../shared/hooks/useDraft.js'
+import { useDraft, draftKey }    from '../../shared/hooks/useDraft.js'
 import { todayIso }            from '../../shared/utils/dateHelpers.js'
 import { draftNeedsReconcile, deriveDraftItemStatus, lineItemStatus } from '../../shared/utils/statusCalc.js'
 import ErrorBoundary           from '../../shared/components/ErrorBoundary.jsx'
 import Modal                   from '../../shared/components/Modal.jsx'
+import Spinner                 from '../../shared/components/Spinner.jsx'
 import WizardProgress          from './components/WizardProgress.jsx'
 import Step1Vehicle            from './components/Step1Vehicle.jsx'
 import Step2Compartments       from './components/Step2Compartments.jsx'
@@ -113,19 +114,24 @@ export default function CheckWizard({
     if (directLocationId) {
       setVehicleId(null)
       setLocationId(directLocationId)
+      // Compute key explicitly — state hasn't flushed yet so keyRef is still null.
+      const firstKey = draftKey(directLocationId, now)
       saveDraft({
         vehicle_id: null, location_id: directLocationId,
         station_id: sid, check_date: cd, started_at: now,
         second_crew: secondCrew || null, selection_label: label,
-      })
+      }, firstKey)
     } else {
       setVehicleId(vid)
       setLocationId(null)
+      // For vehicle drafts, location_id is resolved async later.
+      // Key is based on vehicle_id + now so it is stable and unique.
+      const firstKey = draftKey(vid, now)
       saveDraft({
         vehicle_id: vid, location_id: null,
         station_id: sid, check_date: cd, started_at: now,
         second_crew: secondCrew || null, selection_label: label,
-      })
+      }, firstKey)
     }
     setStep(STEP.COMPARTMENTS)
   }, [saveDraft])
@@ -322,6 +328,10 @@ export default function CheckWizard({
             onSelect={handleVehicleSelect}
           />
         </ErrorBoundary>
+      )}
+
+      {step === STEP.COMPARTMENTS && !locationId && vehicleId && (
+        <Spinner label="Resolving vehicle location…" />
       )}
 
       {step === STEP.COMPARTMENTS && locationId && (

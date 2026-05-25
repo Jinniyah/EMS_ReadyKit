@@ -64,12 +64,39 @@ export function formatShortDatetime(datetime) {
 }
 
 /**
+ * Normalize an ISO datetime string to ensure it's treated as UTC.
+ * The backend always emits 'Z'-suffixed strings after the schema fix,
+ * but this guards against any legacy records that have no suffix.
+ * @param {string} isoString
+ * @returns {string}
+ */
+function normalizeUtc(isoString) {
+  if (!isoString) return isoString
+  return (isoString.endsWith('Z') || isoString.includes('+')) ? isoString : isoString + 'Z'
+}
+
+/**
+ * "May 25, 2026 at 8:01 AM" — used in check detail views.
+ * Always interprets the timestamp as UTC and converts to local time.
+ * @param {string | Date} datetime
+ */
+export function formatDateTime(datetime) {
+  if (!datetime) return '—'
+  const s = typeof datetime === 'string' ? normalizeUtc(datetime) : datetime
+  return new Date(s).toLocaleString(undefined, {
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit',
+  })
+}
+
+/**
  * "05:58 AM" — used on submitted confirmation screen.
  * @param {string | Date} datetime
  */
 export function formatTime(datetime) {
   if (!datetime) return ''
-  return TIME_FORMATTER.format(new Date(datetime))
+  const s = typeof datetime === 'string' ? normalizeUtc(datetime) : datetime
+  return TIME_FORMATTER.format(new Date(s))
 }
 
 /**

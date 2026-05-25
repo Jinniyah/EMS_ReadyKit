@@ -11,20 +11,38 @@ Phase 4 change: line_items added to both Create and Read schemas.
 - On create, line_items is optional (empty = header-only check, backward compatible)
 - Overall status is auto-computed from line items in the router.
 - performed_by is set from JWT identity, not from the request body.
+
+Timezone note:
+  All datetime columns use DateTime(timezone=True) and store UTC in the DB.
+  SQLite returns naive datetime objects (no tzinfo), which Pydantic would
+  serialize without a 'Z' suffix, causing browsers to parse them as local time.
+  The model_serializer below ensures every datetime in API responses is
+  emitted as an explicit UTC ISO string (e.g. '2026-05-25T13:01:00Z') so
+  JavaScript new Date(...) always interprets it as UTC, not local time.
 """
 
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 from ems_readykit.models.daily_inventory_check import CheckStatus
 from ems_readykit.schemas.check_line_item import CheckLineItemCreate, CheckLineItemRead
 
 _DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _to_utc_str(dt: Optional[datetime]) -> Optional[str]:
+    """Ensure a datetime is serialized as an explicit UTC ISO string with 'Z' suffix."""
+    if dt is None:
+        return None
+    # If the datetime is naive (no tzinfo), assume it is UTC (as stored by SQLite).
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
 class DailyInventoryCheckBase(BaseModel):
@@ -90,3 +108,9 @@ class DailyInventoryCheckRead(DailyInventoryCheckBase):
 
     created_at: datetime
     updated_at: datetime
+
+    # Ensure all datetime fields are serialized as explicit UTC strings so
+    # JavaScript new Date(...) always parses them as UTC, not local time.
+    @field_serializer('timestamp', 'reviewed_at', 'deleted_at', 'created_at', 'updated_at')
+    def serialize_utc(self, dt: Optional[datetime]) -> Optional[str]:
+        return _to_utc_str(dt)

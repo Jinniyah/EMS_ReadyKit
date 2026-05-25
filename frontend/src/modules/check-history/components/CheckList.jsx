@@ -14,7 +14,10 @@ const STATUS_META = {
 
 function formatTime(isoString) {
   if (!isoString) return ''
-  return new Date(isoString).toLocaleTimeString(undefined, {
+  // Ensure the string is treated as UTC. The backend always emits 'Z'-suffixed
+  // strings, but guard against naive strings from old records or caching.
+  const normalized = isoString.endsWith('Z') || isoString.includes('+') ? isoString : isoString + 'Z'
+  return new Date(normalized).toLocaleTimeString(undefined, {
     hour: 'numeric', minute: '2-digit',
   })
 }

@@ -7,6 +7,7 @@ import React, { useState } from 'react'
 import { canAccess } from '../../../shared/utils/roleGuard.js'
 import { useAuth } from '../../../shared/hooks/useAuth.jsx'
 import { checkHistoryApi } from '../api/checkHistoryApi.js'
+import { formatDateTime } from '../../../shared/utils/dateHelpers.js'
 
 const STATUS_LABEL = {
   PASS:          { label: 'Pass',          className: 'check-status--pass' },
@@ -28,14 +29,6 @@ function formatDate(isoString) {
   if (!isoString) return '—'
   return new Date(isoString).toLocaleDateString(undefined, {
     month: 'short', day: 'numeric', year: 'numeric',
-  })
-}
-
-function formatDateTime(isoString) {
-  if (!isoString) return '—'
-  return new Date(isoString).toLocaleString(undefined, {
-    month: 'short', day: 'numeric', year: 'numeric',
-    hour: 'numeric', minute: '2-digit',
   })
 }
 

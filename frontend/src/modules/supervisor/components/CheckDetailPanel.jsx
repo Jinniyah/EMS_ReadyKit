@@ -13,6 +13,7 @@ import { useAuth } from '../../../shared/hooks/useAuth.jsx'
 import { useApi } from '../../../shared/hooks/useApi.js'
 import Spinner from '../../../shared/components/Spinner.jsx'
 import { supervisorApi } from '../api/supervisorApi.js'
+import { formatDateTime } from '../../../shared/utils/dateHelpers.js'
 
 const STATUS_META = {
   PASS:          { label: 'Pass',          className: 'sup-status--pass' },
@@ -28,14 +29,6 @@ const LINE_META = {
   EXPIRED: { label: 'Expired', className: 'line--fail' },
   FAIL:    { label: 'Fail',    className: 'line--fail' },
   OVERDUE: { label: 'Overdue', className: 'line--fail' },
-}
-
-function fmt(isoString) {
-  if (!isoString) return '—'
-  return new Date(isoString).toLocaleString(undefined, {
-    month: 'short', day: 'numeric', year: 'numeric',
-    hour: 'numeric', minute: '2-digit',
-  })
 }
 
 function fmtDate(d) {
@@ -250,7 +243,7 @@ export default function CheckDetailPanel({ checkSummary, vehicleId, vehicleNumbe
             </div>
             <div className="cdp__summary-row">
               <span className="cdp__label">Submitted</span>
-              <span>{fmt(check.timestamp)}</span>
+              <span>{formatDateTime(check.timestamp)}</span>
             </div>
             {check.notes && (
               <div className="cdp__summary-row">
@@ -275,7 +268,7 @@ export default function CheckDetailPanel({ checkSummary, vehicleId, vehicleNumbe
                 <div>
                   <div className="cdp__ack-title">Acknowledged</div>
                   <div className="cdp__ack-meta">
-                    {check.reviewed_by} · {fmt(check.reviewed_at)}
+                    {check.reviewed_by} · {formatDateTime(check.reviewed_at)}
                   </div>
                 </div>
               </div>

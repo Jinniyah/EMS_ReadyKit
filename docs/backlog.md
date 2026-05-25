@@ -1,5 +1,5 @@
 # EMS ReadyKit — Active Backlog
-# v1.20 | Updated: 2026-05-24
+# v1.21 | Updated: 2026-05-24
 # Completed items → backlog_completed.md
 # Priority: High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
@@ -9,15 +9,18 @@
 #   - Phase 5H: Azure Static Web Apps live, CI/CD 4-job pipeline, CORS, Azure AD redirect URIs
 #   - App Service upgraded F1 → B1 (VNet integration, always-on)
 #   - Azure AD: guest user auth working (Gmail via External Identities)
-#   - Supervisor Dashboard (F-5F1, F-5F3, F-5F4, F-5F5):
-#       compliance tiles, alert banners, FAIL sort-to-top
-#       "I Fixed This" flow (RESOLVED repair request + acknowledge in one action)
-#       ResolutionTag: Fixed (green) / Noted (gray) / Not Fixed (red)
-#       unresolved older check detection
-#   - V&E Status: active repair requests by default, show/hide resolved toggle
+#   - Supervisor Dashboard (F-5F1, F-5F3, F-5F4, F-5F5) complete
+#   - MEASUREMENT item LOW status — item row yellow, reconcile shows reading vs minimum
+#   - Draft banner: station-scoped (any responder at station can resume — shift handoff)
+#   - Bug fix: VITE_API_BASE_URL set in deploy.yml (stations were not loading in production)
 #
-# NEXT SESSION: commit, then B-E3 (date-range compliance query) → unblocks F-5F2 calendar.
-# After that: D-R1 documentation audit.
+# NEXT SESSION priority order:
+#   1. Commit all work from this session
+#   2. Verify draft banner shows correctly after VITE_API_BASE_URL fix deploys
+#   3. F-UX-DRAFT-1: Draft banner not visible while station API is loading —
+#      cache last known station in localStorage as fallback
+#   4. B-E3 (date-range compliance query) → unblocks F-5F2 calendar
+#   5. D-R1 documentation audit
 
 ---
 
@@ -55,7 +58,7 @@
 | B-M12 | New table: `user_preferences` | Medium | 📋 |
 | B-M13 | Alter `inventory_lots`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 |
 | B-M14 | New table: `loaned_items` | Medium | 📋 |
-| B-M15 | Alter `daily_inventory_checks`: add `second_crew_id` (String, nullable) — links free-text `second_crew` to an actual user account for check history lookup | Medium | 📋 |
+| B-M15 | Alter `daily_inventory_checks`: add `second_crew_id` (String, nullable) | Medium | 📋 |
 | RET-M1 | Alter `vehicles`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 |
 | RET-M2 | Alter `locations`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 |
 | RET-M3 | Alter `stations`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 |
@@ -79,7 +82,7 @@
 | CH-B6 | `PATCH /checks/daily/{id}/restore` | Restore soft-deleted check within 90-day window | Low | 📋 | Admin only |
 | CH-B7 | `PATCH /stations/{id}/settings` | Update station settings incl. `allow_check_modification` | High | 📋 | Admin only |
 | CH-B8 | `GET /stations/{id}/settings` | Read station settings | High | 📋 | Supervisor+ |
-| CH-B9 | `GET /checks/daily/crew-history` | Second crew member's check history — checks where `second_crew_id` matches current user | Medium | ⛔ | B-M15 |
+| CH-B9 | `GET /checks/daily/crew-history` | Checks where current user is second crew | Medium | ⛔ | B-M15 |
 
 ---
 
@@ -165,7 +168,8 @@
 | F-UX9 | Two-state submit with offline queue | Low | 📋 | |
 | F-UX10 | "Caller/spotter view" large-text mode | Low | 📋 | |
 | F-UX32 | BORROWED badge on loaned items during check; shortcut to V&E Status | Medium | 📋 | B-M14 |
-| F-UX34 | Second crew picker — structured user lookup replacing free-text field; saves `second_crew_id` alongside display name | Medium | ⛔ | B-M15, B-E7 |
+| F-UX34 | Second crew picker — structured user lookup replacing free-text field | Medium | ⛔ | B-M15, B-E7 |
+| F-UX35 | Draft banner visible while station API loading — cache last known station_id in localStorage as fallback so in-progress checks are never hidden from the responder | High | 📋 | |
 
 ---
 
@@ -175,7 +179,7 @@
 | CH-F6 | Acknowledgement / corrective note on submitted check | High | ⛔ | B-M10, CH-B8 |
 | CH-F7 | Deleted records screen (Admin) — restore or force hard-delete | High | 📋 | |
 | CH-F8 | Force hard-delete confirmation — type "PERMANENTLY DELETE" to confirm | High | 📋 | |
-| CH-F9 | "Checks I helped with" tab in Check History — shows checks where user is second crew | Medium | ⛔ | B-M15, CH-B9 |
+| CH-F9 | "Checks I helped with" tab in Check History | Medium | ⛔ | B-M15, CH-B9 |
 
 ---
 
@@ -223,17 +227,13 @@
 | D-R1 | **Documentation audit** — full review of all existing and planned docs | High | 📋 | See criteria below |
 
 ### D-R1 Criteria
-Review every file in `docs/` plus `README.md` against these questions:
+Review every file in `docs/` plus `README.md`:
+- **Value:** Does it need to exist? App value? Portfolio value? Can docs be merged?
+- **Security:** Auth model, RBAC matrix, token lifecycle, encryption, secrets, audit schema, threat model, incident response, PII procedure, data retention
+- **Portfolio signal:** Problem-first README, decision-oriented ADRs, full lifecycle coverage, clear current vs planned separation
+- **Quality:** Precise, concise, no filler, correct commands, professional tone
 
-**Value:** Does it need to exist? Does it add value to the app (operational reference) or portfolio (enterprise engineering judgment)? Can two docs be merged?
-
-**Security best practices:** Does `docs/security.md` cover auth model, RBAC matrix, token lifecycle, encryption at rest/in transit, secrets management, audit log schema, threat model, incident response? Do ADRs document security decisions? Is the data retention policy defensible for a healthcare-adjacent system? Is the PII emergency procedure complete?
-
-**Portfolio signal:** Does `README.md` lead with the problem, not the stack? Are docs decision-oriented (ADRs) rather than just descriptive? Does the documentation demonstrate the full lifecycle: design → build → deploy → operate → retire? Is there a clear line between what exists now and what's planned?
-
-**Quality:** Is every document precise, concise, and free of filler? Are code examples and commands correct and tested? Is the tone professional but not bureaucratic?
-
-**Output:** List of docs to keep / rewrite / merge / drop / create.
+**Output:** Keep / rewrite / merge / drop / create list.
 
 ---
 
@@ -245,11 +245,11 @@ Review every file in `docs/` plus `README.md` against these questions:
 | Q-3 | 90-day max range sufficient for compliance calendar? | Project owner |
 | Q-4 | BLOCKING feedback bugs auto-create GitHub issue? | Project owner |
 | Q-5 | Supply room reorder tracking: Phase 6 or defer to Phase 7? | Project owner |
-| Q-6 | Auto-hard-delete scheduler (90-day checks + 5-yr retired): Azure Function or startup cleanup job? | Engineering |
+| Q-6 | Auto-hard-delete scheduler: Azure Function or startup cleanup job? | Engineering |
 | Q-7 | Check modification setting default: False (conservative) or True (permissive)? | Project owner |
-| Q-8 | Restored soft-deleted checks: visible in responder history, or admin screen only? | Project owner |
-| Q-9 | 5-year hard-delete job: share mechanism with Q-6 or separate process? | Engineering |
-| Q-10 | Second crew lookup: use MS Graph to search station users, or maintain a local user list? Affects B-E7 and F-UX34. | Engineering |
+| Q-8 | Restored soft-deleted checks: responder history or admin screen only? | Project owner |
+| Q-9 | 5-year hard-delete job: share with Q-6 or separate process? | Engineering |
+| Q-10 | Second crew lookup: MS Graph or local user list? Affects B-E7 and F-UX34. | Engineering |
 
 ---
 
@@ -267,10 +267,10 @@ Review every file in `docs/` plus `README.md` against these questions:
 | Frontend — V&E Status (remaining) | 3 | 0 | 3 |
 | Frontend — Phase 5F Supervisor | 1 | 2 | 3 |
 | Frontend — Phase 5G Supporting | 3 | 1 | 4 |
-| Frontend — Check Wizard UX | 10 | 2 | 12 |
+| Frontend — Check Wizard UX | 11 | 2 | 13 |
 | Frontend — Check History (remaining) | 3 | 1 | 4 |
 | Frontend — Settings | 9 | 0 | 9 |
 | Frontend — Retirement Actions | 5 | 0 | 5 |
 | Infrastructure / Security | 5 | 1 | 6 |
 | Documentation | 1 | 0 | 1 |
-| **Total** | **96** | **8** | **104** |
+| **Total** | **97** | **8** | **105** |
