@@ -385,7 +385,41 @@ Format: Google Doc or PDF shared with testers. Not a GitHub issue or markdown fi
 
 ---
 
-## 23. Open Questions
+## 23. Check Resolution Workflow (CH-UX1)
+
+**Problem:** The FAIL resolution workflow is split across two screens with no
+connection between them. Supervisors must visit Check History to acknowledge,
+then the Compliance Dashboard to record a fix — and even after doing both,
+the check still visually shows as FAIL with no resolved state.
+
+**Proposed solution — unified resolution in Check History:**
+
+Replace the fragmented approach with a single consolidated action panel
+in the Check Detail view (Check History) that a Supervisor can complete
+without touching the Compliance Dashboard:
+
+  1. FAIL check detail shows failed items callout (already exists)
+  2. Single "✓ Acknowledge & Record Resolution" button opens one panel
+  3. Panel captures: what was fixed (free text) + resolved? (Yes / Still pending)
+  4. On submit: saves corrective_action, sets reviewed_at/reviewed_by,
+     visually marks check as "Acknowledged — Resolved" or "Acknowledged — Pending"
+  5. Compliance Dashboard "I Fixed This" remains for supervisors who prefer
+     that workflow, but Check History is now fully self-contained
+
+**Backend impact:** No new endpoints needed. Uses existing
+`PATCH /checks/daily/{id}/acknowledge` and repair request endpoints.
+
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| CH-UX1-F1 | Bring `IFixedThisForm` into `CheckDetail.jsx` — supervisor can acknowledge + resolve from Check History without visiting Compliance Dashboard | High | 📋 | No backend change needed |
+| CH-UX1-F2 | Unified resolution panel — single form captures corrective action + resolved/pending toggle | High | 📋 | Replaces separate Acknowledge and I Fixed This buttons |
+| CH-UX1-F3 | Resolved/Pending visual state on check detail — clear badge showing outcome after supervisor action | High | 📋 | |
+| CH-UX1-F4 | Compliance Dashboard "I Fixed This" updated to use same unified panel for consistency | Medium | 📋 | |
+| CH-UX1-F5 | After resolution, check card in history list shows "Resolved" indicator so supervisor can scan at a glance | Medium | 📋 | |
+
+---
+
+## 24. Open Questions
 | # | Question | Owner |
 |---|----------|-------|
 | Q-1 | Notification delivery: email (Azure Comms) or in-app only? | Project owner |
@@ -423,5 +457,6 @@ Format: Google Doc or PDF shared with testers. Not a GitHub issue or markdown fi
 | Equipment & Station Admin (B-ADMIN1) | 19 | 0 | 19 |
 | Station Membership & Access Control (B-ACCESS1) | 17 | 0 | 17 |
 | User Acceptance Testing (UAT) | 6 | 2 | 8 |
+| Check Resolution Workflow (CH-UX1) | 5 | 0 | 5 |
 | Documentation | 1 | 0 | 1 |
-| **Total** | **135** | **10** | **145** |
+| **Total** | **141** | **10** | **151** |
