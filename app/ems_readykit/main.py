@@ -30,7 +30,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from ems_readykit.core.config import get_settings
 from ems_readykit.core.logging import configure_logging, set_request_id
 from ems_readykit.routers import audit, checks, inventory, items, stations, vehicles
-from ems_readykit.routers import check_history, repair_requests
+from ems_readykit.routers import check_history, repair_requests, station_members
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -91,8 +91,12 @@ def create_app() -> FastAPI:
     )
 
     # ── API Routers ────────────────────────────────────────────────────────────
-    # check_history MUST be registered before checks so that
-    # /checks/daily/my-history is matched before /checks/daily/{check_id}
+    # Route ordering matters:
+    #   1. station_members BEFORE stations — /stations/my must resolve before
+    #      /stations/{station_id} or FastAPI matches "my" as an integer and 422s.
+    #   2. check_history BEFORE checks — /checks/daily/my-history must resolve
+    #      before /checks/daily/{check_id}.
+    app.include_router(station_members.router, prefix=API_PREFIX)
     app.include_router(stations.router,        prefix=API_PREFIX)
     app.include_router(vehicles.router,        prefix=API_PREFIX)
     app.include_router(repair_requests.router, prefix=API_PREFIX)
