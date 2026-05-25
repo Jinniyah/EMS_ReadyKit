@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from ems_readykit.core.auth import (
@@ -277,6 +277,7 @@ def update_station_member(
 @router.delete(
     "/{station_id}/members/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
     summary="Remove a user from a station (soft delete)",
 )
 def remove_station_member(
