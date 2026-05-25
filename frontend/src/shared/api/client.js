@@ -58,7 +58,10 @@ export const apiDeleteWithBody = (path, body, getToken) => apiFetch('DELETE', pa
 
 function _extractMessage(status, detail) {
   if (status === 0)   return 'Network error — check your connection and try again.'
-  if (status === 401 || status === 403) return 'You do not have permission to perform this action.'
+  if (status === 401 || status === 403) {
+    const msg = typeof detail === 'string' ? detail : 'You do not have permission to perform this action.'
+    return msg
+  }
   if (status === 404) return 'The requested resource was not found.'
   if (status === 409) return 'This record already exists.'
   if (status === 422) {

@@ -125,7 +125,11 @@ def _validate_azure_token(token: str) -> CurrentUser:
             algorithms=["RS256"],
             audience=settings.azure_ad_audience,
             issuer=settings.token_issuer,
-            options={"require": ["exp", "nbf", "iss", "aud", "oid"]},
+            options={
+                "require": ["exp", "nbf", "iss", "aud"],
+                # Guest users (External Identities / B2B) may not have 'oid'
+                # in the access token — 'sub' is always present and stable.
+            },
         )
     except jwt.ExpiredSignatureError as exc:
         raise HTTPException(
@@ -141,13 +145,31 @@ def _validate_azure_token(token: str) -> CurrentUser:
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
 
+    # Validate tenant — the 'tid' claim is the authoritative tenant identifier.
+    # Issuer-based validation alone is insufficient for multi-tenant guest scenarios.
+    token_tid = payload.get("tid")
+    if token_tid and token_tid != settings.azure_ad_tenant_id:
+        logger.warning(
+            "Token rejected: tid '%s' does not match expected tenant '%s'",
+            token_tid, settings.azure_ad_tenant_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token is not for this tenant.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     roles: list[str] = payload.get("roles", [])
     unknown = set(roles) - ALL_ROLES
     if unknown:
         logger.warning("Token contained unrecognised roles: %s", unknown)
 
+    # Use 'oid' (object ID) as the stable user identifier; fall back to 'sub'.
+    # Guest users always have 'sub' but 'oid' may be absent in some token flows.
+    user_id = payload.get("oid") or payload.get("sub", "unknown")
+
     return CurrentUser(
-        user_id=payload["oid"],
+        user_id=user_id,
         name=payload.get("name", "Unknown"),
         email=payload.get("preferred_username") or payload.get("upn", ""),
         roles=[r for r in roles if r in ALL_ROLES],
@@ -211,6 +233,6 @@ def resolve_current_user(token: str) -> CurrentUser:
         # No Azure AD configured and not a test token
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No valid token provided.",
+            detail="No valid token provided. In dev mode use 'test-responder', 'test-supervisor', or 'test-administrator'.",
             headers={"WWW-Authenticate": "Bearer"},
         )
