@@ -87,11 +87,25 @@ db.close()
 print(result)
 " 2>/dev/null || echo "0")
     echo "Station count: $STATION_COUNT"
-    if [ "$STATION_COUNT" = "0" ]; then
-        echo "Database is empty — running seed..."
+
+    MEMBER_COUNT=$(python -c "
+from ems_readykit.core.database import SessionLocal
+from sqlalchemy import text
+db = SessionLocal()
+try:
+    result = db.execute(text('SELECT COUNT(*) FROM station_members')).scalar()
+except Exception:
+    result = 0
+db.close()
+print(result)
+" 2>/dev/null || echo "0")
+    echo "Member count: $MEMBER_COUNT"
+
+    if [ "$STATION_COUNT" = "0" ] || [ "$MEMBER_COUNT" = "0" ]; then
+        echo "Database needs seeding (stations=$STATION_COUNT, members=$MEMBER_COUNT) — running seed..."
         python seed.py && echo "Seed complete." || echo "WARNING: Seed failed — continuing startup."
     else
-        echo "Database already seeded ($STATION_COUNT stations) — skipping."
+        echo "Database already seeded ($STATION_COUNT stations, $MEMBER_COUNT members) — skipping."
     fi
 else
     echo "seed.py not found — skipping auto-seed."
