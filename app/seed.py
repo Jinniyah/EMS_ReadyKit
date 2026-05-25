@@ -43,6 +43,7 @@ from ems_readykit.models import (
     Compartment,
     Item, ItemCategory, ItemCheckType,
     ParLevel,
+    StationMember,
 )
 
 # ---------------------------------------------------------------------------
@@ -988,6 +989,45 @@ def seed(db: Session) -> None:
     test_par_count = db.query(ParLevel).filter(
         ParLevel.location_id == loc_test.location_id
     ).count()
+
+    # =========================================================================
+    # STATION MEMBERSHIP — Bootstrap admin user
+    #
+    # Assigns jinniyah@gmail.com (Administrator) to all stations so the app
+    # is immediately usable after a fresh deploy without manual DB intervention.
+    # Additional users are assigned via the Admin UI once it is built (B-ACCESS1).
+    #
+    # To add more bootstrap members, duplicate the block below with the
+    # appropriate user_id, preferred_name, role, and station list.
+    # =========================================================================
+    print("\nSeeding station memberships...")
+
+    BOOTSTRAP_ADMIN = "jinniyah@gmail.com"
+    BOOTSTRAP_NAME  = "Jinni Allen"
+    SEED_USER       = "seed.py"  # assigned_by value for seed-created rows
+
+    for station in [newberg, marcellus, test_station]:
+        existing = db.query(StationMember).filter(
+            StationMember.station_id == station.station_id,
+            StationMember.user_id    == BOOTSTRAP_ADMIN,
+        ).first()
+        if not existing:
+            db.add(StationMember(
+                station_id=station.station_id,
+                user_id=BOOTSTRAP_ADMIN,
+                preferred_name=BOOTSTRAP_NAME,
+                role="Administrator",
+                assigned_by=SEED_USER,
+                active=True,
+            ))
+            print(f"  Assigned {BOOTSTRAP_ADMIN} → {station.name}")
+        elif not existing.active:
+            existing.active = True
+            print(f"  Re-activated {BOOTSTRAP_ADMIN} → {station.name}")
+        else:
+            print(f"  {BOOTSTRAP_ADMIN} already member of {station.name} — skipping")
+
+    db.flush()
 
     # =========================================================================
     # Commit and report

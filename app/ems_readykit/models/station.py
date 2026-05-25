@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from ems_readykit.models.vehicle import Vehicle
     from ems_readykit.models.inventory_location import InventoryLocation
     from ems_readykit.models.repair_request import RepairRequest
+    from ems_readykit.models.station_member import StationMember
 
 
 class Station(TimestampMixin, Base):
@@ -38,6 +39,9 @@ class Station(TimestampMixin, Base):
     )
     repair_requests: Mapped[List["RepairRequest"]] = relationship(
         "RepairRequest", back_populates="station"
+    )
+    members: Mapped[List["StationMember"]] = relationship(
+        "StationMember", back_populates="station", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
