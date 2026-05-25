@@ -1,5 +1,5 @@
 # EMS ReadyKit — Active Backlog
-# v1.22 | Updated: 2026-05-25
+# v1.24 | Updated: 2026-05-25
 # Completed items → backlog_completed.md
 # Priority: High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
@@ -27,7 +27,8 @@
 #   - Azure AD auth: audience mismatch fixed (bare GUID vs api:// URI — now accepts both)
 #   - Production database: seed.py added to deployment zip; startup.sh auto-seeds
 #     when stations table is empty
-#   - B-ADMIN1 added to backlog
+#   - B-ADMIN1, B-ACCESS1, UAT section added to backlog
+#   - Crew mode bug fixed: Compliance Dashboard now hidden in crew mode
 #
 # NEXT SESSION priority order:
 #   1. Verify production deployment is stable (stations load, checks submit, history shows)
@@ -277,7 +278,66 @@ Entry point: "Admin" card on home page, visible to Administrator + Supervisor ro
 
 ---
 
-## 18. Documentation
+## 19. Station Membership & Access Control (B-ACCESS1)
+
+**Problem:** Currently `GET /api/v1/stations` returns all active stations to any
+authenticated user. Stations, vehicles, equipment, and check history should only
+be visible to users assigned to that station. Administrators assign Supervisors;
+Supervisors and Administrators assign Responders.
+
+**Access rules:**
+- Administrator — can see all stations; assigns Supervisors to stations
+- Supervisor — sees only their assigned stations; assigns Responders to their stations
+- Responder — sees only their assigned stations; no assignment permissions
+
+**Downstream impact:** Once this is live, every station-scoped endpoint
+(`/checks`, `/vehicles`, `/inventory`, `/stations`) must filter by membership.
+This is a breaking change to the data access layer — implement in a dedicated sprint.
+
+### Backend — Data Model
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| ACC-M1 | New table: `station_members` (`station_id`, `user_id`, `user_name`, `role`, `assigned_by`, `assigned_at`, `active`) | High | 📋 | Core of all access control |
+| ACC-M2 | Migration: add `station_members` table | High | 📋 | Needs ACC-M1 |
+
+### Backend — Endpoints
+| # | Endpoint | Description | Pri | Status | Notes |
+|---|----------|-------------|-----|--------|-------|
+| ACC-B1 | `GET /stations/{id}/members` | List members of a station | High | 📋 | Supervisor+ |
+| ACC-B2 | `POST /stations/{id}/members` | Add user to station with role | High | 📋 | Admin assigns Supervisor; Supervisor/Admin assigns Responder |
+| ACC-B3 | `PATCH /stations/{id}/members/{user_id}` | Change member role | High | 📋 | Admin only for Supervisor role changes |
+| ACC-B4 | `DELETE /stations/{id}/members/{user_id}` | Remove user from station | High | 📋 | Admin removes Supervisors; Supervisor/Admin removes Responders |
+| ACC-B5 | `GET /stations/my` | Return only stations the current user is assigned to | High | 📋 | Replaces current unfiltered `GET /stations` in the station picker |
+| ACC-B6 | `GET /stations` | Return all stations (Administrator only — for admin management views) | High | 📋 | Existing endpoint; add role guard |
+
+### Backend — Access Enforcement
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| ACC-B7 | Enforce station membership in `GET /checks/daily` and check submission | High | 📋 | 403 if user not member of station |
+| ACC-B8 | Enforce station membership in all `/vehicles` and `/inventory` endpoints | High | 📋 | |
+| ACC-B9 | Enforce station membership in supervisor dashboard endpoints | High | 📋 | |
+| ACC-B10 | `deps.py`: add `require_station_membership(station_id)` dependency | High | 📋 | Reusable FastAPI dep injected per route |
+
+### Frontend
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| ACC-F1 | Station picker uses `GET /stations/my` instead of `GET /stations` | High | 📋 | Single-line change once ACC-B5 exists |
+| ACC-F2 | Member list view — per station, shows name + role + assigned date | High | 📋 | Supervisor+ |
+| ACC-F3 | Add member form — name/email + role picker; Admin sees Supervisor option | High | 📋 | |
+| ACC-F4 | Remove member confirmation — with role-based guard on who can remove whom | High | 📋 | |
+| ACC-F5 | "Pending assignment" screen — shown to authenticated users with no station assignments. Warm, non-technical message: "Welcome! Your account is being set up. Contact your administrator to get assigned to a station." No station data accessible. Replaces the current empty station picker. | High | 📋 | |
+
+### Open Questions
+| # | Question | Owner |
+|---|----------|-------|
+| Q-11 | User lookup when adding a member: MS Graph search or free-text name+email entry? | Engineering |
+| Q-12 | Users can be assigned to multiple stations simultaneously (confirmed). Example: Cindy — Newberg + Marcellus; Steve — Newberg + Dowagiac. `station_members` is a many-to-many join table. | ✅ Resolved |
+| Q-13 | Seed data: auto-assign the seeded admin user to all stations on first deploy? Also note: Dowagiac is a real third station alongside Newberg and Marcellus — add to seed.py when station details are available. | Engineering |
+| Q-14 | Grace period for unassigned users: confirmed — show a friendly "pending assignment" screen rather than a hard 403. New authenticated users see a warm holding page (e.g. "Welcome! Your account is being set up — contact your administrator to get assigned to a station.") with no access to any station data until assigned. | ✅ Resolved |
+
+---
+
+## 20. Documentation
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
 | D-R1 | **Documentation audit** — full review of all existing and planned docs | High | 📋 | See criteria below |
@@ -293,7 +353,38 @@ Review every file in `docs/` plus `README.md`:
 
 ---
 
-## 18. Open Questions
+## 22. User Acceptance Testing (UAT)
+
+Before releasing to real users for testing, provide structured test cases
+covering all roles and key workflows. Modeled on the verification checklist
+used during development.
+
+### Scope
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| UAT-1 | Write test case document — one sheet per role (Responder, Supervisor, Administrator) | High | 📋 | See criteria below |
+| UAT-2 | Responder test cases — daily check happy path, draft resume, check history | High | 📋 | |
+| UAT-3 | Supervisor test cases — crew mode hides dashboard, compliance dashboard, acknowledge check, check history all tab | High | 📋 | |
+| UAT-4 | Administrator test cases — all supervisor cases plus station management, user assignment | High | 📋 | |
+| UAT-5 | Cross-role test cases — draft visible to other responder at same station, Supervisor can see all checks at station | Medium | 📋 | |
+| UAT-6 | Edge case test cases — resume after browser close, two drafts at same station, submit with failed items | Medium | 📋 | |
+| UAT-7 | Pending assignment test case — new user sees friendly holding screen, not a 403 | High | ⛔ | Needs B-ACCESS1 |
+| UAT-8 | Multi-station test case — user assigned to two stations can switch between them | Medium | ⛔ | Needs B-ACCESS1 |
+
+### Test Case Document Criteria
+Each test case should include:
+- **Role** being tested
+- **Preconditions** (e.g. "logged in as Responder, TEST STATION selected")
+- **Steps** numbered, specific, non-technical (written for a crew member, not a developer)
+- **Expected result** — what the user should see
+- **Pass / Fail** checkbox
+- **Notes** field for the tester to record what actually happened
+
+Format: Google Doc or PDF shared with testers. Not a GitHub issue or markdown file — needs to be printable and fillable by non-technical users.
+
+---
+
+## 23. Open Questions
 | # | Question | Owner |
 |---|----------|-------|
 | Q-1 | Notification delivery: email (Azure Comms) or in-app only? | Project owner |
@@ -329,5 +420,7 @@ Review every file in `docs/` plus `README.md`:
 | Frontend — Retirement Actions | 5 | 0 | 5 |
 | Infrastructure / Security | 5 | 1 | 6 |
 | Equipment & Station Admin (B-ADMIN1) | 19 | 0 | 19 |
+| Station Membership & Access Control (B-ACCESS1) | 17 | 0 | 17 |
+| User Acceptance Testing (UAT) | 6 | 2 | 8 |
 | Documentation | 1 | 0 | 1 |
-| **Total** | **112** | **8** | **120** |
+| **Total** | **135** | **10** | **145** |

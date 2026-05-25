@@ -7,6 +7,7 @@ import { useAuth } from '../shared/hooks/useAuth.jsx'
 import { useApi } from '../shared/hooks/useApi.js'
 import { useDraftIndex } from '../shared/hooks/useDraft.js'
 import { canAccess } from '../shared/utils/roleGuard.js'
+import { useRoleMode } from '../shared/hooks/useRoleMode.jsx'
 import { stationColor } from '../shared/utils/stationColors.js'
 import ErrorBoundary from '../shared/components/ErrorBoundary.jsx'
 import DraftBanner from '../modules/check-wizard/components/DraftBanner.jsx'
@@ -35,6 +36,7 @@ function saveStation(station) {
 
 export default function HomePage() {
   const { user, getToken } = useAuth()
+  const { isCrewMode } = useRoleMode()
 
   const [activeWizard, setActiveWizard]       = useState(null)
   const [activeDraftKey, setActiveDraftKey]   = useState(null)
@@ -278,8 +280,8 @@ export default function HomePage() {
             </div>
           </ErrorBoundary>
 
-          {/* Supervisor Dashboard — visible to Supervisor+ only */}
-          {canAccess(user, 'supervisor') && (
+          {/* Supervisor Dashboard — visible to Supervisor+ only, hidden in crew mode */}
+          {canAccess(user, 'supervisor') && !isCrewMode && (
             <ErrorBoundary moduleName="Dashboard Card">
               <div className="module-card">
                 <div className="module-card__icon" aria-hidden="true">📊</div>
