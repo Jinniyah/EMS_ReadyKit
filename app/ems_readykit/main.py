@@ -108,7 +108,13 @@ def create_app() -> FastAPI:
 
     logger.info(
         "EMS ReadyKit application created",
-        extra={"env": settings.app_env, "db_is_sqlite": settings.is_sqlite},
+        extra={
+            "env":             settings.app_env,
+            "db_is_sqlite":    settings.is_sqlite,
+            "auth_tenant_id":  settings.azure_ad_tenant_id or "NOT SET",
+            "auth_client_id":  settings.azure_ad_client_id or "NOT SET",
+            "auth_audience":   settings.azure_ad_audience  or "NOT SET",
+        },
     )
 
     return app

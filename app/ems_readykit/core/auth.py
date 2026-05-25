@@ -119,6 +119,7 @@ def _validate_azure_token(token: str) -> CurrentUser:
         client_id,                           # bare GUID
         f"api://{client_id}",               # explicit api:// in case audience differs
     } - {""})
+    logger.info("Auth: accepted_audiences=%s", accepted_audiences)
 
     try:
         client = _get_jwks_client()
@@ -149,7 +150,16 @@ def _validate_azure_token(token: str) -> CurrentUser:
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
     except jwt.InvalidTokenError as exc:
-        logger.warning("Token validation failed: %s", exc)
+        # Decode without verification to extract the actual aud for diagnostics
+        try:
+            unverified = jwt.decode(token, options={"verify_signature": False})
+            token_aud = unverified.get("aud", "unknown")
+        except Exception:
+            token_aud = "could not decode"
+        logger.warning(
+            "Token validation failed: %s | token_aud=%s | accepted=%s",
+            exc, token_aud, accepted_audiences,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token.",
