@@ -1,5 +1,5 @@
 # EMS ReadyKit — Active Backlog
-# v1.21 | Updated: 2026-05-24
+# v1.22 | Updated: 2026-05-25
 # Completed items → backlog_completed.md
 # Priority: High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
@@ -14,13 +14,25 @@
 #   - Draft banner: station-scoped (any responder at station can resume — shift handoff)
 #   - Bug fix: VITE_API_BASE_URL set in deploy.yml (stations were not loading in production)
 #
+# ✅ SESSION COMPLETE 2026-05-25
+# Key items completed this session:
+#   - F-UX35: Draft banner station fallback — localStorage cache of last known station_id
+#   - Draft flow overhaul: fixed same-tab storage event (EventTarget bus), key-null race
+#     on first saveDraft call, type-coercion bug in station_id comparison
+#   - Draft resume: blank compartment screen fixed (Spinner while locationId resolves)
+#   - React "setState during render" warning fixed (removed functional updaters from
+#     saveDraft/saveLineItem, replaced with draftRef mirror)
+#   - Timestamp UTC fix: backend @field_serializer emits Z-suffixed datetimes;
+#     frontend normalizeUtc() guard added to all formatTime/formatDateTime calls
+#   - Azure AD auth: audience mismatch fixed (bare GUID vs api:// URI — now accepts both)
+#   - Production database: seed.py added to deployment zip; startup.sh auto-seeds
+#     when stations table is empty
+#   - B-ADMIN1 added to backlog
+#
 # NEXT SESSION priority order:
-#   1. Commit all work from this session
-#   2. Verify draft banner shows correctly after VITE_API_BASE_URL fix deploys
-#   3. F-UX-DRAFT-1: Draft banner not visible while station API is loading —
-#      cache last known station in localStorage as fallback
-#   4. B-E3 (date-range compliance query) → unblocks F-5F2 calendar
-#   5. D-R1 documentation audit
+#   1. Verify production deployment is stable (stations load, checks submit, history shows)
+#   2. B-E3 (date-range compliance query) → unblocks F-5F2 calendar
+#   3. D-R1 documentation audit
 
 ---
 
@@ -221,7 +233,51 @@
 
 ---
 
-## 17. Documentation
+## 17. Equipment & Station Administration (B-ADMIN1)
+
+Access: Administrator + Supervisor
+Entry point: "Admin" card on home page, visible to Administrator + Supervisor roles only.
+
+### Phase 1 — Item & Par Management (next sprint)
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| ADMIN-B1 | `GET /admin/items` | List global item catalog with filters (category, check_type, active) | High | 📋 | |
+| ADMIN-B2 | `POST /admin/items` | Add item to global catalog | High | 📋 | Admin + Supervisor |
+| ADMIN-B3 | `PATCH /admin/items/{id}` | Edit item (name, category, UOM, flags) | High | 📋 | Admin + Supervisor |
+| ADMIN-B4 | `PATCH /admin/items/{id}/deactivate` | Soft-deactivate item (removes from future checks, keeps history) | High | 📋 | Admin only |
+| ADMIN-B5 | `GET /admin/locations/{id}/par-levels` | List par levels for a location/compartment | High | 📋 | |
+| ADMIN-B6 | `POST /admin/par-levels` | Add item to compartment with min/max qty | High | 📋 | Admin + Supervisor |
+| ADMIN-B7 | `PATCH /admin/par-levels/{id}` | Edit min/max qty on a par level | High | 📋 | Admin + Supervisor |
+| ADMIN-B8 | `PATCH /admin/par-levels/{id}/deactivate` | Remove item from compartment (soft) | High | 📋 | Admin only |
+| ADMIN-B9 | `POST /admin/compartments` | Add compartment to a location | High | 📋 | Admin + Supervisor |
+| ADMIN-B10 | `PATCH /admin/compartments/{id}` | Edit compartment (name, sort order, descriptor, restriction note) | High | 📋 | Admin + Supervisor |
+| ADMIN-F1 | Admin home card — visible to Administrator + Supervisor | High | 📋 | |
+| ADMIN-F2 | Item catalog list view — search, filter by category/check type, active toggle | High | 📋 | |
+| ADMIN-F3 | Add/edit item form | High | 📋 | |
+| ADMIN-F4 | Par level editor — select location → compartment → add/edit/remove items | High | 📋 | |
+| ADMIN-F5 | Compartment editor — add/edit compartments within a location | High | 📋 | |
+
+### Phase 2 — Vehicle & Location Management
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| ADMIN-B11 | `POST /admin/vehicles` | Add vehicle to a station | High | 📋 | Admin + Supervisor |
+| ADMIN-B12 | `PATCH /admin/vehicles/{id}` | Edit vehicle (number, type, active) | High | 📋 | Admin + Supervisor |
+| ADMIN-B13 | `POST /admin/locations` | Add portable location (jump bag, supply room) to a station | High | 📋 | Admin + Supervisor |
+| ADMIN-B14 | `PATCH /admin/locations/{id}` | Edit location label/type | High | 📋 | Admin + Supervisor |
+| ADMIN-F6 | Vehicle list view per station — add, edit, retire | High | 📋 | |
+| ADMIN-F7 | Portable location list view per station — add, edit, retire | High | 📋 | |
+
+### Phase 3 — Station Onboarding
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| ADMIN-B15 | `POST /admin/stations` | Create new station | Medium | 📋 | Admin only |
+| ADMIN-B16 | `POST /admin/stations/{id}/clone-layout` | Copy compartment + par layout from an existing station | Medium | 📋 | Admin only; big time saver for new units |
+| ADMIN-F8 | New station wizard — name, address, region, seed from template or blank | Medium | 📋 | |
+| ADMIN-F9 | Layout clone picker — choose source station/vehicle, preview before applying | Medium | 📋 | |
+
+---
+
+## 18. Documentation
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
 | D-R1 | **Documentation audit** — full review of all existing and planned docs | High | 📋 | See criteria below |
@@ -272,5 +328,6 @@ Review every file in `docs/` plus `README.md`:
 | Frontend — Settings | 9 | 0 | 9 |
 | Frontend — Retirement Actions | 5 | 0 | 5 |
 | Infrastructure / Security | 5 | 1 | 6 |
+| Equipment & Station Admin (B-ADMIN1) | 19 | 0 | 19 |
 | Documentation | 1 | 0 | 1 |
-| **Total** | **97** | **8** | **105** |
+| **Total** | **112** | **8** | **120** |
