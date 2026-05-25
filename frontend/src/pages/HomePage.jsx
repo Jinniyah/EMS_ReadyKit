@@ -12,12 +12,14 @@ import { stationColor } from '../shared/utils/stationColors.js'
 import ErrorBoundary from '../shared/components/ErrorBoundary.jsx'
 import DraftBanner from '../modules/check-wizard/components/DraftBanner.jsx'
 import Spinner from '../shared/components/Spinner.jsx'
+import PendingAssignmentScreen from '../modules/admin/components/PendingAssignmentScreen.jsx'
 import { checkApi } from '../modules/check-wizard/api/checkApi.js'
 
 const CheckWizard          = lazy(() => import('../modules/check-wizard/index.jsx'))
 const VehicleStatusScreen  = lazy(() => import('../modules/vehicles/index.jsx'))
 const CheckHistoryScreen   = lazy(() => import('../modules/check-history/index.jsx'))
 const SupervisorDashboard  = lazy(() => import('../modules/supervisor/index.jsx'))
+const AdminScreen          = lazy(() => import('../modules/admin/index.jsx'))
 
 const STATION_STORAGE_KEY = 'ems_selected_station'
 
@@ -153,6 +155,16 @@ export default function HomePage() {
     )
   }
 
+  if (activeModule === 'admin') {
+    return (
+      <ErrorBoundary moduleName="Station Administration">
+        <Suspense fallback={<Spinner label="Loading…" />}>
+          <AdminScreen onBack={() => setActiveModule(null)} />
+        </Suspense>
+      </ErrorBoundary>
+    )
+  }
+
   if (activeModule === 'supervisor') {
     return (
       <ErrorBoundary moduleName="Supervisor Dashboard">
@@ -184,12 +196,16 @@ export default function HomePage() {
             <span>⚠ Could not load stations — is the backend running?</span>
           </div>
         ) : pickingStation || !selectedStation ? (
-          <StationPicker
-            stations={stations ?? []}
-            currentStation={selectedStation}
-            onSelect={handleSelectStation}
-            onCancel={selectedStation ? () => setPickingStation(false) : null}
-          />
+          stations?.length === 0 ? (
+            <PendingAssignmentScreen />
+          ) : (
+            <StationPicker
+              stations={stations ?? []}
+              currentStation={selectedStation}
+              onSelect={handleSelectStation}
+              onCancel={selectedStation ? () => setPickingStation(false) : null}
+            />
+          )
         ) : (
           <StationBand
             station={selectedStation}
@@ -279,6 +295,27 @@ export default function HomePage() {
               </button>
             </div>
           </ErrorBoundary>
+
+          {/* Admin — visible to Supervisor+ only, hidden in crew mode */}
+          {canAccess(user, 'supervisor') && !isCrewMode && (
+            <ErrorBoundary moduleName="Admin Card">
+              <div className="module-card">
+                <div className="module-card__icon" aria-hidden="true">👥</div>
+                <div className="module-card__content">
+                  <div className="module-card__title">Station Administration</div>
+                  <div className="module-card__description">Manage station members and access</div>
+                </div>
+                <button
+                  className="btn btn--primary"
+                  style={colors ? { background: colors.primary } : {}}
+                  onClick={() => setActiveModule('admin')}
+                  type="button"
+                >
+                  Open
+                </button>
+              </div>
+            </ErrorBoundary>
+          )}
 
           {/* Supervisor Dashboard — visible to Supervisor+ only, hidden in crew mode */}
           {canAccess(user, 'supervisor') && !isCrewMode && (

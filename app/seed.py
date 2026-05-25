@@ -1006,7 +1006,19 @@ def seed(db: Session) -> None:
     BOOTSTRAP_NAME  = "Jinni Allen"
     SEED_USER       = "seed.py"  # assigned_by value for seed-created rows
 
+    # Dev test users — emails must match what _validate_test_token() generates:
+    # f"test-{role_label.lower()}@ems.local" where role_label = token.replace("test-","").capitalize()
+    # test-administrator → test-administrator@ems.local
+    # test-supervisor    → test-supervisor@ems.local
+    # test-responder     → test-responder@ems.local
+    DEV_MEMBERS = [
+        ("test-administrator@ems.local", "Test Administrator", "Administrator"),
+        ("test-supervisor@ems.local",    "Test Supervisor",    "Supervisor"),
+        ("test-responder@ems.local",     "Test Responder",     "Responder"),
+    ]
+
     for station in [newberg, marcellus, test_station]:
+        # Bootstrap admin
         existing = db.query(StationMember).filter(
             StationMember.station_id == station.station_id,
             StationMember.user_id    == BOOTSTRAP_ADMIN,
@@ -1026,6 +1038,28 @@ def seed(db: Session) -> None:
             print(f"  Re-activated {BOOTSTRAP_ADMIN} → {station.name}")
         else:
             print(f"  {BOOTSTRAP_ADMIN} already member of {station.name} — skipping")
+
+        # Dev test users
+        for uid, name, role in DEV_MEMBERS:
+            existing_dev = db.query(StationMember).filter(
+                StationMember.station_id == station.station_id,
+                StationMember.user_id    == uid,
+            ).first()
+            if not existing_dev:
+                db.add(StationMember(
+                    station_id=station.station_id,
+                    user_id=uid,
+                    preferred_name=name,
+                    role=role,
+                    assigned_by=SEED_USER,
+                    active=True,
+                ))
+                print(f"  Assigned {uid} → {station.name}")
+            elif not existing_dev.active:
+                existing_dev.active = True
+                print(f"  Re-activated {uid} → {station.name}")
+            else:
+                print(f"  {uid} already member of {station.name} — skipping")
 
     db.flush()
 

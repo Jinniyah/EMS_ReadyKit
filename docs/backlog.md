@@ -257,6 +257,7 @@ Entry point: "Admin" card on home page, visible to Administrator + Supervisor ro
 | ADMIN-F3 | Add/edit item form | High | 📋 | |
 | ADMIN-F4 | Par level editor — select location → compartment → add/edit/remove items | High | 📋 | |
 | ADMIN-F5 | Compartment editor — add/edit compartments within a location | High | 📋 | |
+| ADMIN-F10 | Member list search — client-side filter by name or email; sort by name or role already implemented | Low | 📋 | Needed once stations have 20+ members |
 
 ### Phase 2 — Vehicle & Location Management
 | # | Item | Pri | Status | Notes |

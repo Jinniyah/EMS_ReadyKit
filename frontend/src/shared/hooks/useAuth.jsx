@@ -39,21 +39,21 @@ const DevAuthContext = createContext(null)
 const DEV_USERS = {
   administrator: {
     name: 'Test Administrator',
-    email: 'admin@ems.local',
+    email: 'test-administrator@ems.local',
     role: ROLE_ADMINISTRATOR,
     initials: 'TA',
     token: 'test-administrator',
   },
   supervisor: {
     name: 'Test Supervisor',
-    email: 'supervisor@ems.local',
+    email: 'test-supervisor@ems.local',
     role: ROLE_SUPERVISOR,
     initials: 'TS',
     token: 'test-supervisor',
   },
   responder: {
     name: 'Test Responder',
-    email: 'responder@ems.local',
+    email: 'test-responder@ems.local',
     role: ROLE_RESPONDER,
     initials: 'TR',
     token: 'test-responder',
