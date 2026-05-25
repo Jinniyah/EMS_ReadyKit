@@ -277,7 +277,6 @@ def update_station_member(
 @router.delete(
     "/{station_id}/members/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    response_class=Response,
     summary="Remove a user from a station (soft delete)",
 )
 def remove_station_member(
@@ -285,7 +284,7 @@ def remove_station_member(
     user_id: str,
     current_user: CurrentUser = Depends(require_role(*_SUPERVISOR_PLUS)),
     db: Session = Depends(get_db),
-) -> None:
+) -> Response:
     """
     Soft-removes a user from a station (sets active=False).
     The row is preserved for audit history.
@@ -312,3 +311,4 @@ def remove_station_member(
 
     member.active = False
     db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
