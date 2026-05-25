@@ -14,9 +14,9 @@ export const checkApi = {
   getVehicles: (stationId, getToken) =>
     apiGet(`/api/v1/stations/${stationId}/vehicles?active=true`, getToken),
 
-  /** All stations (needed to derive stationId for responder) */
+  /** Stations the current user is assigned to (membership-scoped) */
   getStations: (getToken) =>
-    apiGet('/api/v1/stations', getToken),
+    apiGet('/api/v1/stations/my', getToken),
 
   /**
    * Non-vehicle checkable locations at a station (JUMP_BAG, EQUIPMENT).

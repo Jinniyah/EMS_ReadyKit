@@ -3,17 +3,18 @@ routers/stations.py
 Station CRUD endpoints.
 
 Endpoints:
-  GET  /stations                   — list all stations (ALL roles — Responders need this to start a check)
+  GET  /stations                   — list all stations (Administrator only — B-ACCESS1 Phase 4)
   POST /stations                   — create a station (Administrator only)
-  GET  /stations/{id}              — get a single station (ALL roles)
-  GET  /stations/{id}/locations    — list checkable non-vehicle locations at a station (ALL roles)
+  GET  /stations/{id}              — get a single station (all roles, membership enforced)
+  GET  /stations/{id}/locations    — list checkable non-vehicle locations (all roles, membership enforced)
 
-RBAC note:
-  GET /stations and GET /stations/{id}/locations are intentionally open to all
-  authenticated roles. A Responder (e.g. Cindy) may work across multiple stations
-  and must be able to select their station and see available jump bags / equipment
-  when starting a daily inventory check. Station data is non-sensitive operational
-  reference data. Write operations (POST) remain Administrator-only.
+B-ACCESS1 Phase 4 changes:
+  GET /stations is now Administrator only. All other roles use GET /stations/my
+  (in station_members router) which returns only their assigned stations.
+
+  GET /stations/{id} and GET /stations/{id}/locations now enforce station
+  membership — a user cannot access a station they are not assigned to.
+  Administrators bypass the membership check and can access all stations.
 """
 
 from __future__ import annotations
@@ -27,10 +28,12 @@ from ems_readykit.core.auth import (
     ROLE_ADMINISTRATOR,
     ROLE_RESPONDER,
     ROLE_SUPERVISOR,
+    CurrentUser,
 )
 from ems_readykit.core.database import get_db
 from ems_readykit.models.inventory_location import InventoryLocation, LocationType
 from ems_readykit.models.station import Station
+from ems_readykit.models.station_member import StationMember
 from ems_readykit.routers.deps import require_role
 from ems_readykit.schemas.inventory_location import InventoryLocationRead
 from ems_readykit.schemas.station import StationCreate, StationRead
@@ -42,20 +45,38 @@ _SUPERVISOR_PLUS = (ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
 _ADMIN_ONLY      = (ROLE_ADMINISTRATOR,)
 
 
+def require_station_membership(station_id: int, current_user: CurrentUser, db: Session) -> None:
+    """
+    Raises HTTP 403 if the current user is not an active member of the station.
+    Administrators bypass this check — they have access to all stations.
+    """
+    if current_user.has_role(ROLE_ADMINISTRATOR):
+        return
+    member = db.query(StationMember).filter(
+        StationMember.station_id == station_id,
+        StationMember.user_id    == current_user.email,
+        StationMember.active     == True,
+    ).first()
+    if not member:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not assigned to this station.",
+        )
+
+
 @router.get(
     "",
     response_model=List[StationRead],
-    summary="List stations",
-    dependencies=[Depends(require_role(*_ALL_ROLES))],
+    summary="List all stations (Administrator only)",
+    dependencies=[Depends(require_role(*_ADMIN_ONLY))],
 )
 def list_stations(
     active: bool = Query(default=True, description="Filter by active status"),
     db: Session = Depends(get_db),
 ) -> List[Station]:
     """
-    Returns all active stations.
-    Open to all authenticated roles — Responders need this to select
-    their station when starting a daily inventory check.
+    Returns all stations. Administrator only.
+    All other roles use GET /stations/my which returns only their assigned stations.
     """
     return db.query(Station).filter(Station.active == active).all()
 
@@ -85,21 +106,16 @@ def create_station(payload: StationCreate, db: Session = Depends(get_db)) -> Sta
     "/{station_id}/locations",
     response_model=List[InventoryLocationRead],
     summary="List checkable non-vehicle locations at a station",
-    dependencies=[Depends(require_role(*_ALL_ROLES))],
 )
 def list_station_locations(
     station_id: int,
+    current_user: CurrentUser = Depends(require_role(*_ALL_ROLES)),
     db: Session = Depends(get_db),
 ) -> List[InventoryLocation]:
     """
     Returns all JUMP_BAG and EQUIPMENT inventory locations at a station.
-
-    Excludes VEHICLE locations (returned via /stations/{id}/vehicles) and
-    STATION_SUPPLY_ROOM (internal restocking only, not a checkable unit).
-
-    Used by the check wizard Step 1 to show portable bags and equipment
-    alongside vehicle cards so responders can select what they are checking.
-    All authenticated roles.
+    Membership enforced — user must be assigned to the station.
+    Administrators bypass the membership check.
     """
     station = db.query(Station).filter(Station.station_id == station_id).first()
     if not station:
@@ -107,6 +123,8 @@ def list_station_locations(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Station {station_id} not found.",
         )
+
+    require_station_membership(station_id, current_user, db)
 
     return (
         db.query(InventoryLocation)
@@ -126,13 +144,16 @@ def list_station_locations(
     "/{station_id}",
     response_model=StationRead,
     summary="Get a station",
-    dependencies=[Depends(require_role(*_ALL_ROLES))],
 )
-def get_station(station_id: int, db: Session = Depends(get_db)) -> Station:
+def get_station(
+    station_id: int,
+    current_user: CurrentUser = Depends(require_role(*_ALL_ROLES)),
+    db: Session = Depends(get_db),
+) -> Station:
     """
     Returns a single station by ID.
-    Open to all authenticated roles.
-    Returns 404 if not found.
+    Membership enforced — user must be assigned to the station.
+    Administrators bypass the membership check.
     """
     station = db.query(Station).filter(Station.station_id == station_id).first()
     if not station:
@@ -140,4 +161,7 @@ def get_station(station_id: int, db: Session = Depends(get_db)) -> Station:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Station {station_id} not found.",
         )
+
+    require_station_membership(station_id, current_user, db)
+
     return station

@@ -773,16 +773,28 @@ class TestRBAC:
         assert response.status_code in (401, 403)
 
     def test_responder_can_list_stations(self, client, auth_responder):
+        """Responders use GET /stations/my — GET /stations is Admin only."""
         response = client.get("/api/v1/stations", headers=auth_responder)
+        assert response.status_code == 403
+
+    def test_responder_can_list_my_stations(self, client, auth_responder):
+        response = client.get("/api/v1/stations/my", headers=auth_responder)
         assert response.status_code == 200
+        assert isinstance(response.json(), list)
 
     def test_responder_cannot_create_station_returns_403(self, client, auth_responder):
         response = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers=auth_responder)
         assert response.status_code == 403
 
     def test_supervisor_can_list_stations(self, client, auth_supervisor):
+        """Supervisors use GET /stations/my — GET /stations is Admin only."""
         response = client.get("/api/v1/stations", headers=auth_supervisor)
+        assert response.status_code == 403
+
+    def test_supervisor_can_list_my_stations(self, client, auth_supervisor):
+        response = client.get("/api/v1/stations/my", headers=auth_supervisor)
         assert response.status_code == 200
+        assert isinstance(response.json(), list)
 
     def test_supervisor_cannot_create_station_returns_403(self, client, auth_supervisor):
         response = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers=auth_supervisor)
