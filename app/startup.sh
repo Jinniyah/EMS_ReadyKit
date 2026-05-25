@@ -73,6 +73,30 @@ echo "Running Alembic migrations..."
 alembic upgrade head
 echo "Migrations complete."
 
+# ── Auto-seed if the database is empty ────────────────────────────────────────
+# Runs seed.py only when the stations table has zero rows.
+# Safe on every deploy — seed.py uses get_or_create throughout.
+if [ -f "seed.py" ]; then
+    echo "Checking if database needs seeding..."
+    STATION_COUNT=$(python -c "
+from ems_readykit.core.database import SessionLocal
+from sqlalchemy import text
+db = SessionLocal()
+result = db.execute(text('SELECT COUNT(*) FROM stations')).scalar()
+db.close()
+print(result)
+" 2>/dev/null || echo "0")
+    echo "Station count: $STATION_COUNT"
+    if [ "$STATION_COUNT" = "0" ]; then
+        echo "Database is empty — running seed..."
+        python seed.py && echo "Seed complete." || echo "WARNING: Seed failed — continuing startup."
+    else
+        echo "Database already seeded ($STATION_COUNT stations) — skipping."
+    fi
+else
+    echo "seed.py not found — skipping auto-seed."
+fi
+
 # ── Start gunicorn ─────────────────────────────────────────────────────────────
 # exec replaces this shell so gunicorn receives SIGTERM correctly.
 echo "Starting gunicorn..."
