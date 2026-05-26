@@ -38,6 +38,13 @@ jobs:
         working-directory: ${{ env.APP_DIR }}
         run: pip install -r requirements.txt
 
+      # SEC-1: Dependency vulnerability audit (OWASP A06)
+      # Fails the build if any installed package has a known CVE.
+      # pip-audit is not in requirements.txt (it's a dev/CI tool only).
+      - name: Security audit
+        working-directory: ${{ env.APP_DIR }}
+        run: pip install pip-audit && pip-audit -r requirements.txt
+
       - name: Run pytest
         working-directory: ${{ env.APP_DIR }}
         run: pytest tests/ -v --tb=short

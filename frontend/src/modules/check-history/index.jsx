@@ -7,6 +7,12 @@
  * CH-F3: Supervisor acknowledgement shown on detail
  * CH-F4: Supervisor history list — all checks at station, filterable
  * CH-F5: Soft-delete from detail view (Supervisor+)
+ *
+ * NOTE — "All Checks" tab (CH-F4):
+ * The station-scoped history endpoint (B-E3) is not yet built.
+ * Until it is, the All Checks tab calls GET /checks/daily/station/{id}/today
+ * which returns all checks for the station for today only.
+ * Full date-range history will be available once B-E3 is complete.
  */
 
 import React, { useState } from 'react'
@@ -26,12 +32,12 @@ export default function CheckHistoryScreen({ station, onBack }) {
   const { user, getToken } = useAuth()
   const isSupervisor = canAccess(user, 'supervisor')
 
-  const [activeTab, setActiveTab]       = useState('mine')   // 'mine' | 'all'
+  const [activeTab, setActiveTab]         = useState('mine')   // 'mine' | 'all'
   const [selectedCheck, setSelectedCheck] = useState(null)
-  const [statusFilter, setStatusFilter] = useState('ALL')
-  const [deletedIds, setDeletedIds]     = useState(new Set())
+  const [statusFilter, setStatusFilter]   = useState('ALL')
+  const [deletedIds, setDeletedIds]       = useState(new Set())
 
-  // My checks (all roles)
+  // My checks (all roles) — scoped to current user's own submissions
   const {
     data: myChecks,
     isLoading: loadingMine,
@@ -42,7 +48,8 @@ export default function CheckHistoryScreen({ station, onBack }) {
     []
   )
 
-  // All checks at station (Supervisor+ only, loaded lazily when tab is switched)
+  // All checks at station for today (Supervisor+ only).
+  // B-E3 will replace this with a full date-range station history endpoint.
   const {
     data: allChecks,
     isLoading: loadingAll,
@@ -50,7 +57,7 @@ export default function CheckHistoryScreen({ station, onBack }) {
     refetch: refetchAll,
   } = useApi(
     () => isSupervisor && activeTab === 'all'
-      ? checkHistoryApi.getMyHistory(getToken) // TODO: replace with station-scoped endpoint when B-E3 is built
+      ? checkHistoryApi.getStationChecksToday(station.station_id, getToken)
       : Promise.resolve(null),
     [activeTab, isSupervisor]
   )
@@ -144,6 +151,11 @@ export default function CheckHistoryScreen({ station, onBack }) {
               </button>
             ))}
           </div>
+
+          {/* Today-only notice until B-E3 is built */}
+          <p className="check-history-screen__today-notice">
+            Showing today's checks. Full history coming soon.
+          </p>
 
           {loadingAll ? <Spinner label="Loading checks…" /> :
            errorAll   ? <ErrorCard message={errorAll.message} onRetry={refetchAll} /> :

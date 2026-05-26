@@ -10,6 +10,7 @@ New in Phase 4:
 
 from __future__ import annotations
 
+import logging
 from datetime import date, timedelta
 from typing import List
 
@@ -29,6 +30,8 @@ from ems_readykit.schemas.inventory_location import InventoryLocationRead
 from ems_readykit.schemas.inventory_location import InventoryLocationCreate
 from ems_readykit.schemas.par_level import ParLevelCreate, ParLevelRead
 from ems_readykit.schemas.stock_lot import StockLotCreate, StockLotRead
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 
@@ -118,6 +121,15 @@ def create_location(
     db.add(location)
     db.commit()
     db.refresh(location)
+    logger.info(
+        "Inventory location created: location_id=%s type=%s station_id=%s",
+        location.location_id, location.location_type, location.station_id,
+        extra={
+            "action":      "LOCATION_CREATED",
+            "entity_type": "inventory_location",
+            "entity_id":   str(location.location_id),
+        },
+    )
     return location
 
 
@@ -249,6 +261,15 @@ def create_compartment(
             ),
         )
     db.refresh(compartment)
+    logger.info(
+        "Compartment created: compartment_id=%s name=%r location_id=%s",
+        compartment.compartment_id, compartment.name, location_id,
+        extra={
+            "action":      "COMPARTMENT_CREATED",
+            "entity_type": "compartment",
+            "entity_id":   str(compartment.compartment_id),
+        },
+    )
     return compartment
 
 
@@ -305,6 +326,15 @@ def create_stock_lot(payload: StockLotCreate, db: Session = Depends(get_db)) -> 
     db.add(lot)
     db.commit()
     db.refresh(lot)
+    logger.info(
+        "Stock lot created: lot_id=%s item_id=%s location_id=%s",
+        lot.lot_id, lot.item_id, lot.location_id,
+        extra={
+            "action":      "STOCK_LOT_CREATED",
+            "entity_type": "stock_lot",
+            "entity_id":   str(lot.lot_id),
+        },
+    )
     return lot
 
 
@@ -415,6 +445,15 @@ def create_par_level(payload: ParLevelCreate, db: Session = Depends(get_db)) -> 
             detail="A par level already exists for this item/location/compartment combination.",
         )
     db.refresh(par)
+    logger.info(
+        "Par level created: par_id=%s item_id=%s location_id=%s compartment_id=%s",
+        par.par_id, par.item_id, par.location_id, par.compartment_id,
+        extra={
+            "action":      "PAR_LEVEL_CREATED",
+            "entity_type": "par_level",
+            "entity_id":   str(par.par_id),
+        },
+    )
     return par
 
 

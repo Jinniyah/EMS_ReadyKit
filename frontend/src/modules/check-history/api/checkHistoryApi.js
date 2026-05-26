@@ -17,6 +17,14 @@ export const checkHistoryApi = {
     return apiGet(`${BASE}/checks/daily/my-history${qs}`, getToken)
   },
 
+  /**
+   * Supervisor "All Checks" tab — today's checks for a station.
+   * Uses GET /checks/daily/station/{id}/today (Supervisor+ endpoint).
+   * Will be replaced by the full date-range B-E3 endpoint once built.
+   */
+  getStationChecksToday: (stationId, getToken) =>
+    apiGet(`${BASE}/checks/daily/station/${stationId}/today`, getToken),
+
   /** CH-B2: Full check detail — Responders own only, Supervisor+ any */
   getCheckDetail: (checkId, getToken) =>
     apiGet(`${BASE}/checks/daily/${checkId}/detail`, getToken),

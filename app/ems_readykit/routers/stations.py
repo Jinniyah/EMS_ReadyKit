@@ -19,6 +19,7 @@ B-ACCESS1 Phase 4 changes:
 
 from __future__ import annotations
 
+import logging
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -37,6 +38,8 @@ from ems_readykit.models.station_member import StationMember
 from ems_readykit.routers.deps import require_role
 from ems_readykit.schemas.inventory_location import InventoryLocationRead
 from ems_readykit.schemas.station import StationCreate, StationRead
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/stations", tags=["stations"])
 
@@ -99,6 +102,15 @@ def create_station(payload: StationCreate, db: Session = Depends(get_db)) -> Sta
     db.add(station)
     db.commit()
     db.refresh(station)
+    logger.info(
+        "Station created: station_id=%s name=%r region=%r",
+        station.station_id, station.name, station.region,
+        extra={
+            "action":      "STATION_CREATED",
+            "entity_type": "station",
+            "entity_id":   str(station.station_id),
+        },
+    )
     return station
 
 

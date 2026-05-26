@@ -17,6 +17,17 @@ Request logs are INFO level. They are NOT emitted for:
   - Static assets (none in this API)
 
 Third-party library logging is silenced at WARNING in core/logging.py.
+
+## Security headers (SEC-3)
+Every response carries:
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: strict-origin-when-cross-origin
+
+## OpenAPI docs (SEC-2)
+/docs, /redoc, and /openapi.json are disabled in production to avoid
+enumerating the full API surface to unauthenticated callers.
 """
 
 from __future__ import annotations
@@ -43,6 +54,23 @@ _LOG_EXCLUDED_PATHS = {"/health", "/docs", "/redoc", "/openapi.json", "/favicon.
 
 
 def create_app() -> FastAPI:
+    # ── SEC-4: Fail loud at startup if secret_key is still the default ────────
+    # This prevents a misconfigured production deploy from silently running with
+    # the insecure default key. Has no effect in development (is_production=False).
+    if settings.is_production:
+        assert settings.secret_key != "change-me-in-production", (
+            "SECRET_KEY must be set to a strong random value in production. "
+            "Set the SECRET_KEY environment variable or Key Vault secret."
+        )
+
+    # ── SEC-2: Disable OpenAPI docs in production (OWASP A05) ─────────────────
+    # /docs and /redoc enumerate the full API surface to unauthenticated callers.
+    # Disable them in production; they remain available in development for local
+    # testing and the FastAPI interactive explorer.
+    _docs_url     = None if settings.is_production else "/docs"
+    _redoc_url    = None if settings.is_production else "/redoc"
+    _openapi_url  = None if settings.is_production else "/openapi.json"
+
     app = FastAPI(
         title="EMS ReadyKit API",
         description=(
@@ -50,10 +78,22 @@ def create_app() -> FastAPI:
             "Non-production technical demonstration. Does not process patient data."
         ),
         version="0.2.0",
-        docs_url="/docs",
-        redoc_url="/redoc",
-        openapi_url="/openapi.json",
+        docs_url=_docs_url,
+        redoc_url=_redoc_url,
+        openapi_url=_openapi_url,
     )
+
+    # ── SEC-3: Security response headers (OWASP A05) ──────────────────────────
+    # Applied to every response. Registered before the request logger so these
+    # headers are present on all responses including error responses.
+    @app.middleware("http")
+    async def add_security_headers(request: Request, call_next) -> Response:
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
 
     @app.middleware("http")
     async def log_requests(request: Request, call_next) -> Response:

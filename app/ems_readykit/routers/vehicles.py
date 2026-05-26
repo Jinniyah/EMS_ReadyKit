@@ -16,6 +16,7 @@ active filter:
 
 from __future__ import annotations
 
+import logging
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -28,6 +29,8 @@ from ems_readykit.models.station import Station
 from ems_readykit.models.vehicle import Vehicle
 from ems_readykit.routers.deps import require_role
 from ems_readykit.schemas.vehicle import VehicleCreate, VehicleRead
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["vehicles"])
 
@@ -98,6 +101,16 @@ def create_vehicle(payload: VehicleCreate, db: Session = Depends(get_db)) -> Veh
     db.add(location)
     db.commit()
     db.refresh(vehicle)
+    logger.info(
+        "Vehicle created: vehicle_id=%s number=%r type=%s station_id=%s",
+        vehicle.vehicle_id, vehicle.vehicle_number,
+        vehicle.vehicle_type, vehicle.station_id,
+        extra={
+            "action":      "VEHICLE_CREATED",
+            "entity_type": "vehicle",
+            "entity_id":   str(vehicle.vehicle_id),
+        },
+    )
     return vehicle
 
 

@@ -1,5 +1,1 @@
-"""
-Temporary file — delete me.
-The RBAC test fixes are described in the commit message.
-Actual changes go in test_routers.py TestRBAC class.
-"""
+# This file has been removed. RBAC tests live in test_routers.py (TestRBAC class).

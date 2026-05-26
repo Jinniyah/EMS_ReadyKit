@@ -10,6 +10,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import logging
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -21,6 +22,8 @@ from ems_readykit.core.database import get_db
 from ems_readykit.models.item import Item, ItemCategory
 from ems_readykit.routers.deps import require_role
 from ems_readykit.schemas.item import ItemCreate, ItemRead
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/items", tags=["items"])
 
@@ -89,6 +92,15 @@ def create_item(payload: ItemCreate, db: Session = Depends(get_db)) -> Item:
             detail=f"An item named '{payload.name}' already exists.",
         )
     db.refresh(item)
+    logger.info(
+        "Item created: item_id=%s name=%r category=%s controlled_substance=%s",
+        item.item_id, item.name, item.category, item.controlled_substance,
+        extra={
+            "action":      "ITEM_CREATED",
+            "entity_type": "item",
+            "entity_id":   str(item.item_id),
+        },
+    )
     return item
 
 

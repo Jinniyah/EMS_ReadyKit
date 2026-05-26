@@ -429,6 +429,12 @@ def create_cs_check(
 
     primary_signer = current_user.name
 
+    # OWASP A04 — Known limitation: secondary_signer is free-text and compared
+    # by name string only. A determined user could bypass dual-signature intent
+    # by entering a slight name variant. The structural fix is F-UX34 (structured
+    # user picker bound to a real Azure AD identity). Until that is built, this
+    # check deters accidental self-signing but cannot prevent deliberate spoofing.
+    # See: docs/backlog.md SEC-6, F-UX34
     if primary_signer.strip().lower() == payload.secondary_signer.strip().lower():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
