@@ -1,43 +1,158 @@
 # EMS ReadyKit — Active Backlog
-# v1.24 | Updated: 2026-05-25
+# v1.25 | Updated: 2026-05-26
 # Completed items → backlog_completed.md
-# Priority: High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
+# Priority: Critical / High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
 # ✅ SESSION COMPLETE 2026-05-24
-# See backlog_completed.md for full list.
-# Key items completed this session:
-#   - Phase 5H: Azure Static Web Apps live, CI/CD 4-job pipeline, CORS, Azure AD redirect URIs
-#   - App Service upgraded F1 → B1 (VNet integration, always-on)
-#   - Azure AD: guest user auth working (Gmail via External Identities)
-#   - Supervisor Dashboard (F-5F1, F-5F3, F-5F4, F-5F5) complete
-#   - MEASUREMENT item LOW status — item row yellow, reconcile shows reading vs minimum
-#   - Draft banner: station-scoped (any responder at station can resume — shift handoff)
-#   - Bug fix: VITE_API_BASE_URL set in deploy.yml (stations were not loading in production)
-#
+ See backlog_completed.md for full list.
+ Key items completed this session:
+   - Phase 5H: Azure Static Web Apps live, CI/CD 4-job pipeline, CORS, Azure AD redirect URIs
+   - App Service upgraded F1 → B1 (VNet integration, always-on)
+   - Azure AD: guest user auth working (Gmail via External Identities)
+   - Supervisor Dashboard (F-5F1, F-5F3, F-5F4, F-5F5) complete
+   - MEASUREMENT item LOW status — item row yellow, reconcile shows reading vs minimum
+   - Draft banner: station-scoped (any responder at station can resume — shift handoff)
+   - Bug fix: VITE_API_BASE_URL set in deploy.yml (stations were not loading in production)
+
 # ✅ SESSION COMPLETE 2026-05-25
-# Key items completed this session:
-#   - F-UX35: Draft banner station fallback — localStorage cache of last known station_id
-#   - Draft flow overhaul: fixed same-tab storage event (EventTarget bus), key-null race
-#     on first saveDraft call, type-coercion bug in station_id comparison
-#   - Draft resume: blank compartment screen fixed (Spinner while locationId resolves)
-#   - React "setState during render" warning fixed (removed functional updaters from
-#     saveDraft/saveLineItem, replaced with draftRef mirror)
-#   - Timestamp UTC fix: backend @field_serializer emits Z-suffixed datetimes;
-#     frontend normalizeUtc() guard added to all formatTime/formatDateTime calls
-#   - Azure AD auth: audience mismatch fixed (bare GUID vs api:// URI — now accepts both)
-#   - Production database: seed.py added to deployment zip; startup.sh auto-seeds
-#     when stations table is empty
-#   - B-ADMIN1, B-ACCESS1, UAT section added to backlog
-#   - Crew mode bug fixed: Compliance Dashboard now hidden in crew mode
-#
+ Key items completed this session:
+   - F-UX35: Draft banner station fallback — localStorage cache of last known station_id
+   - Draft flow overhaul: fixed same-tab storage event (EventTarget bus), key-null race
+     on first saveDraft call, type-coercion bug in station_id comparison
+   - Draft resume: blank compartment screen fixed (Spinner while locationId resolves)
+   - React "setState during render" warning fixed (removed functional updaters from
+     saveDraft/saveLineItem, replaced with draftRef mirror)
+   - Timestamp UTC fix: backend @field_serializer emits Z-suffixed datetimes;
+     frontend normalizeUtc() guard added to all formatTime/formatDateTime calls
+   - Azure AD auth: audience mismatch fixed (bare GUID vs api:// URI — now accepts both)
+   - Production database: seed.py added to deployment zip; startup.sh auto-seeds
+     when stations table is empty
+   - B-ADMIN1, B-ACCESS1, UAT section added to backlog
+   - Crew mode bug fixed: Compliance Dashboard now hidden in crew mode
+
+# ✅ SESSION COMPLETE 2026-05-26
+ Key items completed this session:
+   - Full sanity check: dead code audit, OWASP Top 10 review, maintainability review
+   - Deleted _patch_cs_message.py and _patch_get_check.py (dead code)
+   - ems_readykit_dev.db added to .gitignore
+   - deploy.zip added to .gitignore
+   - Backlog updated: new Security section, OWASP references, session plan, refactor plan
+
 # NEXT SESSION priority order:
-#   1. Verify production deployment is stable (stations load, checks submit, history shows)
-#   2. B-E3 (date-range compliance query) → unblocks F-5F2 calendar
-#   3. D-R1 documentation audit
+   1. B-E3 (date-range compliance query) → unblocks F-5F2 calendar + F-UX7 banner
+   2. CH-UX1 (unified check resolution workflow — frontend only)
+   3. D-R1 documentation audit
 
 ---
 
-## 1. Backend — Phase 6 Endpoints
+## ──────────────────────────────────────────────────────────────────────────────
+## SESSION PLAN
+## ──────────────────────────────────────────────────────────────────────────────
+##
+## Sessions are ordered by dependency and risk. Complete Critical items before
+## inviting any real users. Items within a session can run in parallel where noted.
+##
+## Session A — Security Gate (1–2 hrs) — MUST COMPLETE BEFORE REAL USERS
+##   SEC-1   pip-audit in CI (A06)                             ~20 min
+##   SEC-2   Disable OpenAPI docs in production (A05)          ~15 min
+##   SEC-3   Security headers middleware (A05, I-4)            ~15 min
+##   SEC-4   Production startup assertion: secret_key (A02)    ~10 min
+##   SEC-5   B-Q1 structured logging — inventory/stations/
+##           vehicles/items (A09)                              ~45 min
+##   SEC-6   Document secondary_signer limitation (A04)        ~10 min
+##
+## Session B — Refactor Sprint (2–3 hrs) — DO BEFORE PHASE 6 BACKEND WORK
+##   REF-1   Extract _write_audit_event() to core/audit.py     ~30 min
+##   REF-2   Move _get_vehicle_or_404() to deps.py             ~20 min
+##   REF-3   Move _ALL_ROLES / _SUPERVISOR_PLUS to deps.py     ~20 min
+##   REF-4   Move require_station_membership() to deps.py      ~20 min
+##   REF-5   Consolidate frontend CSS patch files              ~30 min
+##   REF-6   B-Q2 standardise extra={} logging in auth.py      ~15 min
+##
+## Session C — Access Control Enforcement (3–4 hrs) — MUST COMPLETE BEFORE REAL USERS
+##   ACC-B7  Station membership check on /checks endpoints     ~60 min
+##   ACC-B8  Station membership check on /vehicles + /inventory~60 min
+##   ACC-B9  Station membership check on supervisor endpoints  ~30 min
+##   (depends on Session B / REF-4 being done first)
+##
+## Session D — Today's Features (2–3 hrs)
+##   B-E3    Date-range compliance query endpoint              ~60 min
+##   CH-UX1  Unified check resolution workflow (frontend)      ~90 min
+##   D-R1    Documentation audit                               ~60 min
+##
+## Session E — Core Features (3–4 hrs per session, multiple sessions)
+##   B-E5, B-E6, ADMIN-B1–B10, ADMIN-F1–F5, RET-* items
+##
+## Session F — UAT (1–2 hrs)
+##   UAT-1 through UAT-8 (after Session C completes)
+##
+## ──────────────────────────────────────────────────────────────────────────────
+
+---
+
+## 0. Security — Pre-User Gate [CRITICAL — Do Before Any Real Users]
+
+These items address OWASP Top 10 vulnerabilities found in the 2026-05-26 code review.
+None require architectural changes. All are small, targeted fixes.
+
+### 0a. OWASP A01 — Broken Access Control
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| ACC-B7 | Enforce station membership in `GET /checks/daily` and check submission | **Critical** | 📋 | 403 if user not member of station. Move `require_station_membership()` to `deps.py` first (REF-4). |
+| ACC-B8 | Enforce station membership in all `/vehicles` and `/inventory` endpoints | **Critical** | 📋 | A Responder at Newberg must not be able to query Marcellus vehicles. |
+| ACC-B9 | Enforce station membership in supervisor dashboard endpoints | **Critical** | 📋 | |
+| ACC-B10 | `deps.py`: add `require_station_membership(station_id)` dependency | **Critical** | 📋 | Reusable FastAPI dep; replaces inline copy in `stations.py`. REF-4. |
+
+### 0b. OWASP A02 — Cryptographic Failures
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| SEC-4 | Add startup assertion: `assert settings.secret_key != "change-me-in-production"` when `is_production` | High | 📋 | Add to `create_app()` in `main.py`. Prevents accidental dev-key deployment. |
+
+### 0c. OWASP A04 — Insecure Design
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| SEC-6 | Document `secondary_signer` free-text limitation in `checks.py` and `runbook.md` | High | 📋 | The dual-signature check compares names as strings — a determined user could spoof. This is a known architectural gap; the real fix is F-UX34 (structured user picker). Until then, document it. |
+| F-UX34 | Second crew picker — structured user lookup replacing free-text `secondary_signer` | Medium | ⛔ | OWASP A04. Needs B-M15, B-E7. This is the real fix for SEC-6. |
+
+### 0d. OWASP A05 — Security Misconfiguration
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| SEC-2 | Disable OpenAPI `/docs` and `/redoc` in production | High | 📋 | OWASP A05. In `main.py`: `docs_url=None if settings.is_production else "/docs"`. One-line change. |
+| SEC-3 | Add security headers middleware to `main.py` | High | 📋 | OWASP A05. Set `X-Content-Type-Options: nosniff` and `X-Frame-Options: DENY` via a response middleware. Supersedes I-4. |
+| I-3 | `HTTPSRedirectMiddleware` in `main.py` (production-gated) | Low | 📋 | OWASP A05. Defense-in-depth if ever moved behind a different proxy. |
+
+### 0e. OWASP A06 — Vulnerable and Outdated Components
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| SEC-1 | Add `pip-audit` as a CI step in `.github/workflows/deploy.yml` test job | High | 📋 | OWASP A06. Runs before tests. Fails the build on known CVEs. Command: `pip install pip-audit && pip-audit -r requirements.txt`. |
+
+### 0f. OWASP A09 — Security Logging and Monitoring Failures
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| SEC-5a | Add structured `logger` calls to `inventory.py` — POST/PATCH mutations | **Critical** | 📋 | OWASP A09. Supervisor creating/editing stock lots currently leaves no log line. Include `entity_type`, `entity_id`, actor in `extra={}`. |
+| SEC-5b | Add structured `logger` calls to `stations.py` — POST mutations | **Critical** | 📋 | OWASP A09. |
+| SEC-5c | Add structured `logger` calls to `vehicles.py` — POST mutations | **Critical** | 📋 | OWASP A09. `repair_requests.py` already has logging; `vehicles.py` GET/POST do not. |
+| SEC-5d | Add structured `logger` calls to `items.py` — POST mutations | **Critical** | 📋 | OWASP A09. |
+
+---
+
+## 1. Code — Refactoring Sprint [HIGH — Do Before Phase 6 Backend Work]
+
+These items fix the maintainability issues found in the 2026-05-26 review.
+Each is a safe, mechanical change. The full change map is in Section 25 (Refactor Plan).
+
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| REF-1 | Extract `_write_audit_event()` to `app/ems_readykit/core/audit.py` | High | 📋 | Currently defined in `checks.py`, called inline-differently in 3 other routers. See Section 25. |
+| REF-2 | Move `_get_vehicle_or_404()` to `deps.py` | High | 📋 | Duplicated identically in `checks.py` and `repair_requests.py`. |
+| REF-3 | Move `_ALL_ROLES` and `_SUPERVISOR_PLUS` constants to `deps.py` | High | 📋 | Redefined in every router (9 files). Single source of truth. |
+| REF-4 | Move `require_station_membership()` from `stations.py` to `deps.py` | High | 📋 | Must be in `deps.py` before ACC-B7/B8/B9 can use it without circular imports. |
+| REF-5 | Consolidate frontend CSS patch files into module or `src/styles/` | Medium | 📋 | `submitted-screen-patch.css`, `module-card-fix.css`, `wizard-station.css`, `wizard.css` all imported from root in `main.jsx`. |
+| REF-6 | Standardise `extra={}` logging shape in `core/auth.py` | Low | 📋 | Supersedes B-Q2. JWKS failure log lines are missing `extra={}` fields that the rest of the codebase uses. |
+
+---
+
+## 2. Backend — Phase 6 Endpoints
 | # | Endpoint | Description | Pri | Status | Needs |
 |---|----------|-------------|-----|--------|-------|
 | B-E3 | `GET /checks/daily/station/{id}?from=&to=` | Date-range compliance query | High | 📋 | |
@@ -58,7 +173,7 @@
 
 ---
 
-## 2. Backend — Data Models
+## 3. Backend — Data Models
 | # | Item | Pri | Status |
 |---|------|-----|--------|
 | B-M2 | New table: `notifications` | Medium | 📋 |
@@ -76,14 +191,6 @@
 | RET-M2 | Alter `locations`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 |
 | RET-M3 | Alter `stations`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 |
 | RET-M4 | Scheduled nightly job: hard-delete retired objects where `retired_at` > 5 yrs | High | 📋 |
-
----
-
-## 3. Backend — Code Quality
-| # | Item | Pri | Status |
-|---|------|-----|--------|
-| B-Q1 | Structured `logger` calls in `inventory.py`, `stations.py`, `vehicles.py`, `items.py` | Medium | 📋 |
-| B-Q2 | Standardise `extra={}` logging shape in `core/auth.py` | Low | 📋 |
 
 ---
 
@@ -176,13 +283,13 @@
 | F-UX4 | Expired item replacement prompt | Medium | 📋 | |
 | F-UX5 | Check handoff support | Medium | ⛔ | B-M8 |
 | F-UX6 | Compartment location descriptor on cards | Medium | 📋 | |
-| F-UX7 | "Last checked today" indicator on vehicle cards | High | 📋 | |
+| F-UX7 | **Last check banner** — on the home screen, show when the most recent daily check was completed for the selected station and by whom (e.g. "Unit 712 checked today at 6:21 AM by Cindy"). Auto-visible on login so incoming shift knows immediately if the check is done. Shown per vehicle; color-coded green (checked today) / amber (checked yesterday) / red (not checked). | High | 📋 | Needs B-E3 for date-range query |
 | F-UX8 | Item count on compartment cards | Low | 📋 | |
 | F-UX9 | Two-state submit with offline queue | Low | 📋 | |
 | F-UX10 | "Caller/spotter view" large-text mode | Low | 📋 | |
 | F-UX32 | BORROWED badge on loaned items during check; shortcut to V&E Status | Medium | 📋 | B-M14 |
-| F-UX34 | Second crew picker — structured user lookup replacing free-text field | Medium | ⛔ | B-M15, B-E7 |
-| F-UX35 | Draft banner visible while station API loading — cache last known station_id in localStorage as fallback so in-progress checks are never hidden from the responder | High | 📋 | |
+| F-UX34 | Second crew picker — structured user lookup replacing free-text field | Medium | ⛔ | OWASP A04 (real fix for SEC-6). Needs B-M15, B-E7. |
+| F-UX35 | Draft banner visible while station API loading — cache last known station_id in localStorage as fallback | High | 📋 | |
 
 ---
 
@@ -227,8 +334,8 @@
 |---|------|-----|--------|-------|
 | I-1 | Azure Firewall in `modules/network` with UDR + FQDN allow-list | Medium | 📋 | |
 | I-2 | Re-add route table to subnets | Medium | ⛔ | I-1 |
-| I-3 | `HTTPSRedirectMiddleware` in `main.py` (production-gated) | Low | 📋 | |
-| I-4 | `X-Content-Type-Options` and `X-Frame-Options` headers | Low | 📋 | |
+| I-3 | `HTTPSRedirectMiddleware` in `main.py` (production-gated) | Low | 📋 | OWASP A05. Defense-in-depth. See SEC-3. |
+| I-4 | `X-Content-Type-Options` and `X-Frame-Options` headers | Low | 📋 | Superseded by SEC-3 — do SEC-3 first. |
 | I-5 | Document Azure AD token lifetime; confirm CAE enabled | Low | 📋 | |
 | I-6 | Write `docs/adr/ADR-006-DDoS-Strategy.md` | Low | 📋 | |
 
@@ -279,7 +386,7 @@ Entry point: "Admin" card on home page, visible to Administrator + Supervisor ro
 
 ---
 
-## 19. Station Membership & Access Control (B-ACCESS1)
+## 18. Station Membership & Access Control (B-ACCESS1)
 
 **Problem:** Currently `GET /api/v1/stations` returns all active stations to any
 authenticated user. Stations, vehicles, equipment, and check history should only
@@ -293,52 +400,53 @@ Supervisors and Administrators assign Responders.
 
 **Downstream impact:** Once this is live, every station-scoped endpoint
 (`/checks`, `/vehicles`, `/inventory`, `/stations`) must filter by membership.
-This is a breaking change to the data access layer — implement in a dedicated sprint.
+The data model (station_members table) and GET /stations/my are already implemented.
+Phase 4 enforcement (ACC-B7–B10) is the remaining work. See Section 0a (OWASP A01).
 
-### Backend — Data Model
+### Backend — Data Model [COMPLETE]
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| ACC-M1 | New table: `station_members` (`station_id`, `user_id`, `user_name`, `role`, `assigned_by`, `assigned_at`, `active`) | High | 📋 | Core of all access control |
-| ACC-M2 | Migration: add `station_members` table | High | 📋 | Needs ACC-M1 |
+| ACC-M1 | New table: `station_members` | ✅ Done | — | Implemented 2026-05-25 |
+| ACC-M2 | Migration: add `station_members` table | ✅ Done | — | Implemented 2026-05-25 |
 
-### Backend — Endpoints
+### Backend — Endpoints [COMPLETE]
 | # | Endpoint | Description | Pri | Status | Notes |
 |---|----------|-------------|-----|--------|-------|
-| ACC-B1 | `GET /stations/{id}/members` | List members of a station | High | 📋 | Supervisor+ |
-| ACC-B2 | `POST /stations/{id}/members` | Add user to station with role | High | 📋 | Admin assigns Supervisor; Supervisor/Admin assigns Responder |
-| ACC-B3 | `PATCH /stations/{id}/members/{user_id}` | Change member role | High | 📋 | Admin only for Supervisor role changes |
-| ACC-B4 | `DELETE /stations/{id}/members/{user_id}` | Remove user from station | High | 📋 | Admin removes Supervisors; Supervisor/Admin removes Responders |
-| ACC-B5 | `GET /stations/my` | Return only stations the current user is assigned to | High | 📋 | Replaces current unfiltered `GET /stations` in the station picker |
-| ACC-B6 | `GET /stations` | Return all stations (Administrator only — for admin management views) | High | 📋 | Existing endpoint; add role guard |
+| ACC-B1 | `GET /stations/{id}/members` | List members of a station | ✅ Done | — | Implemented 2026-05-25 |
+| ACC-B2 | `POST /stations/{id}/members` | Add user to station with role | ✅ Done | — | Implemented 2026-05-25 |
+| ACC-B3 | `PATCH /stations/{id}/members/{user_id}` | Change member role | ✅ Done | — | Implemented 2026-05-25 |
+| ACC-B4 | `DELETE /stations/{id}/members/{user_id}` | Remove user from station | ✅ Done | — | Implemented 2026-05-25 |
+| ACC-B5 | `GET /stations/my` | Return only stations the current user is assigned to | ✅ Done | — | Implemented 2026-05-25 |
+| ACC-B6 | `GET /stations` | Return all stations (Administrator only) | ✅ Done | — | Implemented 2026-05-25 |
 
-### Backend — Access Enforcement
+### Backend — Access Enforcement [CRITICAL — see Section 0a]
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| ACC-B7 | Enforce station membership in `GET /checks/daily` and check submission | High | 📋 | 403 if user not member of station |
-| ACC-B8 | Enforce station membership in all `/vehicles` and `/inventory` endpoints | High | 📋 | |
-| ACC-B9 | Enforce station membership in supervisor dashboard endpoints | High | 📋 | |
-| ACC-B10 | `deps.py`: add `require_station_membership(station_id)` dependency | High | 📋 | Reusable FastAPI dep injected per route |
+| ACC-B7 | Enforce station membership in `/checks` | **Critical** | 📋 | Listed in Section 0a |
+| ACC-B8 | Enforce station membership in `/vehicles` + `/inventory` | **Critical** | 📋 | Listed in Section 0a |
+| ACC-B9 | Enforce station membership in supervisor dashboard | **Critical** | 📋 | Listed in Section 0a |
+| ACC-B10 | `deps.py`: `require_station_membership()` dependency | **Critical** | 📋 | Listed in Section 0a |
 
 ### Frontend
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| ACC-F1 | Station picker uses `GET /stations/my` instead of `GET /stations` | High | 📋 | Single-line change once ACC-B5 exists |
+| ACC-F1 | Station picker uses `GET /stations/my` instead of `GET /stations` | High | 📋 | Single-line change once ACC-B5 exists (it does) |
 | ACC-F2 | Member list view — per station, shows name + role + assigned date | High | 📋 | Supervisor+ |
 | ACC-F3 | Add member form — name/email + role picker; Admin sees Supervisor option | High | 📋 | |
 | ACC-F4 | Remove member confirmation — with role-based guard on who can remove whom | High | 📋 | |
-| ACC-F5 | "Pending assignment" screen — shown to authenticated users with no station assignments. Warm, non-technical message: "Welcome! Your account is being set up. Contact your administrator to get assigned to a station." No station data accessible. Replaces the current empty station picker. | High | 📋 | |
+| ACC-F5 | "Pending assignment" screen — warm holding page for unassigned authenticated users | High | 📋 | |
 
 ### Open Questions
 | # | Question | Owner |
 |---|----------|-------|
 | Q-11 | User lookup when adding a member: MS Graph search or free-text name+email entry? | Engineering |
-| Q-12 | Users can be assigned to multiple stations simultaneously (confirmed). Example: Cindy — Newberg + Marcellus; Steve — Newberg + Dowagiac. `station_members` is a many-to-many join table. | ✅ Resolved |
-| Q-13 | Seed data: auto-assign the seeded admin user to all stations on first deploy? Also note: Dowagiac is a real third station alongside Newberg and Marcellus — add to seed.py when station details are available. | Engineering |
-| Q-14 | Grace period for unassigned users: confirmed — show a friendly "pending assignment" screen rather than a hard 403. New authenticated users see a warm holding page (e.g. "Welcome! Your account is being set up — contact your administrator to get assigned to a station.") with no access to any station data until assigned. | ✅ Resolved |
+| Q-12 | Users can be assigned to multiple stations simultaneously (confirmed). | ✅ Resolved |
+| Q-13 | Seed data: auto-assign seeded admin to all stations on first deploy? Dowagiac is a real third station — add to seed.py when details available. | Engineering |
+| Q-14 | Grace period for unassigned users: confirmed — friendly pending assignment screen. | ✅ Resolved |
 
 ---
 
-## 20. Documentation
+## 19. Documentation
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
 | D-R1 | **Documentation audit** — full review of all existing and planned docs | High | 📋 | See criteria below |
@@ -354,11 +462,9 @@ Review every file in `docs/` plus `README.md`:
 
 ---
 
-## 22. User Acceptance Testing (UAT)
+## 20. User Acceptance Testing (UAT)
 
-Before releasing to real users for testing, provide structured test cases
-covering all roles and key workflows. Modeled on the verification checklist
-used during development.
+Before releasing to real users, provide structured test cases covering all roles and workflows.
 
 ### Scope
 | # | Item | Pri | Status | Notes |
@@ -369,7 +475,7 @@ used during development.
 | UAT-4 | Administrator test cases — all supervisor cases plus station management, user assignment | High | 📋 | |
 | UAT-5 | Cross-role test cases — draft visible to other responder at same station, Supervisor can see all checks at station | Medium | 📋 | |
 | UAT-6 | Edge case test cases — resume after browser close, two drafts at same station, submit with failed items | Medium | 📋 | |
-| UAT-7 | Pending assignment test case — new user sees friendly holding screen, not a 403 | High | ⛔ | Needs B-ACCESS1 |
+| UAT-7 | Pending assignment test case — new user sees friendly holding screen, not a 403 | High | ⛔ | Needs ACC-F5 |
 | UAT-8 | Multi-station test case — user assigned to two stations can switch between them | Medium | ⛔ | Needs B-ACCESS1 |
 
 ### Test Case Document Criteria
@@ -385,41 +491,219 @@ Format: Google Doc or PDF shared with testers. Not a GitHub issue or markdown fi
 
 ---
 
-## 23. Check Resolution Workflow (CH-UX1)
+## 21. Check Resolution Workflow (CH-UX1)
 
-**Problem:** The FAIL resolution workflow is split across two screens with no
-connection between them. Supervisors must visit Check History to acknowledge,
-then the Compliance Dashboard to record a fix — and even after doing both,
-the check still visually shows as FAIL with no resolved state.
+**Problem:** The FAIL resolution workflow is split across two screens with no connection
+between them. Supervisors must visit Check History to acknowledge, then the Compliance
+Dashboard to record a fix — and even after doing both, the check still visually shows
+as FAIL with no resolved state.
 
 **Proposed solution — unified resolution in Check History:**
-
-Replace the fragmented approach with a single consolidated action panel
-in the Check Detail view (Check History) that a Supervisor can complete
-without touching the Compliance Dashboard:
-
   1. FAIL check detail shows failed items callout (already exists)
   2. Single "✓ Acknowledge & Record Resolution" button opens one panel
   3. Panel captures: what was fixed (free text) + resolved? (Yes / Still pending)
   4. On submit: saves corrective_action, sets reviewed_at/reviewed_by,
      visually marks check as "Acknowledged — Resolved" or "Acknowledged — Pending"
-  5. Compliance Dashboard "I Fixed This" remains for supervisors who prefer
-     that workflow, but Check History is now fully self-contained
+  5. Compliance Dashboard "I Fixed This" remains for supervisors who prefer that workflow
 
-**Backend impact:** No new endpoints needed. Uses existing
-`PATCH /checks/daily/{id}/acknowledge` and repair request endpoints.
+**Backend impact:** No new endpoints needed. Uses existing `PATCH /checks/daily/{id}/acknowledge`.
 
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| CH-UX1-F1 | Bring `IFixedThisForm` into `CheckDetail.jsx` — supervisor can acknowledge + resolve from Check History without visiting Compliance Dashboard | High | 📋 | No backend change needed |
-| CH-UX1-F2 | Unified resolution panel — single form captures corrective action + resolved/pending toggle | High | 📋 | Replaces separate Acknowledge and I Fixed This buttons |
-| CH-UX1-F3 | Resolved/Pending visual state on check detail — clear badge showing outcome after supervisor action | High | 📋 | |
-| CH-UX1-F4 | Compliance Dashboard "I Fixed This" updated to use same unified panel for consistency | Medium | 📋 | |
-| CH-UX1-F5 | After resolution, check card in history list shows "Resolved" indicator so supervisor can scan at a glance | Medium | 📋 | |
+| CH-UX1-F1 | Bring `IFixedThisForm` into `CheckDetail.jsx` — supervisor can acknowledge + resolve from Check History | High | 📋 | No backend change needed |
+| CH-UX1-F2 | Unified resolution panel — single form captures corrective action + resolved/pending toggle | High | 📋 | |
+| CH-UX1-F3 | Resolved/Pending visual state on check detail — clear badge showing outcome | High | 📋 | |
+| CH-UX1-F4 | Compliance Dashboard "I Fixed This" updated to use same unified panel | Medium | 📋 | |
+| CH-UX1-F5 | After resolution, check card in history list shows "Resolved" indicator | Medium | 📋 | |
 
 ---
 
-## 24. Open Questions
+## 25. Refactor Plan [Complete change map — no application breakage]
+
+This section is the authoritative implementation guide for the refactoring items
+in Section 1 (REF-1 through REF-6). Each change is backward-compatible.
+Do these in order — later items depend on earlier ones.
+
+### REF-1 — Extract `_write_audit_event()` to `core/audit.py`
+
+**Why:** The helper is defined in `checks.py` but three other routers write
+`AuditEvent(...)` objects inline without the accompanying `logger.info()` call.
+Centralising ensures every audit write also emits a structured log line.
+
+**New file: `app/ems_readykit/core/audit.py`**
+```python
+# core/audit.py
+import logging
+from datetime import datetime, timezone
+from typing import Optional
+from sqlalchemy.orm import Session
+from ems_readykit.models.audit_event import AuditEvent
+
+logger = logging.getLogger(__name__)
+
+def write_audit_event(
+    db: Session,
+    *,
+    actor: str,
+    action: str,
+    entity_type: str,
+    entity_id: str,
+    station_id: Optional[int] = None,
+    vehicle_id: Optional[int] = None,
+    metadata: Optional[dict] = None,
+    severity: str = "INFO",
+) -> None:
+    event = AuditEvent(
+        actor=actor, action=action, entity_type=entity_type,
+        entity_id=entity_id, station_id=station_id, vehicle_id=vehicle_id,
+        metadata_json=metadata, severity=severity,
+        timestamp=datetime.now(timezone.utc),
+    )
+    db.add(event)
+    db.commit()
+    logger.info(
+        "Audit event written",
+        extra={"action": action, "entity_type": entity_type,
+               "entity_id": entity_id, "severity": severity},
+    )
+```
+
+**Files to update:**
+- `checks.py` — remove `_write_audit_event()` definition; add `from ems_readykit.core.audit import write_audit_event`; rename call sites.
+- `check_history.py` — replace inline `db.add(AuditEvent(...)) / db.commit()` blocks with `write_audit_event(...)`. Note: `check_history.py` does NOT call `db.commit()` after adding the AuditEvent inline — it relies on a subsequent commit. `write_audit_event()` commits internally; adjust the surrounding code to not double-commit.
+- `repair_requests.py` — same pattern as `check_history.py`. Already has `logger.info()` calls; these stay as-is alongside `write_audit_event()`.
+- `vehicles.py` (repair_requests router) — the `update_vehicle_status` handler writes AuditEvent inline; replace.
+
+**Risk:** Low. The function signature is the same as the existing `_write_audit_event()`. The only behavioral change is that `check_history.py` and `repair_requests.py` now also get the `logger.info("Audit event written")` call.
+
+**Test:** Run `pytest tests/ -v` after this change. Audit event tests should pass unchanged.
+
+---
+
+### REF-2 — Move `_get_vehicle_or_404()` to `deps.py`
+
+**Why:** Defined identically in both `checks.py` and `repair_requests.py`.
+
+**Change in `deps.py`:** Add after the existing `require_role()` function:
+```python
+from ems_readykit.models.vehicle import Vehicle
+
+def get_vehicle_or_404(vehicle_id: int, db: Session) -> Vehicle:
+    vehicle = db.query(Vehicle).filter(Vehicle.vehicle_id == vehicle_id).first()
+    if not vehicle:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Vehicle {vehicle_id} not found.",
+        )
+    return vehicle
+```
+
+**Files to update:**
+- `checks.py` — remove `_get_vehicle_or_404()`; add `from ems_readykit.routers.deps import get_vehicle_or_404`; update call sites (drop the underscore).
+- `repair_requests.py` — same.
+
+**Risk:** None. Pure extraction — identical logic.
+
+---
+
+### REF-3 — Move `_ALL_ROLES` / `_SUPERVISOR_PLUS` to `deps.py`
+
+**Why:** Redefined in 9 router files. Will drift when a new role is added.
+
+**Change in `deps.py`:** Add after the imports:
+```python
+from ems_readykit.core.auth import ROLE_ADMINISTRATOR, ROLE_SUPERVISOR, ROLE_RESPONDER
+
+ALL_ROLES       = (ROLE_RESPONDER, ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
+SUPERVISOR_PLUS = (ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
+ADMIN_ONLY      = (ROLE_ADMINISTRATOR,)
+```
+
+**Files to update (remove local definitions, add import):**
+- `checks.py`, `check_history.py`, `station_members.py`, `stations.py`,
+  `vehicles.py`, `inventory.py`, `repair_requests.py`, `items.py`, `audit.py`
+- Each file: remove the 2–3 lines defining `_ALL_ROLES` / `_SUPERVISOR_PLUS` / `_ADMIN_ONLY`.
+- Add to import: `from ems_readykit.routers.deps import ALL_ROLES, SUPERVISOR_PLUS, ADMIN_ONLY`
+- Update all usage sites (remove leading underscore from names).
+
+**Risk:** Low. Purely a rename + import change. No logic changes.
+
+**Important:** `_ADMIN_ONLY` is only defined in `station_members.py` and `stations.py`. Include it in `deps.py` so all three are in one place even if not yet used everywhere.
+
+---
+
+### REF-4 — Move `require_station_membership()` from `stations.py` to `deps.py`
+
+**Why:** This function will be needed by `checks.py`, `vehicles.py`, and `inventory.py`
+for ACC-B7/B8/B9. If it stays in `stations.py`, those routers must import from `stations.py`,
+creating a semantic mismatch. `stations.py` already imports from `deps.py` — moving this
+function there eliminates any risk of circular imports.
+
+**Change in `deps.py`:** Add after `require_role()`:
+```python
+from ems_readykit.models.station_member import StationMember
+
+def require_station_membership(station_id: int, current_user: CurrentUser, db: Session) -> None:
+    """
+    Raises HTTP 403 if the current user is not an active member of the station.
+    Administrators bypass this check — they have access to all stations.
+    """
+    if current_user.has_role(ROLE_ADMINISTRATOR):
+        return
+    member = db.query(StationMember).filter(
+        StationMember.station_id == station_id,
+        StationMember.user_id    == current_user.email,
+        StationMember.active     == True,
+    ).first()
+    if not member:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not assigned to this station.",
+        )
+```
+
+**Files to update:**
+- `stations.py` — remove `require_station_membership()` definition; add
+  `from ems_readykit.routers.deps import require_station_membership`; all call sites unchanged.
+
+**Risk:** None. Pure move, no logic change.
+
+---
+
+### REF-5 — Consolidate frontend CSS patch files
+
+**Why:** `submitted-screen-patch.css`, `module-card-fix.css`, `wizard-station.css`,
+and `wizard.css` are all imported from `src/` root in `main.jsx`. They are patch files
+from rapid iteration that should be merged into the relevant module CSS.
+
+**Approach:**
+1. Create `src/styles/` directory.
+2. Move `wizard.css` and `wizard-station.css` into `src/styles/` (wizard-wide scope).
+3. Review `submitted-screen-patch.css` and `module-card-fix.css` — move each rule into
+   the CSS file of the component it fixes.
+4. Update imports in `main.jsx`.
+
+**Risk:** Low. CSS rules are additive; no JS logic changes. Test visually on the check
+wizard, submitted screen, and module cards after moving.
+
+---
+
+### REF-6 — Standardise `extra={}` logging in `core/auth.py`
+
+**Why:** JWKS failure and token rejection log lines in `auth.py` use plain string
+interpolation without `extra={}`, so they don't appear in Log Analytics structured queries.
+
+**Files to update:**
+- `core/auth.py` — update the three `logger.warning(...)` calls to include `extra={}`:
+  - JWKS failure: `extra={"action": "JWKS_LOOKUP_FAILED", "error": str(exc)}`
+  - Token validation failure: `extra={"action": "TOKEN_REJECTED", "token_aud": token_aud, "accepted_audiences": accepted_audiences}`
+  - Tenant mismatch: `extra={"action": "TENANT_MISMATCH", "token_tid": token_tid, "expected_tid": settings.azure_ad_tenant_id}`
+
+**Risk:** None. Log format change only. Tests do not assert on log output.
+
+---
+
+## 26. Open Questions
 | # | Question | Owner |
 |---|----------|-------|
 | Q-1 | Notification delivery: email (Azure Comms) or in-app only? | Project owner |
@@ -438,9 +722,10 @@ without touching the Compliance Dashboard:
 ## Summary
 | Area | 📋 | ⛔ | Total |
 |------|----|----|-------|
+| Security — Pre-User Gate (Section 0) | 12 | 0 | 12 |
+| Code — Refactoring Sprint (Section 1) | 6 | 0 | 6 |
 | Backend — Phase 6 Endpoints | 13 | 0 | 13 |
 | Backend — Data Models | 15 | 0 | 15 |
-| Backend — Code Quality | 2 | 0 | 2 |
 | Backend — Check History | 5 | 1 | 6 |
 | Backend — Retirement | 6 | 0 | 6 |
 | Backend — Loaned Items | 4 | 0 | 4 |
@@ -455,8 +740,8 @@ without touching the Compliance Dashboard:
 | Frontend — Retirement Actions | 5 | 0 | 5 |
 | Infrastructure / Security | 5 | 1 | 6 |
 | Equipment & Station Admin (B-ADMIN1) | 19 | 0 | 19 |
-| Station Membership & Access Control (B-ACCESS1) | 17 | 0 | 17 |
+| Station Membership (B-ACCESS1) | 5 | 0 | 5 |
+| Documentation | 1 | 0 | 1 |
 | User Acceptance Testing (UAT) | 6 | 2 | 8 |
 | Check Resolution Workflow (CH-UX1) | 5 | 0 | 5 |
-| Documentation | 1 | 0 | 1 |
-| **Total** | **141** | **10** | **151** |
+| **Total** | **163** | **10** | **173** |

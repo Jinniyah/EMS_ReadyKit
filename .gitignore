@@ -71,3 +71,9 @@ frontend/node_modules/
 frontend/dist/
 frontend/.env.local
 frontend/.env.production
+
+# Database
+ems_readykit_dev.db
+
+# Deployment
+deploy.zip
