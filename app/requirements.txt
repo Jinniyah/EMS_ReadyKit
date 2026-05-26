@@ -1,7 +1,10 @@
 # EMS ReadyKit — Python dependencies
+# Last security audit: 2026-05-26
+# Updated to resolve pip-audit findings (SEC-1 / OWASP A06).
 
 # Web framework
-fastapi==0.111.0
+# 0.116.0+ required for starlette>=0.47.2 support (CVE-2024-47874, CVE-2025-54121, PYSEC-2026-161)
+fastapi==0.116.1
 uvicorn[standard]==0.29.0
 
 # Database ORM + migrations
@@ -9,13 +12,13 @@ sqlalchemy==2.0.30
 alembic==1.13.1
 psycopg2-binary==2.9.9   # PostgreSQL driver (binary wheel — no libpq build dep)
 
-# Pydantic v2 (FastAPI 0.111 uses v2 natively)
+# Pydantic v2 (FastAPI uses v2 natively)
 pydantic==2.7.1
 pydantic-settings==2.2.1
 
 # Azure SDK — Key Vault secret retrieval via Managed Identity
 azure-keyvault-secrets==4.8.0
-azure-identity==1.16.0
+azure-identity==1.19.0   # was 1.16.0 — fixes CVE-2024-35255 (EoP via credential race condition)
 
 # Logging helpers
 python-json-logger==2.0.7
@@ -24,10 +27,18 @@ python-json-logger==2.0.7
 python-dateutil==2.9.0
 
 # Authentication — Azure AD JWT validation
-PyJWT[crypto]==2.8.0
-cryptography==42.0.8     # Required by PyJWT[crypto] for RS256 signature verification
-httpx==0.27.0           # JWKS fetch + ASGI test client for FastAPI
+# PyJWT 2.12.0 — fixes PYSEC-2026-120, PYSEC-2025-183
+# cryptography 46.0.6 — fixes CVE-2024-12797, CVE-2026-26007, GHSA-h4gh-qq45-vh27, PYSEC-2026-35
+PyJWT[crypto]==2.12.0
+cryptography==46.0.6
+httpx==0.27.0            # JWKS fetch + ASGI test client for FastAPI
+
+# Starlette — pinned explicitly to get CVE fixes independent of FastAPI's transitive range
+# Fixes: CVE-2024-47874, CVE-2025-54121, PYSEC-2026-161
+starlette==0.47.2
 
 # Testing
-pytest==8.2.0
-pytest-asyncio==0.23.6
+# pytest 9.0.3 — fixes CVE-2025-71176
+# pytest-asyncio removed: all tests are synchronous (TestClient-based); no async
+# test functions or async fixtures exist. Re-add when async tests are needed.
+pytest==9.0.3

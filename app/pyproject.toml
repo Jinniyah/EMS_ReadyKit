@@ -1,6 +1,7 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-asyncio_mode = "auto"
+# asyncio_mode removed: pytest-asyncio is not installed. All tests are synchronous
+# (TestClient-based). Re-add asyncio_mode when async tests are needed.
 
 [tool.ruff]
 line-length = 100
