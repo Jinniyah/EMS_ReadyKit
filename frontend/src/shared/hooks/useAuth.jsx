@@ -2,28 +2,29 @@
  * shared/hooks/useAuth.jsx
  * Authentication state hook — real MSAL in production, dev fake in development.
  *
- * ## Production (VITE_APP_ENV=production)
- * Wraps @azure/msal-react.  Parses Azure AD roles from the JWT id_token.
- * Provides getToken() which silently acquires a fresh access token for the API.
+ * ## Production auth flow
+ * Uses loginRedirect / logoutRedirect instead of loginPopup / logoutPopup.
+ * Popup flow is unreliable on mobile Chrome and in incognito windows — the
+ * browser blocks the popup because it isn't triggered by a direct user gesture
+ * in the right context. Redirect flow navigates to login.microsoftonline.com
+ * and back, which works on all browsers and devices.
  *
  * ## Development (VITE_APP_ENV=development)
- * DevAuthProvider replaces MSAL entirely.  No Azure AD setup needed.
- * The dev banner lets you switch between three roles, which sets the token
- * to "test-administrator", "test-supervisor", or "test-responder" — the exact
- * tokens the FastAPI backend accepts in dev mode.
+ * DevAuthProvider replaces MSAL entirely. No Azure AD setup needed.
+ * The dev banner lets you switch between three roles.
  *
  * ## useAuth() return shape
  * {
  *   isAuthenticated: boolean
  *   isLoading:       boolean
  *   user:            { name, email, role, initials } | null
- *   getToken:        () => Promise<string>     — returns Bearer token value
+ *   getToken:        () => Promise<string>
  *   login:           () => void
  *   logout:          () => void
  * }
  */
 
-import React, { createContext, useContext, useState, useCallback } from 'react'
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { useMsal, useIsAuthenticated } from '@azure/msal-react'
 import { apiTokenRequest } from '../api/authConfig.js'
 
@@ -61,11 +62,6 @@ const DEV_USERS = {
 }
 
 // ── DevAuthProvider ───────────────────────────────────────────────────────────
-/**
- * Replaces MsalProvider in development.
- * Reads the active dev role from localStorage so role choice persists across
- * hot reloads but resets when the browser tab is closed.
- */
 export function DevAuthProvider({ children }) {
   const [roleKey, setRoleKey] = useState(
     () => localStorage.getItem('ems_dev_role') ?? 'administrator'
@@ -75,9 +71,8 @@ export function DevAuthProvider({ children }) {
   const user = DEV_USERS[roleKey] ?? DEV_USERS.administrator
 
   const getToken = useCallback(async () => user.token, [user.token])
-
-  const login = useCallback(() => setIsAuthenticated(true), [])
-  const logout = useCallback(() => setIsAuthenticated(false), [])
+  const login    = useCallback(() => setIsAuthenticated(true), [])
+  const logout   = useCallback(() => setIsAuthenticated(false), [])
 
   const switchRole = useCallback((key) => {
     localStorage.setItem('ems_dev_role', key)
@@ -91,7 +86,6 @@ export function DevAuthProvider({ children }) {
     getToken,
     login,
     logout,
-    // Dev-only
     _isDev: true,
     _devRoleKey: roleKey,
     _switchRole: switchRole,
@@ -106,16 +100,9 @@ export function DevAuthProvider({ children }) {
 }
 
 // ── useAuth ───────────────────────────────────────────────────────────────────
-/**
- * Primary auth hook — works identically in dev and production.
- * Components always call useAuth(); they never import MSAL directly.
- */
 export function useAuth() {
-  // Dev path
   const devCtx = useContext(DevAuthContext)
   if (devCtx !== null) return devCtx
-
-  // Production path — delegate to MSAL hooks
   // eslint-disable-next-line react-hooks/rules-of-hooks
   return useMsalAuth()
 }
@@ -127,8 +114,15 @@ function useMsalAuth() {
 
   const account = accounts[0] ?? null
 
-  // Parse role from JWT id_token claims.
-  // Azure AD sends roles as an array claim; we take the highest-privilege one.
+  // Handle the redirect response on page load.
+  // MSAL requires handleRedirectPromise() to be called after returning from
+  // login.microsoftonline.com — this processes the auth code in the URL hash.
+  useEffect(() => {
+    instance.handleRedirectPromise().catch((err) => {
+      console.error('[MSAL] handleRedirectPromise error:', err)
+    })
+  }, [instance])
+
   const role = _extractRole(account?.idTokenClaims?.roles)
 
   const user = account
@@ -140,21 +134,39 @@ function useMsalAuth() {
       }
     : null
 
+  // Silent token acquisition with redirect fallback.
+  // If the silent call fails (expired session, consent required), fall back
+  // to acquireTokenRedirect which navigates away and back.
   const getToken = useCallback(async () => {
     if (!account) throw new Error('Not authenticated')
-    const result = await instance.acquireTokenSilent({
-      ...apiTokenRequest,
-      account,
-    })
-    return result.accessToken
+    try {
+      const result = await instance.acquireTokenSilent({
+        ...apiTokenRequest,
+        account,
+      })
+      return result.accessToken
+    } catch (err) {
+      // InteractionRequiredAuthError means silent renewal failed —
+      // redirect the user to re-authenticate.
+      console.warn('[MSAL] Silent token acquisition failed, redirecting:', err)
+      await instance.acquireTokenRedirect({ ...apiTokenRequest, account })
+      // This line is never reached — redirect navigates away.
+      throw err
+    }
   }, [instance, account])
 
+  // Redirect flow — navigates to login.microsoftonline.com and back.
+  // Works on all browsers including mobile Chrome and incognito.
   const login = useCallback(() => {
-    instance.loginPopup(apiTokenRequest).catch(console.error)
+    instance.loginRedirect(apiTokenRequest).catch((err) => {
+      console.error('[MSAL] loginRedirect error:', err)
+    })
   }, [instance])
 
   const logout = useCallback(() => {
-    instance.logoutPopup({ account }).catch(console.error)
+    instance.logoutRedirect({ account }).catch((err) => {
+      console.error('[MSAL] logoutRedirect error:', err)
+    })
   }, [instance, account])
 
   return {
@@ -170,10 +182,6 @@ function useMsalAuth() {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/**
- * Pick the highest-privilege role from the roles array claim.
- * Azure AD sends all groups the user belongs to; we pick in priority order.
- */
 function _extractRole(roles) {
   if (!Array.isArray(roles)) return ROLE_RESPONDER
   if (roles.includes(ROLE_ADMINISTRATOR)) return ROLE_ADMINISTRATOR
