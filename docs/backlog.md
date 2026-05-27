@@ -1,47 +1,58 @@
 # EMS ReadyKit — Active Backlog
-# v1.25 | Updated: 2026-05-26
+# v1.26 | Updated: 2026-05-26
 # Completed items → backlog_completed.md
 # Priority: Critical / High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
 # ✅ SESSION COMPLETE 2026-05-24
- See backlog_completed.md for full list.
- Key items completed this session:
-   - Phase 5H: Azure Static Web Apps live, CI/CD 4-job pipeline, CORS, Azure AD redirect URIs
-   - App Service upgraded F1 → B1 (VNet integration, always-on)
-   - Azure AD: guest user auth working (Gmail via External Identities)
-   - Supervisor Dashboard (F-5F1, F-5F3, F-5F4, F-5F5) complete
-   - MEASUREMENT item LOW status — item row yellow, reconcile shows reading vs minimum
-   - Draft banner: station-scoped (any responder at station can resume — shift handoff)
-   - Bug fix: VITE_API_BASE_URL set in deploy.yml (stations were not loading in production)
-
+# See backlog_completed.md for full list.
+# Key items completed this session:
+#   - Phase 5H: Azure Static Web Apps live, CI/CD 4-job pipeline, CORS, Azure AD redirect URIs
+#   - App Service upgraded F1 → B1 (VNet integration, always-on)
+#   - Azure AD: guest user auth working (Gmail via External Identities)
+#   - Supervisor Dashboard (F-5F1, F-5F3, F-5F4, F-5F5) complete
+#   - MEASUREMENT item LOW status — item row yellow, reconcile shows reading vs minimum
+#   - Draft banner: station-scoped (any responder at station can resume — shift handoff)
+#   - Bug fix: VITE_API_BASE_URL set in deploy.yml (stations were not loading in production)
+#
 # ✅ SESSION COMPLETE 2026-05-25
- Key items completed this session:
-   - F-UX35: Draft banner station fallback — localStorage cache of last known station_id
-   - Draft flow overhaul: fixed same-tab storage event (EventTarget bus), key-null race
-     on first saveDraft call, type-coercion bug in station_id comparison
-   - Draft resume: blank compartment screen fixed (Spinner while locationId resolves)
-   - React "setState during render" warning fixed (removed functional updaters from
-     saveDraft/saveLineItem, replaced with draftRef mirror)
-   - Timestamp UTC fix: backend @field_serializer emits Z-suffixed datetimes;
-     frontend normalizeUtc() guard added to all formatTime/formatDateTime calls
-   - Azure AD auth: audience mismatch fixed (bare GUID vs api:// URI — now accepts both)
-   - Production database: seed.py added to deployment zip; startup.sh auto-seeds
-     when stations table is empty
-   - B-ADMIN1, B-ACCESS1, UAT section added to backlog
-   - Crew mode bug fixed: Compliance Dashboard now hidden in crew mode
-
-# ✅ SESSION COMPLETE 2026-05-26
- Key items completed this session:
-   - Full sanity check: dead code audit, OWASP Top 10 review, maintainability review
-   - Deleted _patch_cs_message.py and _patch_get_check.py (dead code)
-   - ems_readykit_dev.db added to .gitignore
-   - deploy.zip added to .gitignore
-   - Backlog updated: new Security section, OWASP references, session plan, refactor plan
-
+# Key items completed this session:
+#   - F-UX35: Draft banner station fallback — localStorage cache of last known station_id
+#   - Draft flow overhaul: fixed same-tab storage event (EventTarget bus), key-null race
+#     on first saveDraft call, type-coercion bug in station_id comparison
+#   - Draft resume: blank compartment screen fixed (Spinner while locationId resolves)
+#   - React "setState during render" warning fixed (removed functional updaters from
+#     saveDraft/saveLineItem, replaced with draftRef mirror)
+#   - Timestamp UTC fix: backend @field_serializer emits Z-suffixed datetimes;
+#     frontend normalizeUtc() guard added to all formatTime/formatDateTime calls
+#   - Azure AD auth: audience mismatch fixed (bare GUID vs api:// URI — now accepts both)
+#   - Production database: seed.py added to deployment zip; startup.sh auto-seeds
+#     when stations table is empty
+#   - B-ADMIN1, B-ACCESS1, UAT section added to backlog
+#   - Crew mode bug fixed: Compliance Dashboard now hidden in crew mode
+#
+# ✅ SESSION COMPLETE 2026-05-26 — Session A: Security Gate
+# See backlog_completed.md for full list.
+# Key items completed this session:
+#   - Full sanity check: dead code audit, OWASP Top 10 review, maintainability review
+#   - Deleted _patch_cs_message.py and _patch_get_check.py (dead code)
+#   - ems_readykit_dev.db and deploy.zip added to .gitignore
+#   - SEC-1: pip-audit added to CI — 0 CVEs remaining after upgrades
+#   - SEC-2: OpenAPI /docs /redoc disabled in production (OWASP A05)
+#   - SEC-3: Security headers middleware — X-Content-Type-Options, X-Frame-Options,
+#            X-XSS-Protection, Referrer-Policy (OWASP A05)
+#   - SEC-4: Startup assertion for secret_key default value (OWASP A02)
+#   - SEC-5a–d: Structured logger calls added to inventory, stations, vehicles, items (OWASP A09)
+#   - SEC-6: OWASP A04 comment documenting secondary_signer free-text limitation
+#   - All dependency CVEs resolved: fastapi→0.136.1, starlette→1.1.0, pydantic→2.13.4,
+#     pydantic-settings→2.14.1, azure-identity→1.19.0, PyJWT→2.12.0,
+#     cryptography→46.0.7, pytest→9.0.3, pytest-asyncio removed
+#   - Bug fix: Supervisor "All Checks" tab now calls getStationChecksToday instead of
+#     getMyHistory — PASS checks from other crew members were invisible
+#   - 153 tests pass (was 90 — gained tests from framework upgrade)
+#
 # NEXT SESSION priority order:
-   1. B-E3 (date-range compliance query) → unblocks F-5F2 calendar + F-UX7 banner
-   2. CH-UX1 (unified check resolution workflow — frontend only)
-   3. D-R1 documentation audit
+#   Session B: Refactor Sprint (REF-1 through REF-7) — do before Phase 6 backend work
+#   Session C: Access Control Enforcement (ACC-B7–B10) — must complete before real users
 
 ---
 
@@ -52,14 +63,8 @@
 ## Sessions are ordered by dependency and risk. Complete Critical items before
 ## inviting any real users. Items within a session can run in parallel where noted.
 ##
-## Session A — Security Gate (1–2 hrs) — MUST COMPLETE BEFORE REAL USERS
-##   SEC-1   pip-audit in CI (A06)                             ~20 min
-##   SEC-2   Disable OpenAPI docs in production (A05)          ~15 min
-##   SEC-3   Security headers middleware (A05, I-4)            ~15 min
-##   SEC-4   Production startup assertion: secret_key (A02)    ~10 min
-##   SEC-5   B-Q1 structured logging — inventory/stations/
-##           vehicles/items (A09)                              ~45 min
-##   SEC-6   Document secondary_signer limitation (A04)        ~10 min
+## Session A — Security Gate ✅ COMPLETE 2026-05-26
+##   All OWASP A02/A04/A05/A06/A09 items done. 0 CVEs. 153 tests pass.
 ##
 ## Session B — Refactor Sprint (2–3 hrs) — DO BEFORE PHASE 6 BACKEND WORK
 ##   REF-1   Extract _write_audit_event() to core/audit.py     ~30 min
@@ -68,6 +73,8 @@
 ##   REF-4   Move require_station_membership() to deps.py      ~20 min
 ##   REF-5   Consolidate frontend CSS patch files              ~30 min
 ##   REF-6   B-Q2 standardise extra={} logging in auth.py      ~15 min
+##   REF-7   Replace HTTP_422_UNPROCESSABLE_ENTITY with
+##           HTTP_422_UNPROCESSABLE_CONTENT (starlette 1.x)    ~15 min
 ##
 ## Session C — Access Control Enforcement (3–4 hrs) — MUST COMPLETE BEFORE REAL USERS
 ##   ACC-B7  Station membership check on /checks endpoints     ~60 min
@@ -75,7 +82,7 @@
 ##   ACC-B9  Station membership check on supervisor endpoints  ~30 min
 ##   (depends on Session B / REF-4 being done first)
 ##
-## Session D — Today's Features (2–3 hrs)
+## Session D — Features (2–3 hrs)
 ##   B-E3    Date-range compliance query endpoint              ~60 min
 ##   CH-UX1  Unified check resolution workflow (frontend)      ~90 min
 ##   D-R1    Documentation audit                               ~60 min
@@ -92,47 +99,22 @@
 
 ## 0. Security — Pre-User Gate [CRITICAL — Do Before Any Real Users]
 
-These items address OWASP Top 10 vulnerabilities found in the 2026-05-26 code review.
-None require architectural changes. All are small, targeted fixes.
-
-### 0a. OWASP A01 — Broken Access Control
+### 0a. OWASP A01 — Broken Access Control ⚠️ STILL OPEN
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| ACC-B7 | Enforce station membership in `GET /checks/daily` and check submission | **Critical** | 📋 | 403 if user not member of station. Move `require_station_membership()` to `deps.py` first (REF-4). |
+| ACC-B7 | Enforce station membership in `GET /checks/daily` and check submission | **Critical** | 📋 | 403 if user not member of station. Do REF-4 first. |
 | ACC-B8 | Enforce station membership in all `/vehicles` and `/inventory` endpoints | **Critical** | 📋 | A Responder at Newberg must not be able to query Marcellus vehicles. |
 | ACC-B9 | Enforce station membership in supervisor dashboard endpoints | **Critical** | 📋 | |
 | ACC-B10 | `deps.py`: add `require_station_membership(station_id)` dependency | **Critical** | 📋 | Reusable FastAPI dep; replaces inline copy in `stations.py`. REF-4. |
 
-### 0b. OWASP A02 — Cryptographic Failures
-| # | Item | Pri | Status | Notes |
-|---|------|-----|--------|-------|
-| SEC-4 | Add startup assertion: `assert settings.secret_key != "change-me-in-production"` when `is_production` | High | 📋 | Add to `create_app()` in `main.py`. Prevents accidental dev-key deployment. |
+### 0b–0f. OWASP A02 / A04 / A05 / A06 / A09 ✅ COMPLETE 2026-05-26
+All SEC-1 through SEC-6 items complete. See backlog_completed.md.
+Remaining open item under A04: F-UX34 (structured second-crew picker — long-term fix, blocked on B-M15/B-E7).
 
-### 0c. OWASP A04 — Insecure Design
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| SEC-6 | Document `secondary_signer` free-text limitation in `checks.py` and `runbook.md` | High | 📋 | The dual-signature check compares names as strings — a determined user could spoof. This is a known architectural gap; the real fix is F-UX34 (structured user picker). Until then, document it. |
-| F-UX34 | Second crew picker — structured user lookup replacing free-text `secondary_signer` | Medium | ⛔ | OWASP A04. Needs B-M15, B-E7. This is the real fix for SEC-6. |
-
-### 0d. OWASP A05 — Security Misconfiguration
-| # | Item | Pri | Status | Notes |
-|---|------|-----|--------|-------|
-| SEC-2 | Disable OpenAPI `/docs` and `/redoc` in production | High | 📋 | OWASP A05. In `main.py`: `docs_url=None if settings.is_production else "/docs"`. One-line change. |
-| SEC-3 | Add security headers middleware to `main.py` | High | 📋 | OWASP A05. Set `X-Content-Type-Options: nosniff` and `X-Frame-Options: DENY` via a response middleware. Supersedes I-4. |
-| I-3 | `HTTPSRedirectMiddleware` in `main.py` (production-gated) | Low | 📋 | OWASP A05. Defense-in-depth if ever moved behind a different proxy. |
-
-### 0e. OWASP A06 — Vulnerable and Outdated Components
-| # | Item | Pri | Status | Notes |
-|---|------|-----|--------|-------|
-| SEC-1 | Add `pip-audit` as a CI step in `.github/workflows/deploy.yml` test job | High | 📋 | OWASP A06. Runs before tests. Fails the build on known CVEs. Command: `pip install pip-audit && pip-audit -r requirements.txt`. |
-
-### 0f. OWASP A09 — Security Logging and Monitoring Failures
-| # | Item | Pri | Status | Notes |
-|---|------|-----|--------|-------|
-| SEC-5a | Add structured `logger` calls to `inventory.py` — POST/PATCH mutations | **Critical** | 📋 | OWASP A09. Supervisor creating/editing stock lots currently leaves no log line. Include `entity_type`, `entity_id`, actor in `extra={}`. |
-| SEC-5b | Add structured `logger` calls to `stations.py` — POST mutations | **Critical** | 📋 | OWASP A09. |
-| SEC-5c | Add structured `logger` calls to `vehicles.py` — POST mutations | **Critical** | 📋 | OWASP A09. `repair_requests.py` already has logging; `vehicles.py` GET/POST do not. |
-| SEC-5d | Add structured `logger` calls to `items.py` — POST mutations | **Critical** | 📋 | OWASP A09. |
+| F-UX34 | Second crew picker — structured user lookup replacing free-text `secondary_signer` | Medium | ⛔ | OWASP A04 long-term fix. Needs B-M15, B-E7. |
+| I-3 | `HTTPSRedirectMiddleware` in `main.py` (production-gated) | Low | 📋 | OWASP A05 defense-in-depth. |
 
 ---
 
@@ -148,7 +130,8 @@ Each is a safe, mechanical change. The full change map is in Section 25 (Refacto
 | REF-3 | Move `_ALL_ROLES` and `_SUPERVISOR_PLUS` constants to `deps.py` | High | 📋 | Redefined in every router (9 files). Single source of truth. |
 | REF-4 | Move `require_station_membership()` from `stations.py` to `deps.py` | High | 📋 | Must be in `deps.py` before ACC-B7/B8/B9 can use it without circular imports. |
 | REF-5 | Consolidate frontend CSS patch files into module or `src/styles/` | Medium | 📋 | `submitted-screen-patch.css`, `module-card-fix.css`, `wizard-station.css`, `wizard.css` all imported from root in `main.jsx`. |
-| REF-6 | Standardise `extra={}` logging shape in `core/auth.py` | Low | 📋 | Supersedes B-Q2. JWKS failure log lines are missing `extra={}` fields that the rest of the codebase uses. |
+| REF-6 | Standardise `extra={}` logging shape in `core/auth.py` | Low | 📋 | Supersedes B-Q2. JWKS failure log lines are missing `extra={}` fields. |
+| REF-7 | Replace `HTTP_422_UNPROCESSABLE_ENTITY` with `HTTP_422_UNPROCESSABLE_CONTENT` | Low | 📋 | Starlette 1.x renamed this constant. Currently produces 8 deprecation warnings in tests. Affects routers that use `status.HTTP_422_UNPROCESSABLE_ENTITY` directly — find with `grep -r "UNPROCESSABLE_ENTITY"`. Not broken; just noisy. |
 
 ---
 
@@ -334,8 +317,8 @@ Each is a safe, mechanical change. The full change map is in Section 25 (Refacto
 |---|------|-----|--------|-------|
 | I-1 | Azure Firewall in `modules/network` with UDR + FQDN allow-list | Medium | 📋 | |
 | I-2 | Re-add route table to subnets | Medium | ⛔ | I-1 |
-| I-3 | `HTTPSRedirectMiddleware` in `main.py` (production-gated) | Low | 📋 | OWASP A05. Defense-in-depth. See SEC-3. |
-| I-4 | `X-Content-Type-Options` and `X-Frame-Options` headers | Low | 📋 | Superseded by SEC-3 — do SEC-3 first. |
+| I-3 | `HTTPSRedirectMiddleware` in `main.py` (production-gated) | Low | 📋 | OWASP A05 defense-in-depth. |
+| I-4 | `X-Content-Type-Options` and `X-Frame-Options` headers | Low | 📋 | Superseded by SEC-3 (complete). Keeping for tracking. |
 | I-5 | Document Azure AD token lifetime; confirm CAE enabled | Low | 📋 | |
 | I-6 | Write `docs/adr/ADR-006-DDoS-Strategy.md` | Low | 📋 | |
 
@@ -388,20 +371,9 @@ Entry point: "Admin" card on home page, visible to Administrator + Supervisor ro
 
 ## 18. Station Membership & Access Control (B-ACCESS1)
 
-**Problem:** Currently `GET /api/v1/stations` returns all active stations to any
-authenticated user. Stations, vehicles, equipment, and check history should only
-be visible to users assigned to that station. Administrators assign Supervisors;
-Supervisors and Administrators assign Responders.
-
-**Access rules:**
-- Administrator — can see all stations; assigns Supervisors to stations
-- Supervisor — sees only their assigned stations; assigns Responders to their stations
-- Responder — sees only their assigned stations; no assignment permissions
-
-**Downstream impact:** Once this is live, every station-scoped endpoint
-(`/checks`, `/vehicles`, `/inventory`, `/stations`) must filter by membership.
-The data model (station_members table) and GET /stations/my are already implemented.
-Phase 4 enforcement (ACC-B7–B10) is the remaining work. See Section 0a (OWASP A01).
+**Problem:** Stations, vehicles, equipment, and check history should only be visible to
+users assigned to that station. The data model and management endpoints are complete.
+The remaining work is Phase 4 enforcement (ACC-B7–B10) — see Section 0a.
 
 ### Backend — Data Model [COMPLETE]
 | # | Item | Pri | Status | Notes |
@@ -430,7 +402,7 @@ Phase 4 enforcement (ACC-B7–B10) is the remaining work. See Section 0a (OWASP 
 ### Frontend
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| ACC-F1 | Station picker uses `GET /stations/my` instead of `GET /stations` | High | 📋 | Single-line change once ACC-B5 exists (it does) |
+| ACC-F1 | Station picker uses `GET /stations/my` instead of `GET /stations` | High | 📋 | |
 | ACC-F2 | Member list view — per station, shows name + role + assigned date | High | 📋 | Supervisor+ |
 | ACC-F3 | Add member form — name/email + role picker; Admin sees Supervisor option | High | 📋 | |
 | ACC-F4 | Remove member confirmation — with role-based guard on who can remove whom | High | 📋 | |
@@ -521,7 +493,7 @@ as FAIL with no resolved state.
 ## 25. Refactor Plan [Complete change map — no application breakage]
 
 This section is the authoritative implementation guide for the refactoring items
-in Section 1 (REF-1 through REF-6). Each change is backward-compatible.
+in Section 1 (REF-1 through REF-7). Each change is backward-compatible.
 Do these in order — later items depend on earlier ones.
 
 ### REF-1 — Extract `_write_audit_event()` to `core/audit.py`
@@ -703,6 +675,26 @@ interpolation without `extra={}`, so they don't appear in Log Analytics structur
 
 ---
 
+### REF-7 — Replace deprecated starlette 422 constant
+
+**Why:** Starlette 1.x renamed `HTTP_422_UNPROCESSABLE_ENTITY` to
+`HTTP_422_UNPROCESSABLE_CONTENT`. The old name still works but produces a
+`DeprecationWarning` in every affected test — currently 8 warnings per run.
+Not a bug, but noisy and will become a hard error in a future starlette release.
+
+**Find all occurrences:**
+```powershell
+grep -rn "UNPROCESSABLE_ENTITY" app/ems_readykit/
+```
+
+**Change:** Replace every `status.HTTP_422_UNPROCESSABLE_ENTITY` with
+`status.HTTP_422_UNPROCESSABLE_CONTENT` in all router files.
+
+**Risk:** None. The integer value (422) is unchanged. Tests currently assert on
+status codes, not constant names. Warnings will disappear; no behavior changes.
+
+---
+
 ## 26. Open Questions
 | # | Question | Owner |
 |---|----------|-------|
@@ -722,8 +714,8 @@ interpolation without `extra={}`, so they don't appear in Log Analytics structur
 ## Summary
 | Area | 📋 | ⛔ | Total |
 |------|----|----|-------|
-| Security — Pre-User Gate (Section 0) | 12 | 0 | 12 |
-| Code — Refactoring Sprint (Section 1) | 6 | 0 | 6 |
+| Security — Pre-User Gate (Section 0) | 6 | 0 | 6 |
+| Code — Refactoring Sprint (Section 1) | 7 | 0 | 7 |
 | Backend — Phase 6 Endpoints | 13 | 0 | 13 |
 | Backend — Data Models | 15 | 0 | 15 |
 | Backend — Check History | 5 | 1 | 6 |
@@ -744,4 +736,4 @@ interpolation without `extra={}`, so they don't appear in Log Analytics structur
 | Documentation | 1 | 0 | 1 |
 | User Acceptance Testing (UAT) | 6 | 2 | 8 |
 | Check Resolution Workflow (CH-UX1) | 5 | 0 | 5 |
-| **Total** | **163** | **10** | **173** |
+| **Total** | **158** | **10** | **168** |

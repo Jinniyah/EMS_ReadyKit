@@ -1,5 +1,5 @@
 # EMS ReadyKit — Completed Items
-# Last updated: 2026-05-24
+# Last updated: 2026-05-26
 
 ---
 
@@ -114,3 +114,69 @@
 | # | Item | Completed |
 |---|------|-----------|
 | D-1 | Update `project_index.md` ADR table (ADR-006 slot) | 2026-05-22 |
+
+---
+
+## Session A — Security Gate (2026-05-26)
+
+All items completed in one session. 153 tests pass. pip-audit reports 0 known vulnerabilities.
+
+### Dead Code Removal
+| # | Item | Completed |
+|---|------|-----------|
+| — | Delete `routers/_patch_cs_message.py` — dangling code snippet, not imported anywhere | 2026-05-26 |
+| — | Delete `routers/_patch_get_check.py` — dangling code snippet, not imported anywhere | 2026-05-26 |
+| — | Remove `tests/test_rbac_block.py` stub — contained only a "delete me" comment | 2026-05-26 |
+
+### Gitignore
+| # | Item | Completed |
+|---|------|-----------|
+| — | Add `ems_readykit_dev.db` to `.gitignore` | 2026-05-26 |
+| — | Add `deploy.zip` to `.gitignore` | 2026-05-26 |
+
+### Security — OWASP A06: pip-audit in CI
+| # | Item | Completed |
+|---|------|-----------|
+| SEC-1 | Add `pip-audit` step to `.github/workflows/deploy.yml` before pytest — fails build on known CVEs | 2026-05-26 |
+
+### Security — OWASP A05: Security Misconfiguration
+| # | Item | Completed |
+|---|------|-----------|
+| SEC-2 | Disable OpenAPI `/docs`, `/redoc`, `/openapi.json` in production (`main.py`) | 2026-05-26 |
+| SEC-3 | Add security headers middleware: `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy` | 2026-05-26 |
+
+### Security — OWASP A02: Cryptographic Failures
+| # | Item | Completed |
+|---|------|-----------|
+| SEC-4 | Startup assertion: fail loud if `SECRET_KEY == "change-me-in-production"` in production | 2026-05-26 |
+
+### Security — OWASP A09: Logging and Monitoring
+| # | Item | Completed |
+|---|------|-----------|
+| SEC-5a | Structured `logger` calls added to `inventory.py` — all POST mutations | 2026-05-26 |
+| SEC-5b | Structured `logger` calls added to `stations.py` — POST mutations | 2026-05-26 |
+| SEC-5c | Structured `logger` calls added to `vehicles.py` — POST mutations | 2026-05-26 |
+| SEC-5d | Structured `logger` calls added to `items.py` — POST mutations | 2026-05-26 |
+
+### Security — OWASP A04: Insecure Design
+| # | Item | Completed |
+|---|------|-----------|
+| SEC-6 | Document `secondary_signer` free-text limitation in `checks.py` with OWASP A04 comment | 2026-05-26 |
+
+### Dependency Upgrades (resolving all pip-audit CVEs)
+| # | Package | From | To | CVEs resolved | Completed |
+|---|---------|------|----|---------------|-----------|
+| — | `fastapi` | 0.111.0 | 0.136.1 | Unlocks starlette 1.x | 2026-05-26 |
+| — | `starlette` | 0.37.2 | 1.1.0 | CVE-2024-47874, CVE-2025-54121, CVE-2025-62727, PYSEC-2026-161 | 2026-05-26 |
+| — | `pydantic` | 2.7.1 | 2.13.4 | Required by fastapi 0.136.1 | 2026-05-26 |
+| — | `pydantic-settings` | 2.2.1 | 2.14.1 | Required by pydantic 2.13.4 | 2026-05-26 |
+| — | `azure-identity` | 1.16.0 | 1.19.0 | CVE-2024-35255 | 2026-05-26 |
+| — | `PyJWT` | 2.8.0 | 2.12.0 | PYSEC-2026-120, PYSEC-2025-183 | 2026-05-26 |
+| — | `cryptography` | 42.0.8 | 46.0.7 | CVE-2024-12797, CVE-2026-26007, GHSA-h4gh-qq45-vh27, PYSEC-2026-35, PYSEC-2026-36 | 2026-05-26 |
+| — | `pytest` | 8.2.0 | 9.0.3 | CVE-2025-71176 | 2026-05-26 |
+| — | `pytest-asyncio` | 0.23.6 | removed | Unused (zero async tests); conflicted with pytest 9 | 2026-05-26 |
+
+### Bug Fix
+| # | Item | Completed |
+|---|------|-----------|
+| — | Supervisor "All Checks" tab was calling `getMyHistory` (filtered by current user) instead of `getStationChecksToday` — PASS checks from other crew members were invisible | 2026-05-26 |

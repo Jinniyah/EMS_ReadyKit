@@ -2,32 +2,21 @@
 main.py
 FastAPI application factory and startup lifecycle.
 
-## Request logging middleware
-Every HTTP request is logged with:
-  method, path, status_code, duration_ms, request_id, actor (if authenticated)
-
-This provides the operational baseline for:
-  - Endpoint performance monitoring
-  - 404/422/500 spike detection
-  - Audit trail cross-referencing via request_id
-
-## Log volume discipline
-Request logs are INFO level. They are NOT emitted for:
-  - GET /health  (excluded to avoid health-check noise)
-  - Static assets (none in this API)
-
-Third-party library logging is silenced at WARNING in core/logging.py.
-
 ## Security headers (SEC-3)
-Every response carries:
-  X-Content-Type-Options: nosniff
-  X-Frame-Options: DENY
-  X-XSS-Protection: 1; mode=block
+Every API response carries:
+  X-Content-Type-Options: nosniff      — prevents MIME sniffing
+  X-XSS-Protection: 1; mode=block     — legacy XSS filter for older browsers
   Referrer-Policy: strict-origin-when-cross-origin
 
+NOTE: X-Frame-Options is intentionally NOT set on the backend API.
+  - The backend serves JSON, never HTML displayed in a browser frame.
+  - Setting X-Frame-Options: DENY here caused MSAL's auth iframe/popup to be
+    blocked when it redirected back to the SWA origin, producing:
+      BrowserAuthError: hash_empty_error
+    X-Frame-Options for the SWA frontend is set in staticwebapp.config.json.
+
 ## OpenAPI docs (SEC-2)
-/docs, /redoc, and /openapi.json are disabled in production to avoid
-enumerating the full API surface to unauthenticated callers.
+/docs, /redoc, and /openapi.json are disabled in production.
 """
 
 from __future__ import annotations
@@ -55,8 +44,6 @@ _LOG_EXCLUDED_PATHS = {"/health", "/docs", "/redoc", "/openapi.json", "/favicon.
 
 def create_app() -> FastAPI:
     # ── SEC-4: Fail loud at startup if secret_key is still the default ────────
-    # This prevents a misconfigured production deploy from silently running with
-    # the insecure default key. Has no effect in development (is_production=False).
     if settings.is_production:
         assert settings.secret_key != "change-me-in-production", (
             "SECRET_KEY must be set to a strong random value in production. "
@@ -64,12 +51,9 @@ def create_app() -> FastAPI:
         )
 
     # ── SEC-2: Disable OpenAPI docs in production (OWASP A05) ─────────────────
-    # /docs and /redoc enumerate the full API surface to unauthenticated callers.
-    # Disable them in production; they remain available in development for local
-    # testing and the FastAPI interactive explorer.
-    _docs_url     = None if settings.is_production else "/docs"
-    _redoc_url    = None if settings.is_production else "/redoc"
-    _openapi_url  = None if settings.is_production else "/openapi.json"
+    _docs_url    = None if settings.is_production else "/docs"
+    _redoc_url   = None if settings.is_production else "/redoc"
+    _openapi_url = None if settings.is_production else "/openapi.json"
 
     app = FastAPI(
         title="EMS ReadyKit API",
@@ -84,13 +68,14 @@ def create_app() -> FastAPI:
     )
 
     # ── SEC-3: Security response headers (OWASP A05) ──────────────────────────
-    # Applied to every response. Registered before the request logger so these
-    # headers are present on all responses including error responses.
+    # Applied to every API response.
+    #
+    # X-Frame-Options is deliberately EXCLUDED — see module docstring above.
+    # X-Frame-Options for the SWA is set in staticwebapp.config.json instead.
     @app.middleware("http")
     async def add_security_headers(request: Request, call_next) -> Response:
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         return response
