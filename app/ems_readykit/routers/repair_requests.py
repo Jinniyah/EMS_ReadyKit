@@ -2,26 +2,11 @@
 routers/repair_requests.py
 Vehicle inactive status and repair request endpoints.
 
-Endpoints:
-  PATCH /vehicles/{id}                           — mark vehicle active/inactive (Supervisor+)
-  POST  /vehicles/{id}/repair-requests           — file a repair request (all roles)
-  PATCH /vehicles/{id}/repair-requests/{rid}     — update repair request status (Supervisor+)
-  GET   /vehicles/{id}/repair-requests           — list repair requests for a vehicle (Supervisor+)
-
-RBAC:
-  All roles can file a repair request — a Responder discovering a broken
-  piece of equipment during a check needs this without supervisor intervention.
-  Status updates and the inactive toggle are Supervisor+ only.
-
-URGENT handling:
-  URGENT requests are flagged in the audit log with severity HIGH so that
-  supervisors are alerted immediately via any connected audit monitoring.
-  The notification system (B-E12) will consume this once it is built.
-
-Inactive logic:
-  Setting active=False requires an inactive_reason. The router sets
-  inactive_since automatically to the current UTC time.
-  Setting active=True clears both inactive_reason and inactive_since.
+Refactor (Session B):
+- Role constants imported from deps (REF-3)
+- _get_vehicle_or_404 imported from deps (REF-2)
+- write_audit_event imported from core.audit (REF-1)
+- HTTP_422_UNPROCESSABLE_CONTENT replaces deprecated constant (REF-7)
 """
 
 from __future__ import annotations
@@ -33,16 +18,15 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from ems_readykit.core.audit import write_audit_event
 from ems_readykit.core.auth import (
     ROLE_ADMINISTRATOR,
     ROLE_RESPONDER,
     ROLE_SUPERVISOR,
 )
 from ems_readykit.core.database import get_db
-from ems_readykit.models.audit_event import AuditEvent
 from ems_readykit.models.repair_request import RepairRequest, RepairSeverity, RepairStatus
-from ems_readykit.models.vehicle import Vehicle
-from ems_readykit.routers.deps import require_role
+from ems_readykit.routers.deps import ALL_ROLES, SUPERVISOR_PLUS, get_vehicle_or_404, require_role
 from ems_readykit.schemas.repair_request import (
     RepairRequestCreate,
     RepairRequestOut,
@@ -54,25 +38,12 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["vehicles", "repair-requests"])
 
-_ALL_ROLES       = (ROLE_RESPONDER, ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
-_SUPERVISOR_PLUS = (ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
-
-
-def _get_vehicle_or_404(vehicle_id: int, db: Session) -> Vehicle:
-    vehicle = db.query(Vehicle).filter(Vehicle.vehicle_id == vehicle_id).first()
-    if not vehicle:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Vehicle {vehicle_id} not found.",
-        )
-    return vehicle
-
 
 def _get_repair_or_404(repair_id: int, vehicle_id: int, db: Session) -> RepairRequest:
     repair = (
         db.query(RepairRequest)
         .filter(
-            RepairRequest.repair_id == repair_id,
+            RepairRequest.repair_id  == repair_id,
             RepairRequest.vehicle_id == vehicle_id,
         )
         .first()
@@ -96,20 +67,13 @@ def update_vehicle_status(
     vehicle_id: int,
     payload: VehicleUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_role(*_SUPERVISOR_PLUS)),
-) -> Vehicle:
-    """
-    Toggle a vehicle's active status. Supervisor or Administrator only.
-
-    - Setting active=False requires an inactive_reason.
-      inactive_since is set automatically to the current UTC time.
-    - Setting active=True clears inactive_reason and inactive_since.
-    """
-    vehicle = _get_vehicle_or_404(vehicle_id, db)
+    current_user=Depends(require_role(*SUPERVISOR_PLUS)),
+) -> "Vehicle":
+    vehicle = get_vehicle_or_404(vehicle_id, db)
 
     if not payload.active and not payload.inactive_reason:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="inactive_reason is required when setting a vehicle inactive.",
         )
 
@@ -121,24 +85,24 @@ def update_vehicle_status(
         vehicle.inactive_reason = payload.inactive_reason
         vehicle.inactive_since  = datetime.now(timezone.utc)
 
-    db.add(
-        AuditEvent(
-            actor=current_user.user_id,
-            action="VEHICLE_STATUS_CHANGED",
-            entity_type="vehicle",
-            entity_id=str(vehicle_id),
-            station_id=vehicle.station_id,
-            vehicle_id=vehicle_id,
-            severity="INFO",
-            timestamp=datetime.now(timezone.utc),
-            metadata_json={
-                "active":          payload.active,
-                "inactive_reason": payload.inactive_reason,
-            },
-        )
+    db.add(vehicle)
+    db.flush()
+
+    write_audit_event(
+        db,
+        actor=current_user.user_id,
+        action="VEHICLE_STATUS_CHANGED",
+        entity_type="vehicle",
+        entity_id=str(vehicle_id),
+        station_id=vehicle.station_id,
+        vehicle_id=vehicle_id,
+        metadata={
+            "active":          payload.active,
+            "inactive_reason": payload.inactive_reason,
+        },
+        severity="INFO",
     )
 
-    db.commit()
     db.refresh(vehicle)
     logger.info(
         "Vehicle %s status changed to active=%s by %s",
@@ -160,15 +124,9 @@ def create_repair_request(
     vehicle_id: int,
     payload: RepairRequestCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_role(*_ALL_ROLES)),
+    current_user=Depends(require_role(*ALL_ROLES)),
 ) -> RepairRequest:
-    """
-    File a maintenance issue against a vehicle. All authenticated roles.
-
-    URGENT requests are written to the audit log at severity HIGH so that
-    supervisors and any connected monitoring are alerted immediately.
-    """
-    vehicle = _get_vehicle_or_404(vehicle_id, db)
+    vehicle = get_vehicle_or_404(vehicle_id, db)
 
     now = datetime.now(timezone.utc)
     repair = RepairRequest(
@@ -184,24 +142,22 @@ def create_repair_request(
     db.flush()
 
     audit_severity = "HIGH" if payload.severity == RepairSeverity.URGENT else "INFO"
-    db.add(
-        AuditEvent(
-            actor=current_user.user_id,
-            action="REPAIR_REQUEST_FILED",
-            entity_type="repair_request",
-            entity_id=str(repair.repair_id),
-            station_id=vehicle.station_id,
-            vehicle_id=vehicle_id,
-            severity=audit_severity,
-            timestamp=now,
-            metadata_json={
-                "severity":    payload.severity,
-                "description": payload.description,
-            },
-        )
+
+    write_audit_event(
+        db,
+        actor=current_user.user_id,
+        action="REPAIR_REQUEST_FILED",
+        entity_type="repair_request",
+        entity_id=str(repair.repair_id),
+        station_id=vehicle.station_id,
+        vehicle_id=vehicle_id,
+        metadata={
+            "severity":    payload.severity,
+            "description": payload.description,
+        },
+        severity=audit_severity,
     )
 
-    db.commit()
     db.refresh(repair)
     logger.info(
         "Repair request %s filed for vehicle %s (severity=%s) by %s",
@@ -223,16 +179,8 @@ def update_repair_request(
     repair_id: int,
     payload: RepairRequestUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_role(*_SUPERVISOR_PLUS)),
+    current_user=Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> RepairRequest:
-    """
-    Advance a repair request through its lifecycle. Supervisor+ only.
-
-    - OPEN → IN_PROGRESS or RESOLVED
-    - IN_PROGRESS → RESOLVED
-    - resolution_notes is required when status is RESOLVED.
-    - Cannot re-open a RESOLVED request.
-    """
     repair = _get_repair_or_404(repair_id, vehicle_id, db)
 
     if repair.status == RepairStatus.RESOLVED:
@@ -243,7 +191,7 @@ def update_repair_request(
 
     if payload.status == RepairStatus.RESOLVED and not payload.resolution_notes:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="resolution_notes is required when resolving a repair request.",
         )
 
@@ -255,24 +203,24 @@ def update_repair_request(
         repair.resolved_by = current_user.user_id
         repair.resolved_at = now
 
-    db.add(
-        AuditEvent(
-            actor=current_user.user_id,
-            action="REPAIR_REQUEST_UPDATED",
-            entity_type="repair_request",
-            entity_id=str(repair_id),
-            station_id=repair.station_id,
-            vehicle_id=vehicle_id,
-            severity="INFO",
-            timestamp=now,
-            metadata_json={
-                "new_status":       payload.status,
-                "resolution_notes": payload.resolution_notes,
-            },
-        )
+    db.add(repair)
+    db.flush()
+
+    write_audit_event(
+        db,
+        actor=current_user.user_id,
+        action="REPAIR_REQUEST_UPDATED",
+        entity_type="repair_request",
+        entity_id=str(repair_id),
+        station_id=repair.station_id,
+        vehicle_id=vehicle_id,
+        metadata={
+            "new_status":       payload.status,
+            "resolution_notes": payload.resolution_notes,
+        },
+        severity="INFO",
     )
 
-    db.commit()
     db.refresh(repair)
     return repair
 
@@ -292,13 +240,9 @@ def list_repair_requests(
         description="Filter by status: OPEN, IN_PROGRESS, or RESOLVED",
     ),
     db: Session = Depends(get_db),
-    current_user=Depends(require_role(*_SUPERVISOR_PLUS)),
+    current_user=Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> List[RepairRequest]:
-    """
-    List all repair requests for a vehicle, most recent first.
-    Optionally filter by status. Supervisor+ only.
-    """
-    _get_vehicle_or_404(vehicle_id, db)
+    get_vehicle_or_404(vehicle_id, db)
 
     query = db.query(RepairRequest).filter(RepairRequest.vehicle_id == vehicle_id)
 
@@ -307,7 +251,7 @@ def list_repair_requests(
             parsed = RepairStatus(status_filter.upper())
         except ValueError:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Invalid status '{status_filter}'. Must be one of: {[s.value for s in RepairStatus]}",
             )
         query = query.filter(RepairRequest.status == parsed)

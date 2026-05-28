@@ -2,16 +2,9 @@
 routers/vehicles.py
 Vehicle CRUD endpoints.
 
-Endpoints:
-  GET  /vehicles                    — list vehicles (Supervisor, Administrator)
-  POST /vehicles                    — create a vehicle (Supervisor, Administrator)
-  GET  /vehicles/{id}               — get a single vehicle (all roles)
-  GET  /stations/{id}/vehicles      — list vehicles for a station (all roles)
-
-active filter:
-  Optional[bool], defaults to None (no filter — returns all vehicles).
-  Pass ?active=true for check wizard (active only).
-  Pass nothing for V&E Status screen (all vehicles including out-of-service).
+Refactor (Session B):
+- Role constants imported from deps (REF-3)
+- HTTP_422_UNPROCESSABLE_CONTENT replaces deprecated constant (REF-7)
 """
 
 from __future__ import annotations
@@ -27,18 +20,17 @@ from ems_readykit.core.database import get_db
 from ems_readykit.models.inventory_location import InventoryLocation, LocationType
 from ems_readykit.models.station import Station
 from ems_readykit.models.vehicle import Vehicle
-from ems_readykit.routers.deps import require_role
+from ems_readykit.routers.deps import ALL_ROLES, SUPERVISOR_PLUS, require_role
 from ems_readykit.schemas.vehicle import VehicleCreate, VehicleRead
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["vehicles"])
 
-_ALL_ROLES       = (ROLE_RESPONDER, ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
-_SUPERVISOR_PLUS = (ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
-
 
 def _get_vehicle_or_404(vehicle_id: int, db: Session) -> Vehicle:
+    """Local helper — vehicles.py uses this internally only. get_vehicle_or_404
+    in deps.py is used by checks.py and repair_requests.py."""
     vehicle = db.query(Vehicle).filter(Vehicle.vehicle_id == vehicle_id).first()
     if not vehicle:
         raise HTTPException(
@@ -52,7 +44,7 @@ def _get_vehicle_or_404(vehicle_id: int, db: Session) -> Vehicle:
     "/vehicles",
     response_model=List[VehicleRead],
     summary="List all vehicles",
-    dependencies=[Depends(require_role(*_SUPERVISOR_PLUS))],
+    dependencies=[Depends(require_role(*SUPERVISOR_PLUS))],
 )
 def list_vehicles(
     active: Optional[bool] = Query(
@@ -72,7 +64,7 @@ def list_vehicles(
     response_model=VehicleRead,
     status_code=status.HTTP_201_CREATED,
     summary="Create a vehicle",
-    dependencies=[Depends(require_role(*_SUPERVISOR_PLUS))],
+    dependencies=[Depends(require_role(*SUPERVISOR_PLUS))],
 )
 def create_vehicle(payload: VehicleCreate, db: Session = Depends(get_db)) -> Vehicle:
     station = db.query(Station).filter(Station.station_id == payload.station_id).first()
@@ -118,7 +110,7 @@ def create_vehicle(payload: VehicleCreate, db: Session = Depends(get_db)) -> Veh
     "/vehicles/{vehicle_id}",
     response_model=VehicleRead,
     summary="Get a vehicle",
-    dependencies=[Depends(require_role(*_ALL_ROLES))],
+    dependencies=[Depends(require_role(*ALL_ROLES))],
 )
 def get_vehicle(vehicle_id: int, db: Session = Depends(get_db)) -> Vehicle:
     return _get_vehicle_or_404(vehicle_id, db)
@@ -128,17 +120,11 @@ def get_vehicle(vehicle_id: int, db: Session = Depends(get_db)) -> Vehicle:
     "/stations/{station_id}/vehicles",
     response_model=List[VehicleRead],
     summary="List vehicles for a station",
-    dependencies=[Depends(require_role(*_ALL_ROLES))],
+    dependencies=[Depends(require_role(*ALL_ROLES))],
 )
 def list_station_vehicles(
     station_id: int,
-    active: Optional[bool] = Query(
-        default=None,
-        description=(
-            "Filter by active status. Omit for all vehicles (V&E Status screen). "
-            "Pass active=true for check wizard (active only)."
-        ),
-    ),
+    active: Optional[bool] = Query(default=None),
     db: Session = Depends(get_db),
 ) -> List[Vehicle]:
     station = db.query(Station).filter(Station.station_id == station_id).first()

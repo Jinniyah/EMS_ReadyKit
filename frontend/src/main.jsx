@@ -7,10 +7,15 @@ import { PublicClientApplication } from '@azure/msal-browser'
 import App from './App.jsx'
 import { DevAuthProvider } from './shared/hooks/useAuth.jsx'
 import { msalConfig } from './shared/api/authConfig.js'
+
+// Global styles
 import './index.css'
-import './wizard.css'
-import './wizard-station.css'
-import './submitted-screen-patch.css'
+
+// Wizard, station, submitted-screen, and reconcile styles — consolidated into
+// one file during Session B refactor (REF-5). Previously split across:
+//   ./wizard.css, ./wizard-station.css, ./submitted-screen-patch.css
+// Those files have been deleted from src/ root.
+import './styles/wizard.css'
 
 const isDev = import.meta.env.VITE_APP_ENV !== 'production'
 const msalInstance = isDev ? null : new PublicClientApplication(msalConfig)

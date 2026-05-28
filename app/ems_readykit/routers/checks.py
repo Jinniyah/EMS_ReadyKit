@@ -20,6 +20,12 @@ Phase 4 changes:
     FAIL          — any EXPIRED, MISSING, FAIL, or OVERDUE item
     NEEDS_RESTOCK — any SHORT or LOW item
     PASS          — all OK (or no line items)
+
+Refactor (Session B):
+- Role constants imported from deps (REF-3)
+- _get_vehicle_or_404 imported from deps (REF-2)
+- _write_audit_event replaced by write_audit_event from core.audit (REF-1)
+- HTTP_422_UNPROCESSABLE_CONTENT replaces deprecated UNPROCESSABLE_ENTITY (REF-7)
 """
 
 from __future__ import annotations
@@ -31,6 +37,7 @@ from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from ems_readykit.core.audit import write_audit_event
 from ems_readykit.core.auth import (
     ROLE_ADMINISTRATOR,
     ROLE_RESPONDER,
@@ -38,7 +45,6 @@ from ems_readykit.core.auth import (
     CurrentUser,
 )
 from ems_readykit.core.database import get_db
-from ems_readykit.models.audit_event import AuditEvent
 from ems_readykit.models.check_line_item import CheckLineItem, LineItemStatus
 from ems_readykit.models.compartment import Compartment
 from ems_readykit.models.controlled_substance_check import ControlledSubstanceCheck
@@ -47,7 +53,7 @@ from ems_readykit.models.item import Item
 from ems_readykit.models.station import Station
 from ems_readykit.models.stock_lot import StockLot
 from ems_readykit.models.vehicle import Vehicle
-from ems_readykit.routers.deps import require_role
+from ems_readykit.routers.deps import ALL_ROLES, SUPERVISOR_PLUS, get_vehicle_or_404, require_role
 from ems_readykit.schemas.controlled_substance_check import (
     ControlledSubstanceCheckCreate,
     ControlledSubstanceCheckRead,
@@ -60,19 +66,6 @@ from ems_readykit.schemas.check_line_item import CheckLineItemCreate
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/checks", tags=["checks"])
-
-_ALL_ROLES       = (ROLE_RESPONDER, ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
-_SUPERVISOR_PLUS = (ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
-
-
-def _get_vehicle_or_404(vehicle_id: int, db: Session) -> Vehicle:
-    vehicle = db.query(Vehicle).filter(Vehicle.vehicle_id == vehicle_id).first()
-    if not vehicle:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Vehicle {vehicle_id} not found.",
-        )
-    return vehicle
 
 
 def _compute_line_item_status(
@@ -144,42 +137,6 @@ def _compute_check_status(line_items: List[CheckLineItem]) -> CheckStatus:
     return CheckStatus.PASS
 
 
-def _write_audit_event(
-    db: Session,
-    *,
-    actor: str,
-    action: str,
-    entity_type: str,
-    entity_id: str,
-    station_id: Optional[int] = None,
-    vehicle_id: Optional[int] = None,
-    metadata: Optional[dict] = None,
-    severity: str = "INFO",
-) -> None:
-    event = AuditEvent(
-        actor=actor,
-        action=action,
-        entity_type=entity_type,
-        entity_id=entity_id,
-        station_id=station_id,
-        vehicle_id=vehicle_id,
-        metadata_json=metadata,
-        severity=severity,
-        timestamp=datetime.now(timezone.utc),
-    )
-    db.add(event)
-    db.commit()
-    logger.info(
-        "Audit event written",
-        extra={
-            "action": action,
-            "entity_type": entity_type,
-            "entity_id": entity_id,
-            "severity": severity,
-        },
-    )
-
-
 # ── Daily Inventory Checks ────────────────────────────────────────────────────
 
 @router.post(
@@ -191,9 +148,9 @@ def _write_audit_event(
 def create_daily_check(
     payload: DailyInventoryCheckCreate,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_role(*_ALL_ROLES)),
+    current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
 ) -> DailyInventoryCheck:
-    vehicle = _get_vehicle_or_404(payload.vehicle_id, db)
+    vehicle = get_vehicle_or_404(payload.vehicle_id, db)
 
     station = db.query(Station).filter(Station.station_id == payload.station_id).first()
     if not station:
@@ -235,7 +192,7 @@ def create_daily_check(
                 lot = lot_map[li.lot_id]
                 if lot.item_id != li.item_id:
                     raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                         detail=(
                             f"Stock lot {li.lot_id} belongs to item {lot.item_id}, "
                             f"not item {li.item_id}."
@@ -300,8 +257,7 @@ def create_daily_check(
         line_items=line_item_objects,
     )
     db.add(check)
-    db.commit()
-    db.refresh(check)
+    db.flush()
 
     expired_count = sum(1 for li in line_item_objects if li.status == LineItemStatus.EXPIRED)
     missing_count = sum(1 for li in line_item_objects if li.status == LineItemStatus.MISSING)
@@ -311,7 +267,7 @@ def create_daily_check(
     if overall_status == CheckStatus.FAIL:
         audit_severity = "HIGH"
 
-    _write_audit_event(
+    write_audit_event(
         db,
         actor=performed_by,
         action="CHECK_COMPLETED",
@@ -336,7 +292,7 @@ def create_daily_check(
     "/daily/{check_id}",
     response_model=DailyInventoryCheckRead,
     summary="Get a daily inventory check",
-    dependencies=[Depends(require_role(*_SUPERVISOR_PLUS))],
+    dependencies=[Depends(require_role(*SUPERVISOR_PLUS))],
 )
 def get_daily_check(check_id: int, db: Session = Depends(get_db)) -> DailyInventoryCheck:
     """Returns a single daily inventory check. Excludes soft-deleted records."""
@@ -356,13 +312,13 @@ def get_daily_check(check_id: int, db: Session = Depends(get_db)) -> DailyInvent
     "/daily/vehicle/{vehicle_id}",
     response_model=List[DailyInventoryCheckRead],
     summary="List daily checks for a vehicle",
-    dependencies=[Depends(require_role(*_ALL_ROLES))],
+    dependencies=[Depends(require_role(*ALL_ROLES))],
 )
 def list_vehicle_daily_checks(
     vehicle_id: int, db: Session = Depends(get_db)
 ) -> List[DailyInventoryCheck]:
     """Returns all non-deleted daily inventory checks for a vehicle, most recent first."""
-    _get_vehicle_or_404(vehicle_id, db)
+    get_vehicle_or_404(vehicle_id, db)
     return (
         db.query(DailyInventoryCheck)
         .filter(
@@ -378,7 +334,7 @@ def list_vehicle_daily_checks(
     "/daily/station/{station_id}/today",
     response_model=List[DailyInventoryCheckRead],
     summary="Get today's compliance status for a station",
-    dependencies=[Depends(require_role(*_SUPERVISOR_PLUS))],
+    dependencies=[Depends(require_role(*SUPERVISOR_PLUS))],
 )
 def get_station_compliance_today(
     station_id: int, db: Session = Depends(get_db)
@@ -414,13 +370,13 @@ def get_station_compliance_today(
 def create_cs_check(
     payload: ControlledSubstanceCheckCreate,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_role(*_ALL_ROLES)),
+    current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
 ) -> ControlledSubstanceCheck:
-    vehicle = _get_vehicle_or_404(payload.vehicle_id, db)
+    vehicle = get_vehicle_or_404(payload.vehicle_id, db)
 
     if not vehicle.requires_controlled_substance_check:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Vehicle {payload.vehicle_id} is type '{vehicle.vehicle_type.value}'. "
                 "Controlled substance checks are only required for ALS vehicles."
@@ -437,7 +393,7 @@ def create_cs_check(
     # See: docs/backlog.md SEC-6, F-UX34
     if primary_signer.strip().lower() == payload.secondary_signer.strip().lower():
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 "dual-signature requirement: primary_signer and secondary_signer "
                 "must be different people."
@@ -453,8 +409,7 @@ def create_cs_check(
         notes=payload.notes,
     )
     db.add(check)
-    db.commit()
-    db.refresh(check)
+    db.flush()
 
     severity = "HIGH" if payload.discrepancy_flag else "INFO"
     action = "CS_DISCREPANCY" if payload.discrepancy_flag else "CS_CHECK_COMPLETED"
@@ -463,13 +418,13 @@ def create_cs_check(
         logger.warning(
             "Controlled substance discrepancy flagged",
             extra={
-                "vehicle_id": payload.vehicle_id,
+                "vehicle_id":    payload.vehicle_id,
                 "primary_signer": primary_signer,
-                "cs_check_id": check.cs_check_id,
+                "cs_check_id":   check.cs_check_id,
             },
         )
 
-    _write_audit_event(
+    write_audit_event(
         db,
         actor=primary_signer,
         action=action,
@@ -478,9 +433,9 @@ def create_cs_check(
         vehicle_id=payload.vehicle_id,
         station_id=vehicle.station_id,
         metadata={
-            "secondary_signer": payload.secondary_signer,
-            "discrepancy_flag": payload.discrepancy_flag,
-            "notes": payload.notes,
+            "secondary_signer":  payload.secondary_signer,
+            "discrepancy_flag":  payload.discrepancy_flag,
+            "notes":             payload.notes,
         },
         severity=severity,
     )
@@ -491,7 +446,7 @@ def create_cs_check(
     "/controlled-substance/{cs_check_id}",
     response_model=ControlledSubstanceCheckRead,
     summary="Get a controlled substance check",
-    dependencies=[Depends(require_role(*_SUPERVISOR_PLUS))],
+    dependencies=[Depends(require_role(*SUPERVISOR_PLUS))],
 )
 def get_cs_check(cs_check_id: int, db: Session = Depends(get_db)) -> ControlledSubstanceCheck:
     check = db.query(ControlledSubstanceCheck).filter(
@@ -509,15 +464,15 @@ def get_cs_check(cs_check_id: int, db: Session = Depends(get_db)) -> ControlledS
     "/controlled-substance/vehicle/{vehicle_id}",
     response_model=List[ControlledSubstanceCheckRead],
     summary="List CS checks for a vehicle",
-    dependencies=[Depends(require_role(*_SUPERVISOR_PLUS))],
+    dependencies=[Depends(require_role(*SUPERVISOR_PLUS))],
 )
 def list_vehicle_cs_checks(
     vehicle_id: int, db: Session = Depends(get_db)
 ) -> List[ControlledSubstanceCheck]:
-    vehicle = _get_vehicle_or_404(vehicle_id, db)
+    vehicle = get_vehicle_or_404(vehicle_id, db)
     if not vehicle.requires_controlled_substance_check:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Vehicle {vehicle_id} is type '{vehicle.vehicle_type.value}'. "
                 "Only ALS vehicles have controlled substance checks."

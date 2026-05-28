@@ -2,19 +2,10 @@
 routers/stations.py
 Station CRUD endpoints.
 
-Endpoints:
-  GET  /stations                   — list all stations (Administrator only — B-ACCESS1 Phase 4)
-  POST /stations                   — create a station (Administrator only)
-  GET  /stations/{id}              — get a single station (all roles, membership enforced)
-  GET  /stations/{id}/locations    — list checkable non-vehicle locations (all roles, membership enforced)
-
-B-ACCESS1 Phase 4 changes:
-  GET /stations is now Administrator only. All other roles use GET /stations/my
-  (in station_members router) which returns only their assigned stations.
-
-  GET /stations/{id} and GET /stations/{id}/locations now enforce station
-  membership — a user cannot access a station they are not assigned to.
-  Administrators bypass the membership check and can access all stations.
+Refactor (Session B):
+- Role constants imported from deps (REF-3)
+- require_station_membership moved to deps (REF-4); imported from there
+- HTTP_422_UNPROCESSABLE_CONTENT replaces deprecated constant (REF-7)
 """
 
 from __future__ import annotations
@@ -34,8 +25,13 @@ from ems_readykit.core.auth import (
 from ems_readykit.core.database import get_db
 from ems_readykit.models.inventory_location import InventoryLocation, LocationType
 from ems_readykit.models.station import Station
-from ems_readykit.models.station_member import StationMember
-from ems_readykit.routers.deps import require_role
+from ems_readykit.routers.deps import (
+    ALL_ROLES,
+    ADMIN_ONLY,
+    SUPERVISOR_PLUS,
+    require_role,
+    require_station_membership,
+)
 from ems_readykit.schemas.inventory_location import InventoryLocationRead
 from ems_readykit.schemas.station import StationCreate, StationRead
 
@@ -43,44 +39,18 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/stations", tags=["stations"])
 
-_ALL_ROLES       = (ROLE_RESPONDER, ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
-_SUPERVISOR_PLUS = (ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
-_ADMIN_ONLY      = (ROLE_ADMINISTRATOR,)
-
-
-def require_station_membership(station_id: int, current_user: CurrentUser, db: Session) -> None:
-    """
-    Raises HTTP 403 if the current user is not an active member of the station.
-    Administrators bypass this check — they have access to all stations.
-    """
-    if current_user.has_role(ROLE_ADMINISTRATOR):
-        return
-    member = db.query(StationMember).filter(
-        StationMember.station_id == station_id,
-        StationMember.user_id    == current_user.email,
-        StationMember.active     == True,
-    ).first()
-    if not member:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not assigned to this station.",
-        )
-
 
 @router.get(
     "",
     response_model=List[StationRead],
     summary="List all stations (Administrator only)",
-    dependencies=[Depends(require_role(*_ADMIN_ONLY))],
+    dependencies=[Depends(require_role(*ADMIN_ONLY))],
 )
 def list_stations(
     active: bool = Query(default=True, description="Filter by active status"),
     db: Session = Depends(get_db),
 ) -> List[Station]:
-    """
-    Returns all stations. Administrator only.
-    All other roles use GET /stations/my which returns only their assigned stations.
-    """
+    """Returns all stations. Administrator only."""
     return db.query(Station).filter(Station.active == active).all()
 
 
@@ -89,7 +59,7 @@ def list_stations(
     response_model=StationRead,
     status_code=status.HTTP_201_CREATED,
     summary="Create a station",
-    dependencies=[Depends(require_role(*_ADMIN_ONLY))],
+    dependencies=[Depends(require_role(*ADMIN_ONLY))],
 )
 def create_station(payload: StationCreate, db: Session = Depends(get_db)) -> Station:
     """Creates a new station. Requires Administrator role."""
@@ -121,14 +91,9 @@ def create_station(payload: StationCreate, db: Session = Depends(get_db)) -> Sta
 )
 def list_station_locations(
     station_id: int,
-    current_user: CurrentUser = Depends(require_role(*_ALL_ROLES)),
+    current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
     db: Session = Depends(get_db),
 ) -> List[InventoryLocation]:
-    """
-    Returns all JUMP_BAG and EQUIPMENT inventory locations at a station.
-    Membership enforced — user must be assigned to the station.
-    Administrators bypass the membership check.
-    """
     station = db.query(Station).filter(Station.station_id == station_id).first()
     if not station:
         raise HTTPException(
@@ -159,14 +124,9 @@ def list_station_locations(
 )
 def get_station(
     station_id: int,
-    current_user: CurrentUser = Depends(require_role(*_ALL_ROLES)),
+    current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
     db: Session = Depends(get_db),
 ) -> Station:
-    """
-    Returns a single station by ID.
-    Membership enforced — user must be assigned to the station.
-    Administrators bypass the membership check.
-    """
     station = db.query(Station).filter(Station.station_id == station_id).first()
     if not station:
         raise HTTPException(
