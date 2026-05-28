@@ -4,10 +4,15 @@
  *
  * ## Production auth flow
  * Uses loginRedirect / logoutRedirect instead of loginPopup / logoutPopup.
- * Popup flow is unreliable on mobile Chrome and in incognito windows — the
- * browser blocks the popup because it isn't triggered by a direct user gesture
- * in the right context. Redirect flow navigates to login.microsoftonline.com
- * and back, which works on all browsers and devices.
+ * Popup flow is unreliable on mobile Chrome and in incognito windows.
+ * Redirect flow navigates to login.microsoftonline.com and back, which
+ * works on all browsers and devices including mobile Chrome and incognito.
+ *
+ * ## MSAL initialization
+ * msalInstance.initialize() is called in main.jsx before ReactDOM.createRoot.
+ * MsalProvider handles handleRedirectPromise internally once the instance is
+ * initialized — do NOT call it again here, it causes the
+ * "uninitialized_public_client_application" error on page refresh.
  *
  * ## Development (VITE_APP_ENV=development)
  * DevAuthProvider replaces MSAL entirely. No Azure AD setup needed.
@@ -24,8 +29,9 @@
  * }
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import React, { createContext, useContext, useCallback } from 'react'
 import { useMsal, useIsAuthenticated } from '@azure/msal-react'
+import { InteractionRequiredAuthError } from '@azure/msal-browser'
 import { apiTokenRequest } from '../api/authConfig.js'
 
 // ── Roles as defined in Azure AD App Registration ─────────────────────────────
@@ -63,18 +69,17 @@ const DEV_USERS = {
 
 // ── DevAuthProvider ───────────────────────────────────────────────────────────
 export function DevAuthProvider({ children }) {
-  const [roleKey, setRoleKey] = useState(
+  const [roleKey, setRoleKey] = React.useState(
     () => localStorage.getItem('ems_dev_role') ?? 'administrator'
   )
-  const [isAuthenticated, setIsAuthenticated] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = React.useState(true)
 
   const user = DEV_USERS[roleKey] ?? DEV_USERS.administrator
 
-  const getToken = useCallback(async () => user.token, [user.token])
-  const login    = useCallback(() => setIsAuthenticated(true), [])
-  const logout   = useCallback(() => setIsAuthenticated(false), [])
-
-  const switchRole = useCallback((key) => {
+  const getToken    = useCallback(async () => user.token, [user.token])
+  const login       = useCallback(() => setIsAuthenticated(true), [])
+  const logout      = useCallback(() => setIsAuthenticated(false), [])
+  const switchRole  = useCallback((key) => {
     localStorage.setItem('ems_dev_role', key)
     setRoleKey(key)
   }, [])
@@ -113,17 +118,7 @@ function useMsalAuth() {
   const isAuthenticated = useIsAuthenticated()
 
   const account = accounts[0] ?? null
-
-  // Handle the redirect response on page load.
-  // MSAL requires handleRedirectPromise() to be called after returning from
-  // login.microsoftonline.com — this processes the auth code in the URL hash.
-  useEffect(() => {
-    instance.handleRedirectPromise().catch((err) => {
-      console.error('[MSAL] handleRedirectPromise error:', err)
-    })
-  }, [instance])
-
-  const role = _extractRole(account?.idTokenClaims?.roles)
+  const role    = _extractRole(account?.idTokenClaims?.roles)
 
   const user = account
     ? {
@@ -146,11 +141,11 @@ function useMsalAuth() {
       })
       return result.accessToken
     } catch (err) {
-      // InteractionRequiredAuthError means silent renewal failed —
-      // redirect the user to re-authenticate.
-      console.warn('[MSAL] Silent token acquisition failed, redirecting:', err)
-      await instance.acquireTokenRedirect({ ...apiTokenRequest, account })
-      // This line is never reached — redirect navigates away.
+      if (err instanceof InteractionRequiredAuthError) {
+        // Silent renewal failed — redirect the user to re-authenticate.
+        await instance.acquireTokenRedirect({ ...apiTokenRequest, account })
+        // This line is never reached — redirect navigates away.
+      }
       throw err
     }
   }, [instance, account])

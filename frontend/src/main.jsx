@@ -18,29 +18,40 @@ import './index.css'
 import './styles/wizard.css'
 
 const isDev = import.meta.env.VITE_APP_ENV !== 'production'
-const msalInstance = isDev ? null : new PublicClientApplication(msalConfig)
 
-function Root() {
+async function bootstrap() {
+  let root
+
   if (isDev) {
-    return (
+    root = (
       <DevAuthProvider>
         <BrowserRouter>
           <App />
         </BrowserRouter>
       </DevAuthProvider>
     )
+  } else {
+    // MSAL browser v3+ requires initialize() to be awaited before any other
+    // MSAL API is called — including handleRedirectPromise. Calling initialize()
+    // here, before ReactDOM.createRoot, ensures the instance is fully ready
+    // before MsalProvider mounts and before useAuth's handleRedirectPromise fires.
+    const msalInstance = new PublicClientApplication(msalConfig)
+    await msalInstance.initialize()
+
+    root = (
+      <MsalProvider instance={msalInstance}>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </MsalProvider>
+    )
   }
-  return (
-    <MsalProvider instance={msalInstance}>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </MsalProvider>
+
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    <React.StrictMode>
+      {root}
+    </React.StrictMode>
   )
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <Root />
-  </React.StrictMode>
-)
+bootstrap()
