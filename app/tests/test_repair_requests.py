@@ -286,7 +286,8 @@ class TestUpdateRepairRequest:
         )
         assert resp.status_code == 409
 
-    def test_responder_cannot_update_status(self, client, db, auth_responder):
+    def test_responder_cannot_resolve(self, client, db, auth_responder):
+        """Responders can mark In Progress but cannot resolve — Supervisor+ only."""
         s = _station(db)
         v = _vehicle(db, s.station_id)
         create_resp = client.post(
@@ -298,10 +299,71 @@ class TestUpdateRepairRequest:
 
         resp = client.patch(
             f"/api/v1/vehicles/{v.vehicle_id}/repair-requests/{repair_id}",
-            json={"status": "IN_PROGRESS"},
+            json={"status": "RESOLVED", "resolution_notes": "Replaced the light switch."},
             headers=auth_responder,
         )
         assert resp.status_code == 403
+
+    def test_responder_can_mark_in_progress(self, client, db, auth_responder):
+        """Any role can advance OPEN → IN_PROGRESS."""
+        s = _station(db)
+        v = _vehicle(db, s.station_id)
+        create_resp = client.post(
+            f"/api/v1/vehicles/{v.vehicle_id}/repair-requests",
+            json={"description": "Headlights are flickering when the engine idles."},
+            headers=auth_responder,
+        )
+        repair_id = create_resp.json()["repair_id"]
+
+        resp = client.patch(
+            f"/api/v1/vehicles/{v.vehicle_id}/repair-requests/{repair_id}",
+            json={"status": "IN_PROGRESS"},
+            headers=auth_responder,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "IN_PROGRESS"
+
+    def test_responder_can_mark_in_progress_with_optional_note(self, client, db, auth_responder):
+        """IN_PROGRESS transition stores an optional note without requiring it."""
+        s = _station(db)
+        v = _vehicle(db, s.station_id)
+        create_resp = client.post(
+            f"/api/v1/vehicles/{v.vehicle_id}/repair-requests",
+            json={"description": "Rear step light is out and needs replacement."},
+            headers=auth_responder,
+        )
+        repair_id = create_resp.json()["repair_id"]
+
+        # With note
+        resp = client.patch(
+            f"/api/v1/vehicles/{v.vehicle_id}/repair-requests/{repair_id}",
+            json={"status": "IN_PROGRESS", "resolution_notes": "Ordered replacement bulb."},
+            headers=auth_responder,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "IN_PROGRESS"
+        assert data["resolution_notes"] == "Ordered replacement bulb."
+
+    def test_responder_can_mark_in_progress_without_note(self, client, db, auth_responder):
+        """IN_PROGRESS transition succeeds when no note is provided."""
+        s = _station(db)
+        v = _vehicle(db, s.station_id)
+        create_resp = client.post(
+            f"/api/v1/vehicles/{v.vehicle_id}/repair-requests",
+            json={"description": "Windshield has a small crack in the lower corner."},
+            headers=auth_responder,
+        )
+        repair_id = create_resp.json()["repair_id"]
+
+        resp = client.patch(
+            f"/api/v1/vehicles/{v.vehicle_id}/repair-requests/{repair_id}",
+            json={"status": "IN_PROGRESS"},
+            headers=auth_responder,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "IN_PROGRESS"
+        assert resp.json()["resolution_notes"] is None
 
 
 # ── Mark vehicle inactive / active (PATCH /vehicles/{id}) ─────────────────────

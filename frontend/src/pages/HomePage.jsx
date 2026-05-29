@@ -2,7 +2,7 @@
  * pages/HomePage.jsx
  * Application home screen.
  */
-import React, { useState, useEffect, lazy, Suspense } from 'react'
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { useAuth } from '../shared/hooks/useAuth.jsx'
 import { useApi } from '../shared/hooks/useApi.js'
 import { useDraftIndex } from '../shared/hooks/useDraft.js'
@@ -14,6 +14,7 @@ import DraftBanner from '../modules/check-wizard/components/DraftBanner.jsx'
 import Spinner from '../shared/components/Spinner.jsx'
 import PendingAssignmentScreen from '../modules/admin/components/PendingAssignmentScreen.jsx'
 import { checkApi } from '../modules/check-wizard/api/checkApi.js'
+import { checkHistoryApi } from '../modules/check-history/api/checkHistoryApi.js'
 
 const CheckWizard          = lazy(() => import('../modules/check-wizard/index.jsx'))
 const VehicleStatusScreen  = lazy(() => import('../modules/vehicles/index.jsx'))
@@ -22,6 +23,44 @@ const SupervisorDashboard  = lazy(() => import('../modules/supervisor/index.jsx'
 const AdminScreen          = lazy(() => import('../modules/admin/index.jsx'))
 
 const STATION_STORAGE_KEY = 'ems_selected_station'
+
+/**
+ * VE-F5: Fetch today's compliance for the selected station and derive
+ * a badge state for the V&E Status module card.
+ *
+ * Returns:
+ *   'issue'       — unacknowledged FAIL check exists (red)
+ *   'needs-review' — FAIL exists but all acknowledged (yellow)
+ *   null          — no open issues or data unavailable
+ *
+ * Fails silently — never blocks the home screen.
+ * Refreshes on window focus.
+ */
+function useStationIssues(stationId, getToken) {
+  const [issueState, setIssueState] = useState(null)
+
+  const compute = useCallback(async () => {
+    if (!stationId) { setIssueState(null); return }
+    try {
+      const checks = await checkHistoryApi.getStationChecks(stationId, getToken)
+      const fails = (checks ?? []).filter(c => c.status === 'FAIL')
+      if (fails.length === 0) { setIssueState(null); return }
+      const hasUnacknowledged = fails.some(c => !c.reviewed_at)
+      setIssueState(hasUnacknowledged ? 'issue' : 'needs-review')
+    } catch {
+      setIssueState(null)
+    }
+  }, [stationId, getToken])
+
+  useEffect(() => { compute() }, [compute])
+
+  useEffect(() => {
+    window.addEventListener('focus', compute)
+    return () => window.removeEventListener('focus', compute)
+  }, [compute])
+
+  return issueState
+}
 
 function loadSavedStation() {
   try {
@@ -53,6 +92,7 @@ export default function HomePage() {
   } = useApi(() => checkApi.getStations(getToken), [])
 
   const draftGroups = useDraftIndex(selectedStation?.station_id ?? null)
+  const issueState  = useStationIssues(selectedStation?.station_id ?? null, getToken)
 
   useEffect(() => {
     if (!selectedStation && stations?.length === 1) {
@@ -264,6 +304,16 @@ export default function HomePage() {
               <div className="module-card__content">
                 <div className="module-card__title">Vehicle &amp; Equipment Status</div>
                 <div className="module-card__description">Report a repair or mark out of service</div>
+                {issueState === 'issue' && (
+                  <div className="module-card__issue-badge module-card__issue-badge--issue" role="status">
+                    ⚠ Unresolved Issue
+                  </div>
+                )}
+                {issueState === 'needs-review' && (
+                  <div className="module-card__issue-badge module-card__issue-badge--needs-review" role="status">
+                    ✓ Acknowledged
+                  </div>
+                )}
               </div>
               <button
                 className="btn btn--primary"

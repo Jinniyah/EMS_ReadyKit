@@ -77,4 +77,6 @@ ems_readykit_dev.db
 
 # Deployment
 deploy.zip
+
+# Archives
 /docs/_archive

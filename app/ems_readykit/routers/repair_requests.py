@@ -179,7 +179,7 @@ def update_repair_request(
     repair_id: int,
     payload: RepairRequestUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_role(*SUPERVISOR_PLUS)),
+    current_user=Depends(require_role(*ALL_ROLES)),
 ) -> RepairRequest:
     repair = _get_repair_or_404(repair_id, vehicle_id, db)
 
@@ -189,11 +189,21 @@ def update_repair_request(
             detail="Cannot update a resolved repair request.",
         )
 
-    if payload.status == RepairStatus.RESOLVED and not payload.resolution_notes:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="resolution_notes is required when resolving a repair request.",
-        )
+    # Resolving requires Supervisor+ — any role may mark In Progress.
+    if payload.status == RepairStatus.RESOLVED:
+        if not current_user.has_role(*SUPERVISOR_PLUS):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "You don't have permission to resolve repair requests. "
+                    "Ask your supervisor to mark it resolved once the work is done."
+                ),
+            )
+        if not payload.resolution_notes:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="resolution_notes is required when resolving a repair request.",
+            )
 
     now = datetime.now(timezone.utc)
     repair.status = payload.status

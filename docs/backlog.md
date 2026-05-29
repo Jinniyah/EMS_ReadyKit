@@ -1,5 +1,5 @@
 # EMS ReadyKit — Active Backlog
-# v1.29 | Updated: 2026-05-29
+# v1.35 | Updated: 2026-05-29
 # Completed items → backlog_completed.md
 # Priority: Critical / High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
@@ -14,6 +14,16 @@
 #   - Human-readable 403 error messages throughout backend and frontend
 #   - 26 new membership enforcement tests; 179 total passing, 0 warnings
 #   - 4 pre-existing tests fixed with _add_member() fixture helper
+#
+# ✅ SESSION COMPLETE 2026-05-29 — Session D (in progress):
+#   B-R1/B-R2/F-R1: Repair request workflow bugs fixed; In Progress modal split from Resolve
+#   B-E3: Date-range compliance endpoint; frontend wired; today-only stub removed
+#   VE-F5: Open issue badge on V&E Status card; vehicle card badge on mount
+#   F-UX35: Already implemented in previous session (confirmed in code review)
+#   CH-UX1: Unified check resolution — ResolutionTag shared component, CheckDetail
+#           parity with CheckDetailPanel (I Fixed This, resolution states), CheckList
+#           rows upgraded from plain ✓ to ResolutionTag
+#   Session D COMPLETE
 #
 # NEXT SESSION — Session D (features):
 #   B-E3    Date-range compliance query endpoint  → unblocks F-5F2, F-UX7, VE-F5
@@ -73,7 +83,7 @@ See backlog_completed.md.
 ## 2. Backend — Phase 6 Endpoints
 | # | Endpoint | Description | Pri | Status | Needs |
 |---|----------|-------------|-----|--------|-------|
-| B-E3 | `GET /checks/daily/station/{id}?from=&to=` | Date-range compliance query | High | 📋 | Unblocks F-5F2, F-UX7, VE-F5 |
+| B-E3 | `GET /checks/daily/station/{id}?from=&to=` | Date-range compliance query | High | ✅ Done | Unblocks F-5F2, F-UX7, VE-F5 |
 | B-E5 | `POST /inventory/transfer` | Move stock between supply room and vehicle | High | 📋 | |
 | B-E6 | `GET /inventory/locations/{id}/stock-summary` | Stock vs par per item | High | 📋 | |
 | B-E7 | `GET /stations/{id}/users` | Active users at station via MS Graph | Medium | 📋 | |
@@ -171,7 +181,7 @@ See backlog_completed.md.
 | VE-F2 | Open loans panel — unresolved loans per vehicle; Resolve button per row | Medium | 📋 | LOAN-B3 |
 | VE-F3 | Log a loan form — lot picker + destination note field | Medium | 📋 | LOAN-B1 |
 | VE-F4 | Resolve loan modal — optional note, calls LOAN-B2 | Medium | 📋 | LOAN-B2 |
-| VE-F5 | **Open issue badge on V&E Status card (home screen)** | High | 📋 | Uses today endpoint (exists); upgraded by B-E3 |
+| VE-F5 | **Open issue badge on V&E Status card (home screen)** | High | ✅ Done | Uses today endpoint (exists); upgraded by B-E3 |
 
 ### VE-F5 — Open Issue Badge: Full Specification
 
@@ -252,7 +262,7 @@ Station-scoped: always reflects the **currently selected station** only.
 | F-UX10 | "Caller/spotter view" large-text mode | Low | 📋 | |
 | F-UX32 | BORROWED badge on loaned items during check; shortcut to V&E Status | Medium | 📋 | B-M14 |
 | F-UX34 | Second crew picker — structured user lookup (OWASP A04 long-term fix) | Medium | ⛔ | B-M15, B-E7 |
-| F-UX35 | Draft banner visible while station API loading | High | 📋 | |
+| F-UX35 | Draft banner visible while station API loading | High | ✅ Done | Implemented via `ems_last_station_id` fallback in `useDraftIndex` |
 
 ---
 
@@ -378,7 +388,7 @@ Station-scoped: always reflects the **currently selected station** only.
 ## 19. Documentation
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| D-R1 | **Documentation audit** — full review of all docs | High | 📋 | Keep/rewrite/merge/drop/create output |
+| D-R1 | **Documentation audit** — full review of all docs | High | ✅ Done | README rewritten with feature list; project_index updated; 14 stale files archived; 10 docs → 7 |
 
 ---
 
@@ -404,11 +414,45 @@ No new endpoints — uses existing `PATCH /checks/daily/{id}/acknowledge`.
 
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| CH-UX1-F1 | Bring `IFixedThisForm` into `CheckDetail.jsx` | High | 📋 | No backend change needed |
-| CH-UX1-F2 | Unified resolution panel | High | 📋 | |
-| CH-UX1-F3 | Resolved/Pending visual state on check detail | High | 📋 | |
-| CH-UX1-F4 | Compliance Dashboard "I Fixed This" uses same panel | Medium | 📋 | |
-| CH-UX1-F5 | Check card in history list shows "Resolved" indicator | Medium | 📋 | |
+| CH-UX1-F1 | Bring `IFixedThisForm` into `CheckDetail.jsx` | High | ✅ Done | `IFixedThisPanel` added; calls `supervisorApi.resolveFailedItems` |
+| CH-UX1-F2 | Unified resolution panel | High | ✅ Done | Shared `ResolutionTag` + `getResolutionState` in `shared/components/` |
+| CH-UX1-F3 | Resolved/Pending visual state on check detail | High | ✅ Done | `ResolutionTag` shown in summary header |
+| CH-UX1-F4 | Compliance Dashboard "I Fixed This" uses same panel | Medium | ✅ Done | `CheckDetailPanel` already correct; `supervisorApi` shared |
+| CH-UX1-F5 | Check card in history list shows "Resolved" indicator | Medium | ✅ Done | `CheckList` rows now use `ResolutionTag` |
+
+---
+
+## 22. Repair Request Workflow Bugs (B-R)
+
+**Context:** Discovered during testing on 2026-05-29 via Vehicle & Equipment Status → vehicle expanded panel.
+See screenshots: `Vehicle_Expanded_Screen_1.png`, `Vehicle_Expanded_Screen_2.png`.
+
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| B-R1 | Wrong modal on "Mark In Progress" — opens Resolve dialog instead of In Progress flow | High | 📋 | Frontend only; split handlers |
+| B-R2 | "Mark Resolved" button non-functional inside incorrectly-triggered Resolve modal | High | 📋 | Investigate after B-R1; may share root cause |
+| F-R1 | New "Mark In Progress" lightweight modal — optional comment, no resolution required, all roles | High | 📋 | Depends on B-R1 fix |
+
+### F-R1 — Mark In Progress Modal: Full Specification
+
+**Trigger:** "Mark In Progress" action link on repair request card in V&E Status expanded panel.
+
+**Behavior:**
+- Opens a small modal (does NOT close/resolve the ticket)
+- Shows repair request title as read-only context
+- Optional comment/note field: `Add a note... (optional)`
+- Two buttons: **Confirm** (transitions status to In Progress) and **Cancel**
+- No resolution notes required
+- Available to **all roles** — no supervisor restriction
+- On confirm: status → `IN_PROGRESS`; comment stored if provided
+
+**Acceptance criteria:**
+- [ ] Clicking "Mark In Progress" opens the new lightweight modal, not the Resolve modal
+- [ ] Comment field is optional — confirm works with or without text
+- [ ] Status transitions to IN_PROGRESS on confirm
+- [ ] Cancel dismisses with no change
+- [ ] All roles (Responder, Supervisor, Administrator) can perform the action
+- [ ] Card reflects updated status after confirm
 
 ---
 
@@ -452,4 +496,5 @@ No new endpoints — uses existing `PATCH /checks/daily/{id}/acknowledge`.
 | Documentation | 1 | 0 | 1 |
 | User Acceptance Testing (UAT) | 6 | 2 | 8 |
 | Check Resolution Workflow (CH-UX1) | 5 | 0 | 5 |
+| Repair Request Workflow Bugs (B-R) | 0 | 0 | 3 |
 | **Total** | **127** | **12** | **139** |

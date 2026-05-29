@@ -1,148 +1,121 @@
 # EMS ReadyKit
 
 [![CI/CD — Test, Build, Deploy](https://github.com/Jinniyah/EMS_ReadyKit/actions/workflows/deploy.yml/badge.svg)](https://github.com/Jinniyah/EMS_ReadyKit/actions/workflows/deploy.yml)
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-3110/)
+[![Security — 0 CVEs](https://img.shields.io/badge/security-0%20CVEs-brightgreen?logo=shield)](https://pypi.org/project/pip-audit/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-Cloud-native inventory and vehicle readiness platform for Fire and EMS operations. Demonstrates Infrastructure-as-Code, Azure AD authentication, role-based access control, audit logging, and operational observability in a regulated domain.
+Cloud-native inventory and vehicle readiness platform for Fire and EMS operations.
+Built to replace paper-based daily vehicle checks with a mobile-first digital
+workflow — designed for real crews, in real stations, under real time pressure.
 
+**Live app:** https://lively-bush-0ed75ca10.7.azurestaticapps.net  
 **Live API:** https://app-ems-readykit-dev.azurewebsites.net  
 **API docs:** https://app-ems-readykit-dev.azurewebsites.net/docs  
 **Repository:** https://github.com/Jinniyah/EMS_ReadyKit
 
 ---
 
-## What this project is
+## What it does
 
-EMS ReadyKit replaces paper-based daily vehicle inventory checks for a Fire and EMS department. Crews use it on a phone or tablet to verify that every compartment on every ambulance is stocked, that nothing is expired, and that controlled substances are properly accounted for. Supervisors use it to track daily compliance, investigate discrepancies, and maintain audit-ready records.
+EMS ReadyKit gives crews and supervisors a structured, accountable way to verify
+that every ambulance is stocked, nothing is expired, and controlled substances are
+properly accounted for — before every shift goes out the door.
 
-The system is modeled after a real township Fire and EMS operation. It is a technical demonstration — it does not process patient data and is not connected to live departmental systems.
+### For crews
+
+| Feature | Description |
+|---------|-------------|
+| **Guided daily check wizard** | Step-by-step walkthrough — select vehicle, check each compartment, count and validate every item |
+| **Five item check types** | Supply counts, measurements (O₂ PSI), functional tests (AED battery), date records (defibrillator service), and documents |
+| **Expiration tracking** | Items flagged EXPIRED when past date; lot number and expiry visible per item |
+| **Controlled substance checks** | Dual-signature verification for ALS vehicles; second crew member captured on record |
+| **Auto-save draft** | Progress saved after every item — if a call comes in mid-check, pick up exactly where you left off |
+| **Multiple checks per day** | Supports shift-start and post-call restock checks on the same vehicle |
+| **Repair reporting** | File routine or urgent repair requests directly from the check wizard or vehicle status screen |
+| **Jump bag support** | Portable equipment and jump bags checked on the same workflow as vehicles |
+
+### For supervisors and administrators
+
+| Feature | Description |
+|---------|-------------|
+| **Compliance dashboard** | Today's check status across all vehicles — pass, needs restock, fail, or not yet checked |
+| **FAIL acknowledgement** | Record corrective action on failed checks; full audit trail of who acted and when |
+| **"I Fixed This" workflow** | One-step resolution that logs a repair request, marks it resolved, and acknowledges the check |
+| **Check history** | Full history per crew member and per station; filterable by status |
+| **Vehicle lifecycle management** | Mark vehicles out of service with reason; return to service when ready |
+| **Repair request tracking** | Open → In Progress → Resolved lifecycle; any crew member can advance; supervisors resolve |
+| **Soft-delete with retention** | Checks can be removed with a mandatory reason; preserved for 90 days before automatic deletion |
+| **Station administration** | Manage station membership; control which crew members can access which station's data |
+| **Full audit trail** | Every material action — checks, repairs, acknowledgements, deletions — is logged with actor, timestamp, and entity |
+| **Date-range compliance query** | Query check history across any date range up to 90 days |
 
 ---
 
 ## What this project demonstrates
 
 | Capability | Implementation |
-|------------|---------------|
-| Infrastructure-as-Code | Terraform modules for network, identity, policy, logging, app, data, storage |
+|------------|----------------|
+| Infrastructure-as-Code | Terraform modules for network, identity, policy, logging, app, data, and storage |
 | Cloud governance | Azure Policy (required tags, region lock, deny public IP), budget alerts |
-| Authentication | Azure AD JWT (RS256), JWKS caching, audience/issuer verification |
-| Authorization | Group-based RBAC (Azure AD) + application-layer enforcement |
+| Authentication | Azure AD JWT (RS256), JWKS caching, full claim validation |
+| Authorization | Group-based RBAC (Azure AD) + application-layer station membership enforcement |
 | API design | FastAPI, versioned REST endpoints, Pydantic v2 validation, OpenAPI docs |
 | Domain modeling | Station → Vehicle → Compartment → Item → StockLot hierarchy |
 | Data integrity | SQLAlchemy 2.0, Alembic migrations, DB-level constraints |
 | Audit trail | First-class audit events with actor, entity, severity, and metadata |
-| Testing | 90 automated tests — models, routers, schema validation, RBAC, business rules |
-| CI/CD | GitHub Actions: test → build on Linux → deploy → health check |
+| Security | OWASP Top 10 reviewed; 0 known CVEs (pip-audit in CI); security headers; production hardening |
+| Testing | 191 automated tests — models, routers, RBAC, business rules, station membership |
+| CI/CD | GitHub Actions: pip-audit → pytest → build on Linux → deploy → health check |
 | Observability | Log Analytics, structured logging, diagnostic settings |
-| Cost discipline | F1 dev tier, short log retention, budget alerts, right-sized compute |
+| Cost discipline | F1/Free dev tiers; short log retention; budget alerts; B1 upgrade is one variable change |
+| Frontend | React PWA — mobile-first, works offline, modular architecture with isolated error boundaries |
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│ Azure Active Directory                              │
-│ Group-based RBAC: Administrator / Supervisor /      │
-│ Responder — JWT RS256 tokens                        │
-└─────────────────────┬───────────────────────────────┘
-                      │ HTTPS + Bearer token
-┌─────────────────────▼───────────────────────────────┐
-│ Azure App Service (Python 3.11)                     │
-│ FastAPI + Gunicorn + UvicornWorker                  │
-│ /api/v1: stations, vehicles, inventory,             │
-│          checks, audit                              │
-│                                                     │
-│  ┌─────────────────┐   ┌──────────────────────┐    │
-│  │ Azure Key Vault  │   │ Log Analytics        │    │
-│  │ Managed identity │   │ Structured audit log │    │
-│  └─────────────────┘   └──────────────────────┘    │
-└─────────────────────┬───────────────────────────────┘
-                      │ Private connection
-┌─────────────────────▼───────────────────────────────┐
-│ Azure Database for PostgreSQL Flexible Server       │
-│ Alembic migrations run on every startup             │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  Azure Active Directory                                     │
+│  Group-based RBAC: Administrator / Supervisor / Responder   │
+│  RS256 JWT tokens                                           │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ HTTPS + Bearer token
+┌──────────────────────────▼──────────────────────────────────┐
+│  Azure Static Web Apps                                      │
+│  React PWA — mobile-first, MSAL authentication              │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ HTTPS API calls
+┌──────────────────────────▼──────────────────────────────────┐
+│  Azure App Service (Python 3.11)                            │
+│  FastAPI + Gunicorn + UvicornWorker                         │
+│  /api/v1: stations, vehicles, inventory,                    │
+│           checks, repair requests, audit                    │
+│                                                             │
+│  ┌───────────────────┐   ┌──────────────────────────────┐   │
+│  │  Azure Key Vault  │   │  Log Analytics Workspace     │   │
+│  │  Managed identity │   │  Structured audit log + KQL  │   │
+│  └───────────────────┘   └──────────────────────────────┘   │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ Private connection
+┌──────────────────────────▼──────────────────────────────────┐
+│  Azure Database for PostgreSQL Flexible Server              │
+│  Alembic migrations run automatically on startup            │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 All infrastructure is provisioned via Terraform. No manual portal configuration.
 
 ---
 
-## Project structure
-
-```
-EMS_ReadyKit/
-├── app/                        # FastAPI application
-│   ├── ems_readykit/
-│   │   ├── core/               # Config, auth, database, logging
-│   │   ├── models/             # SQLAlchemy ORM models (11 entities)
-│   │   ├── schemas/            # Pydantic v2 request/response schemas
-│   │   └── routers/            # API route handlers (6 routers)
-│   ├── alembic/                # Database migrations
-│   ├── tests/                  # 90 automated tests
-│   ├── requirements.txt
-│   ├── startup.sh              # Container startup: migrate then serve
-│   └── pyproject.toml
-├── iac/
-│   └── Terraform/
-│       ├── main.tf             # Root module
-│       └── modules/
-│           ├── network/        # VNet, subnets, NSGs
-│           ├── identity_rbac/  # Azure AD groups, app roles, RBAC
-│           ├── policy/         # Required tags, region lock, deny public IP
-│           ├── logging/        # Log Analytics workspace
-│           ├── app/            # App Service, Key Vault, managed identity
-│           ├── data/           # PostgreSQL Flexible Server
-│           ├── storage/        # Blob storage
-│           └── siem/           # Security Onion (optional)
-├── docs/
-│   ├── project_index.md        # Master documentation index
-│   ├── phase1_platform_foundation.md
-│   ├── phase2_backend_api.md
-│   ├── phase3_auth_cicd.md
-│   ├── phase4_compartments_line_items.md
-│   ├── phase5_frontend_pwa.md  # Frontend plan (in progress)
-│   ├── phase6_backend_extensions.md
-│   ├── adr/                    # Architecture Decision Records
-│   │   ├── ADR-001-Architecture.md
-│   │   ├── ADR-002-RBAC.md
-│   │   ├── ADR-003-Logging-and-Audit.md
-│   │   ├── ADR-004-Terraform-Module-Structure.md
-│   │   └── ADR-005-Frontend-Architecture.md
-│   └── runbook.md
-├── .github/
-│   └── workflows/deploy.yml    # CI/CD pipeline
-└── CONTRIBUTING.md
-```
-
----
-
-## Domain model
-
-```
-Station
- └── Vehicle (ALS / BLS / QRV)
-      ├── InventoryLocation
-      │    └── Compartment ("Compartment #1", "Drug Bag", "Narcotic Lock Bag"...)
-      │         ├── ParLevel (item → min/max required quantity)
-      │         └── CheckLineItem (item → Need/Have/status per daily check)
-      ├── DailyInventoryCheck (one per vehicle per calendar day)
-      │    └── CheckLineItem → StockLot (lot number + expiration date)
-      └── ControlledSubstanceCheck (dual-signature, ALS only)
-
-StockLot (quantity + lot number + expiration date at a location)
-AuditEvent (immutable record of all material actions)
-```
-
----
-
 ## Role model
 
-| Role | Platform scope | What they can do |
-|------|---------------|-----------------|
-| Administrator | Subscription-level Reader | Full system access — create and configure everything |
-| Supervisor | Resource group Contributor | Station-level — review compliance, manage inventory, approve requests |
-| Responder | Authenticated access only | Vehicle-level — submit daily checks, read inventory |
+| Role | What they can do |
+|------|-----------------|
+| **Responder** | Submit daily checks, view own check history, file repair requests, mark repairs in progress |
+| **Supervisor** | Everything a Responder can do, plus: review all station checks, acknowledge failures, resolve repairs, manage vehicles, manage station membership |
+| **Administrator** | Full system access — all supervisor capabilities plus station creation, user management, audit access, and soft-delete management |
 
 Roles are assigned via Azure AD groups. No user-level role assignments. Group membership is managed via Terraform.
 
@@ -150,13 +123,14 @@ Roles are assigned via Azure AD groups. No user-level role assignments. Group me
 
 ## Key business rules
 
-- One daily check per vehicle per calendar day (enforced at DB level)
-- CS checks require ALS vehicle type — enforced at application layer
-- CS checks require two different signers — enforced at application layer
-- `performed_by` is bound to the JWT identity server-side — cannot be overridden by the client
-- Line item status is computed server-side (OK / SHORT / MISSING / EXPIRED) — never client-supplied
-- EXPIRED takes priority over MISSING — an expired item is a compliance failure regardless of count
+- Station membership is enforced on every endpoint — crews can only access their assigned station's data
+- `performed_by` is bound to the JWT identity server-side — cannot be spoofed by the client
+- Line item status is computed server-side (OK / SHORT / MISSING / EXPIRED / LOW / OVERDUE / FAIL) — never client-supplied
+- EXPIRED takes priority over MISSING — an expired item is a compliance failure regardless of quantity
 - Overall check status is worst-case across all line items (PASS / NEEDS_RESTOCK / FAIL)
+- Controlled substance checks require a different primary and secondary signer — enforced at application layer
+- Soft-deleted checks are hidden immediately but retained for 90 days before permanent deletion
+- Resolving a repair request requires Supervisor+; marking In Progress is available to all roles
 
 ---
 
@@ -164,12 +138,12 @@ Roles are assigned via Azure AD groups. No user-level role assignments. Group me
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for full local setup instructions.
 
-Quick start:
+**Quick start:**
 
 ```bash
 cd app
 python -m venv .venv
-source .venv/bin/activate      # Windows: .venv\Scripts\Activate.ps1
+source .venv/bin/activate        # Windows: .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 alembic upgrade head
 pytest tests/ -v
@@ -184,10 +158,10 @@ API explorer: http://localhost:8000/docs
 
 ```bash
 cd app
-pytest tests/ -v                    # all 90 tests
-pytest tests/test_models.py -v      # model tests only
-pytest tests/test_routers.py -v     # router + RBAC tests only
-pytest tests/ -v -k "RBAC"          # RBAC tests only
+pytest tests/ -v                  # all 191 tests
+pytest tests/test_repair_requests.py -v   # repair request lifecycle
+pytest tests/test_station_membership.py -v  # access control
+pytest tests/ -v -k "RBAC"       # RBAC enforcement only
 ```
 
 Tests use an in-memory SQLite database with savepoint isolation. No external services required.
@@ -196,17 +170,18 @@ Tests use an in-memory SQLite database with savepoint isolation. No external ser
 
 ## Deployment
 
-Deployment is automated via GitHub Actions on every push to `main`:
+Deployment is fully automated via GitHub Actions on every push to `main`:
 
-1. Test job runs all 90 tests on `ubuntu-latest`
-2. On pass: build zip on Linux (forward-slash paths — required for Oryx)
-3. Deploy to Azure App Service via `azure/webapps-deploy@v3`
-4. Health check: `GET /health` must return HTTP 200
+1. `pip-audit` — 0 known CVEs required to proceed
+2. `pytest` — all 191 tests must pass
+3. Build zip on Linux (forward-slash paths — required for Azure Oryx)
+4. Deploy API to Azure App Service
+5. Build and deploy frontend to Azure Static Web Apps
+6. Health check: `GET /health` must return HTTP 200
 
-Manual deploy:
+Manual API deploy (Linux or WSL only):
 
 ```bash
-# Build zip on Linux (WSL or a Linux machine)
 cd app
 zip -r /tmp/deploy.zip alembic ems_readykit alembic.ini app.py \
     Procfile pyproject.toml requirements.txt startup.sh
@@ -218,22 +193,29 @@ az webapp deploy \
     --type zip
 ```
 
-> **Important:** Always build the zip on Linux. Windows `Compress-Archive` creates backslash paths that Oryx cannot extract as directories.
+> **Always build the zip on Linux.** Windows `Compress-Archive` creates backslash
+> paths that Oryx cannot extract as directories.
 
 ---
 
-## Infrastructure
+## Technology stack
 
-```bash
-cd iac/Terraform
-terraform init
-terraform plan
-terraform apply
-```
-
-Requires: Azure CLI authenticated, Terraform 1.6+, Azure AD permissions to create groups and app registrations.
-
-See [docs/runbook.md](docs/runbook.md) for full deployment, validation, and teardown procedures.
+| Layer | Technology | Version |
+|-------|------------|---------|
+| Cloud | Microsoft Azure | — |
+| IaC | Terraform | 1.6+ |
+| Backend | FastAPI | 0.136.1 |
+| ORM | SQLAlchemy | 2.0 |
+| Migrations | Alembic | 1.13+ |
+| Validation | Pydantic | 2.13.4 |
+| Database | PostgreSQL (Azure Flexible Server) | 16 |
+| Runtime | Python | 3.11 |
+| ASGI server | Gunicorn + UvicornWorker | — |
+| Authentication | Azure Active Directory | RS256 JWT |
+| CI/CD | GitHub Actions | — |
+| Frontend | React 18 + Vite (PWA) | — |
+| Frontend hosting | Azure Static Web Apps | Free tier |
+| Testing | pytest | 9.0 |
 
 ---
 
@@ -241,47 +223,25 @@ See [docs/runbook.md](docs/runbook.md) for full deployment, validation, and tear
 
 | Document | Description |
 |----------|-------------|
-| [docs/project_index.md](docs/project_index.md) | Master index — current state, all decisions, Phase 6 backlog |
-| [docs/phase1_platform_foundation.md](docs/phase1_platform_foundation.md) | Azure infrastructure and Terraform |
-| [docs/phase2_backend_api.md](docs/phase2_backend_api.md) | FastAPI application and domain model |
-| [docs/phase3_auth_cicd.md](docs/phase3_auth_cicd.md) | Authentication, RBAC, CI/CD pipeline |
-| [docs/phase4_compartments_line_items.md](docs/phase4_compartments_line_items.md) | Compartments, line items, expiration tracking |
-| [docs/phase5_frontend_pwa.md](docs/phase5_frontend_pwa.md) | Frontend PWA plan (in progress) |
-| [docs/phase6_backend_extensions.md](docs/phase6_backend_extensions.md) | Planned backend extensions |
-| [docs/adr/](docs/adr/) | Architecture Decision Records (ADR-001 through ADR-005) |
-| [docs/runbook.md](docs/runbook.md) | Deployment, validation, and teardown |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Local setup, dev workflow, contribution guidelines |
+| [docs/project_index.md](docs/project_index.md) | Current system state, technology decisions, and what's built vs. planned |
+| [docs/architecture.md](docs/architecture.md) | Component diagram and networking notes |
+| [docs/runbook.md](docs/runbook.md) | Infrastructure deployment, validation, and teardown |
+| [docs/osi_security_review.md](docs/osi_security_review.md) | Layer-by-layer security analysis with gap/action list |
+| [docs/backlog.md](docs/backlog.md) | All open work items across backend, frontend, and infrastructure |
+| [docs/adr/](docs/adr/) | Architecture Decision Records — key decisions with rationale |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Local setup, dev workflow, and contribution guidelines |
 
 ---
 
-## Technology stack
+## Known limitations — development deployment
 
-| Layer | Technology | Version |
-|-------|-----------|---------|
-| Cloud | Microsoft Azure | — |
-| IaC | Terraform | 1.6+ |
-| Backend | FastAPI | 0.111.0 |
-| ORM | SQLAlchemy | 2.0.30 |
-| Migrations | Alembic | 1.13.1 |
-| Validation | Pydantic | 2.7.1 |
-| Database | PostgreSQL (Azure Flexible Server) | 16 |
-| Runtime | Python | 3.11.15 |
-| ASGI server | Gunicorn + UvicornWorker | 0.29.0 |
-| Auth | Azure Active Directory | RS256 JWT |
-| CI/CD | GitHub Actions | — |
-| Frontend (planned) | React PWA + MSAL | — |
-| Testing | pytest + pytest-asyncio | 8.2.0 |
-
----
-
-## Known limitations (development deployment)
-
-| Limitation | Detail | Production resolution |
-|------------|--------|----------------------|
-| F1 App Service tier | No VNet integration, no Always On | Upgrade to B1 — one Terraform variable change |
-| Public DB connection | App reaches PostgreSQL over Azure services firewall | Enable VNet integration on B1+ |
-| Short log retention | 7–14 days | Increase retention period in logging module |
-| Single region | No geo-redundancy | Multi-region for production |
+| Limitation | Detail | Production path |
+|------------|--------|----------------|
+| F1 App Service tier | No Always On; cold starts possible | Upgrade to B1 — one Terraform variable |
+| Public DB connection on F1 | App reaches PostgreSQL over Azure services firewall | Enable VNet integration on B1+ |
+| No Azure Firewall | Outbound traffic is unfiltered | Add Firewall module (see backlog I-1) |
+| Short log retention | 7–14 days | Increase retention in logging Terraform module |
+| Single region | No geo-redundancy | Multi-region Terraform for production |
 
 ---
 

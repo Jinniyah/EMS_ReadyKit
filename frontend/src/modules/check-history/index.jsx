@@ -48,8 +48,9 @@ export default function CheckHistoryScreen({ station, onBack }) {
     []
   )
 
-  // All checks at station for today (Supervisor+ only).
-  // B-E3 will replace this with a full date-range station history endpoint.
+  // All checks at station within a rolling 7-day window (Supervisor+ only).
+  // Uses B-E3 date-range endpoint. Default (no params) returns today;
+  // the compliance calendar (F-5F2) will add a date picker to this tab.
   const {
     data: allChecks,
     isLoading: loadingAll,
@@ -57,7 +58,7 @@ export default function CheckHistoryScreen({ station, onBack }) {
     refetch: refetchAll,
   } = useApi(
     () => isSupervisor && activeTab === 'all'
-      ? checkHistoryApi.getStationChecksToday(station.station_id, getToken)
+      ? checkHistoryApi.getStationChecks(station.station_id, getToken)
       : Promise.resolve(null),
     [activeTab, isSupervisor]
   )
@@ -151,11 +152,6 @@ export default function CheckHistoryScreen({ station, onBack }) {
               </button>
             ))}
           </div>
-
-          {/* Today-only notice until B-E3 is built */}
-          <p className="check-history-screen__today-notice">
-            Showing today's checks. Full history coming soon.
-          </p>
 
           {loadingAll ? <Spinner label="Loading checks…" /> :
            errorAll   ? <ErrorCard message={errorAll.message} onRetry={refetchAll} /> :

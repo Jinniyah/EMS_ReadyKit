@@ -251,6 +251,7 @@
 .modal__label   { font-size: 0.9rem; font-weight: 600; }
 .modal__textarea { padding: 0.625rem 0.875rem; border: 1px solid var(--color-border, #e0e0e0); border-radius: 0.375rem; font-size: 1rem; resize: vertical; font-family: inherit; min-height: 80px; }
 .modal__error   { color: var(--color-danger, #c0392b); font-size: 0.85rem; }
+.modal__optional { font-size: 0.8rem; font-weight: 400; color: var(--color-text-muted); }
 .modal__actions { display: flex; flex-direction: column; gap: 0.5rem; }
 
 /* ── Button utilities ─────────────────────────────────────────────────────── */

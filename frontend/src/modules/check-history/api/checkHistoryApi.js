@@ -18,9 +18,21 @@ export const checkHistoryApi = {
   },
 
   /**
-   * Supervisor "All Checks" tab — today's checks for a station.
-   * Uses GET /checks/daily/station/{id}/today (Supervisor+ endpoint).
-   * Will be replaced by the full date-range B-E3 endpoint once built.
+   * Supervisor "All Checks" tab — checks for a station within a date range.
+   * B-E3: GET /checks/daily/station/{id}?from=&to=
+   * If from/to are omitted, backend defaults to today.
+   */
+  getStationChecks: (stationId, getToken, { from, to } = {}) => {
+    const params = new URLSearchParams()
+    if (from) params.set('from', from)
+    if (to)   params.set('to', to)
+    const qs = params.toString() ? `?${params}` : ''
+    return apiGet(`${BASE}/checks/daily/station/${stationId}${qs}`, getToken)
+  },
+
+  /**
+   * @deprecated Use getStationChecks() — kept for any callers still on the
+   * today-only path until the compliance calendar is built (F-5F2).
    */
   getStationChecksToday: (stationId, getToken) =>
     apiGet(`${BASE}/checks/daily/station/${stationId}/today`, getToken),

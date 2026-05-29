@@ -13,10 +13,11 @@ Session C (ACC-B7): Station membership enforced on all check endpoints.
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timezone
+import re
+from datetime import date, datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from ems_readykit.core.audit import write_audit_event
@@ -352,6 +353,80 @@ def get_station_compliance_today(
         .filter(
             DailyInventoryCheck.station_id == station_id,
             DailyInventoryCheck.check_date == today,
+            DailyInventoryCheck.deleted_at.is_(None),
+        )
+        .order_by(DailyInventoryCheck.timestamp.desc())
+        .all()
+    )
+
+
+@router.get(
+    "/daily/station/{station_id}",
+    response_model=List[DailyInventoryCheckRead],
+    summary="Get compliance checks for a station within a date range (B-E3)",
+)
+def get_station_checks_date_range(
+    station_id: int,
+    from_date: Optional[str] = Query(
+        default=None,
+        alias="from",
+        description="Start date inclusive (YYYY-MM-DD). Defaults to today.",
+    ),
+    to_date: Optional[str] = Query(
+        default=None,
+        alias="to",
+        description="End date inclusive (YYYY-MM-DD). Defaults to today.",
+    ),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
+) -> List[DailyInventoryCheck]:
+    """
+    Returns all non-deleted daily checks for a station within an inclusive date range.
+    All roles with station membership may query.
+    Maximum range: 90 days (matches the soft-delete retention window).
+    If from/to are omitted, defaults to today only.
+    """
+    _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+    station = db.query(Station).filter(Station.station_id == station_id).first()
+    if not station:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Station {station_id} not found.",
+        )
+    require_station_membership(station_id, current_user, db)
+
+    today_str = datetime.now(timezone.utc).date().isoformat()
+    resolved_from = from_date or today_str
+    resolved_to   = to_date   or today_str
+
+    for label, value in (("from", resolved_from), ("to", resolved_to)):
+        if not _DATE.match(value):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"'{label}' must be in YYYY-MM-DD format.",
+            )
+
+    if resolved_from > resolved_to:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="'from' date must be on or before 'to' date.",
+        )
+
+    d_from = date.fromisoformat(resolved_from)
+    d_to   = date.fromisoformat(resolved_to)
+    if (d_to - d_from).days > 90:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Date range may not exceed 90 days.",
+        )
+
+    return (
+        db.query(DailyInventoryCheck)
+        .filter(
+            DailyInventoryCheck.station_id == station_id,
+            DailyInventoryCheck.check_date >= resolved_from,
+            DailyInventoryCheck.check_date <= resolved_to,
             DailyInventoryCheck.deleted_at.is_(None),
         )
         .order_by(DailyInventoryCheck.timestamp.desc())

@@ -1,7 +1,13 @@
 /**
  * components/RepairRequestList.jsx
  * Displays repair requests for a vehicle with status badges and
- * a resolve/advance workflow for Supervisors.
+ * a two-modal workflow:
+ *   - InProgressModal  — any role, optional note, advances OPEN → IN_PROGRESS
+ *   - ResolutionModal  — Supervisor+ only, required notes, closes IN_PROGRESS → RESOLVED
+ *
+ * B-R1 fix: "Mark In Progress" now opens InProgressModal, not ResolutionModal.
+ * B-R2 fix: ResolutionModal is only reachable when repair.status === 'IN_PROGRESS'.
+ * F-R1: InProgressModal note field is optional — no minimum length gate.
  */
 
 import React, { useState } from 'react'
@@ -26,57 +32,48 @@ function formatDate(isoString) {
   })
 }
 
-function ResolutionModal({ repair, onConfirm, onCancel, isSubmitting }) {
-  const [notes, setNotes]   = useState('')
-  const [error, setError]   = useState(null)
-  const isResolving = repair.status === 'OPEN' || repair.status === 'IN_PROGRESS'
+/**
+ * InProgressModal — lightweight, note optional.
+ * Shown when a user clicks "Mark In Progress" on an OPEN repair request.
+ * Available to all roles.
+ */
+function InProgressModal({ repair, onConfirm, onCancel, isSubmitting }) {
+  const [note, setNote] = useState('')
 
   function handleSubmit(e) {
     e.preventDefault()
-    if (isResolving && notes.trim().length < 5) {
-      setError('Please provide resolution notes (at least 5 characters).')
-      return
-    }
     onConfirm({
-      status: isResolving ? 'RESOLVED' : 'IN_PROGRESS',
-      resolution_notes: isResolving ? notes.trim() : undefined,
+      status: 'IN_PROGRESS',
+      resolution_notes: note.trim() || undefined,
     })
   }
 
   return (
-    <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="resolution-modal-title">
+    <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="in-progress-modal-title">
       <div className="modal">
-        <h3 id="resolution-modal-title" className="modal__title">
-          {isResolving ? 'Resolve Repair Request' : 'Mark In Progress'}
-        </h3>
-        <p className="modal__body">
-          {repair.description}
-        </p>
+        <h3 id="in-progress-modal-title" className="modal__title">Mark In Progress</h3>
+        <p className="modal__body">{repair.description}</p>
         <form onSubmit={handleSubmit} noValidate>
-          {isResolving && (
-            <div className="modal__field">
-              <label className="modal__label" htmlFor="resolution-notes">
-                Resolution Notes <span aria-hidden="true">*</span>
-              </label>
-              <textarea
-                id="resolution-notes"
-                className="modal__textarea"
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                placeholder="Describe what was done to resolve this issue…"
-                rows={3}
-                maxLength={500}
-                required
-              />
-              {error && <div className="modal__error" role="alert">{error}</div>}
-            </div>
-          )}
+          <div className="modal__field">
+            <label className="modal__label" htmlFor="in-progress-note">
+              Add a note <span className="modal__optional">(optional)</span>
+            </label>
+            <textarea
+              id="in-progress-note"
+              className="modal__textarea"
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              placeholder="e.g. Scheduled for shop visit Thursday…"
+              rows={3}
+              maxLength={500}
+            />
+          </div>
           <div className="modal__actions">
-            <button type="button" className="btn btn--ghost" onClick={onCancel} disabled={isSubmitting}>
+            <button type="button" className="btn btn--secondary" onClick={onCancel} disabled={isSubmitting}>
               Cancel
             </button>
             <button type="submit" className="btn btn--primary" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving…' : isResolving ? 'Mark Resolved' : 'Mark In Progress'}
+              {isSubmitting ? 'Saving…' : 'Confirm'}
             </button>
           </div>
         </form>
@@ -85,16 +82,77 @@ function ResolutionModal({ repair, onConfirm, onCancel, isSubmitting }) {
   )
 }
 
-export default function RepairRequestList({ requests, canManage, onUpdate, isUpdating }) {
-  const [statusFilter, setStatusFilter] = useState('ALL')
-  const [managingRepair, setManagingRepair] = useState(null)
+/**
+ * ResolutionModal — resolution notes required.
+ * Shown when a Supervisor clicks "Mark Resolved" on an IN_PROGRESS repair request.
+ */
+function ResolutionModal({ repair, onConfirm, onCancel, isSubmitting }) {
+  const [notes, setNotes] = useState('')
+  const [error, setError] = useState(null)
+
+  function handleSubmit(e) {
+    e.preventDefault()
+    if (notes.trim().length < 5) {
+      setError('Please describe what was done to resolve this issue (at least 5 characters).')
+      return
+    }
+    onConfirm({
+      status: 'RESOLVED',
+      resolution_notes: notes.trim(),
+    })
+  }
+
+  return (
+    <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="resolution-modal-title">
+      <div className="modal">
+        <h3 id="resolution-modal-title" className="modal__title">Resolve Repair Request</h3>
+        <p className="modal__body">{repair.description}</p>
+        <form onSubmit={handleSubmit} noValidate>
+          <div className="modal__field">
+            <label className="modal__label" htmlFor="resolution-notes">
+              Resolution Notes <span aria-hidden="true">*</span>
+            </label>
+            <textarea
+              id="resolution-notes"
+              className="modal__textarea"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Describe what was done to resolve this issue…"
+              rows={3}
+              maxLength={500}
+              required
+            />
+            {error && <div className="modal__error" role="alert">{error}</div>}
+          </div>
+          <div className="modal__actions">
+            <button type="button" className="btn btn--secondary" onClick={onCancel} disabled={isSubmitting}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn--primary" disabled={isSubmitting}>
+              {isSubmitting ? 'Saving…' : 'Mark Resolved'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+export default function RepairRequestList({ requests, canManage, canResolve, onUpdate, isUpdating }) {
+  const [statusFilter, setStatusFilter]   = useState('ALL')
+  const [inProgressRepair, setInProgressRepair] = useState(null)
+  const [resolvingRepair, setResolvingRepair]   = useState(null)
 
   const filtered = (requests ?? []).filter(r =>
     statusFilter === 'ALL' || r.status === statusFilter
   )
 
-  function handleUpdateConfirm(payload) {
-    onUpdate(managingRepair, payload, () => setManagingRepair(null))
+  function handleInProgressConfirm(payload) {
+    onUpdate(inProgressRepair, payload, () => setInProgressRepair(null))
+  }
+
+  function handleResolveConfirm(payload) {
+    onUpdate(resolvingRepair, payload, () => setResolvingRepair(null))
   }
 
   if (!requests || requests.length === 0) {
@@ -131,7 +189,7 @@ export default function RepairRequestList({ requests, canManage, onUpdate, isUpd
       ) : (
         <ul className="repair-list__items" aria-label="Repair requests">
           {filtered.map(repair => {
-            const statusMeta   = STATUS_META[repair.status]   ?? STATUS_META.OPEN
+            const statusMeta   = STATUS_META[repair.status]     ?? STATUS_META.OPEN
             const severityMeta = SEVERITY_META[repair.severity] ?? SEVERITY_META.ROUTINE
             return (
               <li key={repair.repair_id} className={`repair-item ${repair.severity === 'URGENT' ? 'repair-item--urgent' : ''}`}>
@@ -144,9 +202,7 @@ export default function RepairRequestList({ requests, canManage, onUpdate, isUpd
                       {severityMeta.label}
                     </span>
                   </div>
-                  <span className="repair-item__date">
-                    {formatDate(repair.reported_at)}
-                  </span>
+                  <span className="repair-item__date">{formatDate(repair.reported_at)}</span>
                 </div>
 
                 <p className="repair-item__description">{repair.description}</p>
@@ -164,14 +220,27 @@ export default function RepairRequestList({ requests, canManage, onUpdate, isUpd
                   </div>
                 )}
 
-                {canManage && repair.status !== 'RESOLVED' && (
+                {/* Action buttons — role-gated per transition */}
+                {repair.status === 'OPEN' && canManage && (
                   <div className="repair-item__actions">
                     <button
                       className="btn btn--sm btn--ghost"
-                      onClick={() => setManagingRepair(repair)}
+                      onClick={() => setInProgressRepair(repair)}
                       type="button"
                     >
-                      {repair.status === 'OPEN' ? 'Mark In Progress' : 'Mark Resolved'}
+                      Mark In Progress
+                    </button>
+                  </div>
+                )}
+
+                {repair.status === 'IN_PROGRESS' && canResolve && (
+                  <div className="repair-item__actions">
+                    <button
+                      className="btn btn--sm btn--ghost"
+                      onClick={() => setResolvingRepair(repair)}
+                      type="button"
+                    >
+                      Mark Resolved
                     </button>
                   </div>
                 )}
@@ -181,11 +250,20 @@ export default function RepairRequestList({ requests, canManage, onUpdate, isUpd
         </ul>
       )}
 
-      {managingRepair && (
+      {inProgressRepair && (
+        <InProgressModal
+          repair={inProgressRepair}
+          onConfirm={handleInProgressConfirm}
+          onCancel={() => setInProgressRepair(null)}
+          isSubmitting={isUpdating}
+        />
+      )}
+
+      {resolvingRepair && (
         <ResolutionModal
-          repair={managingRepair}
-          onConfirm={handleUpdateConfirm}
-          onCancel={() => setManagingRepair(null)}
+          repair={resolvingRepair}
+          onConfirm={handleResolveConfirm}
+          onCancel={() => setResolvingRepair(null)}
           isSubmitting={isUpdating}
         />
       )}

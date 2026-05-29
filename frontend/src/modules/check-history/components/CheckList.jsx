@@ -5,6 +5,7 @@
  */
 
 import React from 'react'
+import ResolutionTag, { getResolutionState } from '../../../shared/components/ResolutionTag.jsx'
 
 const STATUS_META = {
   PASS:          { label: 'Pass',          icon: '✓', className: 'check-status--pass' },
@@ -90,8 +91,11 @@ export default function CheckList({ checks, onSelectCheck, showPerformedBy = fal
                       <span className={`check-status check-status--label ${meta.className}`}>
                         {meta.label}
                       </span>
-                      {check.reviewed_at && (
-                        <span className="check-list__ack-badge" title="Acknowledged">✓</span>
+                      {check.status !== 'PASS' && (
+                        <ResolutionTag
+                          resolution={getResolutionState(check)}
+                          status={check.status}
+                        />
                       )}
                       <span className="check-list__chevron" aria-hidden="true">›</span>
                     </div>

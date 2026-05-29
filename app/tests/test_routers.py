@@ -655,6 +655,76 @@ class TestCheckEndpoints:
         assert response.status_code == 200
         assert len(response.json()) == 2
 
+
+# ── B-E3: Date-range compliance query ───────────────────────────────────────
+
+class TestStationDateRangeChecks:
+    """B-E3: GET /checks/daily/station/{id}?from=&to="""
+
+    def _make_sv(self, client, auth_admin):
+        sr = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers=auth_admin)
+        sid = sr.json()["station_id"]
+        vr = client.post("/api/v1/vehicles", json={"station_id": sid, "vehicle_number": f"AMB-{_uid()}", "vehicle_type": "ALS"}, headers=auth_admin)
+        return sid, vr.json()["vehicle_id"]
+
+    def test_date_range_returns_checks_in_window(self, client, auth_admin):
+        sid, vid = self._make_sv(client, auth_admin)
+        # Submit two checks on different dates within the window
+        client.post("/api/v1/checks/daily", json={"vehicle_id": vid, "station_id": sid, "check_date": "2026-05-01", "timestamp": _utcnow()}, headers=auth_admin)
+        client.post("/api/v1/checks/daily", json={"vehicle_id": vid, "station_id": sid, "check_date": "2026-05-10", "timestamp": _utcnow()}, headers=auth_admin)
+        client.post("/api/v1/checks/daily", json={"vehicle_id": vid, "station_id": sid, "check_date": "2026-06-01", "timestamp": _utcnow()}, headers=auth_admin)
+        response = client.get(f"/api/v1/checks/daily/station/{sid}?from=2026-05-01&to=2026-05-31", headers=auth_admin)
+        assert response.status_code == 200
+        dates = [c["check_date"] for c in response.json()]
+        assert "2026-05-01" in dates
+        assert "2026-05-10" in dates
+        assert "2026-06-01" not in dates
+
+    def test_no_params_defaults_to_today(self, client, auth_admin):
+        sid, vid = self._make_sv(client, auth_admin)
+        today = datetime.now(timezone.utc).date().isoformat()
+        client.post("/api/v1/checks/daily", json={"vehicle_id": vid, "station_id": sid, "check_date": today, "timestamp": _utcnow()}, headers=auth_admin)
+        response = client.get(f"/api/v1/checks/daily/station/{sid}", headers=auth_admin)
+        assert response.status_code == 200
+        assert any(c["check_date"] == today for c in response.json())
+
+    def test_from_after_to_returns_422(self, client, auth_admin):
+        sid, _ = self._make_sv(client, auth_admin)
+        response = client.get(f"/api/v1/checks/daily/station/{sid}?from=2026-05-31&to=2026-05-01", headers=auth_admin)
+        assert response.status_code == 422
+        assert "from" in response.json()["detail"].lower()
+
+    def test_range_over_90_days_returns_422(self, client, auth_admin):
+        sid, _ = self._make_sv(client, auth_admin)
+        response = client.get(f"/api/v1/checks/daily/station/{sid}?from=2026-01-01&to=2026-12-31", headers=auth_admin)
+        assert response.status_code == 422
+        assert "90" in response.json()["detail"]
+
+    def test_responder_can_query_own_station(self, client, db, auth_admin, auth_responder):
+        sid, vid = self._make_sv(client, auth_admin)
+        _add_member(db, sid, "test-responder@ems.local", "Responder")
+        today = datetime.now(timezone.utc).date().isoformat()
+        client.post("/api/v1/checks/daily", json={"vehicle_id": vid, "station_id": sid, "check_date": today, "timestamp": _utcnow()}, headers=auth_admin)
+        response = client.get(f"/api/v1/checks/daily/station/{sid}", headers=auth_responder)
+        assert response.status_code == 200
+
+    def test_non_member_returns_403(self, client, db, auth_admin, auth_responder):
+        sid, _ = self._make_sv(client, auth_admin)
+        # No _add_member call — responder is not a member
+        response = client.get(f"/api/v1/checks/daily/station/{sid}", headers=auth_responder)
+        assert response.status_code == 403
+
+
+# ── Check endpoints (CS checks) ───────────────────────────────────────────────
+
+class TestCSCheckEndpoints:
+
+    def _make_station_and_vehicle(self, client, auth_admin, vtype: str = "ALS"):
+        sr = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers=auth_admin)
+        sid = sr.json()["station_id"]
+        vr = client.post("/api/v1/vehicles", json={"station_id": sid, "vehicle_number": f"AMB-{_uid()}", "vehicle_type": vtype}, headers=auth_admin)
+        return sid, vr.json()["vehicle_id"]
+
     def test_create_cs_check_als_vehicle_returns_201(self, client, auth_admin):
         _, vid = self._make_station_and_vehicle(client, auth_admin, vtype="ALS")
         response = client.post("/api/v1/checks/controlled-substance", json={

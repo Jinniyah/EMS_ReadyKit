@@ -1,163 +1,175 @@
-# EMS ReadyKit — Project Documentation Index
-# Document version: 1.2
-# Last updated: 2026-05-21
+# EMS ReadyKit — Project Index
+# Last updated: 2026-05-29
 
----
+This document is the technical reference for EMS ReadyKit. It covers what is
+currently built and deployed, the key decisions made along the way, and where
+to find more detail.
 
-## Project Overview
-
-EMS ReadyKit is a cloud-native inventory and vehicle readiness platform modeled
-for a small Fire and EMS organization. It demonstrates Infrastructure-as-Code
-discipline, role-based access control, operational observability, domain modeling,
-and cost-aware architectural decision-making. The system is a technical
-demonstration; it does not process patient data and is not a live operational
-deployment.
-
-**Live URL:** https://app-ems-readykit-dev.azurewebsites.net
-**Repository:** https://github.com/Jinniyah/EMS_ReadyKit
-**CI/CD status:** See README badge
-
----
-
-## Documentation Standards
-
-All phase documents follow this standard structure:
-1. Executive Summary — one paragraph; what was built and why
-2. Objectives — table of measurable goals
-3. Scope — explicit in/out of scope
-4. Technical Decisions — key design choices with rationale
-5. Deliverables — table with location and completion status
-6. Testing — test strategy and results
-7. Known Issues and Tradeoffs — honest accounting of limitations
-8. Phase Dependencies — what this phase requires and provides
-9. Next Phase — brief forward pointer
-
----
-
-## Phase Documents
-
-| Phase | Document | Status | Description |
-|-------|----------|--------|-------------|
-| Phase 1 | `phase1_platform_foundation.md` | ✅ Complete | Azure infrastructure, Terraform modules, RBAC, logging, governance |
-| Phase 2 | `phase2_backend_api.md` | ✅ Complete | FastAPI application, domain model, REST endpoints, 74 automated tests |
-| Phase 3 | `phase3_auth_cicd.md` | ✅ Complete | Azure AD JWT auth, RBAC enforcement, GitHub Actions CI/CD pipeline |
-| Phase 4 | `phase4_compartments_line_items.md` | ✅ Complete | Compartment model, check line items, expiration tracking, lot validation |
-| Phase 5 | `phase5_frontend_pwa.md` | 🔄 In Progress | Progressive Web App — 5A+5B complete; 5C–5H planned |
-| Phase 6 | `phase6_backend_extensions.md` | 📋 Planned | Backend extensions for Phase 5 supervisor, management, and notification modules |
-
-**Session handoff:** `session_handoff_2026-05-15-continued.md` — most recent state snapshot
-
----
-
-## Architecture Decision Records
-
-| ADR | Document | Status | Decision |
-|-----|----------|--------|----------|
-| ADR-001 | `adr/ADR-001-Architecture.md` | Accepted | Single-app, single-datastore, single-region architecture |
-| ADR-002 | `adr/ADR-002-RBAC.md` | Accepted | Group-based Azure AD RBAC + application-layer authorization |
-| ADR-003 | `adr/ADR-003-Logging-and-Audit.md` | Accepted | Centralized Log Analytics + explicit audit events |
-| ADR-004 | `adr/ADR-004-Terraform-Module-Structure.md` | Accepted | Modular Terraform organized by architectural responsibility |
-| ADR-005 | `adr/ADR-005-Frontend-Architecture.md` | Accepted | React PWA, modular architecture, localStorage draft |
-| ADR-006 | `adr/ADR-006-DDoS-Strategy.md` | 📋 Needed | DDoS Protection Standard cost/benefit tradeoff |
-
----
-
-## Supporting Documents
-
-| Document | Purpose |
-|----------|---------|
-| `Requirements.md` | Functional and non-functional requirements; project framing |
-| `architecture.md` | Architecture diagram (Mermaid) with component relationships |
-| `backlog.md` | **Canonical backlog** — all open items across backend, frontend, infra, and docs |
-| `osi_security_review.md` | OSI layer-by-layer security analysis; coverage status and gap/action list |
-| `runbook.md` | Deployment, validation, and teardown procedures |
-| `help_content.md` | All tutorial, FAQ, and contextual help text (single source of truth) |
-| `req_build_order_plan.txt` | Original build sequence planning notes |
-| `req_final_domain_model.txt` | Original domain model definition |
-| `req_user_stories.txt` | User stories by role |
-| `req_security.txt` | Security and monitoring requirements |
-| `req_terraform_layout.txt` | Terraform design notes |
-| `req_cost_estimates.txt` | Monthly cost breakdown and cost control strategy |
-| `phase3_auth_todo.md` | Phase 3 implementation checklist (historical reference) |
+For a feature overview and getting started, see the [README](../README.md).
 
 ---
 
 ## Current System State
 
-### What is deployed and running
+### Deployed and running
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Azure infrastructure (Phase 1) | ✅ Live | North Central US; F1 tier |
-| FastAPI backend (Phase 2) | ✅ Live | https://app-ems-readykit-dev.azurewebsites.net |
-| Azure AD authentication (Phase 3) | ✅ Live | RS256 JWT; three app roles |
-| RBAC enforcement (Phase 3) | ✅ Live | All endpoints protected |
-| GitHub Actions CI/CD (Phase 3) | ✅ Live | Test → Build → Deploy on push to main |
-| Compartments and line items (Phase 4) | ✅ Live | Alembic migrations applied |
-| Expiration tracking (Phase 4) | ✅ Live | EXPIRED status on check line items |
-| Frontend PWA — Phase 5A Foundation | ✅ Local | useAuth, useDraft, statusCalc, ErrorBoundary, UserPill, DevBanner |
-| Frontend PWA — Phase 5B Check Wizard | ✅ Local | Steps 1–4, submitted screen, draft save/resume, all 5 check types |
-| Frontend PWA — Phase 5C–5H | ❌ Not started | See backlog.md |
-| Backend Phase 6 endpoints | ❌ Not started | See backlog.md |
+| Azure infrastructure (Terraform) | ✅ Live | North Central US |
+| FastAPI backend | ✅ Live | https://app-ems-readykit-dev.azurewebsites.net |
+| React PWA frontend | ✅ Live | https://lively-bush-0ed75ca10.7.azurestaticapps.net |
+| Azure AD authentication | ✅ Live | RS256 JWT; three app roles |
+| RBAC enforcement | ✅ Live | Role + station membership enforced on all endpoints |
+| GitHub Actions CI/CD | ✅ Live | pip-audit → test → build → deploy on push to main |
+| Alembic migrations | ✅ Live | 8 migrations applied; runs automatically on startup |
 
-### Test suite status
+### What's built — backend
+
+| Area | Status |
+|------|--------|
+| Stations, vehicles, inventory locations | ✅ Complete |
+| Compartments and par levels | ✅ Complete |
+| Daily inventory checks (all 5 check types) | ✅ Complete |
+| Controlled substance checks | ✅ Complete |
+| Repair requests (full lifecycle) | ✅ Complete |
+| Check history, acknowledgement, soft-delete | ✅ Complete |
+| Audit events | ✅ Complete |
+| Station membership and access control | ✅ Complete |
+| Date-range compliance query | ✅ Complete |
+| Notifications, feedback, user requests | 📋 Backlog |
+
+### What's built — frontend
+
+| Module | Status |
+|--------|--------|
+| Check wizard (5 steps, all check types, draft save) | ✅ Complete |
+| Vehicle & Equipment Status (repair requests, inactive toggle) | ✅ Complete |
+| Check history (My Checks, All Checks, detail view) | ✅ Complete |
+| Supervisor compliance dashboard | ✅ Complete |
+| Station administration (membership management) | ✅ Complete |
+| Help system, item management, notifications | 📋 Backlog |
+
+### Test suite
 
 | Metric | Value |
 |--------|-------|
-| Backend tests | 90+ passing |
-| Frontend unit tests | statusCalc (35), dateHelpers (14), useDraft (3) |
-| Backend test gaps | TestCheckTypes class not yet written (see B-T1 in backlog.md) |
+| Total tests passing | 191 |
+| Known CVEs (pip-audit) | 0 |
+| Test database | SQLite in-memory; no external services required |
+| Coverage areas | Models, routers, RBAC, business rules, station membership, repair requests, check history |
+
+---
+
+## Architecture Decision Records
+
+Short records of the significant decisions made and why. Read these if you want
+to understand the reasoning behind the design, not just what was built.
+
+| ADR | Decision | Status |
+|-----|----------|--------|
+| [ADR-001](adr/ADR-001-Architecture.md) | Single-app, single-datastore, single-region — justified by domain size | Accepted |
+| [ADR-002](adr/ADR-002-RBAC.md) | Group-based Azure AD RBAC + application-layer station membership | Accepted |
+| [ADR-003](adr/ADR-003-Logging-and-Audit.md) | Explicit audit events (not DB-derived); centralized Log Analytics | Accepted |
+| [ADR-004](adr/ADR-004-Terraform-Module-Structure.md) | Modular Terraform organized by architectural responsibility | Accepted |
+| [ADR-005](adr/ADR-005-Frontend-Architecture.md) | React PWA, modular architecture, localStorage draft with station scoping | Accepted |
+| ADR-006 | DDoS Protection Standard cost/benefit tradeoff | 📋 Needed |
+
+---
+
+## Key Design Decisions
+
+Decisions that shaped the system but don't warrant a full ADR.
+
+| Decision | Rationale |
+|----------|-----------|
+| Status computed server-side | Tamper-resistant; enforces correct semantics regardless of client |
+| EXPIRED beats MISSING | Conservative compliance — an expired item is a failure regardless of count |
+| Worst-case check status | One FAIL item makes the whole check FAIL; NEEDS_RESTOCK is second |
+| `performed_by` from JWT | Identity cannot be spoofed — bound server-side at submission time |
+| Station membership enforced per-request | Crews can only access their assigned station; Admins bypass for cross-station reporting |
+| Soft-delete with 90-day retention | Checks can be removed immediately but are recoverable; matches EMS record retention norms |
+| Repair request: all roles can mark In Progress | An oil change or AC repair doesn't require a supervisor to acknowledge it's being handled |
+| `getResolutionState` sentinel pattern | Resolution state derived from `corrective_action` prefix — no additional DB column needed |
+| `useStationIssues` fails silently | Home screen badge is additive; a failed fetch must never block the primary workflow |
+| Draft key includes `started_at` | Enables multiple in-progress checks for the same vehicle on the same day |
+| Last-known station cached in localStorage | Draft banners show immediately on load, before the station API returns |
+| Build zip on Linux in CI | Windows `Compress-Archive` creates backslash paths that Oryx cannot extract |
+| `pip-audit` as CI gate | Dependency CVEs are caught before deploy, not discovered in production |
+
+---
+
+## Domain Model
+
+```
+Station
+ └── Vehicle (ALS / BLS / QRV)
+      ├── InventoryLocation (VEHICLE type, auto-created)
+      │    └── Compartment
+      │         ├── ParLevel  (item → min/max quantity required)
+      │         └── StockLot  (lot number + expiration date)
+      └── DailyInventoryCheck
+           ├── CheckLineItem  (item → found/needed/status per check)
+           ├── ControlledSubstanceCheck (dual-signature, ALS only)
+           └── RepairRequest  (OPEN → IN_PROGRESS → RESOLVED)
+
+InventoryLocation (JUMP_BAG / STATION_SUPPLY_ROOM types)
+StationMember  (user ↔ station assignment with role)
+AuditEvent     (immutable record of all material actions)
+```
+
+---
+
+## API Structure
+
+All routes are prefixed `/api/v1/`. Key endpoint groups:
+
+| Group | Prefix | Access |
+|-------|--------|--------|
+| Stations | `/stations` | Admin (list all); All roles (list own) |
+| Vehicles | `/vehicles` | Admin+; station membership enforced |
+| Inventory | `/inventory` | Admin+; station membership enforced |
+| Daily checks | `/checks/daily` | Submit: all roles; Detail: Supervisor+ |
+| CS checks | `/checks/controlled-substance` | All roles (ALS vehicles only) |
+| Repair requests | `/vehicles/{id}/repair-requests` | File: all roles; Resolve: Supervisor+ |
+| Check history | `/checks/daily/my-history` | Own history: all roles |
+| Compliance query | `/checks/daily/station/{id}` | All roles + membership; max 90-day range |
+| Station members | `/stations/{id}/members` | Supervisor+ |
+| Audit | `/audit` | Supervisor+ |
+
+Full interactive docs: https://app-ems-readykit-dev.azurewebsites.net/docs
 
 ---
 
 ## Technology Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Cloud platform | Microsoft Azure |
-| IaC | Terraform |
-| Backend framework | FastAPI 0.111.0 |
-| ORM | SQLAlchemy 2.0.30 |
-| Database migrations | Alembic 1.13.1 |
-| Schema validation | Pydantic 2.7.1 |
-| Database | PostgreSQL 16 (Azure Flexible Server) |
-| Runtime | Python 3.11.15 |
-| ASGI server | Gunicorn + UvicornWorker |
-| Authentication | Azure Active Directory (RS256 JWT) |
-| CI/CD | GitHub Actions |
-| Frontend | React 18 + Vite (PWA, no TypeScript) |
-| Frontend hosting (planned) | Azure Static Web Apps |
-| Testing | pytest + pytest-asyncio + Starlette TestClient |
+| Layer | Technology | Version |
+|-------|------------|---------|
+| Cloud | Microsoft Azure | — |
+| IaC | Terraform | 1.6+ |
+| Backend | FastAPI | 0.136.1 |
+| ORM | SQLAlchemy | 2.0 |
+| Migrations | Alembic | 1.13+ |
+| Validation | Pydantic | 2.13.4 |
+| Database | PostgreSQL (Azure Flexible Server) | 16 |
+| Runtime | Python | 3.11 |
+| ASGI server | Gunicorn + UvicornWorker | — |
+| Authentication | Azure Active Directory | RS256 JWT |
+| CI/CD | GitHub Actions | — |
+| Frontend | React 18 + Vite (PWA) | — |
+| Frontend hosting | Azure Static Web Apps | Free tier |
+| Testing | pytest | 9.0 |
 
 ---
 
-## Role Summary
+## Document Map
 
-| Role | Platform scope | Application scope |
-|------|---------------|------------------|
-| Administrator | Subscription-level Reader | Full access — create stations, vehicles, items, par levels |
-| Supervisor | Resource group Contributor | Station-level — manage inventory, review checks, approve requests |
-| Responder | Authenticated access only | Vehicle-level — submit checks, read items and inventory |
-
----
-
-## Key Design Decisions Summary
-
-| Decision | Rationale | Reference |
-|----------|-----------|-----------|
-| Monolithic API over microservices | Reduced complexity; appropriate for small domain | ADR-001 |
-| Single region | Cost and complexity justified | ADR-001 |
-| Group-based RBAC | No user-level assignments; real enterprise pattern | ADR-002 |
-| Explicit audit events (not DB-derived) | Preserves actor intent; compliance-grade audit | ADR-003 |
-| Terraform modular structure | IaC maturity; separation of concerns; reproducible | ADR-004 |
-| PostgreSQL over Azure SQL | Open-source; lower cost; SQLAlchemy alignment | Phase 1 |
-| F1 → B1 upgrade path | F1 zero-cost for dev; B1 one variable change | Phase 1 |
-| Status computed server-side (immutable) | Tamper-resistant; enforces correct semantics | Phase 4 |
-| EXPIRED takes priority over MISSING | Conservative compliance; field safety | Phase 4 |
-| Linux zip build in CI/CD | Eliminates Windows backslash path issue permanently | Phase 3 |
-| localStorage offline draft | Never lose work mid-check; submit on completion only | ADR-005 |
-| Modular React architecture | Module failures are isolated; app never fully crashes | ADR-005 |
-| Validate button per item | Ensures every item is explicitly acknowledged | Phase 5 |
-| Client-side CSV generation | No server-side export endpoint needed; simpler architecture | Phase 5 |
-| UTF-8 BOM on CSV download | Ensures correct rendering in Excel without manual re-encoding | Phase 5 |
-| Display-only role switching (crew mode) | No re-auth needed; JWT unchanged; UI hides irrelevant tools | Phase 5 |
+| Document | For |
+|----------|-----|
+| [README.md](../README.md) | Anyone evaluating or getting started |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | Developers setting up locally or contributing |
+| [docs/project_index.md](project_index.md) | Technical reference — decisions, state, API structure |
+| [docs/architecture.md](architecture.md) | Component diagram and networking overview |
+| [docs/runbook.md](runbook.md) | Infrastructure deployment, validation, teardown |
+| [docs/osi_security_review.md](osi_security_review.md) | Security analysis with gap/action list |
+| [docs/backlog.md](backlog.md) | All open work items |
+| [docs/adr/](adr/) | Architecture Decision Records |

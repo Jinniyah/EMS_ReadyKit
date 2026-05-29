@@ -64,19 +64,17 @@ export default function VehicleCard({ vehicle, onVehicleUpdated }) {
 
   const isSupervisor = canAccess(user, 'supervisor')
 
-  // Fetch active requests by default — supervisors see what needs attention now.
-  // Resolved requests are hidden unless explicitly requested.
+  // Fetch repair requests on mount so the open count badge shows on the
+  // collapsed header without requiring the user to expand first.
+  // Full list renders when expanded; this data serves both purposes.
   const {
     data: repairs,
     isLoading: loadingRepairs,
     error: repairsError,
     refetch: refetchRepairs,
   } = useApi(
-    () => {
-      if (!expanded || !isSupervisor) return Promise.resolve(null)
-      return vehicleApi.getRepairRequests(vehicle.vehicle_id, getToken)
-    },
-    [expanded, vehicle.vehicle_id, isSupervisor]
+    () => vehicleApi.getRepairRequests(vehicle.vehicle_id, getToken),
+    [vehicle.vehicle_id]
   )
 
   // Split into active and resolved
@@ -221,42 +219,43 @@ export default function VehicleCard({ vehicle, onVehicleUpdated }) {
             />
           )}
 
-          {/* Repair request list — active by default */}
-          {isSupervisor && (
-            <div className="vehicle-card__section">
-              <div className="vehicle-card__section-header">
-                <h4 className="vehicle-card__section-title">
-                  Repair Requests
-                  {openCount > 0 && (
-                    <span className="vehicle-card__open-count"> ({openCount} open)</span>
-                  )}
-                </h4>
-                {resolvedRepairs.length > 0 && (
-                  <button
-                    className="btn-text vehicle-card__toggle-resolved"
-                    onClick={() => setShowResolved(v => !v)}
-                    type="button"
-                  >
-                    {showResolved
-                      ? 'Hide resolved'
-                      : `Show ${resolvedRepairs.length} resolved`}
-                  </button>
+          {/* Repair request list — visible to all roles.
+               canManage (Mark In Progress) — all roles.
+               canResolve (Mark Resolved)   — Supervisor+ only. */}
+          <div className="vehicle-card__section">
+            <div className="vehicle-card__section-header">
+              <h4 className="vehicle-card__section-title">
+                Repair Requests
+                {openCount > 0 && (
+                  <span className="vehicle-card__open-count"> ({openCount} open)</span>
                 )}
-              </div>
-              {loadingRepairs ? (
-                <div className="vehicle-card__loading">Loading…</div>
-              ) : repairsError ? (
-                <div className="vehicle-card__error">Could not load repair requests.</div>
-              ) : (
-                <RepairRequestList
-                  requests={displayRepairs}
-                  canManage={isSupervisor}
-                  onUpdate={handleRepairUpdate}
-                  isUpdating={isUpdating}
-                />
+              </h4>
+              {isSupervisor && resolvedRepairs.length > 0 && (
+                <button
+                  className="btn-text vehicle-card__toggle-resolved"
+                  onClick={() => setShowResolved(v => !v)}
+                  type="button"
+                >
+                  {showResolved
+                    ? 'Hide resolved'
+                    : `Show ${resolvedRepairs.length} resolved`}
+                </button>
               )}
             </div>
-          )}
+            {loadingRepairs ? (
+              <div className="vehicle-card__loading">Loading…</div>
+            ) : repairsError ? (
+              <div className="vehicle-card__error">Could not load repair requests.</div>
+            ) : (
+              <RepairRequestList
+                requests={displayRepairs}
+                canManage={true}
+                canResolve={isSupervisor}
+                onUpdate={handleRepairUpdate}
+                isUpdating={isUpdating}
+              />
+            )}
+          </div>
 
         </div>
       )}

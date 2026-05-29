@@ -132,7 +132,7 @@ Endpoints:
 ```bash
 cd app
 
-# Run all 90 tests
+# Run all 191 tests
 pytest tests/ -v
 
 # Run with short traceback (cleaner output)
@@ -174,6 +174,9 @@ conftest.py
 |------|---------------|
 | `test_models.py` | ORM model creation, relationships, constraints |
 | `test_routers.py` | All API endpoints, business rules, schema validation, RBAC |
+| `test_repair_requests.py` | Repair request lifecycle and RBAC |
+| `test_check_history.py` | Check history, acknowledgement, soft-delete |
+| `test_station_membership.py` | Station membership enforcement on all endpoints |
 
 ---
 
@@ -206,11 +209,15 @@ alembic downgrade 0001_initial_schema
 ### Migration conventions
 
 - Migration files live in `alembic/versions/`
-- File naming: `{revision_id}_{short_description}.py`
-- Current migrations:
-  - `0001_initial_schema.py` — all base tables
-  - `0002_compartments_and_line_items.py` — Phase 4 additions
-  - `0003_phase6_extensions.py` — Phase 6 additions (planned)
+- Current migrations (8 applied):
+  - `0001_initial_schema.py`
+  - `0002_compartments_and_line_items.py`
+  - `0003_item_check_types_and_equipment.py`
+  - `0004_drop_par_location_unique.py`
+  - `0005_allow_multiple_checks_per_day.py`
+  - `0006_repair_requests_and_vehicle_inactive.py`
+  - `0007_check_acknowledgement_and_soft_delete.py`
+  - `0008_station_members.py`
 - Always write both `upgrade()` and `downgrade()` functions
 - Always include indexes and constraints in the migration, not just columns
 - Test the downgrade path before merging
@@ -668,7 +675,7 @@ docs/*        — documentation only (e.g. docs/contributing-guide)
 
 Before opening a PR, verify:
 
-- [ ] All 90+ existing tests pass: `pytest tests/ -v`
+- [ ] All 191 tests pass: `pytest tests/ -v`
 - [ ] New functionality has tests covering: happy path, validation errors, 404s, and all RBAC combinations
 - [ ] New models have a migration with both `upgrade()` and `downgrade()`
 - [ ] New endpoints have docstrings explaining: what they return, required role, business rules
