@@ -1,6 +1,10 @@
 /**
  * shared/api/client.js
  * Authenticated HTTP client for all API calls.
+ *
+ * Error messages for 401/403 are written for frontline EMS users —
+ * tired, stressed, possibly on a mobile device mid-shift. They tell the
+ * user what happened and what to do, not what the HTTP status code means.
  */
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
@@ -8,7 +12,7 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
 export class ApiError extends Error {
   constructor(status, message, detail = null) {
     super(message)
-    this.name = 'ApiError'
+    this.name   = 'ApiError'
     this.status = status
     this.detail = detail
   }
@@ -19,7 +23,7 @@ async function apiFetch(method, path, body, getToken) {
 
   const headers = {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
+    'Accept':       'application/json',
   }
   if (token) headers['Authorization'] = `Bearer ${token}`
 
@@ -30,7 +34,11 @@ async function apiFetch(method, path, body, getToken) {
   try {
     response = await fetch(`${BASE_URL}${path}`, options)
   } catch {
-    throw new ApiError(0, 'Network error — check your connection and try again.', null)
+    throw new ApiError(
+      0,
+      'No connection — check your internet and try again.',
+      null
+    )
   }
 
   let data = null
@@ -47,32 +55,56 @@ async function apiFetch(method, path, body, getToken) {
   return data
 }
 
-export const apiGet    = (path, getToken)        => apiFetch('GET',    path, undefined, getToken)
-export const apiPost   = (path, body, getToken)  => apiFetch('POST',   path, body,      getToken)
-export const apiPatch  = (path, body, getToken)  => apiFetch('PATCH',  path, body,      getToken)
-export const apiPut    = (path, body, getToken)  => apiFetch('PUT',    path, body,      getToken)
-export const apiDelete = (path, getToken)        => apiFetch('DELETE', path, undefined, getToken)
-
-/** DELETE with a JSON body — needed for soft-delete endpoints that require a reason. */
-export const apiDeleteWithBody = (path, body, getToken) => apiFetch('DELETE', path, body, getToken)
+export const apiGet            = (path, getToken)       => apiFetch('GET',    path, undefined, getToken)
+export const apiPost           = (path, body, getToken) => apiFetch('POST',   path, body,      getToken)
+export const apiPatch          = (path, body, getToken) => apiFetch('PATCH',  path, body,      getToken)
+export const apiPut            = (path, body, getToken) => apiFetch('PUT',    path, body,      getToken)
+export const apiDelete         = (path, getToken)       => apiFetch('DELETE', path, undefined, getToken)
+export const apiDeleteWithBody = (path, body, getToken) => apiFetch('DELETE', path, body,      getToken)
 
 function _extractMessage(status, detail) {
-  if (status === 0)   return 'Network error — check your connection and try again.'
-  if (status === 401 || status === 403) {
-    const msg = typeof detail === 'string' ? detail : 'You do not have permission to perform this action.'
-    return msg
+  // Network / no response
+  if (status === 0) {
+    return 'No connection — check your internet and try again.'
   }
-  if (status === 404) return 'The requested resource was not found.'
-  if (status === 409) return 'This record already exists.'
+
+  // Session expired
+  if (status === 401) {
+    return 'Your session has expired. Please sign out and sign back in.'
+  }
+
+  // Access denied — use the backend message when available (it's written
+  // for EMS users), fall back to a clear generic message
+  if (status === 403) {
+    if (typeof detail === 'string' && detail.length > 0) return detail
+    return (
+      "You don't have permission to do that. " +
+      'If you think this is wrong, contact your supervisor.'
+    )
+  }
+
+  if (status === 404) {
+    return 'The requested record was not found.'
+  }
+
+  if (status === 409) {
+    if (typeof detail === 'string' && detail.length > 0) return detail
+    return 'This record already exists.'
+  }
+
   if (status === 422) {
     if (Array.isArray(detail)) {
       const first = detail[0]
-      if (first?.msg) return `Validation error: ${first.msg}`
+      if (first?.msg) return `Check your input: ${first.msg}`
     }
-    if (typeof detail === 'string') return detail
-    return 'Invalid request — please check your input.'
+    if (typeof detail === 'string' && detail.length > 0) return detail
+    return 'Invalid request — please check your input and try again.'
   }
-  if (status >= 500) return 'Server error — please try again in a moment.'
-  if (typeof detail === 'string') return detail
-  return `Unexpected error (HTTP ${status})`
+
+  if (status >= 500) {
+    return 'Something went wrong on our end. Please try again in a moment.'
+  }
+
+  if (typeof detail === 'string' && detail.length > 0) return detail
+  return `Unexpected error (HTTP ${status}) — please try again.`
 }

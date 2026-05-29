@@ -15,6 +15,11 @@ Phase 5 change:
   per vehicle per day are now explicitly allowed and tested.
   test_station_compliance_today updated to assert 2 checks are returned
   when 2 are submitted.
+
+Session C change:
+  Station membership is now enforced. Any test that uses a non-admin role
+  to access station-scoped data must first add a StationMember row.
+  Use _add_member(db, station_id, email, role) for this.
 """
 
 from __future__ import annotations
@@ -39,6 +44,7 @@ from ems_readykit.models import (
     Vehicle,
     VehicleType,
 )
+from ems_readykit.models.station_member import StationMember
 
 
 # ── Unique name helpers ────────────────────────────────────────────────────────
@@ -92,6 +98,22 @@ def _supply_room(db: Session, station_id: int) -> InventoryLocation:
     db.add(loc)
     db.flush()
     return loc
+
+
+def _add_member(db: Session, station_id: int, user_email: str, role: str) -> None:
+    """
+    Add a StationMember row for a test user.
+    Required when a non-admin auth fixture accesses a station-scoped endpoint
+    after Session C membership enforcement was added (ACC-B7/B8).
+    """
+    db.add(StationMember(
+        station_id=station_id,
+        user_id=user_email,
+        role=role,
+        assigned_by="test-administrator@ems.local",
+        active=True,
+    ))
+    db.flush()
 
 
 # ── Station endpoints ─────────────────────────────────────────────────────────
@@ -351,10 +373,10 @@ class TestCompartmentEndpoints:
         vr = client.post("/api/v1/vehicles", json={"station_id": sid, "vehicle_number": f"AMB-{_uid()}", "vehicle_type": "ALS"}, headers=auth_admin)
         vid = vr.json()["vehicle_id"]
         locs = client.get("/api/v1/inventory/locations", headers=auth_admin).json()
-        return next(l["location_id"] for l in locs if l["vehicle_id"] == vid)
+        return next(l["location_id"] for l in locs if l["vehicle_id"] == vid), sid
 
     def test_create_compartment_returns_201(self, client, auth_admin):
-        loc_id = self._make_location(client, auth_admin)
+        loc_id, _ = self._make_location(client, auth_admin)
         response = client.post(f"/api/v1/inventory/locations/{loc_id}/compartments", json={
             "location_id": loc_id, "name": "Compartment #1", "sort_order": 1, "als_only": False,
         }, headers=auth_admin)
@@ -363,14 +385,14 @@ class TestCompartmentEndpoints:
         assert response.json()["compartment_id"] is not None
 
     def test_create_duplicate_compartment_returns_409(self, client, auth_admin):
-        loc_id = self._make_location(client, auth_admin)
+        loc_id, _ = self._make_location(client, auth_admin)
         payload = {"location_id": loc_id, "name": "Drug Bag", "als_only": True}
         client.post(f"/api/v1/inventory/locations/{loc_id}/compartments", json=payload, headers=auth_admin)
         response = client.post(f"/api/v1/inventory/locations/{loc_id}/compartments", json=payload, headers=auth_admin)
         assert response.status_code == 409
 
     def test_list_compartments_sorted_by_sort_order(self, client, auth_admin):
-        loc_id = self._make_location(client, auth_admin)
+        loc_id, _ = self._make_location(client, auth_admin)
         for name, order in [("Compartment #3", 3), ("Compartment #1", 1), ("Compartment #2", 2)]:
             client.post(f"/api/v1/inventory/locations/{loc_id}/compartments", json={"location_id": loc_id, "name": name, "sort_order": order}, headers=auth_admin)
         response = client.get(f"/api/v1/inventory/locations/{loc_id}/compartments", headers=auth_admin)
@@ -379,7 +401,7 @@ class TestCompartmentEndpoints:
         assert names == ["Compartment #1", "Compartment #2", "Compartment #3"]
 
     def test_get_compartment_by_id(self, client, auth_admin):
-        loc_id = self._make_location(client, auth_admin)
+        loc_id, _ = self._make_location(client, auth_admin)
         cr = client.post(f"/api/v1/inventory/locations/{loc_id}/compartments", json={"location_id": loc_id, "name": "First Out Bag", "sort_order": 0}, headers=auth_admin)
         cid = cr.json()["compartment_id"]
         response = client.get(f"/api/v1/inventory/compartments/{cid}", headers=auth_admin)
@@ -390,14 +412,18 @@ class TestCompartmentEndpoints:
         response = client.get("/api/v1/inventory/compartments/99999999", headers=auth_admin)
         assert response.status_code == 404
 
-    def test_responder_can_list_compartments(self, client, auth_admin, auth_responder):
-        loc_id = self._make_location(client, auth_admin)
+    def test_responder_can_list_compartments(self, client, db, auth_admin, auth_responder):
+        """Session C: responder must be a station member to list compartments."""
+        loc_id, sid = self._make_location(client, auth_admin)
+        _add_member(db, sid, "test-responder@ems.local", "Responder")
         client.post(f"/api/v1/inventory/locations/{loc_id}/compartments", json={"location_id": loc_id, "name": "Compartment #1"}, headers=auth_admin)
         response = client.get(f"/api/v1/inventory/locations/{loc_id}/compartments", headers=auth_responder)
         assert response.status_code == 200
 
-    def test_responder_cannot_create_compartment_returns_403(self, client, auth_admin, auth_responder):
-        loc_id = self._make_location(client, auth_admin)
+    def test_responder_cannot_create_compartment_returns_403(self, client, db, auth_admin, auth_responder):
+        """Role 403 — Responder lacks Supervisor role regardless of membership."""
+        loc_id, sid = self._make_location(client, auth_admin)
+        _add_member(db, sid, "test-responder@ems.local", "Responder")
         response = client.post(f"/api/v1/inventory/locations/{loc_id}/compartments", json={"location_id": loc_id, "name": "Compartment #1"}, headers=auth_responder)
         assert response.status_code == 403
 
@@ -589,26 +615,16 @@ class TestCheckEndpoints:
         assert response.status_code == 422
 
     def test_multiple_checks_same_vehicle_same_day_all_succeed(self, client, auth_admin):
-        """
-        Multiple checks for the same vehicle on the same calendar day are
-        explicitly supported. Post-call restock checks, shift-start / shift-end
-        checks, and any other station-specific cadence all require this.
-        Each check must have a distinct timestamp — the natural discriminator.
-        """
         sid, vid = self._make_station_and_vehicle(client, auth_admin)
         payload_base = {"vehicle_id": vid, "station_id": sid, "check_date": "2026-06-15"}
-
         r1 = client.post("/api/v1/checks/daily", json={**payload_base, "timestamp": _utcnow(), "notes": "Shift-start check"}, headers=auth_admin)
-        assert r1.status_code == 201, f"First check failed: {r1.json()}"
-
+        assert r1.status_code == 201
         time.sleep(0.01)
         r2 = client.post("/api/v1/checks/daily", json={**payload_base, "timestamp": _utcnow(), "notes": "Post-call restock check"}, headers=auth_admin)
-        assert r2.status_code == 201, f"Second check failed: {r2.json()}"
-
+        assert r2.status_code == 201
         time.sleep(0.01)
         r3 = client.post("/api/v1/checks/daily", json={**payload_base, "timestamp": _utcnow(), "notes": "Shift-end check"}, headers=auth_admin)
-        assert r3.status_code == 201, f"Third check failed: {r3.json()}"
-
+        assert r3.status_code == 201
         ids = {r1.json()["check_id"], r2.json()["check_id"], r3.json()["check_id"]}
         assert len(ids) == 3
 
@@ -630,16 +646,11 @@ class TestCheckEndpoints:
         assert event.severity == "INFO"
 
     def test_station_compliance_today_returns_all_checks(self, client, auth_admin):
-        """All checks submitted today are returned — including multiple per vehicle."""
         sid, vid = self._make_station_and_vehicle(client, auth_admin)
         today = datetime.now(timezone.utc).date().isoformat()
-        client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vid, "station_id": sid, "check_date": today, "timestamp": _utcnow(), "notes": "First check",
-        }, headers=auth_admin)
+        client.post("/api/v1/checks/daily", json={"vehicle_id": vid, "station_id": sid, "check_date": today, "timestamp": _utcnow(), "notes": "First check"}, headers=auth_admin)
         time.sleep(0.01)
-        client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vid, "station_id": sid, "check_date": today, "timestamp": _utcnow(), "notes": "Second check",
-        }, headers=auth_admin)
+        client.post("/api/v1/checks/daily", json={"vehicle_id": vid, "station_id": sid, "check_date": today, "timestamp": _utcnow(), "notes": "Second check"}, headers=auth_admin)
         response = client.get(f"/api/v1/checks/daily/station/{sid}/today", headers=auth_admin)
         assert response.status_code == 200
         assert len(response.json()) == 2
@@ -664,11 +675,13 @@ class TestCheckEndpoints:
         assert response.status_code == 422
         assert "ALS" in response.json()["detail"]
 
-    def test_create_cs_check_same_signers_returns_422(self, client, auth_responder):
+    def test_create_cs_check_same_signers_returns_422(self, client, db, auth_responder):
+        """Session C: responder needs membership before reaching the dual-signer check."""
         sr = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers={"Authorization": "Bearer test-administrator"})
         sid = sr.json()["station_id"]
         vr = client.post("/api/v1/vehicles", json={"station_id": sid, "vehicle_number": f"AMB-{_uid()}", "vehicle_type": "ALS"}, headers={"Authorization": "Bearer test-administrator"})
         vid = vr.json()["vehicle_id"]
+        _add_member(db, sid, "test-responder@ems.local", "Responder")
         response = client.post("/api/v1/checks/controlled-substance", json={
             "vehicle_id": vid, "secondary_signer": "Test Responder", "timestamp": _utcnow(), "discrepancy_flag": False,
         }, headers=auth_responder)
@@ -820,25 +833,30 @@ class TestRBAC:
         response = client.get("/api/v1/audit", headers=auth_supervisor)
         assert response.status_code == 200
 
-    def test_responder_can_submit_daily_check(self, client, auth_admin, auth_responder):
+    def test_responder_can_submit_daily_check(self, client, db, auth_admin, auth_responder):
+        """Session C: responder must be a station member to submit a check."""
         sr = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers=auth_admin)
         sid = sr.json()["station_id"]
         vr = client.post("/api/v1/vehicles", json={"station_id": sid, "vehicle_number": f"AMB-{_uid()}", "vehicle_type": "ALS"}, headers=auth_admin)
         vid = vr.json()["vehicle_id"]
+        _add_member(db, sid, "test-responder@ems.local", "Responder")
         response = client.post("/api/v1/checks/daily", json={
             "vehicle_id": vid, "station_id": sid, "check_date": "2026-08-01", "timestamp": _utcnow(),
         }, headers=auth_responder)
         assert response.status_code == 201
         assert response.json()["performed_by"] == "Test Responder"
 
-    def test_responder_cannot_view_daily_check_detail_returns_403(self, client, auth_admin, auth_responder):
+    def test_responder_cannot_view_daily_check_detail_returns_403(self, client, db, auth_admin, auth_responder):
+        """Session C: responder needs membership to submit, then gets 403 on detail (Supervisor+ only)."""
         sr = client.post("/api/v1/stations", json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"}, headers=auth_admin)
         sid = sr.json()["station_id"]
         vr = client.post("/api/v1/vehicles", json={"station_id": sid, "vehicle_number": f"AMB-{_uid()}", "vehicle_type": "ALS"}, headers=auth_admin)
         vid = vr.json()["vehicle_id"]
+        _add_member(db, sid, "test-responder@ems.local", "Responder")
         cr = client.post("/api/v1/checks/daily", json={
             "vehicle_id": vid, "station_id": sid, "check_date": "2026-08-02", "timestamp": _utcnow(),
         }, headers=auth_responder)
+        assert cr.status_code == 201, f"Check submission failed: {cr.json()}"
         check_id = cr.json()["check_id"]
         response = client.get(f"/api/v1/checks/daily/{check_id}", headers=auth_responder)
         assert response.status_code == 403
@@ -848,11 +866,8 @@ class TestRBAC:
 
 class TestCheckTypes:
     """
-    Tests for the four non-SUPPLY item check types discovered from Ambulance 712 forms:
-      MEASUREMENT  — O2 PSI reading; LOW if below minimum, OK if at or above
-      FUNCTIONAL   — pass/fail operational check (battery OK, runs & starts)
-      DATE_RECORD  — date recorded; OVERDUE if days since > recurrence_days
-      DOCUMENT     — presence-only paperwork; MISSING if found == 0
+    Tests for the four non-SUPPLY item check types:
+      MEASUREMENT, FUNCTIONAL, DATE_RECORD, DOCUMENT
     """
 
     def _make_env(self, client, auth_admin):

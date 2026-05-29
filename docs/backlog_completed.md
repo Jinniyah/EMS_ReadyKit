@@ -1,5 +1,5 @@
 # EMS ReadyKit — Completed Items
-# Last updated: 2026-05-26
+# Last updated: 2026-05-29
 
 ---
 
@@ -90,6 +90,7 @@
 | F-UX30 | DraftBanner uses selection_label — fixes null label for jump bag checks | 2026-05-22 |
 | F-UX31 | Reconcile "Add N" top-off button — inline with +/− controls | 2026-05-22 |
 | F-UX33 | FAIL check → repair request prompt on submitted screen | 2026-05-23 |
+| F-UX35 | Draft banner station fallback — localStorage cache of last known station_id | 2026-05-25 |
 
 ---
 
@@ -117,6 +118,22 @@
 
 ---
 
+## Station Membership & Access Control — Data Model + Endpoints
+Implemented 2026-05-25. Enforcement completed Session C 2026-05-29.
+
+| # | Item | Completed |
+|---|------|-----------|
+| ACC-M1 | New table: `station_members` | 2026-05-25 |
+| ACC-M2 | Migration: add `station_members` table | 2026-05-25 |
+| ACC-B1 | `GET /stations/{id}/members` — list members of a station (Supervisor+) | 2026-05-25 |
+| ACC-B2 | `POST /stations/{id}/members` — add user to station with role (Supervisor+) | 2026-05-25 |
+| ACC-B3 | `PATCH /stations/{id}/members/{user_id}` — change member role (Supervisor+) | 2026-05-25 |
+| ACC-B4 | `DELETE /stations/{id}/members/{user_id}` — remove user from station (Supervisor+) | 2026-05-25 |
+| ACC-B5 | `GET /stations/my` — return only stations the current user is assigned to (all roles) | 2026-05-25 |
+| ACC-B6 | `GET /stations` — return all stations (Administrator only) | 2026-05-25 |
+
+---
+
 ## Session A — Security Gate (2026-05-26)
 
 All items completed in one session. 153 tests pass. pip-audit reports 0 known vulnerabilities.
@@ -124,9 +141,9 @@ All items completed in one session. 153 tests pass. pip-audit reports 0 known vu
 ### Dead Code Removal
 | # | Item | Completed |
 |---|------|-----------|
-| — | Delete `routers/_patch_cs_message.py` — dangling code snippet, not imported anywhere | 2026-05-26 |
-| — | Delete `routers/_patch_get_check.py` — dangling code snippet, not imported anywhere | 2026-05-26 |
-| — | Remove `tests/test_rbac_block.py` stub — contained only a "delete me" comment | 2026-05-26 |
+| — | Delete `routers/_patch_cs_message.py` | 2026-05-26 |
+| — | Delete `routers/_patch_get_check.py` | 2026-05-26 |
+| — | Remove `tests/test_rbac_block.py` stub | 2026-05-26 |
 
 ### Gitignore
 | # | Item | Completed |
@@ -137,13 +154,13 @@ All items completed in one session. 153 tests pass. pip-audit reports 0 known vu
 ### Security — OWASP A06: pip-audit in CI
 | # | Item | Completed |
 |---|------|-----------|
-| SEC-1 | Add `pip-audit` step to `.github/workflows/deploy.yml` before pytest — fails build on known CVEs | 2026-05-26 |
+| SEC-1 | Add `pip-audit` step to `.github/workflows/deploy.yml` before pytest | 2026-05-26 |
 
 ### Security — OWASP A05: Security Misconfiguration
 | # | Item | Completed |
 |---|------|-----------|
-| SEC-2 | Disable OpenAPI `/docs`, `/redoc`, `/openapi.json` in production (`main.py`) | 2026-05-26 |
-| SEC-3 | Add security headers middleware: `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy` | 2026-05-26 |
+| SEC-2 | Disable OpenAPI `/docs`, `/redoc`, `/openapi.json` in production | 2026-05-26 |
+| SEC-3 | Security headers middleware: `X-Content-Type-Options`, `X-XSS-Protection`, `Referrer-Policy` | 2026-05-26 |
 
 ### Security — OWASP A02: Cryptographic Failures
 | # | Item | Completed |
@@ -164,19 +181,103 @@ All items completed in one session. 153 tests pass. pip-audit reports 0 known vu
 | SEC-6 | Document `secondary_signer` free-text limitation in `checks.py` with OWASP A04 comment | 2026-05-26 |
 
 ### Dependency Upgrades (resolving all pip-audit CVEs)
-| # | Package | From | To | CVEs resolved | Completed |
-|---|---------|------|----|---------------|-----------|
-| — | `fastapi` | 0.111.0 | 0.136.1 | Unlocks starlette 1.x | 2026-05-26 |
-| — | `starlette` | 0.37.2 | 1.1.0 | CVE-2024-47874, CVE-2025-54121, CVE-2025-62727, PYSEC-2026-161 | 2026-05-26 |
-| — | `pydantic` | 2.7.1 | 2.13.4 | Required by fastapi 0.136.1 | 2026-05-26 |
-| — | `pydantic-settings` | 2.2.1 | 2.14.1 | Required by pydantic 2.13.4 | 2026-05-26 |
-| — | `azure-identity` | 1.16.0 | 1.19.0 | CVE-2024-35255 | 2026-05-26 |
-| — | `PyJWT` | 2.8.0 | 2.12.0 | PYSEC-2026-120, PYSEC-2025-183 | 2026-05-26 |
-| — | `cryptography` | 42.0.8 | 46.0.7 | CVE-2024-12797, CVE-2026-26007, GHSA-h4gh-qq45-vh27, PYSEC-2026-35, PYSEC-2026-36 | 2026-05-26 |
-| — | `pytest` | 8.2.0 | 9.0.3 | CVE-2025-71176 | 2026-05-26 |
-| — | `pytest-asyncio` | 0.23.6 | removed | Unused (zero async tests); conflicted with pytest 9 | 2026-05-26 |
+| Package | From | To | CVEs resolved |
+|---------|------|----|---------------|
+| `fastapi` | 0.111.0 | 0.136.1 | Unlocks starlette 1.x |
+| `starlette` | 0.37.2 | 1.1.0 | CVE-2024-47874, CVE-2025-54121, CVE-2025-62727, PYSEC-2026-161 |
+| `pydantic` | 2.7.1 | 2.13.4 | Required by fastapi 0.136.1 |
+| `pydantic-settings` | 2.2.1 | 2.14.1 | Required by pydantic 2.13.4 |
+| `azure-identity` | 1.16.0 | 1.19.0 | CVE-2024-35255 |
+| `PyJWT` | 2.8.0 | 2.12.0 | PYSEC-2026-120, PYSEC-2025-183 |
+| `cryptography` | 42.0.8 | 46.0.7 | CVE-2024-12797, CVE-2026-26007, GHSA-h4gh-qq45-vh27, PYSEC-2026-35, PYSEC-2026-36 |
+| `pytest` | 8.2.0 | 9.0.3 | CVE-2025-71176 |
+| `pytest-asyncio` | 0.23.6 | removed | Unused (zero async tests); conflicted with pytest 9 |
 
-### Bug Fix
+### Bug Fixes
 | # | Item | Completed |
 |---|------|-----------|
-| — | Supervisor "All Checks" tab was calling `getMyHistory` (filtered by current user) instead of `getStationChecksToday` — PASS checks from other crew members were invisible | 2026-05-26 |
+| — | Supervisor "All Checks" tab called `getMyHistory` instead of `getStationChecksToday` — PASS checks from other crew were invisible | 2026-05-26 |
+| — | `X-Frame-Options: DENY` on backend API responses was blocking MSAL auth iframe redirect (`hash_empty_error` on mobile/incognito) | 2026-05-27 |
+| — | `SECRET_KEY` env var not set in Azure App Service — SEC-4 assertion correctly caught this | 2026-05-27 |
+
+---
+
+## Session B — Refactor Sprint (2026-05-27)
+
+153 tests pass, 0 deprecation warnings.
+
+| # | Item | Completed |
+|---|------|-----------|
+| REF-1 | `write_audit_event()` extracted to `core/audit.py` — every audit write now emits a structured log line | 2026-05-27 |
+| REF-2 | `get_vehicle_or_404()` moved to `deps.py` — eliminated duplication in `checks.py` and `repair_requests.py` | 2026-05-27 |
+| REF-3 | `ALL_ROLES`, `SUPERVISOR_PLUS`, `ADMIN_ONLY` moved to `deps.py` — single source of truth across 9 router files | 2026-05-27 |
+| REF-4 | `require_station_membership()` moved from `stations.py` to `deps.py`; also completes ACC-B10 | 2026-05-27 |
+| ACC-B10 | `deps.py`: `require_station_membership()` dependency — completed as part of REF-4 | 2026-05-27 |
+| REF-5 | `wizard.css`, `wizard-station.css`, `submitted-screen-patch.css` merged into `src/styles/wizard.css` | 2026-05-27 |
+| REF-6 | All `logger.warning()` calls in `auth.py` now include `extra={}` for structured Log Analytics queries | 2026-05-27 |
+| REF-7 | `HTTP_422_UNPROCESSABLE_ENTITY` → `HTTP_422_UNPROCESSABLE_CONTENT`; 8 test warnings eliminated | 2026-05-27 |
+
+### Bug Fixes (Session B)
+| # | Item | Completed |
+|---|------|-----------|
+| — | MSAL popup → redirect flow (`loginRedirect` / `logoutRedirect`) — fixes auth on mobile Chrome and incognito | 2026-05-27 |
+| — | `msalInstance.initialize()` awaited in `bootstrap()` before `ReactDOM.createRoot` — fixes `uninitialized_public_client_application` on refresh | 2026-05-28 |
+| — | `handleRedirectPromise()` removed from `useAuth.jsx` — `MsalProvider` handles it; calling it again caused race condition | 2026-05-28 |
+
+---
+
+## Session C — Access Control Enforcement (2026-05-29)
+
+179 tests pass, 0 warnings. OWASP A01 enforcement complete.
+Real users can now be added — no station can see another station's data.
+
+### OWASP A01 — Station Membership Enforcement (ACC-B7/B8)
+| # | Item | Completed |
+|---|------|-----------|
+| ACC-B7 | Station membership enforced on all `/checks` endpoints | 2026-05-29 |
+| | `POST /checks/daily` — 403 if not member of `payload.station_id` | |
+| | `POST /checks/controlled-substance` — 403 if not member of `vehicle.station_id` | |
+| | `GET /checks/daily/vehicle/{id}` — 403 if not member of `vehicle.station_id` | |
+| | `GET /checks/daily/station/{id}/today` — opened to ALL_ROLES + membership enforced | |
+| ACC-B8 | Station membership enforced on all `/vehicles` and `/inventory` endpoints | 2026-05-29 |
+| | `GET /vehicles` — Supervisors see only their stations; Admins see all | |
+| | `POST /vehicles` — 403 if not member of `payload.station_id` | |
+| | `GET /vehicles/{id}` — 403 if not member of `vehicle.station_id` | |
+| | `GET /stations/{id}/vehicles` — 403 if not member of station | |
+| | `GET /inventory/locations` — requires `?station_id=` for non-Admins; membership enforced | |
+| | `GET /inventory/locations/{id}` — 403 if not member of `location.station_id` | |
+| | All `/inventory/locations/{id}/stock`, `/par-levels`, `/compartments` — same | |
+| | `POST /inventory/locations`, `/lots`, `/par-levels`, `/compartments` — membership enforced | |
+| | `GET /inventory/lots/{id}`, `/par-levels/{id}`, `/compartments/{id}` — membership enforced | |
+| | `GET /inventory/expiring` — restricted to Administrator only (cross-station report) | |
+| ACC-B9 | Supervisor dashboard endpoints enforced via ACC-B7/ACC-B8 (no separate supervisor router) | 2026-05-29 |
+
+### Human-Readable Error Messages
+| # | Item | Completed |
+|---|------|-----------|
+| — | `deps.py` `require_station_membership()` 403 message rewritten for EMS users: tells them what's wrong and who to contact | 2026-05-29 |
+| — | `deps.py` `require_role()` 403 message improved: plain English, not HTTP jargon | 2026-05-29 |
+| — | `shared/api/client.js` `_extractMessage()` updated: 401 → session expired message; 403 → passes through backend message; all status codes use EMS-appropriate language | 2026-05-29 |
+
+### New Tests — `test_station_membership.py`
+26 new tests, 179 total passing.
+
+| Class | Tests |
+|---|---|
+| `TestCheckMembershipEnforcement` | Responder/Supervisor 403 on unassigned station; Admin bypasses; today endpoint opened to all roles |
+| `TestVehicleMembershipEnforcement` | 403 on unassigned station vehicles; Supervisor list filtered to own stations; Admin sees all |
+| `TestInventoryMembershipEnforcement` | 403 on unassigned location; list requires `?station_id=` for non-Admin; Admin unrestricted |
+| `TestMembershipErrorMessages` | Error messages contain "station" and "supervisor" — human-readable, actionable |
+
+### Test Fixes
+4 pre-existing tests updated to add `StationMember` rows before using non-admin roles:
+
+| Test | Fix |
+|---|---|
+| `test_responder_can_list_compartments` | Added `_add_member(db, sid, ...)` + `db` fixture |
+| `test_responder_cannot_create_compartment_returns_403` | Same — membership needed to reach role check |
+| `test_create_cs_check_same_signers_returns_422` | Added membership so responder reaches dual-signer validation |
+| `test_responder_can_submit_daily_check` | Added membership before check POST |
+| `test_responder_cannot_view_daily_check_detail_returns_403` | Added membership for submission; added assertion on submission status |
+
+New `_add_member(db, station_id, user_email, role)` helper added to `test_routers.py`.

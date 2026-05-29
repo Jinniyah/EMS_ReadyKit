@@ -2,30 +2,12 @@
 routers/checks.py
 Daily inventory check and controlled substance check endpoints.
 
-Phase 7 change:
-- GET /checks/daily/{check_id} now excludes soft-deleted records (returns 404).
-
-Phase 5 change:
-- Removed the try/except IntegrityError → 409 CONFLICT guard.
-  Multiple checks per vehicle per calendar day are now allowed.
-
-Phase 4 changes:
-- POST /checks/daily now accepts line_items with optional lot_id
-- Status computation:
-    EXPIRED       — lot_id provided and lot.expiration_date <= today
-    MISSING       — quantity_found == 0 and quantity_needed > 0
-    SHORT         — 0 < quantity_found < quantity_needed
-    OK            — quantity_found >= quantity_needed and not expired
-- Overall check status worst-case:
-    FAIL          — any EXPIRED, MISSING, FAIL, or OVERDUE item
-    NEEDS_RESTOCK — any SHORT or LOW item
-    PASS          — all OK (or no line items)
-
-Refactor (Session B):
-- Role constants imported from deps (REF-3)
-- _get_vehicle_or_404 imported from deps (REF-2)
-- _write_audit_event replaced by write_audit_event from core.audit (REF-1)
-- HTTP_422_UNPROCESSABLE_CONTENT replaces deprecated UNPROCESSABLE_ENTITY (REF-7)
+Session C (ACC-B7): Station membership enforced on all check endpoints.
+  - POST /checks/daily        — user must be a member of payload.station_id
+  - POST /checks/controlled-substance — user must be a member of vehicle.station_id
+  - GET  /checks/daily/vehicle/{id}   — user must be a member of vehicle.station_id
+  - GET  /checks/daily/station/{id}/today — user must be a member of station_id;
+          changed from SUPERVISOR_PLUS to ALL_ROLES (responders also need today's status)
 """
 
 from __future__ import annotations
@@ -52,8 +34,13 @@ from ems_readykit.models.daily_inventory_check import DailyInventoryCheck, Check
 from ems_readykit.models.item import Item
 from ems_readykit.models.station import Station
 from ems_readykit.models.stock_lot import StockLot
-from ems_readykit.models.vehicle import Vehicle
-from ems_readykit.routers.deps import ALL_ROLES, SUPERVISOR_PLUS, get_vehicle_or_404, require_role
+from ems_readykit.routers.deps import (
+    ALL_ROLES,
+    SUPERVISOR_PLUS,
+    get_vehicle_or_404,
+    require_role,
+    require_station_membership,
+)
 from ems_readykit.schemas.controlled_substance_check import (
     ControlledSubstanceCheckCreate,
     ControlledSubstanceCheckRead,
@@ -62,7 +49,6 @@ from ems_readykit.schemas.daily_inventory_check import (
     DailyInventoryCheckCreate,
     DailyInventoryCheckRead,
 )
-from ems_readykit.schemas.check_line_item import CheckLineItemCreate
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/checks", tags=["checks"])
@@ -158,6 +144,9 @@ def create_daily_check(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Station {payload.station_id} not found.",
         )
+
+    # ACC-B7: Station membership enforcement
+    require_station_membership(payload.station_id, current_user, db)
 
     if payload.line_items:
         compartment_ids = {li.compartment_id for li in payload.line_items}
@@ -312,13 +301,16 @@ def get_daily_check(check_id: int, db: Session = Depends(get_db)) -> DailyInvent
     "/daily/vehicle/{vehicle_id}",
     response_model=List[DailyInventoryCheckRead],
     summary="List daily checks for a vehicle",
-    dependencies=[Depends(require_role(*ALL_ROLES))],
 )
 def list_vehicle_daily_checks(
-    vehicle_id: int, db: Session = Depends(get_db)
+    vehicle_id: int,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
 ) -> List[DailyInventoryCheck]:
     """Returns all non-deleted daily inventory checks for a vehicle, most recent first."""
-    get_vehicle_or_404(vehicle_id, db)
+    vehicle = get_vehicle_or_404(vehicle_id, db)
+    # ACC-B7: derive station from vehicle and enforce membership
+    require_station_membership(vehicle.station_id, current_user, db)
     return (
         db.query(DailyInventoryCheck)
         .filter(
@@ -334,18 +326,26 @@ def list_vehicle_daily_checks(
     "/daily/station/{station_id}/today",
     response_model=List[DailyInventoryCheckRead],
     summary="Get today's compliance status for a station",
-    dependencies=[Depends(require_role(*SUPERVISOR_PLUS))],
 )
 def get_station_compliance_today(
-    station_id: int, db: Session = Depends(get_db)
+    station_id: int,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
 ) -> List[DailyInventoryCheck]:
-    """Returns all non-deleted daily checks for a station for today."""
+    """
+    Returns all non-deleted daily checks for a station for today.
+    All roles (Responders need this for the home screen badge and supervisor view).
+    Station membership enforced.
+    """
     station = db.query(Station).filter(Station.station_id == station_id).first()
     if not station:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Station {station_id} not found.",
         )
+    # ACC-B7: station membership enforcement
+    require_station_membership(station_id, current_user, db)
+
     today = datetime.now(timezone.utc).date().isoformat()
     return (
         db.query(DailyInventoryCheck)
@@ -383,14 +383,13 @@ def create_cs_check(
             ),
         )
 
+    # ACC-B7: station membership enforcement
+    require_station_membership(vehicle.station_id, current_user, db)
+
     primary_signer = current_user.name
 
     # OWASP A04 — Known limitation: secondary_signer is free-text and compared
-    # by name string only. A determined user could bypass dual-signature intent
-    # by entering a slight name variant. The structural fix is F-UX34 (structured
-    # user picker bound to a real Azure AD identity). Until that is built, this
-    # check deters accidental self-signing but cannot prevent deliberate spoofing.
-    # See: docs/backlog.md SEC-6, F-UX34
+    # by name string only. The structural fix is F-UX34. See backlog.md SEC-6.
     if primary_signer.strip().lower() == payload.secondary_signer.strip().lower():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -418,9 +417,9 @@ def create_cs_check(
         logger.warning(
             "Controlled substance discrepancy flagged",
             extra={
-                "vehicle_id":    payload.vehicle_id,
+                "vehicle_id":     payload.vehicle_id,
                 "primary_signer": primary_signer,
-                "cs_check_id":   check.cs_check_id,
+                "cs_check_id":    check.cs_check_id,
             },
         )
 
@@ -433,9 +432,9 @@ def create_cs_check(
         vehicle_id=payload.vehicle_id,
         station_id=vehicle.station_id,
         metadata={
-            "secondary_signer":  payload.secondary_signer,
-            "discrepancy_flag":  payload.discrepancy_flag,
-            "notes":             payload.notes,
+            "secondary_signer": payload.secondary_signer,
+            "discrepancy_flag": payload.discrepancy_flag,
+            "notes":            payload.notes,
         },
         severity=severity,
     )

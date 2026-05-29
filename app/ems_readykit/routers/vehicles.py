@@ -2,9 +2,12 @@
 routers/vehicles.py
 Vehicle CRUD endpoints.
 
-Refactor (Session B):
-- Role constants imported from deps (REF-3)
-- HTTP_422_UNPROCESSABLE_CONTENT replaces deprecated constant (REF-7)
+Session C (ACC-B8): Station membership enforced on vehicle endpoints.
+  - GET /stations/{id}/vehicles — user must be a member of station_id
+  - GET /vehicles/{id}          — user must be a member of vehicle.station_id
+  - GET /vehicles               — filtered to user's assigned stations (Supervisor+)
+                                   Administrator sees all
+  - POST /vehicles              — user must be a member of payload.station_id (Supervisor+)
 """
 
 from __future__ import annotations
@@ -15,12 +18,18 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from ems_readykit.core.auth import ROLE_ADMINISTRATOR, ROLE_RESPONDER, ROLE_SUPERVISOR
+from ems_readykit.core.auth import ROLE_ADMINISTRATOR, CurrentUser
 from ems_readykit.core.database import get_db
 from ems_readykit.models.inventory_location import InventoryLocation, LocationType
 from ems_readykit.models.station import Station
+from ems_readykit.models.station_member import StationMember
 from ems_readykit.models.vehicle import Vehicle
-from ems_readykit.routers.deps import ALL_ROLES, SUPERVISOR_PLUS, require_role
+from ems_readykit.routers.deps import (
+    ALL_ROLES,
+    SUPERVISOR_PLUS,
+    require_role,
+    require_station_membership,
+)
 from ems_readykit.schemas.vehicle import VehicleCreate, VehicleRead
 
 logger = logging.getLogger(__name__)
@@ -29,8 +38,6 @@ router = APIRouter(tags=["vehicles"])
 
 
 def _get_vehicle_or_404(vehicle_id: int, db: Session) -> Vehicle:
-    """Local helper — vehicles.py uses this internally only. get_vehicle_or_404
-    in deps.py is used by checks.py and repair_requests.py."""
     vehicle = db.query(Vehicle).filter(Vehicle.vehicle_id == vehicle_id).first()
     if not vehicle:
         raise HTTPException(
@@ -40,11 +47,24 @@ def _get_vehicle_or_404(vehicle_id: int, db: Session) -> Vehicle:
     return vehicle
 
 
+def _station_ids_for_user(current_user: CurrentUser, db: Session) -> Optional[List[int]]:
+    """
+    Returns the list of station IDs the current user is a member of.
+    Returns None for Administrators (they see everything).
+    """
+    if current_user.has_role(ROLE_ADMINISTRATOR):
+        return None
+    members = db.query(StationMember).filter(
+        StationMember.user_id == current_user.email,
+        StationMember.active  == True,
+    ).all()
+    return [m.station_id for m in members]
+
+
 @router.get(
     "/vehicles",
     response_model=List[VehicleRead],
-    summary="List all vehicles",
-    dependencies=[Depends(require_role(*SUPERVISOR_PLUS))],
+    summary="List vehicles (scoped to user's stations for non-Administrators)",
 )
 def list_vehicles(
     active: Optional[bool] = Query(
@@ -52,10 +72,21 @@ def list_vehicles(
         description="Filter by active status. Omit for all vehicles.",
     ),
     db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> List[Vehicle]:
+    """
+    Supervisors see vehicles for their assigned stations only.
+    Administrators see all vehicles.
+    """
     query = db.query(Vehicle)
+
+    station_ids = _station_ids_for_user(current_user, db)
+    if station_ids is not None:
+        query = query.filter(Vehicle.station_id.in_(station_ids))
+
     if active is not None:
         query = query.filter(Vehicle.active == active)
+
     return query.all()
 
 
@@ -64,12 +95,18 @@ def list_vehicles(
     response_model=VehicleRead,
     status_code=status.HTTP_201_CREATED,
     summary="Create a vehicle",
-    dependencies=[Depends(require_role(*SUPERVISOR_PLUS))],
 )
-def create_vehicle(payload: VehicleCreate, db: Session = Depends(get_db)) -> Vehicle:
+def create_vehicle(
+    payload: VehicleCreate,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
+) -> Vehicle:
     station = db.query(Station).filter(Station.station_id == payload.station_id).first()
     if not station:
         raise HTTPException(status_code=404, detail=f"Station {payload.station_id} not found.")
+
+    # ACC-B8: only create vehicles at stations you're a member of
+    require_station_membership(payload.station_id, current_user, db)
 
     existing = db.query(Vehicle).filter(Vehicle.vehicle_number == payload.vehicle_number).first()
     if existing:
@@ -110,26 +147,42 @@ def create_vehicle(payload: VehicleCreate, db: Session = Depends(get_db)) -> Veh
     "/vehicles/{vehicle_id}",
     response_model=VehicleRead,
     summary="Get a vehicle",
-    dependencies=[Depends(require_role(*ALL_ROLES))],
 )
-def get_vehicle(vehicle_id: int, db: Session = Depends(get_db)) -> Vehicle:
-    return _get_vehicle_or_404(vehicle_id, db)
+def get_vehicle(
+    vehicle_id: int,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
+) -> Vehicle:
+    vehicle = _get_vehicle_or_404(vehicle_id, db)
+    # ACC-B8: enforce membership via vehicle's station
+    require_station_membership(vehicle.station_id, current_user, db)
+    return vehicle
 
 
 @router.get(
     "/stations/{station_id}/vehicles",
     response_model=List[VehicleRead],
     summary="List vehicles for a station",
-    dependencies=[Depends(require_role(*ALL_ROLES))],
 )
 def list_station_vehicles(
     station_id: int,
-    active: Optional[bool] = Query(default=None),
+    active: Optional[bool] = Query(
+        default=None,
+        description=(
+            "Filter by active status. Omit for all vehicles (V&E Status screen). "
+            "Pass active=true for check wizard (active only)."
+        ),
+    ),
     db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
 ) -> List[Vehicle]:
     station = db.query(Station).filter(Station.station_id == station_id).first()
     if not station:
         raise HTTPException(status_code=404, detail=f"Station {station_id} not found.")
+
+    # ACC-B8: station membership enforcement
+    require_station_membership(station_id, current_user, db)
+
     query = db.query(Vehicle).filter(Vehicle.station_id == station_id)
     if active is not None:
         query = query.filter(Vehicle.active == active)

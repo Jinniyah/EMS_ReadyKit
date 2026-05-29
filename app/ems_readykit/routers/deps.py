@@ -11,19 +11,19 @@ role is added. Import from here instead:
     from ems_readykit.routers.deps import ALL_ROLES, SUPERVISOR_PLUS, ADMIN_ONLY
 
 ## Shared helpers
-get_vehicle_or_404  — query vehicle by ID or raise 404; used in checks and repair_requests
-require_station_membership — raise 403 if user is not an active member of a station;
-    used in stations now, and will be used in checks/vehicles/inventory in Session C
-    (ACC-B7/B8/B9). Lives here to avoid circular imports when those routers
-    need it.
+get_vehicle_or_404         — query vehicle by ID or raise 404
+require_station_membership — raise 403 if user is not an active member of a
+    station. The 403 message is written for frontline EMS users, not developers.
+    Administrators bypass this check entirely.
 """
 
 from __future__ import annotations
 
-from typing import Callable, Optional
+from typing import Callable
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.orm import Session
 
 from ems_readykit.core.auth import (
     ROLE_ADMINISTRATOR,
@@ -33,7 +33,6 @@ from ems_readykit.core.auth import (
     resolve_current_user,
 )
 from ems_readykit.core.database import get_db
-from sqlalchemy.orm import Session
 
 __all__ = [
     "get_db",
@@ -47,7 +46,6 @@ __all__ = [
 ]
 
 # ── Role constant tuples ──────────────────────────────────────────────────────
-# Single source of truth — import from here, never define locally in routers.
 
 ALL_ROLES       = (ROLE_RESPONDER, ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
 SUPERVISOR_PLUS = (ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
@@ -88,7 +86,10 @@ def require_role(*roles: str) -> Callable[[CurrentUser], CurrentUser]:
         if not current_user.has_role(*roles):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Insufficient permissions. Required one of: {list(roles)}",
+                detail=(
+                    "You don't have permission to do that. "
+                    "If you think this is wrong, contact your supervisor."
+                ),
             )
         return current_user
 
@@ -98,11 +99,7 @@ def require_role(*roles: str) -> Callable[[CurrentUser], CurrentUser]:
 # ── Shared model helpers ──────────────────────────────────────────────────────
 
 def get_vehicle_or_404(vehicle_id: int, db: Session) -> "Vehicle":  # noqa: F821
-    """
-    Query a vehicle by ID or raise HTTP 404.
-    Shared between checks.py and repair_requests.py — previously duplicated
-    identically in both files (REF-2).
-    """
+    """Query a vehicle by ID or raise HTTP 404."""
     from ems_readykit.models.vehicle import Vehicle
     vehicle = db.query(Vehicle).filter(Vehicle.vehicle_id == vehicle_id).first()
     if not vehicle:
@@ -122,24 +119,31 @@ def require_station_membership(
     Raise HTTP 403 if the current user is not an active member of the station.
     Administrators bypass this check — they have access to all stations.
 
-    Moved from stations.py to deps.py (REF-4) so that checks.py, vehicles.py,
-    and inventory.py can import it for Session C (ACC-B7/B8/B9) without
-    creating a semantic mismatch or circular import.
+    The error message is written for frontline EMS users who may be tired
+    or stressed. It tells them what's wrong and what to do about it, rather
+    than giving a technical access-denied message.
 
     Note: StationMember.user_id is keyed on email (preferred_username from
     the JWT), not the stable OID. This is intentional — see station_members.py
-    for the rationale. Administrators are identified by role, not membership row.
+    for the rationale.
     """
     from ems_readykit.models.station_member import StationMember
+
     if current_user.has_role(ROLE_ADMINISTRATOR):
         return
+
     member = db.query(StationMember).filter(
         StationMember.station_id == station_id,
         StationMember.user_id    == current_user.email,
         StationMember.active     == True,
     ).first()
+
     if not member:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not assigned to this station.",
+            detail=(
+                "You're not listed as a member of this station. "
+                "If you're supposed to have access, ask your supervisor "
+                "to add you in Station Administration."
+            ),
         )
