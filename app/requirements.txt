@@ -8,6 +8,7 @@
 fastapi==0.136.1
 starlette==1.1.0
 uvicorn[standard]==0.29.0
+python-multipart==0.0.27  # Required by FastAPI for UploadFile / multipart form data (CSV import)
 
 # Database ORM + migrations
 sqlalchemy==2.0.30
