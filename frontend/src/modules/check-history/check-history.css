@@ -391,6 +391,27 @@
 .delete-panel__error   { color: var(--color-danger, #c0392b); font-size: 0.85rem; }
 .delete-panel__actions { display: flex; flex-direction: column; gap: 0.5rem; }
 
+/* ── V&E Status navigation banner ─────────────────────────────────────────── */
+
+.check-detail__ve-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.check-detail__ve-banner-text {
+  font-size: var(--font-size-sm);
+  color: #7f1d1d;
+  line-height: 1.4;
+  flex: 1;
+}
+
 /* ── Resolution tag ──────────────────────────────────────────────────── */
 
 .resolution-tag {

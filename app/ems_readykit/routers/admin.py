@@ -21,10 +21,13 @@ and returned but not acted on until the AI image recognition module is built.
 
 from __future__ import annotations
 
+import csv
+import io
 import logging
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -151,7 +154,238 @@ def search_items(
     return query.order_by(Item.name).limit(limit).all()
 
 
-# ── ADMIN-B1: Get single item ─────────────────────────────────────────────────
+# ── ADMIN-B18: CSV template download ───────────────────────────────────────
+
+_CSV_HEADERS = [
+    "name", "category", "check_type", "unit_of_measure",
+    "controlled_substance", "measurement_minimum", "measurement_maximum",
+    "recurrence_days", "alternate_names", "ai_tags", "barcode",
+]
+
+_CSV_EXAMPLES = [
+    # SUPPLY example
+    ["NRB Mask Adult", "Consumable", "SUPPLY", "each", "FALSE", "", "", "", "NRB,non-rebreather", "mask,oxygen", ""],
+    # MEASUREMENT example
+    ["On-Board O2 PSI", "Equipment", "MEASUREMENT", "PSI", "FALSE", "500", "2200", "", "O2 pressure", "oxygen,PSI", ""],
+    # DATE_RECORD example
+    ["AED Date of Last Charge", "Equipment", "DATE_RECORD", "N/A", "FALSE", "", "", "90", "AED charge", "AED,defibrillator", ""],
+    # FUNCTIONAL example
+    ["AED Battery OK", "Equipment", "FUNCTIONAL", "N/A", "FALSE", "", "", "", "", "", ""],
+    # Controlled substance example
+    ["Morphine 10mg", "Medication", "SUPPLY", "vial", "TRUE", "", "", "", "", "", ""],
+]
+
+
+@router.get(
+    "/items/import/template",
+    summary="Download CSV import template (ADMIN-B18)",
+    response_class=StreamingResponse,
+)
+def download_import_template(
+    _: None = Depends(require_role(*SUPERVISOR_PLUS)),
+) -> StreamingResponse:
+    """
+    Returns a downloadable CSV template with correct headers and
+    5 example rows covering all check types.
+    BOM-prefixed (UTF-8 with BOM) so Excel opens it correctly without
+    needing an import wizard.
+    """
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(_CSV_HEADERS)
+    writer.writerows(_CSV_EXAMPLES)
+
+    # UTF-8 BOM prefix so Excel opens without requiring import wizard
+    content = "\ufeff" + output.getvalue()
+
+    return StreamingResponse(
+        iter([content.encode("utf-8")]),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": 'attachment; filename="ems_readykit_items_template.csv"'
+        },
+    )
+
+
+# ── ADMIN-B17: CSV import ───────────────────────────────────────────
+
+MAX_IMPORT_BYTES = 2 * 1024 * 1024  # 2 MB
+MAX_IMPORT_ROWS  = 1_000
+
+VALID_CATEGORIES  = {c.value for c in ItemCategory}
+VALID_CHECK_TYPES = {c.value for c in ItemCheckType}
+
+
+def _parse_bool(value: str) -> bool:
+    return value.strip().upper() in ("TRUE", "1", "YES")
+
+
+def _parse_optional_float(value: str, field: str, row: int, errors: list) -> Optional[float]:
+    v = value.strip()
+    if not v:
+        return None
+    try:
+        return float(v)
+    except ValueError:
+        errors.append({"row": row, "name": "", "error": f"{field} must be a number, got '{v}'"})
+        return None
+
+
+def _parse_optional_int(value: str, field: str, row: int, errors: list) -> Optional[int]:
+    v = value.strip()
+    if not v:
+        return None
+    try:
+        return int(v)
+    except ValueError:
+        errors.append({"row": row, "name": "", "error": f"{field} must be a whole number, got '{v}'"})
+        return None
+
+
+@router.post(
+    "/items/import",
+    summary="Bulk import items from CSV (ADMIN-B17)",
+)
+async def import_items_csv(
+    file: UploadFile = File(..., description="CSV file. Max 2 MB, 1000 rows."),
+    db: Session = Depends(get_db),
+    _: None = Depends(require_role(*SUPERVISOR_PLUS)),
+) -> Dict[str, Any]:
+    """
+    Bulk-import items from a CSV file.
+    - Rows with a new name are created.
+    - Rows whose name already exists are skipped (not updated).
+    - Rows with validation errors are recorded and import continues.
+    - BOM-prefixed files (Excel default) are handled automatically.
+    Returns: { created, skipped, errors: [{row, name, error}] }
+    """
+    # ─ File size guard ───────────────────────────────────────────────
+    raw = await file.read(MAX_IMPORT_BYTES + 1)
+    if len(raw) > MAX_IMPORT_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="File exceeds the 2 MB limit. Split it into smaller batches.",
+        )
+
+    # ─ Decode — utf-8-sig strips BOM automatically ───────────────────────
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="File must be UTF-8 encoded. Re-save as CSV UTF-8 from Excel.",
+        )
+
+    reader = csv.DictReader(io.StringIO(text))
+
+    if not reader.fieldnames:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="The file appears to be empty or has no header row.",
+        )
+
+    # Normalise header names (strip whitespace, lowercase for comparison)
+    missing = {h for h in ("name", "category", "unit_of_measure") if h not in reader.fieldnames}
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Missing required columns: {', '.join(sorted(missing))}. Download the template for the correct format.",
+        )
+
+    created = 0
+    skipped = 0
+    errors: List[Dict[str, Any]] = []
+
+    for row_num, row in enumerate(reader, start=2):  # row 1 = headers
+        if row_num - 1 > MAX_IMPORT_ROWS:
+            errors.append({
+                "row": row_num,
+                "name": "",
+                "error": f"Row limit of {MAX_IMPORT_ROWS} reached. Remaining rows ignored.",
+            })
+            break
+
+        name = (row.get("name") or "").strip()
+        if not name:
+            errors.append({"row": row_num, "name": "", "error": "name is required"})
+            continue
+
+        # Skip duplicates gracefully
+        if db.query(Item).filter(Item.name == name).first():
+            skipped += 1
+            continue
+
+        # ─ Category ───────────────────────────────────────────────────
+        category_raw = (row.get("category") or "").strip()
+        if category_raw not in VALID_CATEGORIES:
+            errors.append({"row": row_num, "name": name,
+                "error": f"category must be one of: {', '.join(sorted(VALID_CATEGORIES))}"})
+            continue
+
+        # ─ Check type ──────────────────────────────────────────────
+        check_type_raw = (row.get("check_type") or "SUPPLY").strip() or "SUPPLY"
+        if check_type_raw not in VALID_CHECK_TYPES:
+            errors.append({"row": row_num, "name": name,
+                "error": f"check_type must be one of: {', '.join(sorted(VALID_CHECK_TYPES))}"})
+            continue
+
+        # ─ Unit of measure ──────────────────────────────────────────
+        unit = (row.get("unit_of_measure") or "").strip()
+        if not unit:
+            errors.append({"row": row_num, "name": name, "error": "unit_of_measure is required"})
+            continue
+
+        # ─ Conditional fields ─────────────────────────────────────────
+        row_errors: List[str] = []
+
+        meas_min = _parse_optional_float(row.get("measurement_minimum", ""), "measurement_minimum", row_num, row_errors)
+        meas_max = _parse_optional_float(row.get("measurement_maximum", ""), "measurement_maximum", row_num, row_errors)
+        recurrence = _parse_optional_int(row.get("recurrence_days", ""), "recurrence_days", row_num, row_errors)
+
+        if check_type_raw == "MEASUREMENT" and meas_min is None:
+            row_errors.append("measurement_minimum is required for MEASUREMENT items")
+        if check_type_raw == "DATE_RECORD" and recurrence is None:
+            row_errors.append("recurrence_days is required for DATE_RECORD items")
+        if meas_min is not None and meas_max is not None and meas_max < meas_min:
+            row_errors.append("measurement_maximum must be >= measurement_minimum")
+
+        if row_errors:
+            for e in row_errors:
+                errors.append({"row": row_num, "name": name, "error": e})
+            continue
+
+        # ─ Barcode uniqueness ─────────────────────────────────────────
+        barcode = (row.get("barcode") or "").strip() or None
+        if barcode and db.query(Item).filter(Item.barcode == barcode).first():
+            errors.append({"row": row_num, "name": name,
+                "error": f"Barcode '{barcode}' is already assigned to another item"})
+            continue
+
+        # ─ Create ─────────────────────────────────────────────────────
+        item = Item(
+            name                = name,
+            category            = category_raw,
+            check_type          = check_type_raw,
+            unit_of_measure     = unit,
+            controlled_substance= _parse_bool(row.get("controlled_substance", "")),
+            measurement_minimum = meas_min,
+            measurement_maximum = meas_max,
+            recurrence_days     = recurrence,
+            alternate_names     = (row.get("alternate_names") or "").strip() or None,
+            ai_tags             = (row.get("ai_tags") or "").strip() or None,
+            barcode             = barcode,
+            active              = True,
+        )
+        db.add(item)
+        created += 1
+
+    db.commit()
+    logger.info(
+        "CSV import complete: created=%s skipped=%s errors=%s",
+        created, skipped, len(errors),
+        extra={"action": "ITEMS_IMPORTED", "entity_type": "item", "entity_id": "bulk"},
+    )
+    return {"created": created, "skipped": skipped, "errors": errors}
 
 @router.get(
     "/items/{item_id}",

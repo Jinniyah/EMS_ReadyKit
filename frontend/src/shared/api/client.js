@@ -62,6 +62,36 @@ export const apiPut            = (path, body, getToken) => apiFetch('PUT',    pa
 export const apiDelete         = (path, getToken)       => apiFetch('DELETE', path, undefined, getToken)
 export const apiDeleteWithBody = (path, body, getToken) => apiFetch('DELETE', path, body,      getToken)
 
+/**
+ * Upload a file as multipart/form-data.
+ * Omits Content-Type header so the browser sets it with the correct boundary.
+ */
+export async function apiUpload(path, formData, getToken) {
+  const token = getToken ? await getToken() : null
+  const headers = { 'Accept': 'application/json' }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  let response
+  try {
+    response = await fetch(`${BASE_URL}${path}`, { method: 'POST', headers, body: formData })
+  } catch {
+    throw new ApiError(0, 'No connection — check your internet and try again.', null)
+  }
+
+  let data = null
+  const contentType = response.headers.get('content-type') ?? ''
+  if (contentType.includes('application/json')) {
+    try { data = await response.json() } catch { /* ignore */ }
+  }
+
+  if (!response.ok) {
+    const detail = data?.detail ?? null
+    throw new ApiError(response.status, _extractMessage(response.status, detail), detail)
+  }
+
+  return data
+}
+
 function _extractMessage(status, detail) {
   // Network / no response
   if (status === 0) {

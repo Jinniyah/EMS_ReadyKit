@@ -122,9 +122,17 @@ def acknowledge_check(
     check_id: int,
     payload: AcknowledgeRequest,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
+    current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
 ) -> DailyInventoryCheck:
     check = _get_check_or_404(check_id, db)
+
+    # Responders can only add notes to their own checks
+    if not current_user.has_role(ROLE_SUPERVISOR, ROLE_ADMINISTRATOR):
+        if check.performed_by != current_user.name:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only add notes to your own checks.",
+            )
 
     now = datetime.now(timezone.utc)
     check.reviewed_by       = current_user.user_id

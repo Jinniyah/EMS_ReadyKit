@@ -87,8 +87,8 @@ def require_role(*roles: str) -> Callable[[CurrentUser], CurrentUser]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=(
-                    "You don't have permission to do that. "
-                    "If you think this is wrong, contact your supervisor."
+                    "You do not have permission to access this data. "
+                    "If you feel this is in error, please contact your supervisor."
                 ),
             )
         return current_user

@@ -170,14 +170,21 @@ class TestListRepairRequests:
         assert resp.status_code == 200
         assert len(resp.json()) == 2
 
-    def test_responder_cannot_list(self, client, db, auth_responder):
+    def test_responder_can_list(self, client, db, auth_responder):
+        """All roles can view repair requests — responders need visibility into vehicle status."""
         s = _station(db)
         v = _vehicle(db, s.station_id)
+        client.post(
+            f"/api/v1/vehicles/{v.vehicle_id}/repair-requests",
+            json={"description": "Overhead cabinet door hinge is broken."},
+            headers=auth_responder,
+        )
         resp = client.get(
             f"/api/v1/vehicles/{v.vehicle_id}/repair-requests",
             headers=auth_responder,
         )
-        assert resp.status_code == 403
+        assert resp.status_code == 200
+        assert len(resp.json()) == 1
 
     def test_filter_by_status(self, client, db, auth_supervisor, auth_responder):
         s = _station(db)

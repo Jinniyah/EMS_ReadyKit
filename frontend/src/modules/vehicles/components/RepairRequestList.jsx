@@ -138,10 +138,61 @@ function ResolutionModal({ repair, onConfirm, onCancel, isSubmitting }) {
   )
 }
 
+/**
+ * EditNotesModal — add or update notes without changing status.
+ * Available to all roles on OPEN and IN_PROGRESS requests.
+ */
+function EditNotesModal({ repair, onConfirm, onCancel, isSubmitting }) {
+  const [note, setNote] = useState(repair.resolution_notes ?? '')
+
+  function handleSubmit(e) {
+    e.preventDefault()
+    onConfirm({
+      status:           repair.status,
+      resolution_notes: note.trim() || undefined,
+    })
+  }
+
+  return (
+    <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="edit-notes-modal-title">
+      <div className="modal">
+        <h3 id="edit-notes-modal-title" className="modal__title">✏ Add a Note</h3>
+        <p className="modal__body">{repair.description}</p>
+        <form onSubmit={handleSubmit} noValidate>
+          <div className="modal__field">
+            <label className="modal__label" htmlFor="edit-note">
+              Note <span className="modal__optional">(optional)</span>
+            </label>
+            <textarea
+              id="edit-note"
+              className="modal__textarea"
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              placeholder="e.g. Waiting on parts, scheduled for Tuesday…"
+              rows={3}
+              maxLength={500}
+              autoFocus
+            />
+          </div>
+          <div className="modal__actions">
+            <button type="button" className="btn btn--secondary" onClick={onCancel} disabled={isSubmitting}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn--primary" disabled={isSubmitting}>
+              {isSubmitting ? 'Saving…' : 'Save Note'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function RepairRequestList({ requests, canManage, canResolve, onUpdate, isUpdating }) {
-  const [statusFilter, setStatusFilter]   = useState('ALL')
+  const [statusFilter, setStatusFilter]         = useState('ALL')
   const [inProgressRepair, setInProgressRepair] = useState(null)
   const [resolvingRepair, setResolvingRepair]   = useState(null)
+  const [editingRepair, setEditingRepair]       = useState(null)
 
   const filtered = (requests ?? []).filter(r =>
     statusFilter === 'ALL' || r.status === statusFilter
@@ -153,6 +204,10 @@ export default function RepairRequestList({ requests, canManage, canResolve, onU
 
   function handleResolveConfirm(payload) {
     onUpdate(resolvingRepair, payload, () => setResolvingRepair(null))
+  }
+
+  function handleEditNotesConfirm(payload) {
+    onUpdate(editingRepair, payload, () => setEditingRepair(null))
   }
 
   if (!requests || requests.length === 0) {
@@ -216,34 +271,43 @@ export default function RepairRequestList({ requests, canManage, canResolve, onU
 
                 {repair.resolution_notes && (
                   <div className="repair-item__resolution">
-                    <strong>Resolution:</strong> {repair.resolution_notes}
+                    <strong>Note:</strong> {repair.resolution_notes}
                   </div>
                 )}
 
                 {/* Action buttons — role-gated per transition */}
-                {repair.status === 'OPEN' && canManage && (
-                  <div className="repair-item__actions">
+                <div className="repair-item__actions">
+                  {/* Pencil — add/edit notes, any role, any non-resolved status */}
+                  {repair.status !== 'RESOLVED' && canManage && (
                     <button
-                      className="btn btn--sm btn--ghost"
+                      className="btn btn--sm btn--secondary repair-item__edit-note"
+                      onClick={() => setEditingRepair(repair)}
+                      type="button"
+                      aria-label="Add or edit note"
+                      title="Add or edit note"
+                    >
+                      ✏
+                    </button>
+                  )}
+                  {repair.status === 'OPEN' && canManage && (
+                    <button
+                      className="btn btn--sm btn--secondary"
                       onClick={() => setInProgressRepair(repair)}
                       type="button"
                     >
                       Mark In Progress
                     </button>
-                  </div>
-                )}
-
-                {repair.status === 'IN_PROGRESS' && canResolve && (
-                  <div className="repair-item__actions">
+                  )}
+                  {repair.status === 'IN_PROGRESS' && canResolve && (
                     <button
-                      className="btn btn--sm btn--ghost"
+                      className="btn btn--sm btn--primary"
                       onClick={() => setResolvingRepair(repair)}
                       type="button"
                     >
                       Mark Resolved
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </li>
             )
           })}
@@ -264,6 +328,15 @@ export default function RepairRequestList({ requests, canManage, canResolve, onU
           repair={resolvingRepair}
           onConfirm={handleResolveConfirm}
           onCancel={() => setResolvingRepair(null)}
+          isSubmitting={isUpdating}
+        />
+      )}
+
+      {editingRepair && (
+        <EditNotesModal
+          repair={editingRepair}
+          onConfirm={handleEditNotesConfirm}
+          onCancel={() => setEditingRepair(null)}
           isSubmitting={isUpdating}
         />
       )}

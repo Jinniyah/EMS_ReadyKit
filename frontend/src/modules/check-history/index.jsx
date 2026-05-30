@@ -28,13 +28,13 @@ import './check-history.css'
 
 const STATUS_FILTERS = ['ALL', 'PASS', 'NEEDS_RESTOCK', 'FAIL']
 
-export default function CheckHistoryScreen({ station, onBack }) {
+export default function CheckHistoryScreen({ station, onBack, onNavigateToVehicles }) {
   const { user, getToken } = useAuth()
   const isSupervisor = canAccess(user, 'supervisor')
 
-  const [activeTab, setActiveTab]         = useState('mine')   // 'mine' | 'all'
+  const [activeTab, setActiveTab]         = useState(isSupervisor ? 'all' : 'mine')
   const [selectedCheck, setSelectedCheck] = useState(null)
-  const [statusFilter, setStatusFilter]   = useState('ALL')
+  const [statusFilter, setStatusFilter]   = useState(isSupervisor ? 'FAIL' : 'ALL')
   const [deletedIds, setDeletedIds]       = useState(new Set())
 
   // My checks (all roles) — scoped to current user's own submissions
@@ -69,7 +69,12 @@ export default function CheckHistoryScreen({ station, onBack }) {
       <ErrorBoundary moduleName="Check Detail">
         <CheckDetail
           check={selectedCheck}
-          onBack={() => setSelectedCheck(null)}
+          onNavigateToVehicles={onNavigateToVehicles}
+          onBack={() => {
+            setSelectedCheck(null)
+            refetchMine()
+            refetchAll()
+          }}
           onDeleted={() => {
             setDeletedIds(prev => new Set([...prev, selectedCheck.check_id]))
             setSelectedCheck(null)

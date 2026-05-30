@@ -88,8 +88,10 @@ export default function CheckWizard({
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data: locations } = useApi(
-    () => vehicleId ? checkApi.getLocations(getToken) : Promise.resolve(null),
-    [vehicleId]
+    () => vehicleId && stationId
+      ? checkApi.getLocations(stationId, getToken)
+      : Promise.resolve(null),
+    [vehicleId, stationId]
   )
   useEffect(() => {
     if (locations && vehicleId) {

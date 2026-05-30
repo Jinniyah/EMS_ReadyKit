@@ -247,14 +247,27 @@ class TestAcknowledgeCheck:
         )
         assert resp.status_code == 422
 
-    def test_responder_cannot_acknowledge(self, client, db, auth_responder):
+    def test_responder_can_add_note_to_own_check(self, client, db, auth_responder):
         s = _station(db)
         v = _vehicle(db, s.station_id)
-        c = _check(db, v.vehicle_id, s.station_id)
+        c = _check(db, v.vehicle_id, s.station_id, performed_by="Test Responder")
 
         resp = client.patch(
             f"/api/v1/checks/daily/{c.check_id}/acknowledge",
-            json={"corrective_action": "Responder attempting to acknowledge check record."},
+            json={"corrective_action": "Flagged to supervisor on next shift handover."},
+            headers=auth_responder,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["corrective_action"] == "Flagged to supervisor on next shift handover."
+
+    def test_responder_cannot_add_note_to_others_check(self, client, db, auth_responder):
+        s = _station(db)
+        v = _vehicle(db, s.station_id)
+        c = _check(db, v.vehicle_id, s.station_id, performed_by="Someone Else")
+
+        resp = client.patch(
+            f"/api/v1/checks/daily/{c.check_id}/acknowledge",
+            json={"corrective_action": "Responder attempting to note another check."},
             headers=auth_responder,
         )
         assert resp.status_code == 403

@@ -1,25 +1,28 @@
 /**
- * components/CheckDetail.jsx
- * Full check detail view — line items, acknowledgement, fix, soft-delete.
+ * modules/check-history/components/CheckDetail.jsx
  *
- * CH-UX1: Unified resolution workflow. Supervisors now see the same
- * "I Fixed This" panel here as in the Supervisor Dashboard, using the
- * shared ResolutionTag component and getResolutionState utility.
+ * Check detail view — read-only record with acknowledgement and note-taking.
  *
- * Action availability:
- *   All roles      — read-only detail, line items
- *   Supervisor+    — acknowledge, "I Fixed This", soft-delete
- *   Responder      — read-only (own checks only via API enforcement)
+ * Design decision (2026-05-30):
+ *   Check History is a RECORD, not a workflow tool.
+ *   - Supervisors can acknowledge a check and add corrective action notes.
+ *   - Supervisors can soft-delete a check with a mandatory reason.
+ *   - Repair request creation and management lives exclusively in
+ *     Vehicle & Equipment Status. A clear navigation button bridges the two.
+ *   - "I Fixed This" has been removed — it bypassed the repair lifecycle
+ *     (OPEN → IN_PROGRESS → RESOLVED) and created divergent state.
+ *
+ * Role access:
+ *   All roles      — read-only detail, line items, resolution tags
+ *   Supervisor+    — acknowledge, add/update note, navigate to V&E, soft-delete
+ *   Responder      — read-only
  */
 
 import React, { useState } from 'react'
 import { canAccess } from '../../../shared/utils/roleGuard.js'
 import { useAuth } from '../../../shared/hooks/useAuth.jsx'
 import { checkHistoryApi } from '../api/checkHistoryApi.js'
-import { supervisorApi } from '../../supervisor/api/supervisorApi.js'
 import { formatDateTime } from '../../../shared/utils/dateHelpers.js'
-import ResolutionTag, { getResolutionState } from '../../../shared/components/ResolutionTag.jsx'
-
 const STATUS_LABEL = {
   PASS:          { label: 'Pass',          className: 'check-status--pass' },
   NEEDS_RESTOCK: { label: 'Needs Restock', className: 'check-status--warn' },
@@ -27,13 +30,13 @@ const STATUS_LABEL = {
 }
 
 const LINE_STATUS_LABEL = {
-  OK:       { label: 'OK',       className: 'line-status--ok' },
-  SHORT:    { label: 'Short',    className: 'line-status--warn' },
-  LOW:      { label: 'Low',      className: 'line-status--warn' },
-  MISSING:  { label: 'Missing',  className: 'line-status--fail' },
-  EXPIRED:  { label: 'Expired',  className: 'line-status--fail' },
-  FAIL:     { label: 'Fail',     className: 'line-status--fail' },
-  OVERDUE:  { label: 'Overdue',  className: 'line-status--fail' },
+  OK:       { label: 'OK',       className: 'line-status--ok'   },
+  SHORT:    { label: 'Short',    className: 'line-status--warn'  },
+  LOW:      { label: 'Low',      className: 'line-status--warn'  },
+  MISSING:  { label: 'Missing',  className: 'line-status--fail'  },
+  EXPIRED:  { label: 'Expired',  className: 'line-status--fail'  },
+  FAIL:     { label: 'Fail',     className: 'line-status--fail'  },
+  OVERDUE:  { label: 'Overdue',  className: 'line-status--fail'  },
 }
 
 function formatDate(isoString) {
@@ -44,9 +47,8 @@ function formatDate(isoString) {
 }
 
 function LineItemMeta({ li }) {
-  const type = li.check_type ?? 'SUPPLY'
+  const type  = li.check_type ?? 'SUPPLY'
   const parts = []
-
   if (type === 'SUPPLY' || type === 'DOCUMENT') {
     parts.push(`${li.quantity_found} / ${li.quantity_needed}`)
     if (li.lot_number)      parts.push(`Lot: ${li.lot_number}`)
@@ -58,7 +60,6 @@ function LineItemMeta({ li }) {
   } else if (type === 'DATE_RECORD') {
     if (li.date_value) parts.push(`Last recorded: ${formatDate(li.date_value)}`)
   }
-
   if (parts.length === 0) return null
   return (
     <div className="check-line-item__meta">
@@ -67,19 +68,24 @@ function LineItemMeta({ li }) {
   )
 }
 
-function AcknowledgePanel({ checkId, existing, onDone, onCancel }) {
+/**
+ * CommentPanel — all roles can add a note to any check.
+ * No minimum length, no "acknowledge" framing.
+ * Uses the same acknowledgeCheck endpoint to store the note and timestamp.
+ */
+function CommentPanel({ checkId, existing, onDone, onCancel }) {
   const { getToken } = useAuth()
-  const [notes, setNotes]             = useState(existing ?? '')
+  const [note, setNote]               = useState(existing ?? '')
   const [isSubmitting, setSubmitting] = useState(false)
   const [error, setError]             = useState(null)
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (notes.trim().length < 5) { setError('Please provide at least 5 characters.'); return }
+    if (!note.trim()) { setError('Please enter a note.'); return }
     setSubmitting(true); setError(null)
     try {
-      await checkHistoryApi.acknowledgeCheck(checkId, notes.trim(), getToken)
-      onDone()
+      await checkHistoryApi.acknowledgeCheck(checkId, note.trim(), getToken)
+      onDone(note.trim())
     } catch (err) {
       setError(err.message)
     } finally {
@@ -90,77 +96,20 @@ function AcknowledgePanel({ checkId, existing, onDone, onCancel }) {
   return (
     <form className="acknowledge-panel" onSubmit={handleSubmit} noValidate>
       <h4 className="acknowledge-panel__title">
-        {existing ? 'Update Corrective Action' : 'Acknowledge & Record Corrective Action'}
+        {existing ? '✏ Update Note' : '✏ Add a Note'}
       </h4>
       <textarea
         className="acknowledge-panel__textarea"
-        value={notes}
-        onChange={e => setNotes(e.target.value)}
-        placeholder="Describe what corrective action was taken…"
+        value={note}
+        onChange={e => setNote(e.target.value)}
+        placeholder="e.g. Flagged to supervisor, noted for next shift…"
         rows={3}
         maxLength={500}
         autoFocus
       />
       {error && <div className="acknowledge-panel__error" role="alert">{error}</div>}
       <button type="submit" className="btn btn--primary btn--full" disabled={isSubmitting}>
-        {isSubmitting ? 'Saving…' : 'Save Acknowledgement'}
-      </button>
-      {onCancel && (
-        <button type="button" className="btn btn--secondary btn--full"
-          onClick={onCancel} disabled={isSubmitting}>
-          Cancel
-        </button>
-      )}
-    </form>
-  )
-}
-
-function IFixedThisPanel({ checkId, vehicleId, failItems, onDone, onCancel }) {
-  const { getToken } = useAuth()
-  const [notes, setNotes]             = useState('')
-  const [isSubmitting, setSubmitting] = useState(false)
-  const [error, setError]             = useState(null)
-
-  const failSummary = failItems.map(li => li.item_name ?? `Item #${li.item_id}`).join(', ')
-
-  async function handleSubmit(e) {
-    e.preventDefault()
-    if (notes.trim().length < 5) { setError('Please describe what you did (at least 5 characters).'); return }
-    setSubmitting(true); setError(null)
-    try {
-      await supervisorApi.resolveFailedItems(checkId, vehicleId, notes.trim(), getToken)
-      onDone()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <form className="acknowledge-panel" onSubmit={handleSubmit} noValidate>
-      <h4 className="acknowledge-panel__title">✓ I Fixed This</h4>
-      <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', margin: 0 }}>
-        Describe what you did. This records a resolved repair request and
-        acknowledges the check. <strong>The original FAIL is preserved for compliance.</strong>
-      </p>
-      {failSummary && (
-        <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', margin: 0 }}>
-          Failed items: {failSummary}
-        </p>
-      )}
-      <textarea
-        className="acknowledge-panel__textarea"
-        value={notes}
-        onChange={e => setNotes(e.target.value)}
-        placeholder="e.g. Replaced AED battery, restocked oxygen, swapped broken BP cuff…"
-        rows={3}
-        maxLength={500}
-        autoFocus
-      />
-      {error && <div className="acknowledge-panel__error" role="alert">{error}</div>}
-      <button type="submit" className="btn btn--primary btn--full" disabled={isSubmitting}>
-        {isSubmitting ? 'Saving…' : '✓ Confirm Fix & Close'}
+        {isSubmitting ? 'Saving…' : 'Save Note'}
       </button>
       <button type="button" className="btn btn--secondary btn--full"
         onClick={onCancel} disabled={isSubmitting}>
@@ -218,44 +167,23 @@ function SoftDeletePanel({ checkId, onDone, onCancel }) {
   )
 }
 
-export default function CheckDetail({ check, onBack, onDeleted }) {
+export default function CheckDetail({ check, onBack, onDeleted, onNavigateToVehicles }) {
   const { user } = useAuth()
   const isSupervisor = canAccess(user, 'supervisor')
 
-  const [activePanel, setActivePanel] = useState(null) // 'acknowledge' | 'fix' | 'delete'
+  const [activePanel, setActivePanel] = useState(null) // 'comment' | 'delete'
   const [localCheck, setLocalCheck]   = useState(check)
-  const [localFixed, setLocalFixed]   = useState(false)
 
-  const statusMeta   = STATUS_LABEL[localCheck.status] ?? STATUS_LABEL.PASS
-  const resolution   = getResolutionState(localCheck)
-  const failItems    = (localCheck.line_items ?? []).filter(li =>
+  const statusMeta = STATUS_LABEL[localCheck.status] ?? STATUS_LABEL.PASS
+  const failItems  = (localCheck.line_items ?? []).filter(li =>
     ['FAIL', 'MISSING', 'EXPIRED', 'OVERDUE', 'SHORT', 'LOW'].includes(li.status)
   )
-  const canFix       = isSupervisor && failItems.length > 0 && !localFixed
-  const isAcknowledged = !!localCheck.reviewed_at
-
-  function handleAcknowledgeDone() {
-    setLocalCheck(prev => ({
-      ...prev,
-      corrective_action: 'Updated — please refresh to see the latest note.',
-      reviewed_at: new Date().toISOString(),
-    }))
-    setActivePanel(null)
-  }
-
-  function handleFixDone() {
-    setLocalFixed(true)
-    setLocalCheck(prev => ({
-      ...prev,
-      corrective_action: 'Items fixed by supervisor: (see repair record)',
-      reviewed_at: new Date().toISOString(),
-    }))
-    setActivePanel(null)
-  }
+  const hasFails = failItems.length > 0
 
   return (
     <div className="check-detail">
 
+      {/* Header */}
       <div className="check-detail__header">
         <button className="btn-text check-detail__back" onClick={onBack} type="button">
           ← Back
@@ -270,14 +198,9 @@ export default function CheckDetail({ check, onBack, onDeleted }) {
       <div className="check-detail__summary">
         <div className="check-detail__summary-row">
           <span className="check-detail__label">Status</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span className={`check-status check-status--label ${statusMeta.className}`}>
-              {statusMeta.label}
-            </span>
-            {localCheck.status !== 'PASS' && (
-              <ResolutionTag resolution={resolution} status={localCheck.status} />
-            )}
-          </div>
+          <span className={`check-status check-status--label ${statusMeta.className}`}>
+            {statusMeta.label}
+          </span>
         </div>
         <div className="check-detail__summary-row">
           <span className="check-detail__label">Performed by</span>
@@ -295,42 +218,44 @@ export default function CheckDetail({ check, onBack, onDeleted }) {
         )}
       </div>
 
-      {/* Fixed confirmation banner */}
-      {localFixed && (
-        <div className="check-detail__ack" role="status">
-          <div className="check-detail__ack-header">
-            <span className="check-detail__ack-icon">✓</span>
-            <div>
-              <div className="check-detail__ack-title">Fixed &amp; Recorded</div>
-              <div className="check-detail__ack-meta">
-                Resolution logged — the next check starts fresh
-              </div>
-            </div>
+      {/* ── FAIL banner — navigate to V&E Status to manage repairs ── */}
+      {hasFails && isSupervisor && (
+        <div className="check-detail__ve-banner">
+          <div className="check-detail__ve-banner-text">
+            <strong>⚠ This check has failed items.</strong>
+            <span> Repair requests are managed in Vehicle &amp; Equipment Status.</span>
           </div>
+          {onNavigateToVehicles && (
+            <button
+              type="button"
+              className="btn btn--primary btn--sm"
+              onClick={onNavigateToVehicles}
+            >
+              Go to V&amp;E Status →
+            </button>
+          )}
         </div>
       )}
 
-      {/* Existing acknowledgement (when not showing the panel) */}
-      {isAcknowledged && !localFixed && activePanel !== 'acknowledge' && (
+      {/* Existing note — shown to all roles */}
+      {localCheck.corrective_action && activePanel !== 'comment' && (
         <div className="check-detail__ack">
           <div className="check-detail__ack-header">
-            <span className="check-detail__ack-icon">✓</span>
+            <span className="check-detail__ack-icon">✏</span>
             <div>
-              <div className="check-detail__ack-title">Acknowledged</div>
-              <div className="check-detail__ack-meta">
-                {localCheck.reviewed_by} · {formatDateTime(localCheck.reviewed_at)}
-              </div>
+              <div className="check-detail__ack-title">Note</div>
+              {localCheck.reviewed_by && (
+                <div className="check-detail__ack-meta">
+                  {localCheck.reviewed_by} · {formatDateTime(localCheck.reviewed_at)}
+                </div>
+              )}
             </div>
           </div>
-          {localCheck.corrective_action && (
-            <p className="check-detail__ack-notes">{localCheck.corrective_action}</p>
-          )}
-          {isSupervisor && (
-            <button className="btn btn--secondary btn--sm"
-              onClick={() => setActivePanel('acknowledge')} type="button">
-              Update Note
-            </button>
-          )}
+          <p className="check-detail__ack-notes">{localCheck.corrective_action}</p>
+          <button className="btn btn--secondary btn--sm"
+            onClick={() => setActivePanel('comment')} type="button">
+            Update Note
+          </button>
         </div>
       )}
 
@@ -360,45 +285,32 @@ export default function CheckDetail({ check, onBack, onDeleted }) {
         </div>
       )}
 
-      {/* Supervisor action panels */}
-      {isSupervisor && activePanel === null && (
+      {/* Actions — comment available to all roles; delete Supervisor+ only */}
+      {activePanel === null && (
         <div className="check-detail__actions">
-          {canFix && (
-            <button className="btn btn--primary btn--full"
-              onClick={() => setActivePanel('fix')} type="button">
-              ✓ I Fixed This — Record Resolution
-            </button>
-          )}
-          {!isAcknowledged && !localFixed && (
+          {!localCheck.corrective_action && (
             <button className="btn btn--secondary btn--full"
-              onClick={() => setActivePanel('acknowledge')} type="button">
-              {localCheck.status === 'PASS'
-                ? '✓ Acknowledge'
-                : 'Add Note Only (not yet fixed)'}
+              onClick={() => setActivePanel('comment')} type="button">
+              ✏ Add a Note
             </button>
           )}
-          <button className="btn btn--secondary btn--full"
-            onClick={() => setActivePanel('delete')} type="button">
-            Delete This Check
-          </button>
+          {isSupervisor && (
+            <button className="btn btn--secondary btn--full"
+              onClick={() => setActivePanel('delete')} type="button">
+              Delete This Check
+            </button>
+          )}
         </div>
       )}
 
-      {activePanel === 'fix' && (
-        <IFixedThisPanel
-          checkId={localCheck.check_id}
-          vehicleId={localCheck.vehicle_id}
-          failItems={failItems}
-          onDone={handleFixDone}
-          onCancel={() => setActivePanel(null)}
-        />
-      )}
-
-      {activePanel === 'acknowledge' && (
-        <AcknowledgePanel
+      {activePanel === 'comment' && (
+        <CommentPanel
           checkId={localCheck.check_id}
           existing={localCheck.corrective_action}
-          onDone={handleAcknowledgeDone}
+          onDone={note => {
+            setLocalCheck(prev => ({ ...prev, corrective_action: note, reviewed_at: new Date().toISOString() }))
+            setActivePanel(null)
+          }}
           onCancel={() => setActivePanel(null)}
         />
       )}

@@ -34,22 +34,57 @@ function QtyBadge({ min, max }) {
   )
 }
 
-function EditRow({ assignment, onSaved, onCancel }) {
+function EditRow({ assignment, item, vehicles, onSaved, onCancel }) {
   const { getToken } = useAuth()
-  const [min, setMin]             = useState(String(assignment.min_quantity))
-  const [max, setMax]             = useState(String(assignment.max_quantity))
-  const [error, setError]         = useState(null)
-  const [submitting, setSubmitting] = useState(false)
+
+  const [vehicleId, setVehicleId]         = useState(String(assignment.vehicle_id ?? ''))
+  const [compartmentId, setCompartmentId] = useState(String(assignment.compartment_id ?? ''))
+  const [min, setMin]                     = useState(String(assignment.min_quantity))
+  const [max, setMax]                     = useState(String(assignment.max_quantity))
+  const [error, setError]                 = useState(null)
+  const [submitting, setSubmitting]       = useState(false)
+
+  const { data: compartments, isLoading: loadingCompartments } = useApi(
+    () => vehicleId ? adminApi.getVehicleCompartments(vehicleId, getToken) : Promise.resolve([]),
+    [vehicleId]
+  )
+
+  function handleVehicleChange(e) {
+    setVehicleId(e.target.value)
+    setCompartmentId('')
+    setError(null)
+  }
 
   async function handleSave(e) {
     e.preventDefault()
+    if (!vehicleId)     { setError('Please select a vehicle.'); return }
+    if (!compartmentId) { setError('Please select a compartment.'); return }
     const minN = parseInt(min, 10)
     const maxN = parseInt(max, 10)
-    if (isNaN(minN) || minN < 1)  { setError('Min must be at least 1.'); return }
+    if (isNaN(minN) || minN < 1)    { setError('Min must be at least 1.'); return }
     if (isNaN(maxN) || maxN < minN) { setError('Max must be ≥ min.'); return }
+
     setSubmitting(true); setError(null)
     try {
-      await adminApi.updateParLevel(assignment.par_id, { min_quantity: minN, max_quantity: maxN }, getToken)
+      const vehicleChanged     = String(assignment.vehicle_id)     !== vehicleId
+      const compartmentChanged = String(assignment.compartment_id) !== compartmentId
+
+      if (vehicleChanged || compartmentChanged) {
+        // Move to a different compartment: remove old, create new
+        await adminApi.removeParLevel(assignment.par_id, getToken)
+        await adminApi.assignItem(item.item_id, {
+          vehicle_id:     parseInt(vehicleId, 10),
+          compartment_id: parseInt(compartmentId, 10),
+          min_quantity:   minN,
+          max_quantity:   maxN,
+        }, getToken)
+      } else {
+        // Same compartment — just update quantities
+        await adminApi.updateParLevel(assignment.par_id, {
+          min_quantity: minN,
+          max_quantity: maxN,
+        }, getToken)
+      }
       onSaved()
     } catch (err) {
       setError(err.message)
@@ -60,29 +95,81 @@ function EditRow({ assignment, onSaved, onCancel }) {
 
   return (
     <form className="assignment-edit-row" onSubmit={handleSave} noValidate>
-      <div className="assignment-edit-fields">
-        <label className="assignment-edit-label">
-          Min
-          <input
-            className="assignment-edit-input"
-            type="number" min={1} value={min}
-            onChange={e => setMin(e.target.value)}
-            disabled={submitting}
-          />
-        </label>
-        <label className="assignment-edit-label">
-          Max
-          <input
-            className="assignment-edit-input"
-            type="number" min={1} value={max}
-            onChange={e => setMax(e.target.value)}
-            disabled={submitting}
-          />
-        </label>
+
+      {/* Vehicle picker */}
+      <div className="assignment-field">
+        <label className="assignment-field__label">Vehicle</label>
+        <select
+          className="assignment-field__select"
+          value={vehicleId}
+          onChange={handleVehicleChange}
+          disabled={submitting}
+        >
+          <option value="">— Select vehicle —</option>
+          {(vehicles ?? []).filter(v => v.active).map(v => (
+            <option key={v.vehicle_id} value={v.vehicle_id}>
+              {v.vehicle_number} ({v.vehicle_type})
+            </option>
+          ))}
+        </select>
       </div>
+
+      {/* Compartment picker */}
+      {vehicleId && (
+        <div className="assignment-field">
+          <label className="assignment-field__label">Compartment</label>
+          {loadingCompartments ? (
+            <p className="assignment-loading">Loading compartments…</p>
+          ) : (
+            <select
+              className="assignment-field__select"
+              value={compartmentId}
+              onChange={e => setCompartmentId(e.target.value)}
+              disabled={submitting}
+            >
+              <option value="">— Select compartment —</option>
+              {(compartments ?? []).map(c => (
+                <option key={c.compartment_id} value={c.compartment_id}>
+                  {c.name}{c.restriction_note ? ` (${c.restriction_note})` : ''}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+
+      {/* Quantities */}
+      {vehicleId && compartmentId && (
+        <div className="assignment-edit-fields">
+          <label className="assignment-edit-label">
+            Needs at least
+            <input
+              className="assignment-edit-input"
+              type="number" min={1} value={min}
+              onChange={e => setMin(e.target.value)}
+              disabled={submitting}
+            />
+          </label>
+          <label className="assignment-edit-label">
+            Restock to
+            <input
+              className="assignment-edit-input"
+              type="number" min={1} value={max}
+              onChange={e => setMax(e.target.value)}
+              disabled={submitting}
+            />
+          </label>
+        </div>
+      )}
+
       {error && <p className="assignment-error" role="alert">{error}</p>}
+
       <div className="assignment-edit-actions">
-        <button type="submit" className="btn btn--primary btn--sm" disabled={submitting}>
+        <button
+          type="submit"
+          className="btn btn--primary btn--sm"
+          disabled={submitting || !vehicleId || !compartmentId}
+        >
           {submitting ? 'Saving…' : 'Save'}
         </button>
         <button type="button" className="btn btn--secondary btn--sm"
@@ -271,7 +358,9 @@ export default function ItemAssignments({ item, stationId, vehicles }) {
     }
   }
 
-  const count = assignments?.length ?? 0
+  const knownCount  = assignments?.length ?? null  // null = not yet fetched
+  const hasAny       = knownCount !== null && knownCount > 0
+  const confirmedNone = knownCount === 0
 
   return (
     <div className="item-assignments">
@@ -283,10 +372,14 @@ export default function ItemAssignments({ item, stationId, vehicles }) {
       >
         <span>
           📍 {expanded
-            ? 'Hide assignments'
-            : count > 0
-              ? `Assigned to ${count} compartment${count !== 1 ? 's' : ''}`
-              : 'No compartments assigned'}
+            ? hasAny
+              ? `Hide assignments (${knownCount})`
+              : 'No compartments assigned'
+            : hasAny
+              ? `Assigned to ${knownCount} compartment${knownCount !== 1 ? 's' : ''}`
+              : confirmedNone
+                ? 'No compartments assigned'
+                : 'View assignments'}
         </span>
         <span aria-hidden="true">{expanded ? '▲' : '▼'}</span>
       </button>
@@ -307,6 +400,8 @@ export default function ItemAssignments({ item, stationId, vehicles }) {
                       {editingParId === a.par_id ? (
                         <EditRow
                           assignment={a}
+                          item={item}
+                          vehicles={vehicles}
                           onSaved={refresh}
                           onCancel={() => setEditingParId(null)}
                         />

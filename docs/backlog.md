@@ -1,5 +1,5 @@
 # EMS ReadyKit — Active Backlog
-# v1.37 | Updated: 2026-05-29
+# v1.39 | Updated: 2026-05-30
 # Completed items → backlog_completed.md
 # Priority: Critical / High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
@@ -25,11 +25,21 @@
 #           rows upgraded from plain ✓ to ResolutionTag
 #   Session D COMPLETE
 #
-# NEXT SESSION — Session D (features):
-#   B-E3    Date-range compliance query endpoint  → unblocks F-5F2, F-UX7, VE-F5
-#   CH-UX1  Unified check resolution workflow (frontend only)
-#   VE-F5   Open issue badge on V&E Status card
-#   D-R1    Documentation audit
+# ✅ SESSION COMPLETE 2026-05-30 — Session E:
+#   ADMIN-UX1: Admin screen redesigned — Option B (station header + 3 nav cards)
+#   ADMIN-UX1-B1: PATCH /inventory/compartments/{id} — edit compartment
+#   ADMIN-UX1-F1–F8: AdminScreen, MembersScreen, VehiclesScreen all complete
+#   ADMIN-B17/B18 + ADMIN-F11: CSV import — template download + bulk upload
+#   B-R1/B-R2/F-R1: Already marked done (Session D)
+#   Bug fixes: check wizard 403 for Supervisors; sort_order number input;
+#              station selection preserved on Back; OOS/RTS reason forms;
+#              vehicle card red border for out-of-service
+#
+# NEXT SESSION — Session F or continued Session E:
+#   F-5F2  Monthly compliance calendar (unblocked by B-E3)
+#   F-UX7  Last check banner per vehicle
+#   SUPPLY Station supply room and restocking workflow
+#   UAT    Begin user acceptance testing with real crew members
 
 ---
 
@@ -318,22 +328,99 @@ Station-scoped: always reflects the **currently selected station** only.
 ### Phase 1 — Item & Par Management
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| ADMIN-B1 | `GET /admin/items` | List global item catalog | High | 📋 | |
-| ADMIN-B2 | `POST /admin/items` | Add item to global catalog | High | 📋 | Admin + Supervisor |
-| ADMIN-B3 | `PATCH /admin/items/{id}` | Edit item | High | 📋 | Admin + Supervisor |
-| ADMIN-B4 | `PATCH /admin/items/{id}/deactivate` | Soft-deactivate item | High | 📋 | Admin only |
-| ADMIN-B5 | `GET /admin/locations/{id}/par-levels` | List par levels for a location | High | 📋 | |
-| ADMIN-B6 | `POST /admin/par-levels` | Add item to compartment | High | 📋 | Admin + Supervisor |
-| ADMIN-B7 | `PATCH /admin/par-levels/{id}` | Edit min/max qty | High | 📋 | Admin + Supervisor |
-| ADMIN-B8 | `PATCH /admin/par-levels/{id}/deactivate` | Remove item from compartment (soft) | High | 📋 | Admin only |
-| ADMIN-B9 | `POST /admin/compartments` | Add compartment to a location | High | 📋 | Admin + Supervisor |
-| ADMIN-B10 | `PATCH /admin/compartments/{id}` | Edit compartment | High | 📋 | Admin + Supervisor |
-| ADMIN-F1 | Admin home card | High | 📋 | |
-| ADMIN-F2 | Item catalog list view | High | 📋 | |
-| ADMIN-F3 | Add/edit item form | High | 📋 | |
-| ADMIN-F4 | Par level editor | High | 📋 | |
-| ADMIN-F5 | Compartment editor | High | 📋 | |
+| ADMIN-B1 | `GET /admin/items` | List global item catalog | High | ✅ Done | |
+| ADMIN-B2 | `POST /admin/items` | Add item to global catalog | High | ✅ Done | Admin + Supervisor |
+| ADMIN-B3 | `PATCH /admin/items/{id}` | Edit item | High | ✅ Done | Admin + Supervisor |
+| ADMIN-B4 | `PATCH /admin/items/{id}/deactivate` | Soft-deactivate item | High | ✅ Done | Admin only |
+| ADMIN-B5 | `GET /admin/items/search` | Typeahead search across name, alternate_names, ai_tags | High | ✅ Done | |
+| ADMIN-B6 | `POST /admin/items/{id}/assign` | Assign item to vehicle compartment | High | ✅ Done | Derives location_id server-side |
+| ADMIN-B7 | `PATCH /admin/par-levels/{id}` | Edit par level min/max | High | ✅ Done | |
+| ADMIN-B8 | `DELETE /admin/par-levels/{id}` | Remove item from compartment (soft) | High | ✅ Done | Supervisor+ |
+| ADMIN-B9 | `GET /admin/items/{id}/assignments` | List enriched assignments for an item | High | ✅ Done | |
+| ADMIN-B10 | `GET /admin/vehicles/{id}/compartments` | Compartments for vehicle cascade picker | High | ✅ Done | |
+| ADMIN-B17 | `POST /admin/items/import` | Bulk import items from CSV upload | High | ✅ Done | Supervisor+; BOM-safe; 2MB/1000 row limit |
+| ADMIN-B18 | `GET /admin/items/import/template` | Download CSV template with headers + example rows | High | ✅ Done | |
+| ADMIN-F1 | Admin home card | High | ✅ Done | Option B nav cards |
+| ADMIN-F2 | Item catalog list view | High | ✅ Done | |
+| ADMIN-F3 | Add/edit item form | High | ✅ Done | |
+| ADMIN-F4 | Par level editor | High | ✅ Done | ItemAssignments panel |
+| ADMIN-F5 | Compartment editor | High | ✅ Done | Inline in VehiclesScreen |
 | ADMIN-F10 | Member list search | Low | 📋 | Needed once stations have 20+ members |
+| ADMIN-F11 | CSV import UI — file picker, upload, results summary, template download | High | ✅ Done | |
+
+### ADMIN-B17/B18 + ADMIN-F11 — CSV Item Import: Full Specification
+
+**Why this matters:** Manually entering 200+ items one at a time through the UI is
+unreasonable. A CSV import lets an administrator prepare the full inventory list
+in a spreadsheet, validate it offline, and load it in one upload.
+
+**Backend — `POST /admin/items/import`**
+- Accepts `multipart/form-data` with a single CSV file field
+- Admin only (not Supervisor — bulk import is a high-trust action)
+- Processes rows sequentially; does not fail the entire import on a single bad row
+- Per-row behavior:
+  - Row is valid and item name is new → created
+  - Row is valid and item name already exists → skipped (not updated — use Edit for that)
+  - Row has a validation error → recorded in errors list, import continues
+- Returns a structured result:
+  ```json
+  {
+    "created": 147,
+    "skipped": 12,
+    "errors": [
+      { "row": 4, "name": "O2 PSI", "error": "measurement_minimum required for MEASUREMENT items" },
+      { "row": 9, "name": "",       "error": "name is required" }
+    ]
+  }
+  ```
+- Max file size: 2MB. Max rows: 1000. Rows beyond limit are ignored with a warning.
+- UTF-8 encoding required. BOM-safe (Excel exports BOM by default).
+
+**CSV columns (order-independent, matched by header name):**
+
+| Column | Required | Notes |
+|--------|----------|-------|
+| `name` | Yes | Max 150 chars, must be unique |
+| `category` | Yes | Medication / Consumable / Equipment / Document |
+| `check_type` | No | SUPPLY (default) / MEASUREMENT / FUNCTIONAL / DATE_RECORD / DOCUMENT |
+| `unit_of_measure` | Yes | e.g. each, PSI, N/A |
+| `controlled_substance` | No | TRUE / FALSE (default FALSE) |
+| `measurement_minimum` | Conditional | Required when check_type = MEASUREMENT |
+| `measurement_maximum` | No | Optional upper bound for MEASUREMENT items |
+| `recurrence_days` | Conditional | Required when check_type = DATE_RECORD |
+| `alternate_names` | No | Comma-separated crew shorthand |
+| `ai_tags` | No | Comma-separated AI classifier keywords |
+| `barcode` | No | UPC/GS1; must be unique if provided |
+
+**Backend — `GET /admin/items/import/template`**
+- Returns a downloadable CSV file with:
+  - Correct headers in the expected order
+  - 3 example rows (one SUPPLY, one MEASUREMENT, one DATE_RECORD)
+  - Filename: `ems_readykit_items_template.csv`
+- Admin only
+
+**Frontend — `ADMIN-F11` — CSV Import UI**
+- Lives in the Item Catalog screen, below the "+ Add item" button
+- A secondary button: "↑ Import from CSV"
+- Tapping it reveals:
+  1. "Download template" link (calls ADMIN-B18)
+  2. File picker (accepts .csv only)
+  3. "Upload" button (disabled until file selected)
+- After upload, shows a clean results panel:
+  - Green: "{n} items added to the catalog"
+  - Yellow: "{n} items skipped (already exist)"
+  - Red: "{n} rows had errors" with a collapsible list showing row number + error
+- On success, catalog list refreshes automatically
+- Error rows can be downloaded as a CSV for easy fixing
+
+**Acceptance criteria:**
+- [ ] Admin can upload a valid CSV and see items appear in catalog immediately
+- [ ] Duplicate names are skipped gracefully — not rejected as errors
+- [ ] Invalid rows show row number and plain-English error message
+- [ ] Template downloads with correct headers and example rows
+- [ ] Non-admin roles get 403 on both endpoints
+- [ ] File over 2MB or over 1000 rows returns a clear error before processing
+- [ ] BOM-prefixed files from Excel are handled correctly
 
 ### Phase 2 — Vehicle & Location Management
 | # | Item | Pri | Status | Notes |
@@ -429,9 +516,9 @@ See screenshots: `Vehicle_Expanded_Screen_1.png`, `Vehicle_Expanded_Screen_2.png
 
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| B-R1 | Wrong modal on "Mark In Progress" — opens Resolve dialog instead of In Progress flow | High | 📋 | Frontend only; split handlers |
-| B-R2 | "Mark Resolved" button non-functional inside incorrectly-triggered Resolve modal | High | 📋 | Investigate after B-R1; may share root cause |
-| F-R1 | New "Mark In Progress" lightweight modal — optional comment, no resolution required, all roles | High | 📋 | Depends on B-R1 fix |
+| B-R1 | Wrong modal on "Mark In Progress" — opens Resolve dialog instead of In Progress flow | High | ✅ Done | |
+| B-R2 | "Mark Resolved" button non-functional inside incorrectly-triggered Resolve modal | High | ✅ Done | |
+| F-R1 | New "Mark In Progress" lightweight modal — optional comment, no resolution required, all roles | High | ✅ Done | |
 
 ### F-R1 — Mark In Progress Modal: Full Specification
 
@@ -552,15 +639,15 @@ Each card navigates to a dedicated full-screen sub-screen with ← Back at top.
 
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| ADMIN-UX1-F1 | Redesign `AdminScreen` — station header + 3 nav cards | High | 📋 | Replaces current tab bar |
-| ADMIN-UX1-F2 | `MembersScreen` — full-screen members management | High | 📋 | Extract from current `AdminScreen` |
-| ADMIN-UX1-F3 | `ItemCatalogScreen` — full-screen item catalog | High | 📋 | Extract from current `ItemCatalog` |
-| ADMIN-UX1-F4 | `VehiclesScreen` — full-screen vehicle + compartment management | High | 📋 | New; replaces seed script |
-| ADMIN-UX1-B1 | `PATCH /admin/compartments/{id}` — edit compartment | High | 📋 | One missing backend endpoint |
-| ADMIN-UX1-F5 | Add vehicle form — vehicle number, type (ALS/BLS/QRV) | High | 📋 | Calls existing POST /vehicles |
-| ADMIN-UX1-F6 | Vehicle card — shows compartments, add/edit compartment inline | High | 📋 | |
-| ADMIN-UX1-F7 | Add compartment form — name, descriptor, sort order, restriction note | High | 📋 | Calls existing POST /inventory/locations/{id}/compartments |
-| ADMIN-UX1-F8 | Station selector — plain header (1 station), stacked cards (2-3), search (4+) | High | 📋 | |
+| ADMIN-UX1-F1 | Redesign `AdminScreen` — station header + 3 nav cards | High | ✅ Done | |
+| ADMIN-UX1-F2 | `MembersScreen` — full-screen members management | High | ✅ Done | |
+| ADMIN-UX1-F3 | `ItemCatalogScreen` — full-screen item catalog | High | ✅ Done | |
+| ADMIN-UX1-F4 | `VehiclesScreen` — full-screen vehicle + compartment management | High | ✅ Done | |
+| ADMIN-UX1-B1 | `PATCH /admin/compartments/{id}` — edit compartment | High | ✅ Done | |
+| ADMIN-UX1-F5 | Add vehicle form — vehicle number, type (ALS/BLS/QRV) | High | ✅ Done | |
+| ADMIN-UX1-F6 | Vehicle card — shows compartments, add/edit compartment inline | High | ✅ Done | |
+| ADMIN-UX1-F7 | Add compartment form — name, descriptor, sort order, restriction note | High | ✅ Done | |
+| ADMIN-UX1-F8 | Station selector — plain header (1 station), stacked cards (2-3), search (4+) | High | ✅ Done | |
 | ADMIN-UX1-F9 | "+ Add Station" — Admin only, low-prominence, bottom of admin home | Medium | 📋 | Calls existing POST /stations |
 
 **Session E start point:**
@@ -606,13 +693,13 @@ One new backend endpoint needed: ADMIN-UX1-B1 (edit compartment).
 | Frontend — Settings | 9 | 0 | 9 |
 | Frontend — Retirement Actions | 5 | 0 | 5 |
 | Infrastructure / Security | 4 | 1 | 5 |
-| Equipment & Station Admin (B-ADMIN1) | 19 | 0 | 19 |
+| Equipment & Station Admin (B-ADMIN1) | 2 | 0 | 19 |
 | Station Membership Frontend (B-ACCESS1) | 5 | 0 | 5 |
-| Documentation | 1 | 0 | 1 |
+| Documentation | 0 | 0 | 1 |
 | User Acceptance Testing (UAT) | 6 | 2 | 8 |
-| Check Resolution Workflow (CH-UX1) | 5 | 0 | 5 |
-| Admin Screen Redesign (ADMIN-UX1) | 10 | 0 | 10 |
+| Check Resolution Workflow (CH-UX1) | 0 | 0 | 5 |
+| Admin Screen Redesign (ADMIN-UX1) | 1 | 0 | 10 |
 | Station Supply Room & Restocking (SUPPLY) | 8 | 0 | 8 |
 | Par Level Assignment UI (ADMIN-F4) | 6 | 0 | 6 |
 | Repair Request Workflow Bugs (B-R) | 0 | 0 | 3 |
-| **Total** | **151** | **12** | **166** |
+| **Total** | **118** | **12** | **168** |

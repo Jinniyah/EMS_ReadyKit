@@ -250,7 +250,7 @@ def list_repair_requests(
         description="Filter by status: OPEN, IN_PROGRESS, or RESOLVED",
     ),
     db: Session = Depends(get_db),
-    current_user=Depends(require_role(*SUPERVISOR_PLUS)),
+    current_user=Depends(require_role(*ALL_ROLES)),
 ) -> List[RepairRequest]:
     get_vehicle_or_404(vehicle_id, db)
 

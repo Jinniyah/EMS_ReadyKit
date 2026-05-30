@@ -25,9 +25,9 @@ export const checkApi = {
   getStationLocations: (stationId, getToken) =>
     apiGet(`/api/v1/stations/${stationId}/locations`, getToken),
 
-  /** All inventory locations (used to find VEHICLE location_id by vehicle_id) */
-  getLocations: (getToken) =>
-    apiGet('/api/v1/inventory/locations', getToken),
+  /** Vehicle's inventory location — scoped to station to avoid 403 for non-Admins */
+  getLocations: (stationId, getToken) =>
+    apiGet(`/api/v1/inventory/locations?station_id=${stationId}`, getToken),
 
   /** Compartments at a location, sorted by sort_order */
   getCompartments: (locationId, getToken) =>

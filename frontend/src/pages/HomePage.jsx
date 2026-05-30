@@ -200,6 +200,7 @@ export default function HomePage() {
           <CheckHistoryScreen
             station={selectedStation}
             onBack={() => setActiveModule(null)}
+            onNavigateToVehicles={() => setActiveModule('vehicles')}
           />
         </Suspense>
       </ErrorBoundary>

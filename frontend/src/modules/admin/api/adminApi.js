@@ -3,7 +3,7 @@
  * API calls for station membership management (B-ACCESS1 Phase 3)
  * and item catalog management (ADMIN-B1 through ADMIN-B4).
  */
-import { apiGet, apiPost, apiPatch, apiDelete } from '../../../shared/api/client.js'
+import { apiGet, apiPost, apiPatch, apiDelete, apiUpload } from '../../../shared/api/client.js'
 
 const ADMIN    = '/api/v1/admin'
 const BASE_API = '/api/v1'
@@ -89,4 +89,32 @@ export const adminApi = {
 
   /** List compartments for a vehicle — used by assignment form cascade */
   getVehicleCompartments: (vehicleId, getToken) =>
-    apiGet(`${ADMIN}/vehicles/${vehicleId}/compartments`, getToken),}
+    apiGet(`${ADMIN}/vehicles/${vehicleId}/compartments`, getToken),
+
+  // ── Vehicles & Compartments (ADMIN-UX1) ──────────────────────────────
+
+  /** Create a vehicle at a station (Supervisor+) */
+  createVehicle: (payload, getToken) =>
+    apiPost('/api/v1/vehicles', payload, getToken),
+
+  /** Edit a vehicle (Supervisor+) */
+  updateVehicle: (vehicleId, payload, getToken) =>
+    apiPatch(`/api/v1/vehicles/${vehicleId}`, payload, getToken),
+
+  /** Create a compartment at a location (Supervisor+) */
+  createCompartment: (locationId, payload, getToken) =>
+    apiPost(`/api/v1/inventory/locations/${locationId}/compartments`, payload, getToken),
+
+  /** Edit a compartment (Supervisor+) */
+  updateCompartment: (compartmentId, payload, getToken) =>
+    apiPatch(`/api/v1/inventory/compartments/${compartmentId}`, payload, getToken),
+
+  /** Get the inventory location for a vehicle */
+  getVehicleLocation: (stationId, getToken) =>
+    apiGet(`/api/v1/inventory/locations?station_id=${stationId}`, getToken),
+
+  // ── CSV import (ADMIN-B17/B18) ─────────────────────────────────────
+
+  /** Upload a CSV file of items for bulk import */
+  importItemsCsv: (formData, getToken) =>
+    apiUpload(`${ADMIN}/items/import`, formData, getToken),}

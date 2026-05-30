@@ -23,6 +23,7 @@ import Spinner from '../../../shared/components/Spinner.jsx'
 import ErrorBoundary from '../../../shared/components/ErrorBoundary.jsx'
 import ItemForm from './ItemForm.jsx'
 import ItemAssignments from './ItemAssignments.jsx'
+import CsvImport from './CsvImport.jsx'
 import { adminApi } from '../api/adminApi.js'
 import { vehicleApi } from '../../vehicles/api/vehicleApi.js'
 
@@ -133,6 +134,9 @@ export default function ItemCatalog({ stationId }) {
           + Add item
         </button>
       </div>
+
+      {/* CSV import */}
+      <CsvImport onImported={() => setCatalogKey(k => k + 1)} />
 
       {/* Search bar */}
       <div className="item-catalog__search-row">

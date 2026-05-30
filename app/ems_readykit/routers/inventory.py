@@ -307,6 +307,65 @@ def get_compartment(
     return compartment
 
 
+@router.patch(
+    "/compartments/{compartment_id}",
+    response_model=CompartmentRead,
+    summary="Edit a compartment (ADMIN-UX1-B1)",
+)
+def update_compartment(
+    compartment_id: int,
+    payload: CompartmentCreate,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
+) -> Compartment:
+    """
+    Edit a compartment's name, descriptor, sort order, or restriction note.
+    Supervisor+ with station membership required.
+    """
+    compartment = db.query(Compartment).filter(
+        Compartment.compartment_id == compartment_id
+    ).first()
+    if not compartment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Compartment {compartment_id} not found.",
+        )
+    location = _get_location_or_404(compartment.location_id, db)
+    require_station_membership(location.station_id, current_user, db)
+
+    # Check for name conflict within same location
+    name_conflict = db.query(Compartment).filter(
+        Compartment.location_id    == compartment.location_id,
+        Compartment.name           == payload.name,
+        Compartment.compartment_id != compartment_id,
+    ).first()
+    if name_conflict:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"A compartment named '{payload.name}' already exists at this location.",
+        )
+
+    compartment.name                 = payload.name
+    compartment.location_descriptor  = payload.location_descriptor
+    compartment.sort_order           = payload.sort_order
+    compartment.restriction_note     = payload.restriction_note
+    compartment.als_only             = payload.als_only
+    compartment.active               = payload.active
+
+    db.commit()
+    db.refresh(compartment)
+    logger.info(
+        "Compartment updated: compartment_id=%s name=%r",
+        compartment.compartment_id, compartment.name,
+        extra={
+            "action":      "COMPARTMENT_UPDATED",
+            "entity_type": "compartment",
+            "entity_id":   str(compartment.compartment_id),
+        },
+    )
+    return compartment
+
+
 # ── Stock Lots ────────────────────────────────────────────────────────────────
 
 @router.post(
