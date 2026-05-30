@@ -13,7 +13,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import ForeignKey, Integer, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, Integer, UniqueConstraint
+import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ems_readykit.core.database import Base
@@ -46,6 +47,7 @@ class ParLevel(TimestampMixin, Base):
     )
     min_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     max_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    active: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=True, server_default=sa.true())
 
     # Relationships
     item: Mapped["Item"] = relationship("Item", back_populates="par_levels")

@@ -30,7 +30,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from ems_readykit.core.config import get_settings
 from ems_readykit.core.logging import configure_logging, set_request_id
 from ems_readykit.routers import audit, checks, inventory, items, stations, vehicles
-from ems_readykit.routers import check_history, repair_requests, station_members
+from ems_readykit.routers import admin, check_history, repair_requests, station_members
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -129,6 +129,7 @@ def create_app() -> FastAPI:
     app.include_router(checks.router,          prefix=API_PREFIX)
     app.include_router(items.router,           prefix=API_PREFIX)
     app.include_router(inventory.router,       prefix=API_PREFIX)
+    app.include_router(admin.router,           prefix=API_PREFIX)
     app.include_router(audit.router,           prefix=API_PREFIX)
 
     @app.get("/health", tags=["system"])

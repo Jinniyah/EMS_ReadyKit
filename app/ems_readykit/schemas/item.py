@@ -100,6 +100,37 @@ class ItemBase(BaseModel):
         description="Inactive items hidden from operational views but retained for audit history",
     )
 
+    # ── AI identification fields ───────────────────────────────────────────────
+    # Dormant until the AI image recognition module is built.
+    # All optional — zero impact on existing workflows.
+
+    ai_tags: Optional[str] = Field(
+        default=None,
+        max_length=500,
+        description=(
+            "Comma-separated keywords an AI classifier might return. "
+            "e.g. 'tourniquet,CAT tourniquet,hemostatic'"
+        ),
+    )
+    alternate_names: Optional[str] = Field(
+        default=None,
+        max_length=500,
+        description=(
+            "Other names crews use for this item. "
+            "e.g. 'cric kit,surgical airway,bougie'"
+        ),
+    )
+    reference_image_url: Optional[str] = Field(
+        default=None,
+        max_length=500,
+        description="URL of a reference photo in Azure Blob Storage for AI visual matching.",
+    )
+    barcode: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="UPC or GS1 barcode. Unique across all items. Used for scanner and AI barcode reading.",
+    )
+
     @field_validator("name", "unit_of_measure", mode="before")
     @classmethod
     def strip_whitespace(cls, v: str) -> str:

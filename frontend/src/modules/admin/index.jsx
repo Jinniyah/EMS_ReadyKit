@@ -14,11 +14,18 @@ import Spinner from '../../shared/components/Spinner.jsx'
 import ErrorBoundary from '../../shared/components/ErrorBoundary.jsx'
 import MemberList from './components/MemberList.jsx'
 import AddMemberForm from './components/AddMemberForm.jsx'
+import ItemCatalog from './components/ItemCatalog.jsx'
 import { adminApi } from './api/adminApi.js'
 import './admin.css'
 
+const TABS = [
+  { id: 'members', label: '👥 Members'      },
+  { id: 'catalog', label: '📦 Item Catalog'  },
+]
+
 export default function AdminScreen({ onBack }) {
   const { getToken } = useAuth()
+  const [activeTab, setActiveTab]             = useState('members')
   const [selectedStationId, setSelectedStationId] = useState(null)
   const [showAddForm, setShowAddForm]             = useState(false)
   const [membersKey, setMembersKey]               = useState(0)
@@ -82,6 +89,32 @@ export default function AdminScreen({ onBack }) {
           You are not assigned to any stations.
         </div>
       ) : (
+        <>
+      {/* Tab bar */}
+      <div className="admin-tabs" role="tablist" aria-label="Admin sections">
+        {TABS.map(tab => (
+          <button
+            key={tab.id}
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            className={`admin-tab ${activeTab === tab.id ? 'admin-tab--active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+            type="button"
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Item Catalog tab */}
+      {activeTab === 'catalog' && (
+        <ErrorBoundary moduleName="Item Catalog">
+          <ItemCatalog stationId={selectedStationId} />
+        </ErrorBoundary>
+      )}
+
+      {/* Members tab */}
+      {activeTab === 'members' && (
         <>
           {/* Station selector — vertical list matching station-card style */}
           {stations.length > 1 && (
@@ -152,6 +185,8 @@ export default function AdminScreen({ onBack }) {
               </ErrorBoundary>
             )}
           </div>
+        </>
+      )}
         </>
       )}
     </div>

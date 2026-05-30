@@ -28,7 +28,8 @@ class ParLevelBase(BaseModel):
         ),
     )
     min_quantity: int = Field(..., gt=0, description="Minimum acceptable quantity (Need on form)")
-    max_quantity: int = Field(..., gt=0, description="Maximum stocking quantity")
+    max_quantity: int = Field(..., gt=0, description="Maximum stocking quantity (Restock to)")
+    active: bool = Field(default=True, description="Inactive par levels excluded from check wizard")
 
     @model_validator(mode="after")
     def validate_min_max(self) -> "ParLevelBase":
@@ -53,3 +54,59 @@ class ParLevelRead(ParLevelBase):
     par_id: int
     created_at: datetime
     updated_at: datetime
+
+
+class AssignItemRequest(BaseModel):
+    """
+    Request body for POST /admin/items/{id}/assign.
+    Frontend supplies vehicle_id + compartment_id; backend derives location_id.
+    """
+    vehicle_id:     int = Field(..., gt=0)
+    compartment_id: int = Field(..., gt=0)
+    min_quantity:   int = Field(..., gt=0, description="Minimum required quantity")
+    max_quantity:   int = Field(..., gt=0, description="Restock-to quantity")
+
+    @model_validator(mode="after")
+    def validate_min_max(self) -> "AssignItemRequest":
+        if self.max_quantity < self.min_quantity:
+            raise ValueError(
+                f"max_quantity ({self.max_quantity}) must be >= "
+                f"min_quantity ({self.min_quantity})."
+            )
+        return self
+
+
+class ParLevelAssignment(BaseModel):
+    """
+    Enriched par level read — includes vehicle and compartment names
+    for the item assignments panel in the admin UI.
+    """
+    model_config = ConfigDict(from_attributes=True)
+
+    par_id:          int
+    item_id:         int
+    location_id:     int
+    compartment_id:  Optional[int]
+    min_quantity:    int
+    max_quantity:    int
+    active:          bool
+    created_at:      datetime
+    updated_at:      datetime
+    # Enriched fields — joined server-side
+    vehicle_id:      Optional[int]  = None
+    vehicle_number:  Optional[str]  = None
+    vehicle_type:    Optional[str]  = None
+    location_label:  Optional[str]  = None
+    compartment_name: Optional[str] = None
+
+
+class UpdateParLevelRequest(BaseModel):
+    """Request body for PATCH /admin/par-levels/{id}."""
+    min_quantity: int = Field(..., gt=0)
+    max_quantity: int = Field(..., gt=0)
+
+    @model_validator(mode="after")
+    def validate_min_max(self) -> "UpdateParLevelRequest":
+        if self.max_quantity < self.min_quantity:
+            raise ValueError("max_quantity must be >= min_quantity.")
+        return self

@@ -1,5 +1,5 @@
 # EMS ReadyKit — Active Backlog
-# v1.35 | Updated: 2026-05-29
+# v1.37 | Updated: 2026-05-29
 # Completed items → backlog_completed.md
 # Priority: Critical / High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
@@ -456,6 +456,120 @@ See screenshots: `Vehicle_Expanded_Screen_1.png`, `Vehicle_Expanded_Screen_2.png
 
 ---
 
+## 23. Station Supply Room & Restocking (SUPPLY)
+
+**Context:** Ambulances are restocked from the station supply room.
+Currently no way to track station-level inventory or record transfers.
+The `STATION_SUPPLY_ROOM` LocationType already exists in the data model —
+this is the correct implementation path (not a "fake vehicle").
+
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| SUPPLY-M1 | Ensure `STATION_SUPPLY_ROOM` location auto-created per station (migration) | High | 📋 | LocationType already defined in model |
+| SUPPLY-B1 | `POST /inventory/transfer` — move stock from supply room to vehicle | High | 📋 | Supervisor+; atomic debit/credit |
+| SUPPLY-B2 | `GET /inventory/locations/{id}/stock-summary` — stock vs par per item | High | 📋 | All roles + membership |
+| SUPPLY-B3 | `GET /stations/{id}/supply-room` — get or create supply room location | High | 📋 | Auto-creates if missing |
+| SUPPLY-F1 | Supply room stock view — items, quantities, par comparison | High | 📋 | Supervisor+ |
+| SUPPLY-F2 | Restock vehicle flow — pick vehicle, pick items, confirm transfer | High | 📋 | Supervisor+ |
+| SUPPLY-F3 | Receive stock into supply room — add lot, quantity, expiry | Medium | 📋 | Supervisor+ |
+| SUPPLY-F4 | Transfer history per vehicle / per supply room | Medium | 📋 | Audit trail |
+
+**Key design decisions to make before building:**
+- Transfer is atomic: supply room quantity decreases, vehicle par is not changed (par = target, not current stock)
+- Stock on hand is derived from transfer history, not a stored counter — avoids sync bugs
+- Open question: does a FAIL check auto-suggest a restock? (Q-11 below)
+
+---
+
+## 24. Par Level Assignment UI (ADMIN-F4 — Phase 2)
+
+**Context:** Item catalog (ADMIN-F1–F3) is built. Missing piece:
+assigning an item to a vehicle compartment with a required quantity.
+
+**UX flow (decided 2026-05-29):** Item-first, not vehicle-first.
+From the item card in the catalog → "Assign to Vehicle" →
+pick vehicle → pick compartment → set min qty ("Needs at least") +
+max qty ("Restock to") → Save.
+
+Item card shows current assignments: "Assigned to: TEST / PC 3, TEST / Drug Bag".
+
+**On max quantity:** Keep both min and max in the UI.
+Min = flag threshold. Max = "restock to" target — used by the restocking
+workflow (SUPPLY-F2) to know how much to transfer.
+
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| ADMIN-F4a | Par level list on item card — shows vehicle/compartment/min/max | High | 📋 | Item-first view |
+| ADMIN-F4b | "Assign to Vehicle" flow — vehicle picker → compartment picker → qty form | High | 📋 | Uses `ItemSearchCombobox` pattern |
+| ADMIN-F4c | Edit/remove par level from item card | High | 📋 | Supervisor+; soft-deactivate |
+| ADMIN-B6 | `POST /inventory/par-levels` (expose from admin router) | High | 📋 | Already exists in inventory router |
+| ADMIN-B7 | `PATCH /inventory/par-levels/{id}` — edit min/max | High | 📋 | |
+| ADMIN-B8 | `PATCH /inventory/par-levels/{id}/deactivate` — remove assignment | High | 📋 | Admin only |
+
+---
+
+## 25. Admin Screen Redesign — Option B (ADMIN-UX1)
+
+**Context:** Decided 2026-05-29. The current tab bar (Members | Item Catalog) is
+getting crowded as Vehicles management is added. The primary real-world user is
+68 years old, iPhone, not tech-savvy — needs maximum clarity and zero learning curve.
+
+**Decision:** Option B — Station header + large navigation cards, each leading to
+a dedicated full-screen view. Mirrors the home screen module card pattern the user
+already knows. One task at a time, full screen per section, Back button to return.
+
+**UX principles driving this design:**
+- 60px minimum tap targets throughout
+- One task at a time — never two sections competing for attention
+- Reuse the existing module card navigation pattern (zero learning curve)
+- Clear text labels on everything — no icon-only buttons
+- Forgiveness — destructive actions require confirmation
+- Station selector: 1 station = plain header; 2-3 = stacked cards; 4+ = search added
+- "+ Add Station" is a low-prominence text button at bottom, Admin only
+
+**Admin home screen layout:**
+```
+Station Administration
+
+Managing: Marcellus Township Station 1  [Change]
+
+┌─────────────────────────────────────┐
+│  👥  Members                3 active │  →
+└─────────────────────────────────────┘
+┌─────────────────────────────────────┐
+│  📦  Item Catalog          12 items  │  →
+└─────────────────────────────────────┘
+┌─────────────────────────────────────┐
+│  🚑  Vehicles               2 units  │  →
+└─────────────────────────────────────┘
+
+                        [+ Add Station]  (Admin only)
+```
+
+Each card navigates to a dedicated full-screen sub-screen with ← Back at top.
+
+**Work items:**
+
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| ADMIN-UX1-F1 | Redesign `AdminScreen` — station header + 3 nav cards | High | 📋 | Replaces current tab bar |
+| ADMIN-UX1-F2 | `MembersScreen` — full-screen members management | High | 📋 | Extract from current `AdminScreen` |
+| ADMIN-UX1-F3 | `ItemCatalogScreen` — full-screen item catalog | High | 📋 | Extract from current `ItemCatalog` |
+| ADMIN-UX1-F4 | `VehiclesScreen` — full-screen vehicle + compartment management | High | 📋 | New; replaces seed script |
+| ADMIN-UX1-B1 | `PATCH /admin/compartments/{id}` — edit compartment | High | 📋 | One missing backend endpoint |
+| ADMIN-UX1-F5 | Add vehicle form — vehicle number, type (ALS/BLS/QRV) | High | 📋 | Calls existing POST /vehicles |
+| ADMIN-UX1-F6 | Vehicle card — shows compartments, add/edit compartment inline | High | 📋 | |
+| ADMIN-UX1-F7 | Add compartment form — name, descriptor, sort order, restriction note | High | 📋 | Calls existing POST /inventory/locations/{id}/compartments |
+| ADMIN-UX1-F8 | Station selector — plain header (1 station), stacked cards (2-3), search (4+) | High | 📋 | |
+| ADMIN-UX1-F9 | "+ Add Station" — Admin only, low-prominence, bottom of admin home | Medium | 📋 | Calls existing POST /stations |
+
+**Session E start point:**
+Begin with ADMIN-UX1-F1 (redesign AdminScreen shell) then work inward.
+All backend for Members and Item Catalog already exists.
+One new backend endpoint needed: ADMIN-UX1-B1 (edit compartment).
+
+---
+
 ## 26. Open Questions
 | # | Question | Owner |
 |---|----------|-------|
@@ -469,6 +583,7 @@ See screenshots: `Vehicle_Expanded_Screen_1.png`, `Vehicle_Expanded_Screen_2.png
 | Q-8 | Restored soft-deleted checks: responder history or admin screen only? | Project owner |
 | Q-9 | 5-year hard-delete job: share with Q-6 or separate process? | Engineering |
 | Q-10 | Second crew lookup: MS Graph or local user list? Affects B-E7 and F-UX34. | Engineering |
+| Q-11 | Should a FAIL check auto-suggest a restock from the supply room? | Project owner |
 
 ---
 
@@ -496,5 +611,8 @@ See screenshots: `Vehicle_Expanded_Screen_1.png`, `Vehicle_Expanded_Screen_2.png
 | Documentation | 1 | 0 | 1 |
 | User Acceptance Testing (UAT) | 6 | 2 | 8 |
 | Check Resolution Workflow (CH-UX1) | 5 | 0 | 5 |
+| Admin Screen Redesign (ADMIN-UX1) | 10 | 0 | 10 |
+| Station Supply Room & Restocking (SUPPLY) | 8 | 0 | 8 |
+| Par Level Assignment UI (ADMIN-F4) | 6 | 0 | 6 |
 | Repair Request Workflow Bugs (B-R) | 0 | 0 | 3 |
-| **Total** | **127** | **12** | **139** |
+| **Total** | **151** | **12** | **166** |

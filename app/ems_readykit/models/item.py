@@ -141,6 +141,26 @@ class Item(TimestampMixin, Base):
 
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
+    # ── AI identification fields (migration 0009) ─────────────────────────────
+    # These columns are dormant until the AI image recognition module is built.
+    # They are nullable and have zero impact on existing workflows.
+
+    # Comma-separated keywords an AI classifier might return.
+    # e.g. "tourniquet,CAT tourniquet,hemostatic"
+    ai_tags: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+    # Other names crews use for this item.
+    # e.g. "cric kit,surgical airway,bougie"
+    alternate_names: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+    # URL of a reference photo stored in Azure Blob Storage.
+    # Used by the AI pipeline to verify a visual match.
+    reference_image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+    # UPC or GS1 barcode — unique across all items.
+    # AI image pipeline can attempt to read barcodes from photos.
+    barcode: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, unique=True)
+
     # Relationships
     stock_lots: Mapped[List["StockLot"]] = relationship("StockLot", back_populates="item")
     par_levels: Mapped[List["ParLevel"]] = relationship("ParLevel", back_populates="item")
