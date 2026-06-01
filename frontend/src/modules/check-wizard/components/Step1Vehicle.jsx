@@ -2,6 +2,15 @@
  * modules/check-wizard/components/Step1Vehicle.jsx
  * Step 1: Vehicle / portable equipment selection + date + second crew.
  *
+ * Session F Block 4 (F-UX7):
+ *   LastCheckBanner now appears inline below the selected vehicle card.
+ *
+ * Bug fix (post-Block-6):
+ *   Vehicle card color dots now use vehicleDisplayColor() so each vehicle
+ *   shows its own color (vehicle_color → station.primary_color → palette).
+ *   Previously all dots showed the station palette color regardless of the
+ *   per-vehicle color set in the admin Vehicles screen.
+ *
  * Two groups of selectable cards are shown:
  *
  *   1. Vehicles — loaded from GET /stations/{id}/vehicles
@@ -23,16 +32,15 @@
  *     vehicle,        // Vehicle object for vehicles; null for portable
  *     selectionLabel, // display name for the submitted check
  *   }
- *
- * Station is pre-selected from the home screen.
  */
 import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../../shared/hooks/useAuth.jsx'
 import { useApi } from '../../../shared/hooks/useApi.js'
 import { checkApi } from '../api/checkApi.js'
 import { todayIso, formatCheckDate, clampCheckDate, relativeIso } from '../../../shared/utils/dateHelpers.js'
-import { stationColor } from '../../../shared/utils/stationColors.js'
+import { stationColor, vehicleDisplayColor } from '../../../shared/utils/stationColors.js'
 import Spinner from '../../../shared/components/Spinner.jsx'
+import LastCheckBanner from '../../../shared/components/LastCheckBanner.jsx'
 
 // Internal selection shape:
 //   { type: 'vehicle', vehicleId, vehicle }
@@ -41,6 +49,8 @@ const NO_SELECTION = null
 
 export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
   const { getToken } = useAuth()
+
+  const today = todayIso()
 
   const [selection, setSelection] = useState(() => {
     // Restore from draft if resuming
@@ -52,7 +62,7 @@ export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
     return NO_SELECTION
   })
 
-  const [checkDate, setCheckDate]   = useState(draft?.check_date ?? todayIso())
+  const [checkDate, setCheckDate]   = useState(draft?.check_date ?? today)
   const [secondCrew, setSecondCrew] = useState(draft?.second_crew ?? '')
 
   const station   = preselectedStation ?? null
@@ -99,7 +109,10 @@ export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
   }, [])
 
   const canProceed = stationId && selection && checkDate
-  const colors     = station ? stationColor(station.name, 0) : null
+  const stColors   = station ? stationColor(station.name, 0) : null
+
+  const selectedVehicleId  = selection?.type === 'vehicle'  ? selection.vehicleId  : null
+  const selectedLocationId = selection?.type === 'location' ? selection.locationId : null
 
   function handleProceed() {
     if (!canProceed) return
@@ -161,8 +174,8 @@ export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
       <div
         className="station-band"
         style={{
-          background: colors?.primary ?? 'var(--color-brand)',
-          color: colors?.text ?? '#ffffff',
+          background: station.primary_color ?? stColors?.primary ?? 'var(--color-brand)',
+          color: stColors?.text ?? '#ffffff',
         }}
         aria-label={`Checking at: ${station.name}`}
       >
@@ -196,23 +209,27 @@ export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
 
             {/* ── Vehicle cards ─────────────────────────────────────────── */}
             {activeVehicles.map(v => {
-              const isSelected = selection?.type === 'vehicle' && selection.vehicleId === v.vehicle_id
+              const isSelected   = selection?.type === 'vehicle' && selection.vehicleId === v.vehicle_id
+              // Per-vehicle color: vehicle_color → station.primary_color → station palette
+              const dotColor     = vehicleDisplayColor(v, station, 0)
+              const selectedBg   = isSelected ? `${dotColor}18` : undefined // 18 = ~10% opacity
               return (
                 <button
                   key={`vehicle-${v.vehicle_id}`}
                   role="radio"
                   aria-checked={isSelected}
                   className={`vehicle-card ${isSelected ? 'vehicle-card--selected' : ''}`}
-                  style={isSelected && colors ? {
-                    borderColor: colors.primary,
-                    background: colors.light,
+                  style={isSelected ? {
+                    borderColor: dotColor,
+                    background:  selectedBg,
                   } : {}}
                   onClick={() => setSelection({ type: 'vehicle', vehicleId: v.vehicle_id, vehicle: v })}
                   type="button"
                 >
+                  {/* Color dot — per-vehicle color */}
                   <div
                     className="vehicle-card__color-dot"
-                    style={{ background: colors?.primary ?? 'var(--color-brand)' }}
+                    style={{ background: dotColor }}
                     aria-hidden="true"
                   />
                   <div className="vehicle-card__info">
@@ -234,16 +251,18 @@ export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
             {/* ── Portable location cards (Jump Bags, Equipment) ────────── */}
             {portables.map(loc => {
               const isSelected = selection?.type === 'location' && selection.locationId === loc.location_id
-              const icon = loc.location_type === 'JUMP_BAG' ? '🎒' : '🔧'
+              const icon       = loc.location_type === 'JUMP_BAG' ? '🎒' : '🔧'
+              // Portables don't have their own color — use station color
+              const dotColor   = station.primary_color ?? stColors?.primary ?? 'var(--color-brand)'
               return (
                 <button
                   key={`loc-${loc.location_id}`}
                   role="radio"
                   aria-checked={isSelected}
                   className={`vehicle-card vehicle-card--portable ${isSelected ? 'vehicle-card--selected' : ''}`}
-                  style={isSelected && colors ? {
-                    borderColor: colors.primary,
-                    background: colors.light,
+                  style={isSelected ? {
+                    borderColor: dotColor,
+                    background:  `${dotColor}18`,
                   } : {}}
                   onClick={() => setSelection({
                     type:         'location',
@@ -255,7 +274,7 @@ export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
                 >
                   <div
                     className="vehicle-card__color-dot vehicle-card__color-dot--muted"
-                    style={{ background: colors?.primary ?? 'var(--color-brand)', opacity: 0.5 }}
+                    style={{ background: dotColor, opacity: 0.5 }}
                     aria-hidden="true"
                   />
                   <div className="vehicle-card__info">
@@ -274,13 +293,26 @@ export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
         )}
       </div>
 
+      {/* ── F-UX7: Last-check banner ──────────────────────────────────────
+          Rendered only when a vehicle (not a portable location) is selected.
+          Sits between the vehicle list and the date/crew fields so the crew
+          sees it before committing to the date.                            */}
+      {(selectedVehicleId || selectedLocationId) && (
+        <LastCheckBanner
+          vehicleId={selectedVehicleId}
+          locationId={selectedLocationId}
+          todayIso={today}
+          getToken={getToken}
+        />
+      )}
+
       {/* Check date */}
       <div className="form-group">
         <label className="form-label" htmlFor="check-date">Check date</label>
         <div className="date-field">
           <div
             className="date-field__display"
-            style={colors ? { color: colors.primary } : {}}
+            style={stColors ? { color: stColors.primary } : {}}
           >
             {formatCheckDate(checkDate)}
           </div>
@@ -321,7 +353,7 @@ export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
       {/* Proceed */}
       <button
         className="btn btn--primary btn--large"
-        style={canProceed && colors ? { background: colors.primary } : {}}
+        style={canProceed && stColors ? { background: stColors.primary } : {}}
         onClick={handleProceed}
         disabled={!canProceed}
         type="button"

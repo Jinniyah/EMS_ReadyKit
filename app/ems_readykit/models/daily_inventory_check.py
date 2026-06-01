@@ -48,12 +48,14 @@ class CheckStatus(str, enum.Enum):
 class DailyInventoryCheck(TimestampMixin, Base):
     __tablename__ = "daily_inventory_checks"
     __table_args__ = (
-        Index("ix_check_vehicle_date", "vehicle_id", "check_date"),
+        Index("ix_check_vehicle_date",   "vehicle_id",  "check_date"),
+        Index("ix_check_location_date",  "location_id", "check_date"),
     )
 
-    check_id:   Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    vehicle_id: Mapped[int] = mapped_column(ForeignKey("vehicles.vehicle_id"), nullable=False)
-    station_id: Mapped[int] = mapped_column(ForeignKey("stations.station_id"), nullable=False)
+    check_id:    Mapped[int]           = mapped_column(primary_key=True, autoincrement=True)
+    vehicle_id:  Mapped[Optional[int]] = mapped_column(ForeignKey("vehicles.vehicle_id"),              nullable=True)
+    location_id: Mapped[Optional[int]] = mapped_column(ForeignKey("inventory_locations.location_id"),  nullable=True)
+    station_id:  Mapped[int]           = mapped_column(ForeignKey("stations.station_id"),              nullable=False)
     check_date: Mapped[str] = mapped_column(String(10), nullable=False)
     performed_by: Mapped[str] = mapped_column(String(100), nullable=False)
     timestamp:  Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

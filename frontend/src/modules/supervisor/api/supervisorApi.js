@@ -15,25 +15,45 @@ export const supervisorApi = {
    * F-5F1: Build today's compliance summary for a station.
    */
   getTodayCompliance: async (stationId, getToken) => {
-    const vehicles = await apiGet(
-      `${BASE}/stations/${stationId}/vehicles`,
-      getToken
-    )
-
     const today = todayStr()
-    const checkResults = await Promise.allSettled(
-      vehicles.map(v =>
-        apiGet(`${BASE}/checks/daily/vehicle/${v.vehicle_id}`, getToken)
-          .then(checks => ({
-            vehicle_id: v.vehicle_id,
-            checks: checks.filter(c => c.check_date === today && !c.deleted_at),
-          }))
-      )
-    )
+
+    // Fetch vehicles + portable locations in parallel
+    const [vehicles, portables] = await Promise.all([
+      apiGet(`${BASE}/stations/${stationId}/vehicles`, getToken),
+      apiGet(`${BASE}/stations/${stationId}/locations`, getToken).catch(() => []),
+    ])
+
+    // Fetch today's checks for vehicles and portable locations in parallel
+    const [vehicleCheckResults, portableCheckResults] = await Promise.all([
+      Promise.allSettled(
+        vehicles.map(v =>
+          apiGet(`${BASE}/checks/daily/vehicle/${v.vehicle_id}`, getToken)
+            .then(checks => ({
+              vehicle_id: v.vehicle_id,
+              checks: checks.filter(c => c.check_date === today && !c.deleted_at),
+            }))
+        )
+      ),
+      Promise.allSettled(
+        portables.map(loc =>
+          apiGet(`${BASE}/checks/daily/location/${loc.location_id}`, getToken)
+            .then(checks => ({
+              location_id: loc.location_id,
+              checks: checks.filter(c => c.check_date === today && !c.deleted_at),
+            }))
+        )
+      ),
+    ])
 
     const checksByVehicle = {}
-    checkResults.forEach((result, i) => {
+    vehicleCheckResults.forEach((result, i) => {
       checksByVehicle[vehicles[i].vehicle_id] =
+        result.status === 'fulfilled' ? result.value.checks : []
+    })
+
+    const checksByLocation = {}
+    portableCheckResults.forEach((result, i) => {
+      checksByLocation[portables[i].location_id] =
         result.status === 'fulfilled' ? result.value.checks : []
     })
 
@@ -42,22 +62,46 @@ export const supervisorApi = {
 
     activeVehicles.forEach(v => {
       const checks = checksByVehicle[v.vehicle_id] ?? []
-      if (checks.length === 0) {
-        uncheckedCount++
-      } else {
-        const latest = checks[0]
-        if (latest.status === 'FAIL')               failCount++
-        else if (latest.status === 'NEEDS_RESTOCK') restockCount++
-        else                                        passCount++
-      }
+      if (checks.length === 0)                      uncheckedCount++
+      else if (checks[0].status === 'FAIL')          failCount++
+      else if (checks[0].status === 'NEEDS_RESTOCK') restockCount++
+      else                                           passCount++
+    })
+
+    portables.forEach(loc => {
+      const checks = checksByLocation[loc.location_id] ?? []
+      if (checks.length === 0)                      uncheckedCount++
+      else if (checks[0].status === 'FAIL')          failCount++
+      else if (checks[0].status === 'NEEDS_RESTOCK') restockCount++
+      else                                           passCount++
     })
 
     return {
       vehicles,
       checksByVehicle,
-      summary: { total: activeVehicles.length, pass: passCount, fail: failCount, restock: restockCount, unchecked: uncheckedCount },
+      portables,
+      checksByLocation,
+      summary: {
+        total:     activeVehicles.length + portables.length,
+        pass:      passCount,
+        fail:      failCount,
+        restock:   restockCount,
+        unchecked: uncheckedCount,
+      },
     }
   },
+
+  /**
+   * F-5F2: Load checks for a station over a date range (B-E3).
+   * Returns flat array; caller aggregates by vehicle and date.
+   */
+  getComplianceRange: async (stationId, fromDate, toDate, getToken) => {
+    const params = new URLSearchParams({ from: fromDate, to: toDate })
+    return apiGet(`${BASE}/checks/daily/station/${stationId}?${params}`, getToken)
+  },
+
+  getCheckDateRange: (stationId, getToken) =>
+    apiGet(`${BASE}/checks/daily/station/${stationId}/date-range`, getToken),
 
   getCheckDetail: (checkId, getToken) =>
     checkHistoryApi.getCheckDetail(checkId, getToken),
@@ -67,17 +111,8 @@ export const supervisorApi = {
 
   /**
    * "I fixed this" — supervisor resolves failed items on a check.
-   * Creates a repair request and immediately marks it RESOLVED.
-   * Also acknowledges the check with the corrective action note.
-   * All three calls run in parallel for speed.
-   *
-   * @param {number} checkId
-   * @param {number} vehicleId
-   * @param {string} resolutionNote — what the supervisor did to fix it
-   * @param {Function} getToken
    */
   resolveFailedItems: async (checkId, vehicleId, resolutionNote, getToken) => {
-    // 1. File a repair request (documents the issue)
     const repair = await apiPost(
       `${BASE}/vehicles/${vehicleId}/repair-requests`,
       {
@@ -87,8 +122,6 @@ export const supervisorApi = {
       getToken
     )
 
-    // 2. Immediately resolve it (supervisor confirmed fix on the spot)
-    // 3. Acknowledge the check with the corrective action
     await Promise.all([
       apiPatch(
         `${BASE}/vehicles/${vehicleId}/repair-requests/${repair.repair_id}`,

@@ -220,12 +220,16 @@ export default function CheckWizard({
 
     try {
       const result = await checkApi.submitCheck({
-        vehicle_id: vehicleId,
-        station_id: stationId,
-        check_date: checkDate,
-        timestamp:  submissionTimestamp,
+        vehicle_id:  vehicleId,
+        // Send location_id only for portable checks (vehicleId null).
+        // For vehicle checks, locationId is the vehicle's inventory location
+        // (resolved internally) — that is NOT stored on the check record.
+        location_id: vehicleId ? null : locationId,
+        station_id:  stationId,
+        check_date:  checkDate,
+        timestamp:   submissionTimestamp,
         notes,
-        line_items: lineItems,
+        line_items:  lineItems,
       }, getToken)
 
       clearDraft()

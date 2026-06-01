@@ -2,10 +2,13 @@
 routers/stations.py
 Station CRUD endpoints.
 
-Refactor (Session B):
-- Role constants imported from deps (REF-3)
-- require_station_membership moved to deps (REF-4); imported from there
-- HTTP_422_UNPROCESSABLE_CONTENT replaces deprecated constant (REF-7)
+Session C (ACC-B8): Station membership enforced on station endpoints.
+
+Post-Block-6 additions:
+  PATCH /stations/{id}  — Edit station (name, address, region, call_sign,
+                          primary_color). Administrator only.
+  DELETE /stations/{id} — Soft-deactivate station (sets active=False).
+                          Administrator only.
 """
 
 from __future__ import annotations
@@ -13,18 +16,17 @@ from __future__ import annotations
 import logging
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from ems_readykit.core.auth import (
     ROLE_ADMINISTRATOR,
-    ROLE_RESPONDER,
-    ROLE_SUPERVISOR,
     CurrentUser,
 )
 from ems_readykit.core.database import get_db
 from ems_readykit.models.inventory_location import InventoryLocation, LocationType
 from ems_readykit.models.station import Station
+from ems_readykit.models.station_member import StationMember
 from ems_readykit.routers.deps import (
     ALL_ROLES,
     ADMIN_ONLY,
@@ -40,6 +42,20 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/stations", tags=["stations"])
 
 
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _get_station_or_404(station_id: int, db: Session) -> Station:
+    station = db.query(Station).filter(Station.station_id == station_id).first()
+    if not station:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Station {station_id} not found.",
+        )
+    return station
+
+
+# ── GET /stations — Admin list ────────────────────────────────────────────────
+
 @router.get(
     "",
     response_model=List[StationRead],
@@ -47,42 +63,128 @@ router = APIRouter(prefix="/stations", tags=["stations"])
     dependencies=[Depends(require_role(*ADMIN_ONLY))],
 )
 def list_stations(
-    active: bool = Query(default=True, description="Filter by active status"),
+    active: bool = Query(default=True),
     db: Session = Depends(get_db),
 ) -> List[Station]:
-    """Returns all stations. Administrator only."""
     return db.query(Station).filter(Station.active == active).all()
 
+
+# ── GET /stations/my — member-scoped list ─────────────────────────────────────
+
+@router.get(
+    "/my",
+    response_model=List[StationRead],
+    summary="List stations the current user is assigned to",
+)
+def list_my_stations(
+    current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
+    db: Session = Depends(get_db),
+) -> List[Station]:
+    member_rows = (
+        db.query(StationMember)
+        .filter(
+            StationMember.user_id == current_user.email,
+            StationMember.active  == True,
+        )
+        .all()
+    )
+    if not member_rows:
+        return []
+    station_ids = [m.station_id for m in member_rows]
+    return (
+        db.query(Station)
+        .filter(
+            Station.station_id.in_(station_ids),
+            Station.active == True,
+        )
+        .order_by(Station.name)
+        .all()
+    )
+
+
+# ── POST /stations — create ────────────────────────────────────────────────────
 
 @router.post(
     "",
     response_model=StationRead,
     status_code=status.HTTP_201_CREATED,
-    summary="Create a station",
+    summary="Create a station (Administrator only)",
     dependencies=[Depends(require_role(*ADMIN_ONLY))],
 )
 def create_station(payload: StationCreate, db: Session = Depends(get_db)) -> Station:
-    """Creates a new station. Requires Administrator role."""
     station = Station(
-        name=payload.name,
-        address=payload.address,
-        region=payload.region,
-        active=payload.active,
+        name=payload.name, address=payload.address, region=payload.region,
+        active=payload.active, call_sign=payload.call_sign, primary_color=payload.primary_color,
     )
     db.add(station)
     db.commit()
     db.refresh(station)
-    logger.info(
-        "Station created: station_id=%s name=%r region=%r",
-        station.station_id, station.name, station.region,
-        extra={
-            "action":      "STATION_CREATED",
-            "entity_type": "station",
-            "entity_id":   str(station.station_id),
-        },
-    )
+    logger.info("Station created: station_id=%s name=%r", station.station_id, station.name,
+        extra={"action": "STATION_CREATED", "entity_type": "station", "entity_id": str(station.station_id)})
     return station
 
+
+# ── PATCH /stations/{id} — edit ────────────────────────────────────────────────
+
+@router.patch(
+    "/{station_id}",
+    response_model=StationRead,
+    summary="Edit a station — Administrator only",
+    dependencies=[Depends(require_role(*ADMIN_ONLY))],
+)
+def update_station(
+    station_id: int,
+    payload: StationCreate,
+    db: Session = Depends(get_db),
+) -> Station:
+    """
+    Edit station fields: name, address, region, call_sign, primary_color, active.
+    Administrator only. The station_id never changes.
+    """
+    station = _get_station_or_404(station_id, db)
+    station.name          = payload.name
+    station.address       = payload.address
+    station.region        = payload.region
+    station.call_sign     = payload.call_sign
+    station.primary_color = payload.primary_color
+    station.active        = payload.active
+    db.commit()
+    db.refresh(station)
+    logger.info("Station updated: station_id=%s name=%r", station.station_id, station.name,
+        extra={"action": "STATION_UPDATED", "entity_type": "station", "entity_id": str(station_id)})
+    return station
+
+
+# ── DELETE /stations/{id} — soft deactivate ────────────────────────────────────
+
+@router.delete(
+    "/{station_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Deactivate a station — Administrator only",
+    dependencies=[Depends(require_role(*ADMIN_ONLY))],
+)
+def deactivate_station(
+    station_id: int,
+    db: Session = Depends(get_db),
+) -> Response:
+    """
+    Soft-deactivate: sets active=False. The station and all its data are
+    retained for audit history but hidden from the UI and membership queries.
+    """
+    station = _get_station_or_404(station_id, db)
+    if not station.active:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Station '{station.name}' is already inactive.",
+        )
+    station.active = False
+    db.commit()
+    logger.info("Station deactivated: station_id=%s name=%r", station_id, station.name,
+        extra={"action": "STATION_DEACTIVATED", "entity_type": "station", "entity_id": str(station_id)})
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ── GET /stations/{station_id}/locations ──────────────────────────────────────
 
 @router.get(
     "/{station_id}/locations",
@@ -94,15 +196,8 @@ def list_station_locations(
     current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
     db: Session = Depends(get_db),
 ) -> List[InventoryLocation]:
-    station = db.query(Station).filter(Station.station_id == station_id).first()
-    if not station:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Station {station_id} not found.",
-        )
-
+    station = _get_station_or_404(station_id, db)
     require_station_membership(station_id, current_user, db)
-
     return (
         db.query(InventoryLocation)
         .filter(
@@ -117,6 +212,8 @@ def list_station_locations(
     )
 
 
+# ── GET /stations/{station_id} ─────────────────────────────────────────────────
+
 @router.get(
     "/{station_id}",
     response_model=StationRead,
@@ -127,13 +224,6 @@ def get_station(
     current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
     db: Session = Depends(get_db),
 ) -> Station:
-    station = db.query(Station).filter(Station.station_id == station_id).first()
-    if not station:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Station {station_id} not found.",
-        )
-
+    station = _get_station_or_404(station_id, db)
     require_station_membership(station_id, current_user, db)
-
     return station

@@ -49,7 +49,11 @@ export const checkApi = {
   submitCheck: (payload, getToken) =>
     apiPost('/api/v1/checks/daily', payload, getToken),
 
-  /** Existing checks for a vehicle (to detect duplicate) */
+  /** Existing checks for a vehicle — used by LastCheckBanner */
   getVehicleChecks: (vehicleId, getToken) =>
     apiGet(`/api/v1/checks/daily/vehicle/${vehicleId}`, getToken),
+
+  /** Existing checks for a portable location (jump bag) — used by LastCheckBanner */
+  getLocationChecks: (locationId, getToken) =>
+    apiGet(`/api/v1/checks/daily/location/${locationId}`, getToken),
 }

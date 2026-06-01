@@ -1,6 +1,7 @@
 /**
  * modules/supervisor/index.jsx
  * Supervisor Dashboard — F-5F1, F-5F3, F-5F4, F-5F5
+ * Session F Block 3: Compliance Calendar (F-5F2) added.
  */
 
 import React, { useState } from 'react'
@@ -10,6 +11,8 @@ import ErrorBoundary from '../../shared/components/ErrorBoundary.jsx'
 import ComplianceSummary from './components/ComplianceSummary.jsx'
 import VehicleComplianceCard from './components/VehicleComplianceCard.jsx'
 import CheckDetailPanel from './components/CheckDetailPanel.jsx'
+import ComplianceCalendar from './components/ComplianceCalendar.jsx'
+import PortableComplianceCard from './components/PortableComplianceCard.jsx'
 import { supervisorApi } from './api/supervisorApi.js'
 import { useApi } from '../../shared/hooks/useApi.js'
 import './supervisor.css'
@@ -32,22 +35,26 @@ export default function SupervisorDashboard({ station, onBack }) {
     [station.station_id]
   )
 
+  // If a check detail is requested (either from today's cards or from the calendar),
+  // push to CheckDetailPanel
   if (selectedCheck) {
     return (
       <ErrorBoundary moduleName="Check Detail">
         <CheckDetailPanel
-          checkSummary={selectedCheck.check}
+          checkSummary={selectedCheck.check ?? { check_id: selectedCheck.checkId }}
           vehicleId={selectedCheck.vehicleId}
-          vehicleNumber={selectedCheck.vehicleNumber}
+          vehicleNumber={selectedCheck.vehicleNumber ?? ''}
           onBack={() => setSelectedCheck(null)}
         />
       </ErrorBoundary>
     )
   }
 
-  const vehicles  = data?.vehicles ?? []
-  const byVehicle = data?.checksByVehicle ?? {}
-  const summary   = data?.summary ?? { total: 0, pass: 0, fail: 0, restock: 0, unchecked: 0 }
+  const vehicles    = data?.vehicles        ?? []
+  const byVehicle   = data?.checksByVehicle ?? {}
+  const portables   = data?.portables       ?? []
+  const byLocation  = data?.checksByLocation ?? {}
+  const summary     = data?.summary ?? { total: 0, pass: 0, fail: 0, restock: 0, unchecked: 0 }
 
   const filteredVehicles = vehicles.filter(v => {
     if (activeFilter === 'all') return true
@@ -71,6 +78,12 @@ export default function SupervisorDashboard({ station, onBack }) {
   const dateLabel = new Date().toLocaleDateString(undefined, {
     weekday: 'long', month: 'long', day: 'numeric',
   })
+
+  // Handler for calendar cell taps: receive a checkId, open the detail panel.
+  // We don't know vehicleNumber at this point — CheckDetailPanel will load it.
+  function handleCalendarCheckClick(checkId) {
+    setSelectedCheck({ checkId, check: null, vehicleId: null, vehicleNumber: null })
+  }
 
   return (
     <div className="sup-dashboard">
@@ -113,19 +126,19 @@ export default function SupervisorDashboard({ station, onBack }) {
           <div className="sup-dashboard__alerts">
             {summary.fail > 0 && (
               <div className="sup-alert sup-alert--fail" role="alert">
-                ✗ {summary.fail} vehicle{summary.fail !== 1 ? 's' : ''} failed today's check
+                ✗ {summary.fail} {summary.fail !== 1 ? 'items' : 'item'} failed today's check
                 — tap to review and fix
               </div>
             )}
             {summary.unchecked > 0 && (
               <div className="sup-alert sup-alert--unchecked" role="alert">
-                ○ {summary.unchecked} vehicle{summary.unchecked !== 1 ? 's' : ''} not yet checked today
+                ○ {summary.unchecked} {summary.unchecked !== 1 ? 'items' : 'item'} not yet checked today
                 — must be checked before going out
               </div>
             )}
             {allClear && (
               <div className="sup-alert sup-alert--all-clear">
-                ✓ All vehicles checked — no issues today
+                ✓ All vehicles and equipment checked — no issues today
               </div>
             )}
           </div>
@@ -152,10 +165,40 @@ export default function SupervisorDashboard({ station, onBack }) {
             </ul>
           )}
 
-          <div className="sup-dashboard__placeholder">
-            <span aria-hidden="true">📅</span>
-            <p>Compliance Calendar — coming once the date-range endpoint (B-E3) is built</p>
-          </div>
+          {/* ── Portable locations (jump bags, equipment) ────────────── */}
+          {portables.length > 0 && (
+            <>
+              <h3 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '1rem 0 0.5rem' }}>
+                Portable Equipment
+              </h3>
+              <ul className="sup-dashboard__vehicle-list" aria-label="Portable equipment">
+                {portables.map(loc => (
+                  <li key={loc.location_id}>
+                    <ErrorBoundary moduleName={`Location ${loc.label}`}>
+                      <PortableComplianceCard
+                        location={loc}
+                        checks={byLocation[loc.location_id] ?? []}
+                        onSelectCheck={check => setSelectedCheck({
+                          check,
+                          vehicleId:     null,
+                          vehicleNumber: loc.label,
+                        })}
+                      />
+                    </ErrorBoundary>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {/* ── Compliance Calendar (F-5F2) ───────────────────────────── */}
+          <ErrorBoundary moduleName="Compliance Calendar">
+            <ComplianceCalendar
+              station={station}
+              vehicles={vehicles}
+              onViewCheck={handleCalendarCheckClick}
+            />
+          </ErrorBoundary>
         </>
       )}
     </div>

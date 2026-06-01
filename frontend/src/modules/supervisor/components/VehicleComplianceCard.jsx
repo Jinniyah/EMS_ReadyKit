@@ -6,9 +6,15 @@
  *   RESOLVED (fixed by supervisor) = green "✓ Fixed" tag
  *   ACKNOWLEDGED (note only) = muted "Noted" tag
  *   PASS = no tag needed
+ *
+ * Bug fix (post-Block-6):
+ *   Vehicle identity now shows a color dot (vehicleDisplayColor) instead of
+ *   a generic 🚑 emoji, consistent with the admin Vehicles screen and the
+ *   check wizard vehicle cards.
  */
 
 import React from 'react'
+import { vehicleDisplayColor } from '../../../shared/utils/stationColors.js'
 
 const STATUS_META = {
   PASS:          { label: 'Pass',         icon: '✓', className: 'status--pass' },
@@ -25,8 +31,8 @@ function formatTime(isoString) {
 
 /**
  * Determine the resolution state of a check.
- * 'fixed'    — supervisor used "I Fixed This" (corrective_action starts with "Items fixed by supervisor:")
- * 'noted'    — supervisor added a note only
+ * 'fixed'      — supervisor used "I Fixed This"
+ * 'noted'      — supervisor added a note only
  * 'unresolved' — not yet acknowledged
  */
 function getResolutionState(check) {
@@ -35,7 +41,7 @@ function getResolutionState(check) {
   return 'noted'
 }
 
-export default function VehicleComplianceCard({ vehicle, checks, onSelectCheck }) {
+export default function VehicleComplianceCard({ vehicle, checks, station, onSelectCheck }) {
   const latestCheck = checks?.[0] ?? null
   const statusMeta  = latestCheck ? (STATUS_META[latestCheck.status] ?? STATUS_META.PASS) : null
 
@@ -56,14 +62,23 @@ export default function VehicleComplianceCard({ vehicle, checks, onSelectCheck }
     : unresolvedOlderChecks.length > 0       ? 'vc-card--has-unresolved'
     : 'vc-card--pass'
 
+  // Per-vehicle color: vehicle.vehicle_color → station.primary_color → palette
+  const dotColor = vehicleDisplayColor(vehicle, station ?? null, 0)
+
   return (
     <div className={`vc-card ${cardClass}`}>
 
-      {/* Vehicle identity */}
+      {/* Vehicle identity — color dot replaces generic emoji */}
       <div className="vc-card__identity">
-        <span className="vc-card__icon" aria-hidden="true">
-          {!vehicle.active ? '🚫' : '🚑'}
-        </span>
+        {vehicle.active ? (
+          <span
+            className="vc-card__color-dot"
+            style={{ background: dotColor }}
+            aria-hidden="true"
+          />
+        ) : (
+          <span className="vc-card__icon" aria-hidden="true">🚫</span>
+        )}
         <div style={{ flex: 1 }}>
           <div className="vc-card__number">{vehicle.vehicle_number}</div>
           <div className="vc-card__type">{vehicle.vehicle_type}</div>
@@ -144,19 +159,9 @@ export default function VehicleComplianceCard({ vehicle, checks, onSelectCheck }
   )
 }
 
-/**
- * ResolutionTag — shows the action state of a non-PASS check.
- * Fixed (green) / Noted (muted) / Not Fixed (red, bold) / nothing for PASS
- */
 function ResolutionTag({ resolution, status }) {
   if (status === 'PASS') return null
-
-  if (resolution === 'fixed') {
-    return <span className="resolution-tag resolution-tag--fixed">✓ Fixed</span>
-  }
-  if (resolution === 'noted') {
-    return <span className="resolution-tag resolution-tag--noted">✎ Noted</span>
-  }
-  // Unresolved FAIL/RESTOCK — make it impossible to miss
+  if (resolution === 'fixed') return <span className="resolution-tag resolution-tag--fixed">✓ Fixed</span>
+  if (resolution === 'noted') return <span className="resolution-tag resolution-tag--noted">✎ Noted</span>
   return <span className="resolution-tag resolution-tag--unresolved">✗ Not Fixed</span>
 }

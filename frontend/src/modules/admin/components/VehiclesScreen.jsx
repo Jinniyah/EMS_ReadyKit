@@ -5,6 +5,11 @@
  * Replaces the seed script — supervisors can add vehicles and compartments
  * directly from this screen.
  *
+ * Session F Block 1 (ADMIN-UX1-V):
+ *   ColorPickerWidget now appears on each expanded vehicle card.
+ *   Saving calls PATCH /admin/vehicles/{id}/color.
+ *   The vehicle card header shows a colour dot when a colour is set.
+ *
  * UX principles (tired crew / 68yo iPhone user):
  *   - Large tap targets throughout (60px min)
  *   - One action at a time — add form replaces the button, not a modal
@@ -17,8 +22,10 @@ import { useAuth } from '../../../shared/hooks/useAuth.jsx'
 import { useApi } from '../../../shared/hooks/useApi.js'
 import Spinner from '../../../shared/components/Spinner.jsx'
 import ErrorBoundary from '../../../shared/components/ErrorBoundary.jsx'
+import ColorPickerWidget from '../../../shared/components/ColorPickerWidget.jsx'
 import { adminApi } from '../api/adminApi.js'
 import { vehicleApi } from '../../vehicles/api/vehicleApi.js'
+import CompartmentParLevels from './CompartmentParLevels.jsx'
 
 const VEHICLE_TYPES = ['ALS', 'BLS', 'QRV']
 
@@ -227,13 +234,135 @@ function CompartmentForm({ locationId, compartment, onSaved, onCancel }) {
   )
 }
 
+// ── VehicleColorSection ───────────────────────────────────────────────────────
+
+/**
+ * Inline color picker section inside an expanded vehicle card.
+ * Saving is immediate on swatch click — no extra "Save" button needed
+ * since the change is non-destructive and trivially reversible.
+ */
+function VehicleColorSection({ vehicle, onColorSaved }) {
+  const { getToken } = useAuth()
+  const [saving, setSaving]   = useState(false)
+  const [error,  setError]    = useState(null)
+  const [current, setCurrent] = useState(vehicle.vehicle_color ?? null)
+
+  async function handleChange(hex) {
+    setCurrent(hex)
+    setSaving(true)
+    setError(null)
+    try {
+      await adminApi.updateVehicleColor(vehicle.vehicle_id, hex, getToken)
+      onColorSaved(hex)
+    } catch (err) {
+      setError(err.message)
+      setCurrent(vehicle.vehicle_color ?? null) // revert optimistic update
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="vehicle-color-section">
+      <ColorPickerWidget
+        value={current}
+        onChange={handleChange}
+        label="Vehicle color"
+        showInherit
+        disabled={saving}
+      />
+      {saving && (
+        <p className="vehicle-color-section__status">Saving…</p>
+      )}
+      {error && (
+        <p className="vehicle-color-section__error" role="alert">{error}</p>
+      )}
+      <p className="vehicle-color-section__hint">
+        Used in the compliance calendar to distinguish vehicles at a glance.
+        "×" inherits the station color.
+      </p>
+    </div>
+  )
+}
+
+// ── EditVehicleDetailsForm ────────────────────────────────────────────────────
+
+function EditVehicleDetailsForm({ vehicle, onSaved, onCancel }) {
+  const { getToken }                      = useAuth()
+  const [vehicleNumber, setVehicleNumber] = useState(vehicle.vehicle_number)
+  const [vehicleType, setVehicleType]     = useState(vehicle.vehicle_type)
+  const [error, setError]                 = useState(null)
+  const [saving, setSaving]               = useState(false)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!vehicleNumber.trim()) { setError('Vehicle number is required.'); return }
+    setSaving(true); setError(null)
+    try {
+      const updated = await adminApi.updateVehicleDetails(vehicle.vehicle_id, {
+        vehicle_number: vehicleNumber.trim(),
+        vehicle_type:   vehicleType,
+      }, getToken)
+      onSaved(updated)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form className="vehicle-form" onSubmit={handleSubmit} noValidate>
+      <h4 className="compartment-form__title">Edit Vehicle Details</h4>
+      <div className="vehicle-form__row">
+        <div className="vehicle-form__field">
+          <label className="vehicle-form__label">
+            Vehicle number <span aria-hidden="true">*</span>
+          </label>
+          <input
+            className="vehicle-form__input"
+            value={vehicleNumber}
+            onChange={e => setVehicleNumber(e.target.value)}
+            maxLength={20}
+            autoFocus
+            disabled={saving}
+          />
+        </div>
+        <div className="vehicle-form__field">
+          <label className="vehicle-form__label">Type</label>
+          <select
+            className="vehicle-form__select"
+            value={vehicleType}
+            onChange={e => setVehicleType(e.target.value)}
+            disabled={saving}
+          >
+            {VEHICLE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+      </div>
+      {error && <p className="vehicle-form__error" role="alert">{error}</p>}
+      <div className="vehicle-form__actions">
+        <button type="submit" className="btn btn--primary btn--full" disabled={saving}>
+          {saving ? 'Saving…' : 'Save Changes'}
+        </button>
+        <button type="button" className="btn btn--secondary btn--full"
+          onClick={onCancel} disabled={saving}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  )
+}
+
 // ── VehicleAdminCard ──────────────────────────────────────────────────────────
 
-function VehicleAdminCard({ vehicle, onVehicleUpdated }) {
+function VehicleAdminCard({ vehicle: initialVehicle, onVehicleUpdated }) {
   const { getToken } = useAuth()
+  const [vehicle, setVehicle]             = useState(initialVehicle)
   const [expanded, setExpanded]           = useState(false)
-  const [showAddComp, setShowAddComp]     = useState(false)
-  const [editingComp, setEditingComp]     = useState(null)
+  const [showEditDetails, setShowEditDetails] = useState(false)
+  const [showAddComp, setShowAddComp]         = useState(false)
+  const [editingComp, setEditingComp]         = useState(null)
   const [compsKey, setCompsKey]           = useState(0)
   const [toggling, setToggling]           = useState(false)
   const [showOosForm, setShowOosForm]     = useState(false)
@@ -302,6 +431,28 @@ function VehicleAdminCard({ vehicle, onVehicleUpdated }) {
     }
   }
 
+  function handleDetailsSaved(updated) {
+    setVehicle(updated)
+    setShowEditDetails(false)
+    onVehicleUpdated()
+  }
+
+  // Optimistic color update — avoids a full card reload after a swatch tap
+  function handleColorSaved(hex) {
+    setVehicle(v => ({ ...v, vehicle_color: hex }))
+  }
+
+  const colorDot = vehicle.vehicle_color
+    ? (
+      <span
+        className="admin-vehicle-card__color-dot"
+        style={{ background: vehicle.vehicle_color }}
+        title={`Vehicle color: ${vehicle.vehicle_color}`}
+        aria-label={`Color: ${vehicle.vehicle_color}`}
+      />
+    )
+    : null
+
   return (
     <div className={`admin-vehicle-card ${!vehicle.active ? 'admin-vehicle-card--inactive' : ''}`}>
 
@@ -312,6 +463,7 @@ function VehicleAdminCard({ vehicle, onVehicleUpdated }) {
         aria-expanded={expanded}
       >
         <div className="admin-vehicle-card__info">
+          {colorDot}
           <span className="admin-vehicle-card__number">{vehicle.vehicle_number}</span>
           <span className="admin-vehicle-card__type">{vehicle.vehicle_type}</span>
           {!vehicle.active && (
@@ -324,7 +476,44 @@ function VehicleAdminCard({ vehicle, onVehicleUpdated }) {
       {expanded && (
         <div className="admin-vehicle-card__body">
 
-          {/* Vehicle service toggle */}
+          {/* ── Vehicle details (number + type) ──────────────────────── */}
+          <div className="admin-vehicle-card__section">
+            {showEditDetails ? (
+              <ErrorBoundary moduleName="Edit Vehicle Details">
+                <EditVehicleDetailsForm
+                  vehicle={vehicle}
+                  onSaved={handleDetailsSaved}
+                  onCancel={() => setShowEditDetails(false)}
+                />
+              </ErrorBoundary>
+            ) : (
+              <div className="admin-vehicle-card__section-header">
+                <div>
+                  <span className="admin-vehicle-card__number">{vehicle.vehicle_number}</span>
+                  <span className="admin-vehicle-card__type" style={{ marginLeft: '0.5rem' }}>{vehicle.vehicle_type}</span>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn--secondary btn--sm"
+                  onClick={() => setShowEditDetails(true)}
+                >
+                  Edit name / type
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* ── Vehicle color ────────────────────────────────────────── */}
+          <div className="admin-vehicle-card__section">
+            <ErrorBoundary moduleName="Vehicle Color">
+              <VehicleColorSection
+                vehicle={vehicle}
+                onColorSaved={handleColorSaved}
+              />
+            </ErrorBoundary>
+          </div>
+
+          {/* ── Vehicle service toggle ───────────────────────────────── */}
           <div className="admin-vehicle-card__actions">
             {vehicle.active ? (
               showOosForm ? (
@@ -428,7 +617,7 @@ function VehicleAdminCard({ vehicle, onVehicleUpdated }) {
             )}
           </div>
 
-          {/* Compartments */}
+          {/* ── Compartments ─────────────────────────────────────────── */}
           <div className="admin-vehicle-card__section">
             <div className="admin-vehicle-card__section-header">
               <h4 className="admin-vehicle-card__section-title">
@@ -486,29 +675,35 @@ function VehicleAdminCard({ vehicle, onVehicleUpdated }) {
                         </ErrorBoundary>
                       ) : (
                         <>
-                          <div className="admin-compartment-row__info">
-                            <span className="admin-compartment-row__name">{comp.name}</span>
-                            {comp.location_descriptor && (
-                              <span className="admin-compartment-row__descriptor">
-                                {comp.location_descriptor}
-                              </span>
-                            )}
-                            {comp.restriction_note && (
-                              <span className="admin-compartment-row__restriction">
-                                🔒 {comp.restriction_note}
-                              </span>
-                            )}
-                            {!comp.active && (
-                              <span className="admin-compartment-row__inactive">Inactive</span>
-                            )}
+                          <div className="admin-compartment-row__top">
+                            <div className="admin-compartment-row__info">
+                              <span className="admin-compartment-row__name">{comp.name}</span>
+                              {comp.location_descriptor && (
+                                <span className="admin-compartment-row__descriptor">
+                                  {comp.location_descriptor}
+                                </span>
+                              )}
+                              {comp.restriction_note && (
+                                <span className="admin-compartment-row__restriction">
+                                  🔒 {comp.restriction_note}
+                                </span>
+                              )}
+                              {!comp.active && (
+                                <span className="admin-compartment-row__inactive">Inactive</span>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              className="btn btn--secondary btn--sm"
+                              onClick={() => { setEditingComp(comp); setShowAddComp(false) }}
+                            >
+                              Edit
+                            </button>
                           </div>
-                          <button
-                            type="button"
-                            className="btn btn--secondary btn--sm"
-                            onClick={() => { setEditingComp(comp); setShowAddComp(false) }}
-                          >
-                            Edit
-                          </button>
+                          <CompartmentParLevels
+                            compartmentId={comp.compartment_id}
+                            vehicleId={vehicle.vehicle_id}
+                          />
                         </>
                       )}
                     </li>

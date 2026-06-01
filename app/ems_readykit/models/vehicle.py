@@ -46,6 +46,10 @@ class Vehicle(TimestampMixin, Base):
     inactive_reason: Mapped[Optional[str]]      = mapped_column(String(200), nullable=True)
     inactive_since:  Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # NEW-M1: per-vehicle color for compliance calendar rows.
+    # Null = inherit station.primary_color in the frontend.
+    vehicle_color: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)
+
     # ── Relationships ─────────────────────────────────────────────────────────
     station: Mapped["Station"] = relationship("Station", back_populates="vehicles")
     inventory_location: Mapped["InventoryLocation"] = relationship(

@@ -1,6 +1,15 @@
 /**
  * pages/HomePage.jsx
  * Application home screen.
+ *
+ * Bug fix (post-Block-6):
+ *   Station colors now use station.primary_color (DB value) when set,
+ *   falling back to stationColor() palette. Previously the palette was
+ *   always used regardless of what was saved in the DB.
+ *
+ *   Also: selectedStation is re-hydrated from the stations API response
+ *   on every load rather than trusting the stale localStorage copy, so
+ *   color changes made in admin are immediately reflected here.
  */
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { useAuth } from '../shared/hooks/useAuth.jsx'
@@ -22,19 +31,21 @@ const CheckHistoryScreen   = lazy(() => import('../modules/check-history/index.j
 const SupervisorDashboard  = lazy(() => import('../modules/supervisor/index.jsx'))
 const AdminScreen          = lazy(() => import('../modules/admin/index.jsx'))
 
-const STATION_STORAGE_KEY = 'ems_selected_station'
+const STATION_STORAGE_KEY = 'ems_selected_station_id'  // store ID only, not full object
 
 /**
- * VE-F5: Check all vehicles at the selected station for open repair requests
- * and derive a badge state for the V&E Status module card.
- *
- * Returns:
- *   'issue'        — at least one OPEN repair request exists (red)
- *   'needs-review' — repairs exist but all are IN_PROGRESS (yellow)
- *   null           — no open repairs or data unavailable
- *
- * Fails silently — never blocks the home screen.
- * Refreshes on window focus.
+ * Resolve the effective color set for a station.
+ * Priority: station.primary_color (DB) → stationColor() palette fallback.
+ */
+function resolveStationColors(station, index) {
+  if (!station) return null
+  const palette = stationColor(station.name, index)
+  const primary = station.primary_color ?? palette.primary
+  return { primary, text: palette.text, light: palette.light }
+}
+
+/**
+ * VE-F5: Check all vehicles at the selected station for open repair requests.
  */
 function useStationIssues(stationId, getToken) {
   const [issueState, setIssueState] = useState(null)
@@ -45,7 +56,6 @@ function useStationIssues(stationId, getToken) {
       const vehicles = await vehicleApi.getStationVehicles(stationId, getToken)
       if (!vehicles?.length) { setIssueState(null); return }
 
-      // Fetch repair requests for all vehicles in parallel
       const allRepairs = await Promise.all(
         vehicles.map(v => vehicleApi.getRepairRequests(v.vehicle_id, getToken))
       )
@@ -73,16 +83,29 @@ function useStationIssues(stationId, getToken) {
   return issueState
 }
 
-function loadSavedStation() {
+/** Persist only the station ID — re-hydrate from the API on load. */
+function loadSavedStationId() {
   try {
+    // Support old format (full object) and new format (ID only)
     const raw = localStorage.getItem(STATION_STORAGE_KEY)
-    return raw ? JSON.parse(raw) : null
+    if (!raw) {
+      // Try old key
+      const old = localStorage.getItem('ems_selected_station')
+      if (old) {
+        const parsed = JSON.parse(old)
+        return parsed?.station_id ?? null
+      }
+      return null
+    }
+    const parsed = JSON.parse(raw)
+    // Handle both {station_id: N} and plain N
+    return typeof parsed === 'number' ? parsed : (parsed?.station_id ?? null)
   } catch { return null }
 }
 
-function saveStation(station) {
+function saveStationId(station) {
   try {
-    localStorage.setItem(STATION_STORAGE_KEY, JSON.stringify(station))
+    localStorage.setItem(STATION_STORAGE_KEY, JSON.stringify(station.station_id))
   } catch { /* ignore */ }
 }
 
@@ -93,7 +116,7 @@ export default function HomePage() {
   const [activeWizard, setActiveWizard]       = useState(null)
   const [activeDraftKey, setActiveDraftKey]   = useState(null)
   const [activeModule, setActiveModule]       = useState(null)
-  const [selectedStation, setSelectedStation] = useState(loadSavedStation)
+  const [selectedStationId, setSelectedStationId] = useState(loadSavedStationId)
   const [pickingStation, setPickingStation]   = useState(false)
 
   const {
@@ -102,36 +125,43 @@ export default function HomePage() {
     error: stationsError,
   } = useApi(() => checkApi.getStations(getToken), [])
 
-  const draftGroups = useDraftIndex(selectedStation?.station_id ?? null)
-  const issueState  = useStationIssues(selectedStation?.station_id ?? null, getToken)
+  // Re-hydrate selectedStation from the fresh API response every load.
+  // This ensures primary_color changes made in admin are reflected immediately
+  // without requiring a manual station re-selection.
+  const selectedStation = stations?.find(s => s.station_id === selectedStationId) ?? null
 
+  // Auto-select the only station when there's exactly one
   useEffect(() => {
-    if (!selectedStation && stations?.length === 1) {
-      const s = stations[0]
-      setSelectedStation(s)
-      saveStation(s)
+    if (!selectedStationId && stations?.length === 1) {
+      setSelectedStationId(stations[0].station_id)
+      saveStationId(stations[0])
     }
-  }, [stations, selectedStation])
+  }, [stations, selectedStationId])
 
+  const stationIdx = stations?.findIndex(s => s.station_id === selectedStationId) ?? 0
+  const colors = resolveStationColors(selectedStation, stationIdx >= 0 ? stationIdx : 0)
+
+  // Apply station color as CSS custom property on body
   useEffect(() => {
-    const idx = stations?.findIndex(s => s.station_id === selectedStation?.station_id) ?? 0
-    if (selectedStation) {
-      const { primary, text } = stationColor(selectedStation.name, idx >= 0 ? idx : 0)
-      document.body.style.setProperty('--station-primary', primary)
-      document.body.style.setProperty('--station-text', text)
+    if (colors) {
+      document.body.style.setProperty('--station-primary', colors.primary)
+      document.body.style.setProperty('--station-text',    colors.text)
     } else {
       document.body.style.setProperty('--station-primary', 'var(--color-brand)')
-      document.body.style.setProperty('--station-text', '#ffffff')
+      document.body.style.setProperty('--station-text',    '#ffffff')
     }
     return () => {
       document.body.style.removeProperty('--station-primary')
       document.body.style.removeProperty('--station-text')
     }
-  }, [selectedStation, stations])
+  }, [colors])
+
+  const draftGroups = useDraftIndex(selectedStationId ?? null)
+  const issueState  = useStationIssues(selectedStationId ?? null, getToken)
 
   function handleSelectStation(station) {
-    setSelectedStation(station)
-    saveStation(station)
+    setSelectedStationId(station.station_id)
+    saveStationId(station)
     setPickingStation(false)
   }
 
@@ -143,7 +173,10 @@ export default function HomePage() {
   function handleResume(key, draft) {
     if (draft.station_id && stations) {
       const draftStation = stations.find(s => s.station_id === draft.station_id)
-      if (draftStation) { setSelectedStation(draftStation); saveStation(draftStation) }
+      if (draftStation) {
+        setSelectedStationId(draftStation.station_id)
+        saveStationId(draftStation)
+      }
     }
     setActiveDraftKey(key)
     setActiveWizard(draft)
@@ -158,11 +191,6 @@ export default function HomePage() {
     setActiveWizard(null)
     setActiveDraftKey(null)
   }
-
-  const stationIdx = stations?.findIndex(s => s.station_id === selectedStation?.station_id) ?? 0
-  const colors = selectedStation
-    ? stationColor(selectedStation.name, stationIdx >= 0 ? stationIdx : 0)
-    : null
 
   // ── Active modules ────────────────────────────────────────────────────────
   if (activeWizard) {
@@ -253,7 +281,7 @@ export default function HomePage() {
           ) : (
             <StationPicker
               stations={stations ?? []}
-              currentStation={selectedStation}
+              currentStationId={selectedStationId}
               onSelect={handleSelectStation}
               onCancel={selectedStation ? () => setPickingStation(false) : null}
             />
@@ -358,7 +386,6 @@ export default function HomePage() {
             </div>
           </ErrorBoundary>
 
-          {/* Admin — visible to Supervisor+ only, hidden in crew mode */}
           {canAccess(user, 'supervisor') && !isCrewMode && (
             <ErrorBoundary moduleName="Admin Card">
               <div className="module-card">
@@ -379,7 +406,6 @@ export default function HomePage() {
             </ErrorBoundary>
           )}
 
-          {/* Supervisor Dashboard — visible to Supervisor+ only, hidden in crew mode */}
           {canAccess(user, 'supervisor') && !isCrewMode && (
             <ErrorBoundary moduleName="Dashboard Card">
               <div className="module-card">
@@ -448,12 +474,12 @@ function StationBand({ station, colors, onChangeStation, showChange }) {
   )
 }
 
-function StationPicker({ stations, currentStation, onSelect, onCancel }) {
+function StationPicker({ stations, currentStationId, onSelect, onCancel }) {
   return (
     <div className="station-picker">
       <div className="station-picker__header">
         <h2 className="station-picker__title">
-          {currentStation ? 'Change station' : 'Select your station'}
+          {currentStationId ? 'Change station' : 'Select your station'}
         </h2>
         {onCancel && (
           <button className="btn-text" onClick={onCancel} type="button">Cancel</button>
@@ -461,8 +487,10 @@ function StationPicker({ stations, currentStation, onSelect, onCancel }) {
       </div>
       <div className="station-grid" role="radiogroup" aria-label="Select your station">
         {stations.map((s, idx) => {
-          const sc = stationColor(s.name, idx)
-          const isSelected = s.station_id === currentStation?.station_id
+          // Use DB primary_color if set, fall back to palette
+          const palette    = stationColor(s.name, idx)
+          const barColor   = s.primary_color ?? palette.primary
+          const isSelected = s.station_id === currentStationId
           return (
             <button
               key={s.station_id}
@@ -473,13 +501,13 @@ function StationPicker({ stations, currentStation, onSelect, onCancel }) {
               type="button"
               aria-label={`${s.name}${s.region ? `, ${s.region}` : ''}${isSelected ? ' — current' : ''}`}
             >
-              <div className="station-card__color-bar" style={{ background: sc.primary }} aria-hidden="true" />
+              <div className="station-card__color-bar" style={{ background: barColor }} aria-hidden="true" />
               <div className="station-card__body">
                 <div className="station-card__name">{s.name}</div>
                 {s.region && <div className="station-card__region">{s.region}</div>}
               </div>
               {isSelected && (
-                <div className="station-card__check" style={{ color: sc.primary }} aria-hidden="true">✓</div>
+                <div className="station-card__check" style={{ color: barColor }} aria-hidden="true">✓</div>
               )}
             </button>
           )

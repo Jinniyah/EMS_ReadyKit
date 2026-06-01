@@ -1,39 +1,45 @@
 /**
  * modules/admin/api/adminApi.js
- * API calls for station membership management (B-ACCESS1 Phase 3)
- * and item catalog management (ADMIN-B1 through ADMIN-B4).
+ * API calls for station membership, item catalog, par levels,
+ * vehicle management, and station CRUD.
  */
 import { apiGet, apiPost, apiPatch, apiDelete, apiUpload } from '../../../shared/api/client.js'
 
-const ADMIN    = '/api/v1/admin'
-const BASE_API = '/api/v1'
+const ADMIN = '/api/v1/admin'
 
 export const adminApi = {
   // ── Station membership ─────────────────────────────────────────────────
 
-  /** Stations the current user is assigned to */
   getMyStations: (getToken) =>
     apiGet('/api/v1/stations/my', getToken),
 
-  /** List members of a station (Supervisor+) */
   getStationMembers: (stationId, getToken) =>
     apiGet(`/api/v1/stations/${stationId}/members`, getToken),
 
-  /** Add a user to a station */
   addMember: (stationId, payload, getToken) =>
     apiPost(`/api/v1/stations/${stationId}/members`, payload, getToken),
 
-  /** Update a member's role or preferred name */
   updateMember: (stationId, userId, payload, getToken) =>
     apiPatch(`/api/v1/stations/${stationId}/members/${encodeURIComponent(userId)}`, payload, getToken),
 
-  /** Remove a member from a station (soft delete) */
   removeMember: (stationId, userId, getToken) =>
     apiDelete(`/api/v1/stations/${stationId}/members/${encodeURIComponent(userId)}`, getToken),
 
-  // ── Item catalog (ADMIN-B1 through ADMIN-B4) ──────────────────────────────
+  // ── Station CRUD (ADMIN-B15) ───────────────────────────────────────────
 
-  /** List all items. Pass { category, checkType, active } to filter. */
+  createStation: (payload, getToken) =>
+    apiPost(`${ADMIN}/stations`, payload, getToken),
+
+  /** Edit a station's name, address, region, call_sign, primary_color. Admin only. */
+  updateStation: (stationId, payload, getToken) =>
+    apiPatch(`/api/v1/stations/${stationId}`, payload, getToken),
+
+  /** Soft-deactivate a station. Admin only. */
+  deactivateStation: (stationId, getToken) =>
+    apiDelete(`/api/v1/stations/${stationId}`, getToken),
+
+  // ── Item catalog ──────────────────────────────────────────────────────────
+
   listItems: (getToken, { category, checkType, active = true } = {}) => {
     const params = new URLSearchParams()
     if (category  != null) params.set('category',   category)
@@ -43,78 +49,74 @@ export const adminApi = {
     return apiGet(`${ADMIN}/items${qs}`, getToken)
   },
 
-  /**
-   * Typeahead search — used by ItemSearchCombobox.
-   * Searches name, alternate_names, and ai_tags (case-insensitive).
-   * Returns up to `limit` active items by default.
-   */
   searchItems: (q, getToken, { activeOnly = true, limit = 20 } = {}) => {
     const params = new URLSearchParams({ q, active_only: activeOnly, limit })
     return apiGet(`${ADMIN}/items/search?${params}`, getToken)
   },
 
-  /** Get a single item by ID */
   getItem: (itemId, getToken) =>
     apiGet(`${ADMIN}/items/${itemId}`, getToken),
 
-  /** Create a new item (Supervisor+) */
   createItem: (payload, getToken) =>
     apiPost(`${ADMIN}/items`, payload, getToken),
 
-  /** Edit an existing item (Supervisor+) */
   updateItem: (itemId, payload, getToken) =>
     apiPatch(`${ADMIN}/items/${itemId}`, payload, getToken),
 
-  /** Soft-deactivate an item (Administrator only) */
   deactivateItem: (itemId, getToken) =>
     apiPatch(`${ADMIN}/items/${itemId}/deactivate`, {}, getToken),
 
-  // ── Par level assignments (ADMIN-F4) ─────────────────────────────────
+  // ── Par level assignments ─────────────────────────────────────────────────
 
-  /** All vehicle/compartment assignments for an item (enriched) */
+  getAssignmentCount: (itemId, getToken) =>
+    apiGet(`${ADMIN}/items/${itemId}/assignments/count`, getToken),
+
   getItemAssignments: (itemId, getToken) =>
     apiGet(`${ADMIN}/items/${itemId}/assignments`, getToken),
 
-  /** Assign an item to a vehicle compartment */
   assignItem: (itemId, payload, getToken) =>
     apiPost(`${ADMIN}/items/${itemId}/assign`, payload, getToken),
 
-  /** Edit min/max on an existing assignment */
   updateParLevel: (parId, payload, getToken) =>
     apiPatch(`${ADMIN}/par-levels/${parId}`, payload, getToken),
 
-  /** Remove an item from a compartment (soft-deactivate) */
+  deactivateParLevel: (parId, getToken) =>
+    apiPatch(`${ADMIN}/par-levels/${parId}/deactivate`, {}, getToken),
+
   removeParLevel: (parId, getToken) =>
     apiDelete(`${ADMIN}/par-levels/${parId}`, getToken),
 
-  /** List compartments for a vehicle — used by assignment form cascade */
   getVehicleCompartments: (vehicleId, getToken) =>
     apiGet(`${ADMIN}/vehicles/${vehicleId}/compartments`, getToken),
 
-  // ── Vehicles & Compartments (ADMIN-UX1) ──────────────────────────────
+  getCompartmentAssignments: (compartmentId, getToken) =>
+    apiGet(`${ADMIN}/compartments/${compartmentId}/assignments`, getToken),
 
-  /** Create a vehicle at a station (Supervisor+) */
+  // ── Vehicles ──────────────────────────────────────────────────────────────
+
   createVehicle: (payload, getToken) =>
     apiPost('/api/v1/vehicles', payload, getToken),
 
-  /** Edit a vehicle (Supervisor+) */
   updateVehicle: (vehicleId, payload, getToken) =>
     apiPatch(`/api/v1/vehicles/${vehicleId}`, payload, getToken),
 
-  /** Create a compartment at a location (Supervisor+) */
+  updateVehicleDetails: (vehicleId, payload, getToken) =>
+    apiPatch(`${ADMIN}/vehicles/${vehicleId}/details`, payload, getToken),
+
+  updateVehicleColor: (vehicleId, vehicleColor, getToken) =>
+    apiPatch(`${ADMIN}/vehicles/${vehicleId}/color`, { vehicle_color: vehicleColor }, getToken),
+
   createCompartment: (locationId, payload, getToken) =>
     apiPost(`/api/v1/inventory/locations/${locationId}/compartments`, payload, getToken),
 
-  /** Edit a compartment (Supervisor+) */
   updateCompartment: (compartmentId, payload, getToken) =>
     apiPatch(`/api/v1/inventory/compartments/${compartmentId}`, payload, getToken),
 
-  /** Get the inventory location for a vehicle */
   getVehicleLocation: (stationId, getToken) =>
     apiGet(`/api/v1/inventory/locations?station_id=${stationId}`, getToken),
 
-  // ── CSV import (ADMIN-B17/B18) ─────────────────────────────────────
+  // ── CSV import ────────────────────────────────────────────────────────────
 
-  /** Upload a CSV file of items for bulk import */
   importItemsCsv: (formData, getToken) =>
-    apiUpload(`${ADMIN}/items/import`, formData, getToken),}
+    apiUpload(`${ADMIN}/items/import`, formData, getToken),
+}

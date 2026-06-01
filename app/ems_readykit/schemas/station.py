@@ -6,16 +6,32 @@ Design decisions:
 - StationBase holds all user-supplied fields shared between create and read.
 - StationCreate is the POST body — no id or timestamps (DB-generated).
 - StationRead is the response model — includes DB-generated fields.
-- No StationUpdate in Phase 2; partial updates are Phase 3 (RBAC-gated).
 - from_attributes=True enables direct ORM model → schema serialization
   without manual field mapping in router handlers.
+
+Session F Block 1 (B-M11):
+  - primary_color added — optional #rrggbb hex, null = brand default.
+
+Session F Block 2 (ADMIN-B15):
+  - call_sign added — optional short radio identifier (e.g. "STA-1").
+  - Both new fields are nullable so existing stations are unaffected.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+def _validate_hex_color(v: Optional[str]) -> Optional[str]:
+    """Accept None or a valid 7-char CSS hex color (#rrggbb)."""
+    if v is None:
+        return v
+    if len(v) != 7 or v[0] != '#' or not all(c in '0123456789abcdefABCDEF' for c in v[1:]):
+        raise ValueError("color must be a 7-character hex string, e.g. '#1a3a5c'")
+    return v.lower()
 
 
 class StationBase(BaseModel):
@@ -46,6 +62,16 @@ class StationBase(BaseModel):
         default=True,
         description="Whether the station is currently operational",
     )
+    call_sign: Optional[str] = Field(
+        default=None,
+        max_length=20,
+        description="Short radio/dispatch identifier (e.g. 'STA-1'). Optional.",
+    )
+    primary_color: Optional[str] = Field(
+        default=None,
+        max_length=7,
+        description="#rrggbb station color. Null = use brand default (#1a3a5c).",
+    )
 
     @field_validator("name", "address", "region", mode="before")
     @classmethod
@@ -58,9 +84,14 @@ class StationBase(BaseModel):
             return stripped
         return v
 
+    @field_validator("primary_color", mode="before")
+    @classmethod
+    def validate_color(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_hex_color(v)
+
 
 class StationCreate(StationBase):
-    """Request body for POST /stations."""
+    """Request body for POST /stations and POST /admin/stations."""
     pass
 
 
@@ -72,6 +103,6 @@ class StationRead(StationBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-    station_id: int
-    created_at: datetime
-    updated_at: datetime
+    station_id:    int
+    created_at:    datetime
+    updated_at:    datetime

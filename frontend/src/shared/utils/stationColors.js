@@ -56,3 +56,25 @@ export function stationStyle(stationName, index = 0) {
   const { primary, light, text } = stationColor(stationName, index)
   return { '--sc-primary': primary, '--sc-light': light, '--sc-text': text }
 }
+
+/**
+ * Returns the effective display color for a vehicle.
+ *
+ * Priority order (matches the spec from Session F Block 1):
+ *   1. vehicle.vehicle_color  — per-vehicle override set in admin
+ *   2. station.primary_color  — station-level color set in admin
+ *   3. stationColor(station)  — deterministic fallback from station name
+ *
+ * Pass the vehicle object and the station object; both may be null.
+ * Always returns a valid CSS color string — never null.
+ *
+ * @param {object|null} vehicle  — VehicleRead object (may have .vehicle_color)
+ * @param {object|null} station  — StationRead object (may have .primary_color)
+ * @param {number}      index    — station's index in the list (palette fallback)
+ * @returns {string}             — CSS color string e.g. '#1a3a5c'
+ */
+export function vehicleDisplayColor(vehicle, station, index = 0) {
+  if (vehicle?.vehicle_color)  return vehicle.vehicle_color
+  if (station?.primary_color)  return station.primary_color
+  return stationColor(station?.name ?? '', index).primary
+}

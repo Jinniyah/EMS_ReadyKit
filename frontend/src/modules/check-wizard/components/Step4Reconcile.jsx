@@ -193,10 +193,10 @@ export default function Step4Reconcile({
 
       <div className="reconcile-actions">
         <button className="btn btn--secondary" onClick={onBack} type="button">← Back</button>
-        <button className="btn btn--primary btn--large" onClick={onContinue} disabled={!allResolved} type="button">
+        <button className="btn btn--primary btn--large" onClick={onContinue} type="button">
           {allResolved
             ? 'Continue to Submit →'
-            : `${restockItems.length} item${restockItems.length !== 1 ? 's' : ''} remaining`}
+            : `Continue with ${restockItems.length} item${restockItems.length !== 1 ? 's' : ''} short →`}
         </button>
       </div>
     </div>

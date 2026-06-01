@@ -93,11 +93,14 @@ class ParLevelAssignment(BaseModel):
     created_at:      datetime
     updated_at:      datetime
     # Enriched fields — joined server-side
-    vehicle_id:      Optional[int]  = None
-    vehicle_number:  Optional[str]  = None
-    vehicle_type:    Optional[str]  = None
-    location_label:  Optional[str]  = None
-    compartment_name: Optional[str] = None
+    vehicle_id:       Optional[int]  = None
+    vehicle_number:   Optional[str]  = None
+    vehicle_type:     Optional[str]  = None
+    location_label:   Optional[str]  = None
+    compartment_name: Optional[str]  = None
+    # Populated by the compartment-centric endpoint only
+    item_name:        Optional[str]  = None
+    item_check_type:  Optional[str]  = None
 
 
 class UpdateParLevelRequest(BaseModel):

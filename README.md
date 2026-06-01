@@ -9,9 +9,9 @@ Cloud-native inventory and vehicle readiness platform for Fire and EMS operation
 Built to replace paper-based daily vehicle checks with a mobile-first digital
 workflow — designed for real crews, in real stations, under real time pressure.
 
-**Live app:** https://lively-bush-0ed75ca10.7.azurestaticapps.net  
-**Live API:** https://app-ems-readykit-dev.azurewebsites.net  
-**API docs:** https://app-ems-readykit-dev.azurewebsites.net/docs  
+**Live app:** https://lively-bush-0ed75ca10.7.azurestaticapps.net
+**Live API:** https://app-ems-readykit-dev.azurewebsites.net
+**API docs:** https://app-ems-readykit-dev.azurewebsites.net/docs
 **Repository:** https://github.com/Jinniyah/EMS_ReadyKit
 
 ---
@@ -32,23 +32,28 @@ properly accounted for — before every shift goes out the door.
 | **Controlled substance checks** | Dual-signature verification for ALS vehicles; second crew member captured on record |
 | **Auto-save draft** | Progress saved after every item — if a call comes in mid-check, pick up exactly where you left off |
 | **Multiple checks per day** | Supports shift-start and post-call restock checks on the same vehicle |
-| **Repair reporting** | File routine or urgent repair requests directly from the check wizard or vehicle status screen |
+| **Repair reporting** | File routine or urgent repair requests from the check wizard or vehicle status screen; add notes at any time |
 | **Jump bag support** | Portable equipment and jump bags checked on the same workflow as vehicles |
+| **Check history** | View your own past checks; add notes to any check you submitted |
 
 ### For supervisors and administrators
 
 | Feature | Description |
 |---------|-------------|
 | **Compliance dashboard** | Today's check status across all vehicles — pass, needs restock, fail, or not yet checked |
-| **FAIL acknowledgement** | Record corrective action on failed checks; full audit trail of who acted and when |
-| **"I Fixed This" workflow** | One-step resolution that logs a repair request, marks it resolved, and acknowledges the check |
-| **Check history** | Full history per crew member and per station; filterable by status |
-| **Vehicle lifecycle management** | Mark vehicles out of service with reason; return to service when ready |
-| **Repair request tracking** | Open → In Progress → Resolved lifecycle; any crew member can advance; supervisors resolve |
-| **Soft-delete with retention** | Checks can be removed with a mandatory reason; preserved for 90 days before automatic deletion |
-| **Station administration** | Manage station membership; control which crew members can access which station's data |
-| **Full audit trail** | Every material action — checks, repairs, acknowledgements, deletions — is logged with actor, timestamp, and entity |
+| **Check history — all station** | View all checks at the station filtered by status; defaults to FAIL on open so nothing is missed |
+| **FAIL visibility** | Failed checks surface immediately; a direct link navigates to V&E Status to manage the repair |
+| **Check notes** | Add corrective action notes to any check; visible to all roles |
 | **Date-range compliance query** | Query check history across any date range up to 90 days |
+| **Vehicle lifecycle management** | Mark vehicles out of service with a mandatory reason; return to service with an optional note |
+| **Repair request tracking** | Open → In Progress → Resolved lifecycle with notes; all roles can advance; supervisors resolve |
+| **Open issue badge** | Home screen shows a red badge on V&E Status when any vehicle has an unresolved repair request |
+| **Soft-delete with retention** | Checks removed with a mandatory reason; preserved for 90 days before permanent deletion |
+| **Station administration** | Manage station membership — control which crew members access which station's data |
+| **Full audit trail** | Every material action — checks, repairs, notes, deletions — logged with actor, timestamp, and entity |
+| **Item catalog** | Manage the full inventory item list; bulk import via CSV with template download |
+| **Par level assignment** | Assign items to vehicle compartments with minimum and restock-to quantities |
+| **Vehicle & compartment management** | Add vehicles, define compartments, manage out-of-service status — all through the UI |
 
 ---
 
@@ -65,11 +70,12 @@ properly accounted for — before every shift goes out the door.
 | Data integrity | SQLAlchemy 2.0, Alembic migrations, DB-level constraints |
 | Audit trail | First-class audit events with actor, entity, severity, and metadata |
 | Security | OWASP Top 10 reviewed; 0 known CVEs (pip-audit in CI); security headers; production hardening |
-| Testing | 191 automated tests — models, routers, RBAC, business rules, station membership |
+| Testing | 200+ automated tests — models, routers, RBAC, business rules, station membership |
 | CI/CD | GitHub Actions: pip-audit → pytest → build on Linux → deploy → health check |
 | Observability | Log Analytics, structured logging, diagnostic settings |
 | Cost discipline | F1/Free dev tiers; short log retention; budget alerts; B1 upgrade is one variable change |
-| Frontend | React PWA — mobile-first, works offline, modular architecture with isolated error boundaries |
+| Frontend | React PWA — mobile-first, modular architecture, isolated error boundaries, accessible |
+| Bulk data loading | CSV import with template download, row-level validation, BOM-safe Excel handling |
 
 ---
 
@@ -90,8 +96,8 @@ properly accounted for — before every shift goes out the door.
 ┌──────────────────────────▼──────────────────────────────────┐
 │  Azure App Service (Python 3.11)                            │
 │  FastAPI + Gunicorn + UvicornWorker                         │
-│  /api/v1: stations, vehicles, inventory,                    │
-│           checks, repair requests, audit                    │
+│  /api/v1: stations, vehicles, inventory, checks,            │
+│           repair requests, admin, audit                     │
 │                                                             │
 │  ┌───────────────────┐   ┌──────────────────────────────┐   │
 │  │  Azure Key Vault  │   │  Log Analytics Workspace     │   │
@@ -113,9 +119,9 @@ All infrastructure is provisioned via Terraform. No manual portal configuration.
 
 | Role | What they can do |
 |------|-----------------|
-| **Responder** | Submit daily checks, view own check history, file repair requests, mark repairs in progress |
-| **Supervisor** | Everything a Responder can do, plus: review all station checks, acknowledge failures, resolve repairs, manage vehicles, manage station membership |
-| **Administrator** | Full system access — all supervisor capabilities plus station creation, user management, audit access, and soft-delete management |
+| **Responder** | Submit daily checks, view own check history, add notes to own checks, file repair requests, mark repairs in progress |
+| **Supervisor** | Everything a Responder can do, plus: view all station checks, manage repair lifecycle, manage vehicles and compartments, manage station membership, bulk import items |
+| **Administrator** | Full system access — all supervisor capabilities plus station creation, user management, item catalog management, audit access, and soft-delete management |
 
 Roles are assigned via Azure AD groups. No user-level role assignments. Group membership is managed via Terraform.
 
@@ -131,6 +137,8 @@ Roles are assigned via Azure AD groups. No user-level role assignments. Group me
 - Controlled substance checks require a different primary and secondary signer — enforced at application layer
 - Soft-deleted checks are hidden immediately but retained for 90 days before permanent deletion
 - Resolving a repair request requires Supervisor+; marking In Progress is available to all roles
+- Responders can add notes only to their own checks; Supervisors can note any check
+- Out-of-service vehicles require a mandatory reason; return to service accepts an optional note
 
 ---
 
@@ -158,10 +166,12 @@ API explorer: http://localhost:8000/docs
 
 ```bash
 cd app
-pytest tests/ -v                  # all 191 tests
+pytest tests/ -v                      # all 200+ tests
 pytest tests/test_repair_requests.py -v   # repair request lifecycle
+pytest tests/test_admin_items.py -v       # item catalog and CSV import
+pytest tests/test_check_history.py -v     # check history and notes
 pytest tests/test_station_membership.py -v  # access control
-pytest tests/ -v -k "RBAC"       # RBAC enforcement only
+pytest tests/ -v -k "RBAC"           # RBAC enforcement only
 ```
 
 Tests use an in-memory SQLite database with savepoint isolation. No external services required.
@@ -173,7 +183,7 @@ Tests use an in-memory SQLite database with savepoint isolation. No external ser
 Deployment is fully automated via GitHub Actions on every push to `main`:
 
 1. `pip-audit` — 0 known CVEs required to proceed
-2. `pytest` — all 191 tests must pass
+2. `pytest` — all tests must pass
 3. Build zip on Linux (forward-slash paths — required for Azure Oryx)
 4. Deploy API to Azure App Service
 5. Build and deploy frontend to Azure Static Web Apps
@@ -208,6 +218,7 @@ az webapp deploy \
 | ORM | SQLAlchemy | 2.0 |
 | Migrations | Alembic | 1.13+ |
 | Validation | Pydantic | 2.13.4 |
+| File upload | python-multipart | 0.0.27 |
 | Database | PostgreSQL (Azure Flexible Server) | 16 |
 | Runtime | Python | 3.11 |
 | ASGI server | Gunicorn + UvicornWorker | — |
@@ -227,7 +238,7 @@ az webapp deploy \
 | [docs/architecture.md](docs/architecture.md) | Component diagram and networking notes |
 | [docs/runbook.md](docs/runbook.md) | Infrastructure deployment, validation, and teardown |
 | [docs/osi_security_review.md](docs/osi_security_review.md) | Layer-by-layer security analysis with gap/action list |
-| [docs/backlog.md](docs/backlog.md) | All open work items across backend, frontend, and infrastructure |
+| [docs/backlog.md](docs/backlog.md) | All open work items, session plan, and deferred items |
 | [docs/adr/](docs/adr/) | Architecture Decision Records — key decisions with rationale |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Local setup, dev workflow, and contribution guidelines |
 

@@ -18,6 +18,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ems_readykit.core.audit import write_audit_event
@@ -32,6 +33,7 @@ from ems_readykit.models.check_line_item import CheckLineItem, LineItemStatus
 from ems_readykit.models.compartment import Compartment
 from ems_readykit.models.controlled_substance_check import ControlledSubstanceCheck
 from ems_readykit.models.daily_inventory_check import DailyInventoryCheck, CheckStatus
+from ems_readykit.models.inventory_location import InventoryLocation
 from ems_readykit.models.item import Item
 from ems_readykit.models.station import Station
 from ems_readykit.models.stock_lot import StockLot
@@ -137,7 +139,19 @@ def create_daily_check(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
 ) -> DailyInventoryCheck:
-    vehicle = get_vehicle_or_404(payload.vehicle_id, db)
+    # Validate vehicle or portable location
+    if payload.vehicle_id:
+        get_vehicle_or_404(payload.vehicle_id, db)
+    else:
+        loc = db.query(InventoryLocation).filter(
+            InventoryLocation.location_id == payload.location_id
+        ).first()
+        if not loc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Location {payload.location_id} not found.")
+        if loc.station_id != payload.station_id:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Location does not belong to the specified station.")
 
     station = db.query(Station).filter(Station.station_id == payload.station_id).first()
     if not station:
@@ -238,6 +252,7 @@ def create_daily_check(
 
     check = DailyInventoryCheck(
         vehicle_id=payload.vehicle_id,
+        location_id=payload.location_id,
         station_id=payload.station_id,
         check_date=payload.check_date,
         performed_by=performed_by,
@@ -432,6 +447,59 @@ def get_station_checks_date_range(
         .order_by(DailyInventoryCheck.timestamp.desc())
         .all()
     )
+
+
+# ── Portable location checks ──────────────────────────────────────────────────
+
+@router.get(
+    "/daily/location/{location_id}",
+    response_model=List[DailyInventoryCheckRead],
+    summary="Get checks for a portable location (jump bag / equipment)",
+)
+def get_location_checks(
+    location_id: int,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
+) -> List[DailyInventoryCheck]:
+    loc = db.query(InventoryLocation).filter(
+        InventoryLocation.location_id == location_id
+    ).first()
+    if not loc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Location {location_id} not found.")
+    require_station_membership(loc.station_id, current_user, db)
+    return (
+        db.query(DailyInventoryCheck)
+        .filter(
+            DailyInventoryCheck.location_id == location_id,
+            DailyInventoryCheck.deleted_at.is_(None),
+        )
+        .order_by(DailyInventoryCheck.timestamp.desc())
+        .all()
+    )
+
+
+# ── Calendar date-range bounds ────────────────────────────────────────────────
+
+@router.get(
+    "/daily/station/{station_id}/date-range",
+    summary="Earliest check date for a station — used to bound calendar navigation",
+)
+def get_station_check_date_range(
+    station_id: int,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
+):
+    station = db.query(Station).filter(Station.station_id == station_id).first()
+    if not station:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Station {station_id} not found.")
+    require_station_membership(station_id, current_user, db)
+    earliest = db.query(func.min(DailyInventoryCheck.check_date)).filter(
+        DailyInventoryCheck.station_id == station_id,
+        DailyInventoryCheck.deleted_at.is_(None),
+    ).scalar()
+    return {"earliest": str(earliest) if earliest else None}
 
 
 # ── Controlled Substance Checks ───────────────────────────────────────────────

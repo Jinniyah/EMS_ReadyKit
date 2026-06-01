@@ -27,7 +27,7 @@ import re
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator, model_validator
 
 from ems_readykit.models.daily_inventory_check import CheckStatus
 from ems_readykit.schemas.check_line_item import CheckLineItemCreate, CheckLineItemRead
@@ -46,12 +46,19 @@ def _to_utc_str(dt: Optional[datetime]) -> Optional[str]:
 
 
 class DailyInventoryCheckBase(BaseModel):
-    vehicle_id:   int = Field(..., gt=0)
-    station_id:   int = Field(..., gt=0)
-    check_date:   str = Field(..., examples=["2026-05-23"])
+    vehicle_id:   Optional[int] = Field(default=None, gt=0)
+    location_id:  Optional[int] = Field(default=None, gt=0)
+    station_id:   int           = Field(..., gt=0)
+    check_date:   str           = Field(..., examples=["2026-05-23"])
     performed_by: Optional[str] = Field(default=None, max_length=100)
     timestamp:    datetime
     notes:        Optional[str] = Field(default=None, max_length=500)
+
+    @model_validator(mode='after')
+    def require_vehicle_or_location(self) -> 'DailyInventoryCheckBase':
+        if self.vehicle_id is None and self.location_id is None:
+            raise ValueError("Either vehicle_id or location_id must be provided.")
+        return self
 
     @field_validator("check_date")
     @classmethod

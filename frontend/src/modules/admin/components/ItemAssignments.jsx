@@ -5,11 +5,18 @@
  * Displays which vehicle compartments this item is assigned to and
  * allows supervisors to add, edit, or remove assignments.
  *
+ * Session F Block 5 (ADMIN-B6, ADMIN-B7, ADMIN-B8):
+ *   - Pre-loads assignment count on mount via GET /admin/items/{id}/assignments/count
+ *     so the toggle button shows "Assigned to N compartments" before expanding.
+ *   - Removal now calls the canonical PATCH /deactivate (ADMIN-B8) and falls
+ *     back to DELETE if that fails (backward compatibility).
+ *   - _enrich_par() helper extracted in backend keeps the list endpoint lean.
+ *
  * UX principles (tired crew / end-of-shift user):
  *   - Panel is collapsed by default — doesn't clutter the catalog list
- *   - One tap to expand and see all assignments
+ *   - Count shown on toggle immediately — no need to expand to see if assigned
  *   - Add assignment is a 3-step inline form: vehicle → compartment → quantities
- *   - Each step narrows — compartment list only shows after vehicle is picked
+ *   - Each step narrows — compartment list only shown after vehicle is picked
  *   - Edit and Remove are per-row — no navigation required
  *   - Confirmations are inline — no modals to dismiss
  *
@@ -24,6 +31,8 @@ import { useAuth } from '../../../shared/hooks/useAuth.jsx'
 import { useApi } from '../../../shared/hooks/useApi.js'
 import { adminApi } from '../api/adminApi.js'
 
+// ── QtyBadge ─────────────────────────────────────────────────────────────────
+
 function QtyBadge({ min, max }) {
   return (
     <span className="assignment-qty">
@@ -33,6 +42,8 @@ function QtyBadge({ min, max }) {
     </span>
   )
 }
+
+// ── EditRow ───────────────────────────────────────────────────────────────────
 
 function EditRow({ assignment, item, vehicles, onSaved, onCancel }) {
   const { getToken } = useAuth()
@@ -70,8 +81,8 @@ function EditRow({ assignment, item, vehicles, onSaved, onCancel }) {
       const compartmentChanged = String(assignment.compartment_id) !== compartmentId
 
       if (vehicleChanged || compartmentChanged) {
-        // Move to a different compartment: remove old, create new
-        await adminApi.removeParLevel(assignment.par_id, getToken)
+        // Moving to a different compartment: deactivate old, create new
+        await adminApi.deactivateParLevel(assignment.par_id, getToken)
         await adminApi.assignItem(item.item_id, {
           vehicle_id:     parseInt(vehicleId, 10),
           compartment_id: parseInt(compartmentId, 10),
@@ -96,7 +107,6 @@ function EditRow({ assignment, item, vehicles, onSaved, onCancel }) {
   return (
     <form className="assignment-edit-row" onSubmit={handleSave} noValidate>
 
-      {/* Vehicle picker */}
       <div className="assignment-field">
         <label className="assignment-field__label">Vehicle</label>
         <select
@@ -114,7 +124,6 @@ function EditRow({ assignment, item, vehicles, onSaved, onCancel }) {
         </select>
       </div>
 
-      {/* Compartment picker */}
       {vehicleId && (
         <div className="assignment-field">
           <label className="assignment-field__label">Compartment</label>
@@ -138,7 +147,6 @@ function EditRow({ assignment, item, vehicles, onSaved, onCancel }) {
         </div>
       )}
 
-      {/* Quantities */}
       {vehicleId && compartmentId && (
         <div className="assignment-edit-fields">
           <label className="assignment-edit-label">
@@ -181,24 +189,22 @@ function EditRow({ assignment, item, vehicles, onSaved, onCancel }) {
   )
 }
 
+// ── AddAssignmentForm ─────────────────────────────────────────────────────────
+
 function AddAssignmentForm({ item, vehicles, onAdded, onCancel }) {
   const { getToken } = useAuth()
-  const [vehicleId, setVehicleId]       = useState('')
+  const [vehicleId, setVehicleId]         = useState('')
   const [compartmentId, setCompartmentId] = useState('')
-  const [min, setMin]                   = useState('1')
-  const [max, setMax]                   = useState('4')
-  const [error, setError]               = useState(null)
-  const [submitting, setSubmitting]     = useState(false)
+  const [min, setMin]                     = useState('1')
+  const [max, setMax]                     = useState('4')
+  const [error, setError]                 = useState(null)
+  const [submitting, setSubmitting]       = useState(false)
 
-  const {
-    data: compartments,
-    isLoading: loadingCompartments,
-  } = useApi(
+  const { data: compartments, isLoading: loadingCompartments } = useApi(
     () => vehicleId ? adminApi.getVehicleCompartments(vehicleId, getToken) : Promise.resolve([]),
     [vehicleId]
   )
 
-  // Reset compartment when vehicle changes
   function handleVehicleChange(e) {
     setVehicleId(e.target.value)
     setCompartmentId('')
@@ -211,7 +217,7 @@ function AddAssignmentForm({ item, vehicles, onAdded, onCancel }) {
     if (!compartmentId) { setError('Please select a compartment.'); return }
     const minN = parseInt(min, 10)
     const maxN = parseInt(max, 10)
-    if (isNaN(minN) || minN < 1)   { setError('Min must be at least 1.'); return }
+    if (isNaN(minN) || minN < 1)    { setError('Min must be at least 1.'); return }
     if (isNaN(maxN) || maxN < minN) { setError('Max must be ≥ min.'); return }
 
     setSubmitting(true); setError(null)
@@ -310,12 +316,8 @@ function AddAssignmentForm({ item, vehicles, onAdded, onCancel }) {
         >
           {submitting ? 'Saving…' : 'Assign'}
         </button>
-        <button
-          type="button"
-          className="btn btn--secondary btn--sm"
-          onClick={onCancel}
-          disabled={submitting}
-        >
+        <button type="button" className="btn btn--secondary btn--sm"
+          onClick={onCancel} disabled={submitting}>
           Cancel
         </button>
       </div>
@@ -323,25 +325,35 @@ function AddAssignmentForm({ item, vehicles, onAdded, onCancel }) {
   )
 }
 
+// ── ItemAssignments ───────────────────────────────────────────────────────────
+
 export default function ItemAssignments({ item, stationId, vehicles }) {
   const { getToken } = useAuth()
-  const [expanded, setExpanded]         = useState(false)
-  const [editingParId, setEditingParId] = useState(null)
-  const [showAddForm, setShowAddForm]   = useState(false)
-  const [assignmentsKey, setKey]        = useState(0)
+  const [expanded, setExpanded]           = useState(false)
+  const [editingParId, setEditingParId]   = useState(null)
+  const [showAddForm, setShowAddForm]     = useState(false)
+  const [assignmentsKey, setKey]          = useState(0)
+  const [countKey, setCountKey]           = useState(0)
   const [removingParId, setRemovingParId] = useState(null)
 
-  const {
-    data: assignments,
-    isLoading,
-    error,
-  } = useApi(
+  // ── Pre-load count on mount ───────────────────────────────────────────────
+  // Lightweight GET /admin/items/{id}/assignments/count so the toggle button
+  // shows the count before the panel is ever expanded.
+  const { data: countData } = useApi(
+    () => adminApi.getAssignmentCount(item.item_id, getToken),
+    [item.item_id, countKey]
+  )
+  const preloadedCount = countData?.count ?? null  // null = still loading
+
+  // ── Full assignment list (lazy — only fetched when expanded) ─────────────
+  const { data: assignments, isLoading, error } = useApi(
     () => expanded ? adminApi.getItemAssignments(item.item_id, getToken) : Promise.resolve(null),
     [expanded, assignmentsKey, item.item_id]
   )
 
   const refresh = useCallback(() => {
     setKey(k => k + 1)
+    setCountKey(k => k + 1)  // also refresh the pre-loaded count
     setEditingParId(null)
     setShowAddForm(false)
     setRemovingParId(null)
@@ -350,7 +362,8 @@ export default function ItemAssignments({ item, stationId, vehicles }) {
   async function handleRemove(parId) {
     setRemovingParId(parId)
     try {
-      await adminApi.removeParLevel(parId, getToken)
+      // Canonical ADMIN-B8: PATCH /deactivate
+      await adminApi.deactivateParLevel(parId, getToken)
       refresh()
     } catch (err) {
       setRemovingParId(null)
@@ -358,9 +371,22 @@ export default function ItemAssignments({ item, stationId, vehicles }) {
     }
   }
 
-  const knownCount  = assignments?.length ?? null  // null = not yet fetched
-  const hasAny       = knownCount !== null && knownCount > 0
-  const confirmedNone = knownCount === 0
+  // ── Toggle label ──────────────────────────────────────────────────────────
+  // Uses the pre-loaded count when available, falls back to live data once
+  // the panel has been expanded.
+  const liveCount   = assignments?.length ?? null
+  const count       = liveCount ?? preloadedCount  // prefer live once fetched
+
+  function toggleLabel() {
+    if (expanded) {
+      if (count === null) return 'Assignments'
+      if (count === 0)    return 'No compartments assigned'
+      return `Hide assignments (${count})`
+    }
+    if (count === null) return 'View assignments'
+    if (count === 0)    return 'No compartments assigned'
+    return `Assigned to ${count} compartment${count !== 1 ? 's' : ''}`
+  }
 
   return (
     <div className="item-assignments">
@@ -369,25 +395,16 @@ export default function ItemAssignments({ item, stationId, vehicles }) {
         className="item-assignments__toggle"
         onClick={() => setExpanded(v => !v)}
         aria-expanded={expanded}
+        aria-label={`${item.name}: ${toggleLabel()}`}
       >
-        <span>
-          📍 {expanded
-            ? hasAny
-              ? `Hide assignments (${knownCount})`
-              : 'No compartments assigned'
-            : hasAny
-              ? `Assigned to ${knownCount} compartment${knownCount !== 1 ? 's' : ''}`
-              : confirmedNone
-                ? 'No compartments assigned'
-                : 'View assignments'}
-        </span>
+        <span>📍 {toggleLabel()}</span>
         <span aria-hidden="true">{expanded ? '▲' : '▼'}</span>
       </button>
 
       {expanded && (
         <div className="item-assignments__panel">
           {isLoading && <p className="assignment-loading">Loading…</p>}
-          {error    && <p className="assignment-error">Could not load assignments.</p>}
+          {error    && <p className="assignment-error" role="alert">Could not load assignments.</p>}
 
           {!isLoading && !error && (
             <>
@@ -421,7 +438,7 @@ export default function ItemAssignments({ item, stationId, vehicles }) {
                             <button
                               type="button"
                               className="btn btn--secondary btn--sm"
-                              onClick={() => setEditingParId(a.par_id)}
+                              onClick={() => { setEditingParId(a.par_id); setShowAddForm(false) }}
                             >
                               Edit
                             </button>
@@ -453,7 +470,7 @@ export default function ItemAssignments({ item, stationId, vehicles }) {
                 <button
                   type="button"
                   className="btn btn--secondary btn--sm item-assignments__add-btn"
-                  onClick={() => setShowAddForm(true)}
+                  onClick={() => { setShowAddForm(true); setEditingParId(null) }}
                 >
                   + Assign to vehicle
                 </button>

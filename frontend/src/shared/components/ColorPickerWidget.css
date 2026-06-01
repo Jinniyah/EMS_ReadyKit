@@ -1,0 +1,97 @@
+/**
+ * shared/components/ColorPickerWidget.css
+ *
+ * Styles for the 12-color accessible swatch palette (S-F2).
+ * Uses only design tokens from index.css — no hardcoded colours except the
+ * swatch backgrounds which come from the palette itself.
+ */
+
+.color-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.color-picker__label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.color-picker__swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ── Individual swatch ───────────────────────────────────────────────────── */
+
+.color-picker__swatch {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  border: 2px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 100ms ease, box-shadow 100ms ease, border-color 100ms ease;
+  /* Remove default button styles */
+  padding: 0;
+  outline: none;
+}
+
+.color-picker__swatch:hover:not(:disabled) {
+  transform: scale(1.12);
+  box-shadow: var(--shadow-md);
+}
+
+.color-picker__swatch:focus-visible {
+  outline: 3px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.color-picker__swatch:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Selected ring — works on any background colour */
+.color-picker__swatch--selected {
+  border-color: var(--color-text);
+  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-text);
+}
+
+/* ── Check mark on selected coloured swatch ──────────────────────────────── */
+
+.color-picker__check {
+  font-size: 14px;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.7);
+  line-height: 1;
+  pointer-events: none;
+}
+
+/* ── "Inherit" (×) chip ──────────────────────────────────────────────────── */
+
+.color-picker__swatch--inherit {
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.color-picker__swatch--inherit:hover:not(:disabled) {
+  border-color: var(--color-text-secondary);
+  color: var(--color-text);
+}
+
+.color-picker__swatch--inherit.color-picker__swatch--selected {
+  border-color: var(--color-text);
+  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-text);
+  color: var(--color-text);
+}

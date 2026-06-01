@@ -1,5 +1,5 @@
 # EMS ReadyKit — Completed Items
-# Last updated: 2026-05-29
+# Last updated: 2026-06-01
 
 ---
 
@@ -281,3 +281,162 @@ Real users can now be added — no station can see another station's data.
 | `test_responder_cannot_view_daily_check_detail_returns_403` | Added membership for submission; added assertion on submission status |
 
 New `_add_member(db, station_id, user_email, role)` helper added to `test_routers.py`.
+
+---
+
+## Session D — Features (2026-05-29)
+
+200+ tests pass, 0 warnings.
+
+### B-E3 — Date-Range Compliance Query
+| # | Item | Completed |
+|---|------|-----------|
+| B-E3 | `GET /checks/daily/station/{id}?from=&to=` — date-range compliance query, 90-day max, station membership enforced | 2026-05-29 |
+
+### VE-F5 — Open Issue Badge
+| # | Item | Completed |
+|---|------|-----------|
+| VE-F5 | Open issue badge on V&E Status home card — red pill for unresolved repair requests | 2026-05-29 |
+| VE-F5b | Vehicle card badge on mount — repair list fetched eagerly so count shows without expanding | 2026-05-29 |
+
+### CH-UX1 — Unified Check Resolution
+| # | Item | Completed |
+|---|------|-----------|
+| CH-UX1-F1 | `IFixedThisPanel` added to `CheckDetail.jsx`; calls `supervisorApi.resolveFailedItems` | 2026-05-29 |
+| CH-UX1-F2 | Shared `ResolutionTag` + `getResolutionState` in `shared/components/` | 2026-05-29 |
+| CH-UX1-F3 | Resolution state shown in check detail summary header | 2026-05-29 |
+| CH-UX1-F4 | Compliance Dashboard uses same shared panel | 2026-05-29 |
+| CH-UX1-F5 | Check list rows use `ResolutionTag` instead of plain ✓ | 2026-05-29 |
+
+### B-R — Repair Request Workflow Bug Fixes
+| # | Item | Completed |
+|---|------|-----------|
+| B-R1 | Wrong modal on "Mark In Progress" — now opens lightweight `InProgressModal`, not Resolve dialog | 2026-05-29 |
+| B-R2 | "Mark Resolved" button non-functional — fixed as part of B-R1 split | 2026-05-29 |
+| F-R1 | New `InProgressModal` — optional note, no resolution required, available to all roles | 2026-05-29 |
+
+### D-R1 — Documentation Audit
+| # | Item | Completed |
+|---|------|-----------|
+| D-R1 | README rewritten with feature list; `project_index.md` rewritten as lean technical reference; 14 stale files archived; 20 doc files reduced to 7 | 2026-05-29 |
+
+---
+
+## Session E — Admin Redesign, Item Catalog & Vehicle Management (2026-05-30)
+
+200+ tests pass, 0 warnings. 0 CVEs.
+
+### ADMIN-UX1 — Admin Screen Redesign (Option B)
+| # | Item | Completed |
+|---|------|-----------|
+| ADMIN-UX1-F1 | `AdminScreen` redesigned — station header + 3 nav cards (Members, Item Catalog, Vehicles) | 2026-05-30 |
+| ADMIN-UX1-F2 | `MembersScreen` — extracted to full-screen sub-screen with Back navigation | 2026-05-30 |
+| ADMIN-UX1-F3 | `ItemCatalog` — rendered as full-screen sub-screen | 2026-05-30 |
+| ADMIN-UX1-F4 | `VehiclesScreen` — new full-screen vehicle + compartment management | 2026-05-30 |
+| ADMIN-UX1-F5 | Add vehicle inline form — vehicle number, type (ALS/BLS/QRV) | 2026-05-30 |
+| ADMIN-UX1-F6 | Vehicle card with expandable compartment list | 2026-05-30 |
+| ADMIN-UX1-F7 | Add/edit compartment inline form — name, descriptor, sort order, restriction note | 2026-05-30 |
+| ADMIN-UX1-F8 | Station selector — plain header (1 station), stacked cards (2–3), search (4+) | 2026-05-30 |
+| ADMIN-UX1-B1 | `PATCH /inventory/compartments/{id}` — edit compartment (Supervisor+) | 2026-05-30 |
+
+### ADMIN-B — Item Catalog Endpoints
+| # | Item | Completed |
+|---|------|-----------|
+| ADMIN-B1 | `GET /admin/items` — list with category/check_type/active filters | 2026-05-30 |
+| ADMIN-B2 | `POST /admin/items` — create item with AI fields | 2026-05-30 |
+| ADMIN-B3 | `PATCH /admin/items/{id}` — edit item | 2026-05-30 |
+| ADMIN-B4 | `PATCH /admin/items/{id}/deactivate` — soft-deactivate (Admin only) | 2026-05-30 |
+| ADMIN-B5 | `GET /admin/items/search?q=` — typeahead across name, alternate_names, ai_tags | 2026-05-30 |
+| ADMIN-B6 | `POST /admin/items/{id}/assign` — assign item to vehicle compartment | 2026-05-30 |
+| ADMIN-B7 | `PATCH /admin/par-levels/{id}` — edit min/max quantities | 2026-05-30 |
+| ADMIN-B8 | `DELETE /admin/par-levels/{id}` — soft-remove assignment (Supervisor+) | 2026-05-30 |
+| ADMIN-B9 | `GET /admin/items/{id}/assignments` — enriched assignments with vehicle/compartment names | 2026-05-30 |
+| ADMIN-B10 | `GET /admin/vehicles/{id}/compartments` — compartment cascade picker | 2026-05-30 |
+| ADMIN-B17 | `POST /admin/items/import` — CSV bulk import; BOM-safe; 2MB/1000 row limit | 2026-05-30 |
+| ADMIN-B18 | `GET /admin/items/import/template` — download CSV template with 5 example rows | 2026-05-30 |
+
+### ADMIN-F — Item Catalog Frontend
+| # | Item | Completed |
+|---|------|-----------|
+| ADMIN-F1 | Admin home — Option B nav cards | 2026-05-30 |
+| ADMIN-F2 | Item catalog list — grouped by category, search bar, category chips | 2026-05-30 |
+| ADMIN-F3 | Add/edit item form — progressive disclosure by check type, AI fields collapsible | 2026-05-30 |
+| ADMIN-F4 | Par level assignment panel — vehicle/compartment cascade, inline edit/remove | 2026-05-30 |
+| ADMIN-F5 | Compartment editor — inline in VehiclesScreen | 2026-05-30 |
+| ADMIN-F11 | CSV import UI — 3-step flow, template download, results with row-level errors | 2026-05-30 |
+
+### Migrations
+| # | Item | Completed |
+|---|------|-----------|
+| 0009 | `items` table: add `ai_tags`, `alternate_names`, `reference_image_url`, `barcode` (AI foundation) | 2026-05-30 |
+| 0010 | `par_levels` table: add `active` flag with index | 2026-05-30 |
+
+### Bug Fixes (Session E)
+| Item | Detail | Completed |
+|------|--------|-----------|
+| Check wizard 403 | `getLocations` now passes `stationId` — Supervisors were getting 403 on compartments step | 2026-05-30 |
+| Sort order input | `parseInt(...) \|\| 0` replaced with `isNaN` check — typing `2` was sending `0` | 2026-05-30 |
+| Station selection on Back | Station picker state lifted to `AdminScreen` — selection now persists through sub-screen navigation | 2026-05-30 |
+| OOS reason form | "Mark Out of Service" now shows inline reason form before firing API | 2026-05-30 |
+| RTS optional note | "Return to Service" now shows optional note form for symmetry | 2026-05-30 |
+| Vehicle card red border | `.admin-vehicle-card--inactive` changed from `opacity: 0.7` to `border: 2px solid #ef4444` | 2026-05-30 |
+| Repair list for Responders | `GET /vehicles/{id}/repair-requests` opened to ALL_ROLES; Responders can see vehicle status | 2026-05-30 |
+| Check History FAIL default | Check History defaults to All Checks + FAIL filter for Supervisors | 2026-05-30 |
+| Check History auto-refresh | Both lists refetch when returning from check detail via Back | 2026-05-30 |
+| Check History refactor | Removed "I Fixed This" — Check History is now read-only record; Go to V&E Status banner on FAILs | 2026-05-30 |
+| ResolutionTag removed | Tag removed from Check History ("fixed" state was unreachable after removing I Fixed This) | 2026-05-30 |
+| V&E banner layout | Banner changed to column layout — text on top, button below; no squishing on small screens | 2026-05-30 |
+| Check notes for all roles | `PATCH /checks/daily/{id}/acknowledge` opened to ALL_ROLES; Responders can note own checks only | 2026-05-30 |
+| Repair note pencil | Edit notes button added to repair request cards; harmonised ✏ icon with check wizard | 2026-05-30 |
+| Consistent button styles | `btn--ghost` replaced with `btn--secondary`/`btn--primary` throughout repair request cards | 2026-05-30 |
+| python-multipart | Added missing dependency `python-multipart==0.0.27` for `UploadFile` / CSV import | 2026-05-30 |
+
+---
+
+## Session F — Station Setup, Compliance Calendar & Par Levels (2026-05-30 → 2026-06-01)
+
+217 tests pass, 0 warnings. 0 CVEs. All Block 5 UAT test cases pass.
+
+### Block 1 — Color System (B-M11, NEW-M1, S-F2, ADMIN-UX1-V)
+| # | Item | Completed |
+|---|------|-----------|
+| B-M11 | Migration 0011: `primary_color` (VARCHAR 7) on `stations` | 2026-05-30 |
+| NEW-M1 | Migration 0011: `vehicle_color` (VARCHAR 7) on `vehicles` | 2026-05-30 |
+| S-F2 | `ColorPickerWidget` — shared swatch picker with inherit (×) option | 2026-05-30 |
+| ADMIN-UX1-V | Vehicle color picker inline in VehiclesScreen; PATCH /admin/vehicles/{id}/color | 2026-05-30 |
+
+### Block 2 — Add Station (ADMIN-B15, ADMIN-UX1-F9)
+| # | Item | Completed |
+|---|------|-----------|
+| NEW-M2 | Migration 0012: `call_sign` (VARCHAR 20, nullable) on `stations` | 2026-05-30 |
+| ADMIN-B15 | `POST /admin/stations` — create station; auto-adds creator as Administrator member | 2026-05-30 |
+| ADMIN-UX1-F9 | "+ Add Station" link in admin hub → inline station creation form with color picker | 2026-05-30 |
+
+### Block 3 — Compliance Calendar (F-5F2)
+| # | Item | Completed |
+|---|------|-----------|
+| F-5F2 | `ComplianceCalendar.jsx` — 90-day rolling calendar; per-vehicle color rows; tap day → CheckDetailPanel | 2026-05-30 |
+| — | Migration 0013: `vehicle_id` nullable on `daily_inventory_checks`; adds `location_id` FK for portable checks | 2026-05-30 |
+
+### Block 4 — Last Check Banner (F-UX7)
+| # | Item | Completed |
+|---|------|-----------|
+| F-UX7 | `LastCheckBanner.jsx` — last check status + date shown on home screen; lazy-loaded | 2026-05-30 |
+
+### Block 5 — Par Level Assignment UI (ADMIN-F4a/b/c, ADMIN-B6/B7/B8)
+| # | Item | Completed |
+|---|------|-----------|
+| ADMIN-F4a | Par level count shown on item card toggle before expanding | 2026-05-30 |
+| ADMIN-F4b | "Assign to Vehicle" inline form — vehicle → compartment cascade → min/max quantities | 2026-05-30 |
+| ADMIN-F4c | Edit (quantities) and Remove (soft-deactivate) per assignment row | 2026-05-30 |
+| ADMIN-B6 | `POST /admin/items/{id}/assign` — assign item to compartment (Supervisor+) | 2026-05-30 |
+| ADMIN-B7 | `PATCH /admin/par-levels/{id}` — edit min/max quantities (Supervisor+) | 2026-05-30 |
+| ADMIN-B8 | `PATCH /admin/par-levels/{id}/deactivate` — soft-remove assignment (Supervisor+) | 2026-05-30 |
+| — | `GET /admin/compartments/{id}/assignments` — vehicle-centric par level view; item_name + item_check_type enriched | 2026-06-01 |
+| — | `CompartmentParLevels.jsx` — collapsible per-compartment item list with add/edit/remove inline | 2026-06-01 |
+| — | VehiclesScreen compartment rows: stacked layout (name+Edit top row, par levels panel below); 48px tap targets | 2026-06-01 |
+
+### Block 6 — UAT Document (UAT-1)
+| # | Item | Completed |
+|---|------|-----------|
+| UAT-1 | `docs/uat_test_cases.md` — full UAT script covering Responder, Supervisor, Administrator, cross-role, and edge-case scenarios | 2026-05-30 |

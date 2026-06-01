@@ -12,6 +12,8 @@ Design decisions:
   The router validates the station exists before persisting.
 - inactive_reason and inactive_since are set by PATCH /vehicles/{id} (Supervisor+)
   when flipping active to False. They are read-only on the response.
+- vehicle_color (NEW-M1): optional #rrggbb hex, nullable.
+  Null = inherit station.primary_color in the frontend.
 """
 
 from __future__ import annotations
@@ -19,9 +21,20 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ems_readykit.models.vehicle import VehicleType
+
+
+# ── Hex color validator (shared with station schema) ─────────────────────────
+
+def _validate_hex_color(v: Optional[str]) -> Optional[str]:
+    """Accept None or a valid 7-char CSS hex color (#rrggbb)."""
+    if v is None:
+        return v
+    if len(v) != 7 or v[0] != '#' or not all(c in '0123456789abcdefABCDEF' for c in v[1:]):
+        raise ValueError("color must be a 7-character hex string, e.g. '#1a3a5c'")
+    return v.lower()
 
 
 class VehicleBase(BaseModel):
@@ -51,7 +64,16 @@ class VehicleBase(BaseModel):
 
 class VehicleCreate(VehicleBase):
     """Request body for POST /vehicles."""
-    pass
+    vehicle_color: Optional[str] = Field(
+        default=None,
+        max_length=7,
+        description="Optional #rrggbb color. Null = inherit station color.",
+    )
+
+    @field_validator("vehicle_color", mode="before")
+    @classmethod
+    def validate_color(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_hex_color(v)
 
 
 class VehicleUpdate(BaseModel):
@@ -67,18 +89,39 @@ class VehicleUpdate(BaseModel):
     )
 
 
+class VehicleDetailsUpdate(BaseModel):
+    """Request body for PATCH /admin/vehicles/{id}/details (Admin only)."""
+    vehicle_number: str = Field(..., min_length=1, max_length=20)
+    vehicle_type: VehicleType
+
+
+class VehicleColorUpdate(BaseModel):
+    """Request body for PATCH /admin/vehicles/{id}/color (ADMIN-UX1-V)."""
+    vehicle_color: Optional[str] = Field(
+        default=None,
+        max_length=7,
+        description="#rrggbb color, or null to clear (inherit station color).",
+    )
+
+    @field_validator("vehicle_color", mode="before")
+    @classmethod
+    def validate_color(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_hex_color(v)
+
+
 class VehicleRead(VehicleBase):
     """
     Response model for vehicle endpoints.
     Includes DB-generated fields, the computed requires_controlled_substance_check
-    property, and the inactive metadata fields.
+    property, and the inactive / color metadata fields.
     """
 
     model_config = ConfigDict(from_attributes=True)
 
-    vehicle_id:      int
+    vehicle_id:     int
     inactive_reason: Optional[str]
     inactive_since:  Optional[datetime]
+    vehicle_color:   Optional[str]
     created_at:      datetime
     updated_at:      datetime
 
