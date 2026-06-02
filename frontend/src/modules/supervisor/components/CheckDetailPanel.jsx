@@ -2,10 +2,8 @@
  * components/CheckDetailPanel.jsx
  * Full check detail for supervisors — F-5F3, F-5F4, F-5F5.
  *
- * "I Fixed This" is independent of acknowledgement.
- * A supervisor can acknowledge with a note AND still come back to fix items.
- * The button stays visible as long as there are unresolved fail items
- * and the check hasn't been marked fixed (localFixed).
+ * Read-only + comments only. Repairs and formal acknowledgement
+ * happen from the Compliance Dashboard (V&E module), not here.
  */
 
 import React, { useState } from 'react'
@@ -60,7 +58,7 @@ function LineItemMeta({ li }) {
   )
 }
 
-function AcknowledgeForm({ checkId, existing, onDone, onCancel }) {
+function CommentForm({ checkId, existing, onDone, onCancel }) {
   const { getToken } = useAuth()
   const [notes, setNotes]         = useState(existing ?? '')
   const [isSubmitting, setSubmit] = useState(false)
@@ -68,7 +66,7 @@ function AcknowledgeForm({ checkId, existing, onDone, onCancel }) {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (notes.trim().length < 5) { setError('Please provide at least 5 characters.'); return }
+    if (notes.trim().length < 5) { setError('Please enter at least 5 characters.'); return }
     setSubmit(true); setError(null)
     try {
       await supervisorApi.acknowledgeCheck(checkId, notes.trim(), getToken)
@@ -82,18 +80,18 @@ function AcknowledgeForm({ checkId, existing, onDone, onCancel }) {
 
   return (
     <form className="cdp-ack-form" onSubmit={handleSubmit} noValidate>
-      <h4 className="cdp-ack-form__title">Record Corrective Action</h4>
+      <h4 className="cdp-ack-form__title">Add Comment</h4>
       <textarea
         className="cdp-ack-form__textarea"
         value={notes}
         onChange={e => setNotes(e.target.value)}
-        placeholder="Describe what corrective action was taken or is planned…"
+        placeholder="Add a comment about this check…"
         rows={3}
         maxLength={500}
       />
       {error && <div className="cdp-ack-form__error" role="alert">{error}</div>}
       <button type="submit" className="btn btn--primary btn--full" disabled={isSubmitting}>
-        {isSubmitting ? 'Saving…' : 'Save Note'}
+        {isSubmitting ? 'Saving…' : 'Save Comment'}
       </button>
       {onCancel && (
         <button type="button" className="btn btn--secondary btn--full"
@@ -105,94 +103,21 @@ function AcknowledgeForm({ checkId, existing, onDone, onCancel }) {
   )
 }
 
-function IFixedThisForm({ checkId, vehicleId, failItems, onDone, onCancel }) {
-  const { getToken } = useAuth()
-  const [notes, setNotes]         = useState('')
-  const [isSubmitting, setSubmit] = useState(false)
-  const [error, setError]         = useState(null)
-
-  const failSummary = failItems.map(li => li.item_name ?? `Item #${li.item_id}`).join(', ')
-
-  async function handleSubmit(e) {
-    e.preventDefault()
-    if (notes.trim().length < 5) { setError('Please describe what you did (at least 5 characters).'); return }
-    setSubmit(true); setError(null)
-    try {
-      await supervisorApi.resolveFailedItems(checkId, vehicleId, notes.trim(), getToken)
-      onDone()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSubmit(false)
-    }
-  }
-
-  return (
-    <form className="cdp-fix-form" onSubmit={handleSubmit} noValidate>
-      <h4 className="cdp-fix-form__title">✓ I Fixed This</h4>
-      <p className="cdp-fix-form__body">
-        Describe what you did to resolve the failed items. This will be recorded
-        as a resolved repair request and the check will be acknowledged.
-        <br />
-        <strong>The original FAIL record is preserved for compliance.</strong>
-        {' '}The next check starts fresh.
-      </p>
-      {failSummary && (
-        <div className="cdp-fix-form__items">
-          <span className="cdp-fix-form__items-label">Failed items:</span>
-          <span>{failSummary}</span>
-        </div>
-      )}
-      <textarea
-        className="cdp-fix-form__textarea"
-        value={notes}
-        onChange={e => setNotes(e.target.value)}
-        placeholder="e.g. Replaced AED battery, restocked oxygen, swapped broken BP cuff with spare…"
-        rows={3}
-        maxLength={500}
-        autoFocus
-      />
-      {error && <div className="cdp-fix-form__error" role="alert">{error}</div>}
-      <button type="submit" className="btn btn--primary btn--full" disabled={isSubmitting}>
-        {isSubmitting ? 'Saving…' : '✓ Confirm Fix & Close'}
-      </button>
-      <button type="button" className="btn btn--secondary btn--full"
-        onClick={onCancel} disabled={isSubmitting}>
-        Cancel
-      </button>
-    </form>
-  )
-}
-
 export default function CheckDetailPanel({ checkSummary, vehicleId, vehicleNumber, onBack }) {
   const { getToken } = useAuth()
-  const [activePanel, setActivePanel] = useState(null) // 'acknowledge' | 'fix' | null
-  const [localFixed, setLocalFixed]   = useState(false)
+  const [activePanel, setActivePanel] = useState(null) // 'comment' | null
 
   const { data: check, isLoading, error, refetch } = useApi(
     () => supervisorApi.getCheckDetail(checkSummary.check_id, getToken),
     [checkSummary.check_id]
   )
 
-  const statusMeta     = STATUS_META[check?.status] ?? STATUS_META.PASS
-  const isAcknowledged = !!check?.reviewed_at
+  const statusMeta  = STATUS_META[check?.status] ?? STATUS_META.PASS
+  const hasComment  = !!check?.corrective_action
 
   const failItems = (check?.line_items ?? []).filter(li =>
     ['FAIL', 'MISSING', 'EXPIRED', 'OVERDUE', 'SHORT', 'LOW'].includes(li.status)
   )
-
-  // "I Fixed This" is available as long as:
-  // - there are fail items
-  // - the supervisor hasn't already fixed it this session
-  // It is INDEPENDENT of acknowledgement — a supervisor can add a note
-  // and still come back to close the fix later.
-  const canFix = failItems.length > 0 && !localFixed
-
-  function handleFixDone() {
-    setLocalFixed(true)
-    setActivePanel(null)
-    refetch()
-  }
 
   function handleAckDone() {
     setActivePanel(null)
@@ -253,31 +178,13 @@ export default function CheckDetailPanel({ checkSummary, vehicleId, vehicleNumbe
             )}
           </div>
 
-          {/* Fixed confirmation */}
-          {localFixed && (
-            <div className="cdp__resolved-banner" role="status">
-              ✓ Fixed and recorded — the next check starts fresh
-            </div>
-          )}
-
-          {/* Existing acknowledgement */}
-          {isAcknowledged && activePanel !== 'acknowledge' && (
+          {/* Existing comment */}
+          {hasComment && activePanel !== 'comment' && (
             <div className="cdp__ack print-section">
-              <div className="cdp__ack-header">
-                <span className="cdp__ack-icon">✓</span>
-                <div>
-                  <div className="cdp__ack-title">Acknowledged</div>
-                  <div className="cdp__ack-meta">
-                    {check.reviewed_by} · {formatDateTime(check.reviewed_at)}
-                  </div>
-                </div>
-              </div>
-              {check.corrective_action && (
-                <p className="cdp__ack-notes">{check.corrective_action}</p>
-              )}
+              <p className="cdp__ack-notes">{check.corrective_action}</p>
               <button className="btn btn--secondary btn--sm no-print"
-                onClick={() => setActivePanel('acknowledge')} type="button">
-                Update Note
+                onClick={() => setActivePanel('comment')} type="button">
+                Edit Comment
               </button>
             </div>
           )}
@@ -299,60 +206,20 @@ export default function CheckDetailPanel({ checkSummary, vehicleId, vehicleNumbe
                   )
                 })}
               </ul>
-
-              {/* Action buttons — always visible while fail items exist */}
-              {canFix && (
-                <div className="cdp__fail-actions no-print">
-                  <button
-                    className="btn btn--primary btn--full"
-                    onClick={() => setActivePanel('fix')}
-                    type="button"
-                  >
-                    ✓ I Fixed This — Record Resolution
-                  </button>
-                  {!isAcknowledged && (
-                    <button
-                      className="btn btn--secondary btn--full"
-                      onClick={() => setActivePanel('acknowledge')}
-                      type="button"
-                    >
-                      Add Note Only (not yet fixed)
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Already fixed confirmation inline */}
-              {localFixed && (
-                <div className="cdp__fail-resolved">
-                  ✓ Resolution recorded
-                </div>
-              )}
             </div>
           )}
 
-          {/* Acknowledge button for checks that need a note but no fail items */}
-          {!isAcknowledged && failItems.length === 0 &&
-           check.status !== 'PASS' && activePanel === null && (
-            <button className="btn btn--primary btn--full no-print"
-              onClick={() => setActivePanel('acknowledge')} type="button">
-              ✓ Acknowledge &amp; Record Corrective Action
+          {/* Add comment button */}
+          {!hasComment && activePanel === null && (
+            <button className="btn btn--secondary btn--full no-print"
+              onClick={() => setActivePanel('comment')} type="button">
+              Add Comment
             </button>
           )}
 
-          {/* Inline panels */}
-          {activePanel === 'fix' && (
-            <IFixedThisForm
-              checkId={check.check_id}
-              vehicleId={vehicleId ?? check.vehicle_id}
-              failItems={failItems}
-              onDone={handleFixDone}
-              onCancel={() => setActivePanel(null)}
-            />
-          )}
-
-          {activePanel === 'acknowledge' && (
-            <AcknowledgeForm
+          {/* Inline comment form */}
+          {activePanel === 'comment' && (
+            <CommentForm
               checkId={check.check_id}
               existing={check.corrective_action}
               onDone={handleAckDone}

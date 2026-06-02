@@ -154,3 +154,4 @@ class ItemRead(ItemBase):
     item_id: int
     created_at: datetime
     updated_at: datetime
+    assignment_count: int = 0

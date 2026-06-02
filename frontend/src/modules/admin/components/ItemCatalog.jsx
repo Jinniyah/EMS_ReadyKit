@@ -242,6 +242,7 @@ export default function ItemCatalog({ stationId }) {
                       item={item}
                       stationId={stationId}
                       vehicles={vehicles ?? []}
+                      initialCount={item.assignment_count ?? 0}
                     />
                   </div>
                 )

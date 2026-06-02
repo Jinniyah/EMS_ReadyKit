@@ -327,23 +327,13 @@ function AddAssignmentForm({ item, vehicles, onAdded, onCancel }) {
 
 // ── ItemAssignments ───────────────────────────────────────────────────────────
 
-export default function ItemAssignments({ item, stationId, vehicles }) {
+export default function ItemAssignments({ item, stationId, vehicles, initialCount = null }) {
   const { getToken } = useAuth()
   const [expanded, setExpanded]           = useState(false)
   const [editingParId, setEditingParId]   = useState(null)
   const [showAddForm, setShowAddForm]     = useState(false)
   const [assignmentsKey, setKey]          = useState(0)
-  const [countKey, setCountKey]           = useState(0)
   const [removingParId, setRemovingParId] = useState(null)
-
-  // ── Pre-load count on mount ───────────────────────────────────────────────
-  // Lightweight GET /admin/items/{id}/assignments/count so the toggle button
-  // shows the count before the panel is ever expanded.
-  const { data: countData } = useApi(
-    () => adminApi.getAssignmentCount(item.item_id, getToken),
-    [item.item_id, countKey]
-  )
-  const preloadedCount = countData?.count ?? null  // null = still loading
 
   // ── Full assignment list (lazy — only fetched when expanded) ─────────────
   const { data: assignments, isLoading, error } = useApi(
@@ -353,7 +343,6 @@ export default function ItemAssignments({ item, stationId, vehicles }) {
 
   const refresh = useCallback(() => {
     setKey(k => k + 1)
-    setCountKey(k => k + 1)  // also refresh the pre-loaded count
     setEditingParId(null)
     setShowAddForm(false)
     setRemovingParId(null)
@@ -372,10 +361,10 @@ export default function ItemAssignments({ item, stationId, vehicles }) {
   }
 
   // ── Toggle label ──────────────────────────────────────────────────────────
-  // Uses the pre-loaded count when available, falls back to live data once
-  // the panel has been expanded.
-  const liveCount   = assignments?.length ?? null
-  const count       = liveCount ?? preloadedCount  // prefer live once fetched
+  // Uses the count embedded in the item list response, then switches to live
+  // data once the panel has been expanded.
+  const liveCount = assignments?.length ?? null
+  const count     = liveCount ?? initialCount
 
   function toggleLabel() {
     if (expanded) {

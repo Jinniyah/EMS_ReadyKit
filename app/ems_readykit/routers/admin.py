@@ -42,7 +42,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -164,12 +164,28 @@ def list_items(
     active:     Optional[bool]          = Query(default=True),
     db: Session = Depends(get_db),
     _: None = Depends(require_role(*SUPERVISOR_PLUS)),
-) -> List[Item]:
-    q = db.query(Item)
+) -> List[Dict]:
+    # Subquery: active par-level count per item — avoids N+1 count requests.
+    count_sq = (
+        db.query(ParLevel.item_id, func.count(ParLevel.par_id).label("cnt"))
+        .filter(ParLevel.active.is_(True))
+        .group_by(ParLevel.item_id)
+        .subquery()
+    )
+    q = (
+        db.query(Item, func.coalesce(count_sq.c.cnt, 0).label("assignment_count"))
+        .outerjoin(count_sq, Item.item_id == count_sq.c.item_id)
+    )
     if category   is not None: q = q.filter(Item.category   == category)
     if check_type is not None: q = q.filter(Item.check_type == check_type)
     if active     is not None: q = q.filter(Item.active     == active)
-    return q.order_by(Item.category, Item.name).all()
+    rows = q.order_by(Item.category, Item.name).all()
+    result = []
+    for item, cnt in rows:
+        d = ItemRead.model_validate(item).model_dump()
+        d["assignment_count"] = int(cnt)
+        result.append(d)
+    return result
 
 
 # ── ADMIN-B1 (search): Typeahead ──────────────────────────────────────────────
