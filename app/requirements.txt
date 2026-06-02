@@ -31,9 +31,9 @@ python-json-logger==2.0.7
 python-dateutil==2.9.0
 
 # Authentication — Azure AD JWT validation
-# PyJWT 2.12.0 — fixes PYSEC-2026-120, PYSEC-2025-183
+# PyJWT 2.13.0 — fixes PYSEC-2026-175/176/177/178/179 (2026-06-02)
 # cryptography 46.0.7 — fixes PYSEC-2026-36 (buffer overflow, non-contiguous buffers)
-PyJWT[crypto]==2.12.0
+PyJWT[crypto]==2.13.0
 cryptography==46.0.7
 httpx==0.27.0            # JWKS fetch + ASGI test client for FastAPI
 
