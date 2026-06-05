@@ -72,9 +72,26 @@ export default function ItemRow({
 
   const currentQty = draftItem?.quantity_found ?? 0
 
-  const handleIncrement  = useCallback(() => persist({ quantity_found: currentQty + 1, confirmed: false }), [persist, currentQty])
-  const handleDecrement  = useCallback(() => persist({ quantity_found: Math.max(0, currentQty - 1), confirmed: false }), [persist, currentQty])
-  const handleSetQty     = useCallback((val) => { const n = parseInt(val, 10); if (!isNaN(n) && n >= 0) persist({ quantity_found: n, confirmed: false }) }, [persist])
+  const handleIncrement  = useCallback(() => {
+    const newQty = currentQty + 1
+    const atPar  = quantityNeeded > 0 && newQty === quantityNeeded
+    persist({ quantity_found: newQty, confirmed: atPar })
+    if (atPar && navigator.vibrate) navigator.vibrate([40])
+  }, [persist, currentQty, quantityNeeded])
+  const handleDecrement  = useCallback(() => {
+    const newQty = Math.max(0, currentQty - 1)
+    const atPar  = quantityNeeded > 0 && newQty === quantityNeeded
+    persist({ quantity_found: newQty, confirmed: atPar })
+    if (atPar && navigator.vibrate) navigator.vibrate([40])
+  }, [persist, currentQty, quantityNeeded])
+  const handleSetQty     = useCallback((val) => {
+    const n = parseInt(val, 10)
+    if (!isNaN(n) && n >= 0) {
+      const atPar = quantityNeeded > 0 && n === quantityNeeded
+      persist({ quantity_found: n, confirmed: atPar })
+      if (atPar && navigator.vibrate) navigator.vibrate([40])
+    }
+  }, [persist, quantityNeeded])
   const handleAllPresent = useCallback(() => { persist({ quantity_found: quantityNeeded, confirmed: true }); if (navigator.vibrate) navigator.vibrate([40]) }, [persist, quantityNeeded])
   const handleSubmitCount = useCallback(() => {
     persist({ confirmed: true })
@@ -142,7 +159,8 @@ export default function ItemRow({
   })()
 
   const isFailPending    = checkType === 'FUNCTIONAL' && draftItem?.functional_pass === false && !confirmed
-  const showSubmitButton = checkType === 'SUPPLY' || checkType === 'DOCUMENT' || checkType === 'MEASUREMENT' || isFailPending
+  const isAtPar          = isCountType && quantityNeeded > 0 && currentQty === quantityNeeded
+  const showSubmitButton = (isCountType && hasDraft && !isAtPar) || checkType === 'MEASUREMENT' || isFailPending
 
   // ── Confirmed (locked) display ────────────────────────────────────────────
   if (confirmed) {

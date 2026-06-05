@@ -160,6 +160,55 @@ export default function CheckWizard({
     }, payload)
   }, [activeCompartment, draft, saveLineItem])
 
+  const handleUpdatePriorityItem = useCallback((comp, payload) => {
+    const compKey = String(comp.compartment_id)
+    saveLineItem(comp.compartment_id, {
+      name:              comp.name,
+      status:            'in_progress',
+      compartment_notes: draft?.compartments?.[compKey]?.compartment_notes ?? '',
+    }, payload)
+  }, [draft, saveLineItem])
+
+  const handleConfirmReadingItem = useCallback((comp, payload) => {
+    // Store reading confirmation as a line item but preserve compartment status
+    // (stays 'not_started' so the action card remains visible).
+    saveLineItem(comp.compartment_id, {
+      compartment_id: comp.compartment_id,
+      name:           comp.name,
+    }, payload)
+  }, [saveLineItem])
+
+  const handleNoChangeCompartment = useCallback((comp, supplyLineItems) => {
+    const compKey = String(comp.compartment_id)
+    // Merge any pre-confirmed readings (MEASUREMENT/FUNCTIONAL/DATE_RECORD) with SUPPLY items.
+    const readingTypes = new Set(['MEASUREMENT', 'FUNCTIONAL', 'DATE_RECORD'])
+    const existingItems = draft?.compartments?.[compKey]?.line_items ?? []
+    const confirmedReadings = existingItems.filter(li => readingTypes.has(li.check_type))
+    const mergedItems = [
+      ...confirmedReadings,
+      ...supplyLineItems.filter(li => !confirmedReadings.some(r => r.item_id === li.item_id)),
+    ]
+    saveDraft({
+      compartments: {
+        ...(draft?.compartments ?? {}),
+        [compKey]: {
+          ...(draft?.compartments?.[compKey] ?? {}),
+          compartment_id: comp.compartment_id,
+          name:           comp.name,
+          status:         'complete',
+          no_change:      true,
+          line_items:     mergedItems,
+        },
+      },
+    })
+  }, [draft, saveDraft])
+
+  const handleUndoCompartment = useCallback((compartmentId) => {
+    const newCompartments = { ...(draft?.compartments ?? {}) }
+    delete newCompartments[String(compartmentId)]
+    saveDraft({ compartments: newCompartments })
+  }, [draft, saveDraft])
+
   const handleSaveCompartment = useCallback((compartmentId) => {
     const compKey = String(compartmentId)
     const cd      = draft?.compartments?.[compKey]
@@ -344,9 +393,14 @@ export default function CheckWizard({
         <ErrorBoundary moduleName="Step 2 — Compartments">
           <Step2Compartments
             locationId={locationId}
+            vehicleId={vehicleId}
             draft={draft}
             onSelectCompartment={handleSelectCompartment}
             onReview={handleReview}
+            onUpdatePriorityItem={handleUpdatePriorityItem}
+            onNoChangeCompartment={handleNoChangeCompartment}
+            onUndoCompartment={handleUndoCompartment}
+            onConfirmReadingItem={handleConfirmReadingItem}
           />
         </ErrorBoundary>
       )}

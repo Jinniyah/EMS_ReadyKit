@@ -550,6 +550,47 @@ h3 { font-size: var(--font-size-md); font-weight: 600; }
 .home-page__section-title { font-size: var(--font-size-h2); color: var(--color-text-secondary); }
 .home-page__cards     { display: flex; flex-direction: column; gap: var(--space-md); }
 
+/* ── Home page hero buttons ────────────────────────────────────────────────── */
+.home-page__hero { display: flex; flex-direction: column; gap: var(--space-md); }
+.home-page__hero-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  min-height: 80px;
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-lg);
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+.home-page__hero-btn--primary {
+  background: var(--station-primary);
+  color: var(--station-text);
+  box-shadow: var(--shadow-md);
+}
+.home-page__hero-btn--secondary {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  border: 2px solid var(--color-border);
+}
+.home-page__hero-btn:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
+.home-page__hero-btn__icon    { font-size: 36px; flex-shrink: 0; }
+.home-page__hero-btn__body    { flex: 1; min-width: 0; }
+.home-page__hero-btn__label {
+  display: block;
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  line-height: 1.2;
+}
+.home-page__hero-btn__sublabel {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  margin-top: var(--space-xs);
+  opacity: 0.85;
+}
+
 /* ── Module cards ──────────────────────────────────────────────────────────── */
 .module-card {
   display: flex;

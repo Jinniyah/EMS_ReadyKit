@@ -30,6 +30,15 @@ class ParLevelBase(BaseModel):
     min_quantity: int = Field(..., gt=0, description="Minimum acceptable quantity (Need on form)")
     max_quantity: int = Field(..., gt=0, description="Maximum stocking quantity (Restock to)")
     active: bool = Field(default=True, description="Inactive par levels excluded from check wizard")
+    priority_check: Optional[bool] = Field(
+        default=False,
+        description="When True, item is pulled above the compartment list in Step 2 for immediate confirmation",
+    )
+    priority_question: Optional[str] = Field(
+        default=None,
+        max_length=150,
+        description="Plain-English question shown to the responder (e.g. 'Is the ready light solid green?'). Falls back to item name if unset.",
+    )
 
     @model_validator(mode="after")
     def validate_min_max(self) -> "ParLevelBase":
@@ -87,11 +96,13 @@ class ParLevelAssignment(BaseModel):
     item_id:         int
     location_id:     int
     compartment_id:  Optional[int]
-    min_quantity:    int
-    max_quantity:    int
-    active:          bool
-    created_at:      datetime
-    updated_at:      datetime
+    min_quantity:      int
+    max_quantity:      int
+    active:            bool
+    priority_check:    Optional[bool] = False
+    priority_question: Optional[str]  = None
+    created_at:        datetime
+    updated_at:        datetime
     # Enriched fields — joined server-side
     vehicle_id:       Optional[int]  = None
     vehicle_number:   Optional[str]  = None
@@ -105,8 +116,10 @@ class ParLevelAssignment(BaseModel):
 
 class UpdateParLevelRequest(BaseModel):
     """Request body for PATCH /admin/par-levels/{id}."""
-    min_quantity: int = Field(..., gt=0)
-    max_quantity: int = Field(..., gt=0)
+    min_quantity:      int = Field(..., gt=0)
+    max_quantity:      int = Field(..., gt=0)
+    priority_check:    Optional[bool] = Field(default=None)
+    priority_question: Optional[str]  = Field(default=None, max_length=150)
 
     @model_validator(mode="after")
     def validate_min_max(self) -> "UpdateParLevelRequest":

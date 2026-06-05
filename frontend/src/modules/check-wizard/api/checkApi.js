@@ -56,4 +56,10 @@ export const checkApi = {
   /** Existing checks for a portable location (jump bag) — used by LastCheckBanner */
   getLocationChecks: (locationId, getToken) =>
     apiGet(`/api/v1/checks/daily/location/${locationId}`, getToken),
+
+  /** Last recorded reading for each item from the most recent check on a vehicle or location */
+  getLastReadings: (vehicleId, locationId, getToken) => {
+    const param = vehicleId ? `vehicle_id=${vehicleId}` : `location_id=${locationId}`
+    return apiGet(`/api/v1/checks/daily/last-readings?${param}`, getToken)
+  },
 }

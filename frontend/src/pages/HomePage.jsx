@@ -326,32 +326,41 @@ export default function HomePage() {
         </ErrorBoundary>
       )}
 
-      <section className="home-page__section" aria-label="Available actions">
-        <h2 className="home-page__section-title">Actions</h2>
-        <div className="home-page__cards">
+      <section className="home-page__hero" aria-label="Main actions">
+        <button
+          className="home-page__hero-btn home-page__hero-btn--primary"
+          onClick={handleStartNew}
+          disabled={!selectedStation}
+          type="button"
+          aria-label={selectedStation
+            ? `Check the Truck — start a check at ${selectedStation.name}`
+            : 'Check the Truck — select a station first'}
+        >
+          <span className="home-page__hero-btn__icon" aria-hidden="true">✓</span>
+          <span className="home-page__hero-btn__body">
+            <span className="home-page__hero-btn__label">Check the Truck</span>
+            <span className="home-page__hero-btn__sublabel">
+              {selectedStation ? `Start a check at ${selectedStation.name}` : 'Select a station above'}
+            </span>
+          </span>
+        </button>
 
-          <ErrorBoundary moduleName="Daily Check Card">
-            <div className="module-card">
-              <div className="module-card__icon" aria-hidden="true">✓</div>
-              <div className="module-card__content">
-                <div className="module-card__title">Daily Check</div>
-                <div className="module-card__description">
-                  {selectedStation
-                    ? `Start a check at ${selectedStation.name}`
-                    : 'Select a station above to start'}
-                </div>
-              </div>
-              <button
-                className="btn btn--primary"
-                style={colors ? { background: colors.primary } : {}}
-                onClick={handleStartNew}
-                disabled={!selectedStation}
-                type="button"
-              >
-                Start
-              </button>
-            </div>
-          </ErrorBoundary>
+        <button
+          className="home-page__hero-btn home-page__hero-btn--secondary"
+          disabled
+          type="button"
+        >
+          <span className="home-page__hero-btn__icon" aria-hidden="true">📋</span>
+          <span className="home-page__hero-btn__body">
+            <span className="home-page__hero-btn__label">Log Items Used</span>
+            <span className="home-page__hero-btn__sublabel">Record what you used on a call</span>
+          </span>
+        </button>
+      </section>
+
+      <section className="home-page__section" aria-label="Tools and history">
+        <h2 className="home-page__section-title">More</h2>
+        <div className="home-page__cards">
 
           <ErrorBoundary moduleName="Vehicle Status Card">
             <div className="module-card">

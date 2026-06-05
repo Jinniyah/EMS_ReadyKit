@@ -17,6 +17,8 @@ import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
+from pydantic import BaseModel
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -55,6 +57,15 @@ from ems_readykit.schemas.daily_inventory_check import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/checks", tags=["checks"])
+
+
+class LastReadingItem(BaseModel):
+    item_id:           int
+    quantity_found:    Optional[int]
+    measurement_value: Optional[float]
+    functional_pass:   Optional[bool]
+    date_value:        Optional[date]
+    check_date:        str
 
 
 # Frontend mirror: deriveDraftItemStatus() in frontend/src/shared/utils/statusCalc.js
@@ -293,6 +304,47 @@ def create_daily_check(
         severity=audit_severity,
     )
     return check
+
+
+@router.get(
+    "/daily/last-readings",
+    response_model=List[LastReadingItem],
+    summary="Last recorded readings for each item from the most recent check on a vehicle or location",
+)
+def get_last_readings(
+    vehicle_id:  Optional[int] = Query(None, gt=0),
+    location_id: Optional[int] = Query(None, gt=0),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
+) -> List[LastReadingItem]:
+    if vehicle_id is None and location_id is None:
+        raise HTTPException(status_code=400, detail="vehicle_id or location_id required")
+
+    q = db.query(DailyInventoryCheck).filter(DailyInventoryCheck.deleted_at.is_(None))
+    if vehicle_id is not None:
+        q = q.filter(DailyInventoryCheck.vehicle_id == vehicle_id)
+    else:
+        q = q.filter(DailyInventoryCheck.location_id == location_id)
+
+    last_check = q.order_by(
+        DailyInventoryCheck.check_date.desc(),
+        DailyInventoryCheck.created_at.desc(),
+    ).first()
+
+    if not last_check:
+        return []
+
+    return [
+        LastReadingItem(
+            item_id=li.item_id,
+            quantity_found=li.quantity_found,
+            measurement_value=li.measurement_value,
+            functional_pass=li.functional_pass,
+            date_value=li.date_value,
+            check_date=str(last_check.check_date),
+        )
+        for li in last_check.line_items
+    ]
 
 
 @router.get(

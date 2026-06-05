@@ -117,6 +117,13 @@ class CompartmentBase(BaseModel):
         ),
     )
     active: bool = Field(default=True)
+    requires_full_check: bool = Field(
+        default=False,
+        description=(
+            "When True, No Change is blocked for this compartment — responder must review every item. "
+            "Use for Truck Operations and any compartment requiring physical verification."
+        ),
+    )
 
 
 class CompartmentCreate(CompartmentBase):

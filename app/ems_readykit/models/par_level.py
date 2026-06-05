@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, ForeignKey, Integer, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, Integer, String, UniqueConstraint
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -48,6 +48,11 @@ class ParLevel(TimestampMixin, Base):
     min_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     max_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     active: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=True, server_default=sa.true())
+
+    # Priority items — supervisor marks per vehicle. Pulled above compartment list in check wizard.
+    priority_check: Mapped[Optional[bool]] = mapped_column(sa.Boolean, nullable=True, default=False)
+    # Plain-English question shown to responder in place of item name (max 150 chars).
+    priority_question: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
 
     # Relationships
     item: Mapped["Item"] = relationship("Item", back_populates="par_levels")

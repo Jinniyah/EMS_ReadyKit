@@ -61,6 +61,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List, Optional
 
+import sqlalchemy as sa
 from sqlalchemy import Boolean, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -117,6 +118,12 @@ class Compartment(TimestampMixin, Base):
     als_only: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    # When True, No Change is blocked for this compartment — responder must open every item.
+    # Used for Truck Operations (FUNCTIONAL checks require physically starting the truck).
+    requires_full_check: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=sa.false()
+    )
 
     # ── Relationships ─────────────────────────────────────────────────────────
 

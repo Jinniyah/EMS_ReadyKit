@@ -89,12 +89,16 @@ def get_or_create_item(
 def add_par(
     db: Session, *, item: Item, location: InventoryLocation,
     compartment: Compartment, min_qty: int, max_qty: Optional[int] = None,
+    priority_check: bool = False, priority_question: Optional[str] = None,
 ) -> None:
     existing = db.query(ParLevel).filter(
         ParLevel.item_id == item.item_id,
         ParLevel.compartment_id == compartment.compartment_id,
     ).first()
     if existing:
+        # Update priority fields on re-seed so existing DBs get the new values.
+        existing.priority_check    = priority_check
+        existing.priority_question = priority_question or None
         return
     db.add(ParLevel(
         item_id=item.item_id,
@@ -102,6 +106,8 @@ def add_par(
         compartment_id=compartment.compartment_id,
         min_quantity=min_qty,
         max_quantity=max_qty or min_qty,
+        priority_check=priority_check,
+        priority_question=priority_question or None,
     ))
 
 
@@ -341,7 +347,8 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
     add_par(db, item=get_or_create_item(db, name="AED Battery",
                                         category=ItemCategory.EQUIPMENT,
                                         check_type=ItemCheckType.FUNCTIONAL, unit_of_measure="N/A"),
-            location=loc, compartment=pc8, min_qty=1)
+            location=loc, compartment=pc8, min_qty=1,
+            priority_check=True, priority_question="AED shows READY?")
     add_par(db, item=get_or_create_item(db, name="AED Date of Last Charge",
                                         category=ItemCategory.EQUIPMENT,
                                         check_type=ItemCheckType.DATE_RECORD,
@@ -364,6 +371,10 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
                                         category=ItemCategory.EQUIPMENT,
                                         check_type=ItemCheckType.DATE_RECORD,
                                         unit_of_measure="N/A", recurrence_days=30),
+            location=loc, compartment=pc8, min_qty=1)
+    add_par(db, item=get_or_create_item(db, name="LUCAS Device Ready Check",
+                                        category=ItemCategory.EQUIPMENT,
+                                        check_type=ItemCheckType.FUNCTIONAL, unit_of_measure="N/A"),
             location=loc, compartment=pc8, min_qty=1)
 
     purge_wrong_drug_cabinets(db, loc, is_als)

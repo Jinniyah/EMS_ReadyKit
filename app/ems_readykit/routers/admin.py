@@ -534,6 +534,11 @@ def update_par_level(
         raise HTTPException(status_code=409, detail="Cannot edit an inactive par level.")
     par.min_quantity = payload.min_quantity
     par.max_quantity = payload.max_quantity
+    fields = payload.model_fields_set
+    if 'priority_check' in fields:
+        par.priority_check = payload.priority_check
+    if 'priority_question' in fields:
+        par.priority_question = payload.priority_question or None
     db.commit(); db.refresh(par)
     logger.info("Par level updated: par_id=%s min=%s max=%s", par.par_id, par.min_quantity, par.max_quantity,
         extra={"action": "PAR_UPDATED", "entity_type": "par_level", "entity_id": str(par.par_id)})

@@ -112,7 +112,9 @@ export default function Step3Items({
 
   if (isLoading) return <Spinner label="Loading items…" />
 
-  const saveButtonLabel  = allTouched ? 'Save compartment ✓' : `${untouchedCount} remaining`
+  const saveButtonLabel  = allTouched
+    ? nextComp ? `Next — ${nextComp.name}` : `Done — ${compartment.name}`
+    : `${untouchedCount} remaining`
   const saveButtonActive = allTouched
 
   return (

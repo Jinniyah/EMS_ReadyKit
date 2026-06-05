@@ -59,6 +59,7 @@ def _get_check_or_404(check_id: int, db: Session, *, include_deleted: bool = Fal
     summary="My submitted checks",
 )
 def my_check_history(
+    station_id: Optional[int] = Query(default=None, gt=0, description="Scope to a specific station"),
     from_date: Optional[str] = Query(
         default=None,
         alias="from",
@@ -79,6 +80,8 @@ def my_check_history(
             DailyInventoryCheck.deleted_at.is_(None),
         )
     )
+    if station_id is not None:
+        query = query.filter(DailyInventoryCheck.station_id == station_id)
     if from_date:
         query = query.filter(DailyInventoryCheck.check_date >= from_date)
     if to_date:

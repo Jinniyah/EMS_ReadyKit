@@ -1,5 +1,5 @@
 # EMS ReadyKit — Codebase Index
-# Last updated: 2026-06-05 (Pre-Session H: code cleanup, CSS theme consolidation, security hardening)
+# Last updated: 2026-06-05 (Session H: RX-F7/F1/F2/F8/F9, SEED-GAP1, RX-M1 migration 0015)
 # PURPOSE: Load this file at the start of every session to orient quickly.
 # After reading this, load only the sections relevant to the current task.
 # Full project state → docs/project_index.md | Open work → docs/backlog.md
@@ -84,7 +84,7 @@ from ems_readykit.routers.deps import (
 | `vehicle.py` | `Vehicle` | vehicle_color (0011); status ACTIVE/OOS |
 | `inventory_location.py` | `InventoryLocation` | LocationType: VEHICLE, JUMP_BAG, STATION_SUPPLY_ROOM |
 | `compartment.py` | `Compartment` | sort_order, location_description |
-| `par_level.py` | `ParLevel` | item ↔ compartment; min/max quantity; active flag (0010) |
+| `par_level.py` | `ParLevel` | item ↔ compartment; min/max quantity; active flag (0010); priority_check + priority_question (0015) |
 | `stock_lot.py` | `StockLot` | lot_number, expiration_date, quantity |
 | `item.py` | `Item` | ItemCheckType enum: SUPPLY, MEASUREMENT, FUNCTIONAL, DATE_RECORD, DOCUMENT |
 | `daily_inventory_check.py` | `DailyInventoryCheck` | status computed server-side; started_by/completed_by; vehicle_id nullable + location_id (0013) for portable checks |
@@ -157,7 +157,7 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 |------|------|---------|
 | `index.jsx` | 15 KB | Wizard orchestration, step routing, draft state |
 | `components/Step1Vehicle.jsx` | 14 KB | Vehicle selection + CS check toggle |
-| `components/Step2Compartments.jsx` | 5 KB | Compartment list with progress |
+| `components/Step2Compartments.jsx` | 11 KB | Priority items section (inline confirm) + compartment list with No Change / Modify / stock preview (RX-F8/F9) |
 | `components/Step3Items.jsx` | 7 KB | Item counting per compartment |
 | `components/ItemRow.jsx` | 16 KB | Per-item row — all check types (supply/measurement/functional/date) |
 | `components/Step4Reconcile.jsx` | 13 KB | Flagged items review |
@@ -259,7 +259,7 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 
 ## Migrations (app/alembic/versions/)
 
-14 migrations applied (0001–0014, plus 0003a branch). Run automatically at startup via `startup.sh`.
+15 migrations applied (0001–0015, plus 0003a branch). Run automatically at startup via `startup.sh`.
 To add a new migration: `cd app && alembic revision --autogenerate -m "description"`
 
 Key recent migrations:
@@ -271,6 +271,7 @@ Key recent migrations:
 - **0012** — `call_sign` on `stations` (VARCHAR 20, nullable)
 - **0013** — `vehicle_id` nullable on `daily_inventory_checks`; adds `location_id` FK for portable checks; index on (location_id, check_date)
 - **0014** — `stock_transfers` table; backfills 4 default compartments (Cab 1–2, Shelf 1–2) for any supply room with zero compartments
+- **0015** — `priority_check` (bool nullable) + `priority_question` (VARCHAR 150) on `par_levels`; `requires_full_check` (bool, default false) on `compartments`
 
 ---
 

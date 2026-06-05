@@ -440,3 +440,132 @@ New `_add_member(db, station_id, user_email, role)` helper added to `test_router
 | # | Item | Completed |
 |---|------|-----------|
 | UAT-1 | `docs/uat_test_cases.md` — full UAT script covering Responder, Supervisor, Administrator, cross-role, and edge-case scenarios | 2026-05-30 |
+
+
+# PRE-SESSION H — Code cleanup + Theme consolidation (90 min, do first, no exceptions) - DONE
+   ✅ TECH-THEME1  Extend index.css token system
+   ✅ TECH-THEME2  Fix supervisor.css — replace raw values with tokens
+   ✅ TECH-THEME3  Fix supply-room.css — replace raw values with tokens
+   ✅ TECH-THEME4  Add theme rules to CLAUDE.md
+   ✅ SEC-PRE1     Create staticwebapp.config.json (CSP, HSTS, routing)
+   ✅ SEC-PRE2     Add npm audit to CI pipeline
+   ✅ SEC-PRE3     Add seed.py production guard
+   ✅ SEC-PRE4     Add ESLint to CI pipeline
+   ✅ TECH-CSS1a   Delete 5 empty tombstone CSS files
+   ✅ TECH-CSS1b   Merge admin-wrap-fix.css into admin.css
+   ✅ TECH-CSS1c   Enforce CSS placement rule in CLAUDE.md
+   ✅ TECH-CODE1a  Delete Step4Review.jsx (dead — replaced by Step5Submit.jsx)
+   ✅ TECH-CODE1b  Delete vehicles/_patch_note.txt
+   ✅ TECH-CODE1c  Fix useApi.js stale-data reset (data=null at start of execute)
+   ✅ TECH-CODE1d  Cross-reference comments: _compute_line_item_status <-> deriveDraftItemStatus
+   ✅ TECH-CODE1e  Consolidate 3 vehicle-update functions in adminApi.js
+   ✅ TECH-CODE1f  Deduplicate getStations / getMyStations between checkApi + adminApi
+
+### Pre-H security items
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| SEC-PRE1 | Create `staticwebapp.config.json` | Critical | 📋 | Missing from repo entirely. Referenced in main.py comments but never created. Must include: (1) Content Security Policy header — `"Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://login.microsoftonline.com https://app-ems-readykit-dev.azurewebsites.net; frame-ancestors 'none'"`. (2) `"X-Frame-Options": "DENY"`. (3) `"Strict-Transport-Security": "max-age=31536000; includeSubDomains"`. (4) SWA routing: all routes fallback to `/index.html` so React Router handles navigation without Azure 404s. Place at `frontend/staticwebapp.config.json` (SWA picks it up from the app root). |
+| SEC-PRE2 | Add `npm audit` to CI frontend job | High | 📋 | Add `npm audit --audit-level=high` after `npm ci` and before `npm run build` in the build-frontend job of deploy.yml. Fails build on high/critical severity only — moderate is reported but non-blocking. Mirrors the existing pip-audit pattern on the backend. One line in the workflow. |
+| SEC-PRE3 | Seed.py production guard | High | 📋 | Add at the very top of seed.py, after imports: `if os.environ.get("APP_ENV", "").lower() == "production": print("Seed skipped in production."); sys.exit(0)`. Also add to startup.sh: only call `python seed.py` when `APP_ENV != production`. Both guards must exist independently (defence in depth). Resolves the risk of test stations/vehicles/users appearing in the live environment if SEED_TEST_DATA env var is misconfigured at launch. |
+| SEC-PRE4 | Add ESLint to CI frontend job | Medium | 📋 | Add `npm run lint` as a step in build-frontend job, after `npm ci` and before `npm run build`. If `lint` script isn't in package.json, add it: `"lint": "eslint src --max-warnings 0"`. Catches undefined variables, React hook violations, and accessibility issues before they deploy. Backend equivalent: ruff already runs in CI. |
+
+### Theme items
+| # | Action | Status | Notes |
+|---|--------|--------|-------|
+| TECH-THEME1 | Extend index.css :root token system | ✅ Done | Add missing tokens to the existing :root block in index.css. Do NOT create a new file. Additions: `--vehicle-primary: var(--station-primary)` (vehicle color falls back to station color until vehicle-specific color is set — set via inline style on the component root, same pattern as --station-primary); `--color-damaged: #dc2626` + `--color-damaged-bg: #fef2f2`; `--color-priority: #185fa5` + `--color-priority-bg: #e6f1fb`; `--color-no-change: #3b6d11` + `--color-no-change-bg: #eaf3de`. Also add shared component utility classes to index.css (after the module-card section): `.ems-card` (white surface, border, radius-lg, shadow-sm — the pattern repeated in every module), `.ems-card--warn` (amber border), `.ems-card--fail` (red border), `.ems-card--pass` (green border), `.ems-section-head` (section label: 11px, uppercase, letter-spacing, muted color), `.ems-preview-row` (flex, space-between, font-size-sm). These replace the per-module reinventions of the same patterns. |
+| TECH-THEME2 | Fix supervisor.css — replace raw values with tokens | ✅ Done | Search for every raw rem/px value in supervisor.css and replace with the matching token. Key replacements: `0.75rem` -> `var(--space-sm)` (for gaps and small padding), `1rem` -> `var(--space-md)`, `1.5rem` -> `var(--space-lg)`, `0.625rem` -> `var(--radius-md)`, `1.25rem` -> `var(--font-size-h2)`, `0.85rem` -> `var(--font-size-sm)`, `0.9rem` -> `var(--font-size-sm)`, `0.6rem` -> a new `--font-size-xs: 12px` token added in TECH-THEME1, hardcoded `#fef2f2`/`#fffbeb`/`#f0fdf4` -> `var(--color-status-fail-bg)` / `var(--color-status-warn-bg)` / `var(--color-status-pass-bg)`. Read the full file before editing. |
+| TECH-THEME3 | Fix supply-room.css — replace raw values with tokens | ✅ Done | Same pass as TECH-THEME2 for supply-room.css. Also verify check-history.css and vehicles.css for the same issue — if they have raw values, fix them in the same pass. |
+| TECH-THEME4 | Add theme enforcement rules to CLAUDE.md | ✅ Done | Add a "CSS and Theming" section to CLAUDE.md with these mandatory rules: (1) All CSS values must use tokens from index.css :root — no hardcoded hex colors, rem values, or px sizes except for 0, 1px borders, and media query breakpoints. (2) New components use `.ems-card`, `.ems-section-head`, `.ems-preview-row` utility classes from index.css before writing custom CSS. (3) Station color is always `var(--station-primary)` / `var(--station-text)`. Vehicle color is always `var(--vehicle-primary)` which inherits from station color by default. (4) New Session H/I/J styles go into the relevant module CSS file — never a new patch file. (5) Before adding a CSS rule, check if index.css already has a utility class that does the job. |
+
+### CSS cleanup items
+| # | Action | Status | Notes |
+|---|--------|--------|-------|
+| TECH-CSS1a | Delete 5 empty tombstone CSS files | ✅ Done | `src/module-card-fix.css`, `src/submitted-screen-patch.css`, `src/wizard-station.css`, `src/wizard.css`, `admin/admin-station-edit.css` |
+| TECH-CSS1b | Merge `admin-wrap-fix.css` into `admin.css` | ✅ Done | Move `.admin-station-btn-wrap` styles, remove file and import. Note: admin.css already contains the btn-wrap block — it was partially merged. Verify the file contents match before deleting. |
+| TECH-CSS1c | CSS placement rule in CLAUDE.md | ✅ Done | Covered by TECH-THEME4. No separate action needed. |
+
+### Code cleanup items
+| # | Action | Status | Notes |
+|---|--------|--------|-------|
+| TECH-CODE1a | Delete `Step4Review.jsx` | ✅ Done | Dead — replaced by Step5Submit.jsx |
+| TECH-CODE1b | Delete `vehicles/_patch_note.txt` | ✅ Done | Stray code snippet |
+| TECH-CODE1c | Fix `useApi.js` stale-data reset | ✅ Done | `setData(null)` at start of execute() |
+| TECH-CODE1d | Cross-reference comments: status computation | ✅ Done | Server `_compute_line_item_status` <-> frontend `deriveDraftItemStatus` |
+| TECH-CODE1e | Consolidate vehicle update functions in `adminApi.js` | ✅ Done | `updateVehicle` / `updateVehicleDetails` / `updateVehicleColor` |
+| TECH-CODE1f | Deduplicate stations fetch | ✅ Done | `checkApi.getStations` and `adminApi.getMyStations` — same endpoint |
+
+## 7. Backend — Endpoints
+| # | Endpoint | Description | Pri | Status |
+|---|----------|-------------|-----|--------|
+| B-E5 | `POST /inventory/transfer` | Move stock between supply room and vehicle | High | ✅ Done |
+| B-E6 | `GET /inventory/locations/{id}/stock-summary` | Stock vs par per item | High | ✅ Done |
+
+## 8. Backend — Data Models
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| B-M11 | Alter `stations`: add `primary_color` | High | ✅ Done | |
+| NEW-M1 | Alter `vehicles`: add `vehicle_color` | High | ✅ Done | |
+| NEW-M2 | Alter `stations`: add `call_sign` | High | ✅ Done | |
+
+## 12. Frontend — Supervisor Dashboard
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| F-5F2 | Compliance calendar | High | ✅ Done | Session F Block 3 |
+
+## 16. Frontend — Settings Module
+| # | Item | Pri | Status | Needs |
+|---|------|-----|--------|-------|
+| S-F2 | Shared `ColorPickerWidget` | High | ✅ Done | |
+
+### Vehicle & Location Management
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| ADMIN-B11 | `POST /admin/vehicles` | High | ✅ Done | |
+| ADMIN-B12 | `PATCH /admin/vehicles/{id}` | High | ✅ Done | |
+| ADMIN-B13 | `POST /admin/locations` | High | ✅ Done | |
+| ADMIN-F6 | Vehicle list view per station | High | ✅ Done | |
+
+### Station Management
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| ADMIN-B15 | `POST /admin/stations` | Medium | ✅ Done | |
+| ADMIN-UX1-F9 | "+ Add Station" form | Medium | ✅ Done | |
+
+## 21. Supply Room & Restocking
+*All items complete — Session G.*
+
+| # | Item | Pri | Status |
+|---|------|-----|--------|
+| SUPPLY-M1 | `STATION_SUPPLY_ROOM` auto-created per station | High | ✅ Done |
+| SUPPLY-B1 | `POST /inventory/transfer` | High | ✅ Done |
+| SUPPLY-B2 | `GET /inventory/locations/{id}/stock-summary` | High | ✅ Done |
+| SUPPLY-B3 | `GET /stations/{id}/supply-room` | High | ✅ Done |
+| SUPPLY-F1 | Supply room stock view | High | ✅ Done |
+| SUPPLY-F2 | Restock vehicle flow | High | ✅ Done |
+| SUPPLY-F3 | Receive stock into supply room | Medium | ✅ Done |
+| SUPPLY-F4 | Transfer history | Medium | ✅ Done |
+
+## 22. Par Level Assignment UI
+*All items complete — Session F Block 5.*
+
+| # | Item | Pri | Status |
+|---|------|-----|--------|
+| ADMIN-F4a | Par level list on item card | High | ✅ Done |
+| ADMIN-F4b | "Assign to Vehicle" flow | High | ✅ Done |
+| ADMIN-F4c | Edit/remove par level | High | ✅ Done |
+| ADMIN-B6 | `POST /admin/items/{id}/assign` | High | ✅ Done |
+| ADMIN-B7 | `PATCH /admin/par-levels/{id}` | High | ✅ Done |
+| ADMIN-B8 | `PATCH /admin/par-levels/{id}/deactivate` | High | ✅ Done |
+
+
+## 24. Code Cleanup + Theme Consolidation — Pre-Session H
+##
+## Theme diagnosis: index.css already has a solid token system (:root variables for
+## color, spacing, radius, shadow, typography). The problem is the module CSS files
+## don't consistently use it. supervisor.css uses raw rem values (0.75rem, 0.625rem,
+## 1.25rem) instead of --space-md, --radius-lg, --font-size-sm. Every new module
+## author re-invents values that already exist as tokens. The fix is:
+##   (1) Add missing tokens to index.css (vehicle color, component-level patterns)
+##   (2) Fix the two offending module files to use tokens
+##   (3) Make it a rule in CLAUDE.md so it never drifts again
+## This is NOT a full CSS refactor. It is a targeted fix of known violations.

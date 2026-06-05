@@ -8,11 +8,12 @@ import { apiGet, apiPatch, apiDeleteWithBody } from '../../../shared/api/client.
 const BASE = '/api/v1'
 
 export const checkHistoryApi = {
-  /** CH-B1: Current user's submitted checks, most recent first */
-  getMyHistory: (getToken, { from, to } = {}) => {
+  /** CH-B1: Current user's submitted checks, most recent first, scoped to station */
+  getMyHistory: (getToken, { stationId, from, to } = {}) => {
     const params = new URLSearchParams()
-    if (from) params.set('from', from)
-    if (to)   params.set('to', to)
+    if (stationId) params.set('station_id', stationId)
+    if (from)      params.set('from', from)
+    if (to)        params.set('to', to)
     const qs = params.toString() ? `?${params}` : ''
     return apiGet(`${BASE}/checks/daily/my-history${qs}`, getToken)
   },

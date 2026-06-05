@@ -37,15 +37,15 @@ export default function CheckHistoryScreen({ station, onBack, onNavigateToVehicl
   const [statusFilter, setStatusFilter]   = useState(isSupervisor ? 'FAIL' : 'ALL')
   const [deletedIds, setDeletedIds]       = useState(new Set())
 
-  // My checks (all roles) — scoped to current user's own submissions
+  // My checks (all roles) — scoped to current user's own submissions at this station
   const {
     data: myChecks,
     isLoading: loadingMine,
     error: errorMine,
     refetch: refetchMine,
   } = useApi(
-    () => checkHistoryApi.getMyHistory(getToken),
-    []
+    () => checkHistoryApi.getMyHistory(getToken, { stationId: station.station_id }),
+    [station.station_id]
   )
 
   // All checks at station within a rolling 7-day window (Supervisor+ only).
