@@ -75,10 +75,11 @@ def upgrade() -> None:
                     "INSERT INTO compartments "
                     "(location_id, name, location_descriptor, sort_order, als_only, active, "
                     " created_at, updated_at) "
-                    "VALUES (:lid, :name, :desc, :sort, 0, 1, "
+                    "VALUES (:lid, :name, :desc, :sort, :als_only, :active, "
                     "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
                 ),
-                {"lid": loc_id, "name": name, "desc": descriptor, "sort": sort_order},
+                {"lid": loc_id, "name": name, "desc": descriptor, "sort": sort_order,
+                 "als_only": False, "active": True},
             )
 
 
