@@ -26,7 +26,6 @@ import time
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 
 from ems_readykit.core.config import get_settings
 from ems_readykit.core.logging import configure_logging, set_request_id
@@ -116,12 +115,11 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # ── SEC-H1: Redirect HTTP → HTTPS at application layer (defence-in-depth) ──
-    # Azure App Service provides platform-level redirect, but this ensures any
-    # HTTP request that reaches the app is also redirected. Added last so it
-    # becomes the outermost middleware (first to process each incoming request).
-    if settings.is_production:
-        app.add_middleware(HTTPSRedirectMiddleware)
+    # NOTE (SEC-H1): HTTPSRedirectMiddleware is intentionally NOT used here.
+    # Azure App Service terminates TLS at the load balancer and forwards requests
+    # to the container as plain HTTP. The middleware cannot see X-Forwarded-Proto,
+    # so it would redirect every request to HTTPS, causing an infinite redirect loop.
+    # HTTPS enforcement is handled by Azure App Service's "HTTPS Only" platform setting.
 
     # ── API Routers ────────────────────────────────────────────────────────────
     # Route ordering matters:

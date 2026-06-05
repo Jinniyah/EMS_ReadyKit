@@ -172,7 +172,7 @@
 ### Session H security items
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| SEC-H1 | `HTTPSRedirectMiddleware` in `main.py` | High | ✅ Done | Added production-only, outermost (added last so outermost). main.py:117-122. |
+| SEC-H1 | `HTTPSRedirectMiddleware` in `main.py` | High | ✅ N/A | Added then removed: Azure App Service SSL-offloads to HTTP internally, so the middleware sees scheme=http on every request and creates an infinite redirect loop. HTTPS enforcement is handled by Azure's "HTTPS Only" platform setting instead. |
 | SEC-H2 | MSAL `cacheLocation: "sessionStorage"` | High | ✅ Done | Already set correctly in authConfig.js — no change needed. |
 | SEC-H3 | Remove `env` field from `/health` response | Medium | ✅ Done | /health now returns `{"status": "ok"}` only. main.py:136. |
 
