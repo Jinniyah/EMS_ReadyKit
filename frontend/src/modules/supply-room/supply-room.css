@@ -1,0 +1,514 @@
+/* supply-room.css
+   Design tokens match admin.css / index.css — do not use raw px values.
+*/
+
+/* ── Screen layout ─────────────────────────────────────────────────────────── */
+
+.sr-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--color-surface-raised);
+}
+
+/* ── Sticky header ─────────────────────────────────────────────────────────── */
+
+.sr-header {
+  background: var(--color-surface);
+  padding: var(--space-md) var(--space-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.sr-back-btn {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  text-decoration: underline;
+  min-height: var(--tap-target);
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.sr-header__text    { flex: 1; min-width: 0; }
+.sr-header__title   { margin: 0; font-size: var(--font-size-h1); font-weight: 700; color: var(--color-text); }
+.sr-header__station { margin: 0; font-size: var(--font-size-sm); color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.sr-alert-badge {
+  background: #ffc107;
+  color: #1a1a1a;
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  padding: 4px 12px;
+  border-radius: 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Body wrapper (nav card landing) ───────────────────────────────────────── */
+
+.sr-body {
+  flex: 1;
+  padding: var(--space-md) var(--space-md) 80px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* ── Status messages ───────────────────────────────────────────────────────── */
+
+.sr-center {
+  padding: 40px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-md);
+}
+
+.sr-error {
+  margin: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-status-fail-bg);
+  color: var(--color-status-fail);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+/* ── Nav cards — mirrors .admin-nav-card exactly ───────────────────────────── */
+
+.sr-nav-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.sr-nav-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  min-height: 72px;
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: box-shadow var(--transition), background var(--transition);
+}
+
+.sr-nav-card:hover,
+.sr-nav-card:focus-visible {
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-md);
+  outline: 3px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.sr-nav-card__icon    { font-size: 28px; flex-shrink: 0; width: 40px; text-align: center; }
+.sr-nav-card__content { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.sr-nav-card__label   { font-size: var(--font-size-md); font-weight: 700; color: var(--color-text); }
+.sr-nav-card__hint    { font-size: var(--font-size-sm); color: var(--color-text-muted); }
+.sr-nav-card__arrow   { font-size: 24px; color: var(--color-text-muted); flex-shrink: 0; }
+
+.sr-nav-card__badge {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 10px;
+  width: fit-content;
+  margin-top: 4px;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* ── Section content (full-screen when active) ─────────────────────────────── */
+
+.sr-section {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 80px;
+}
+
+/* ── Restock vehicle panel ─────────────────────────────────────────────────── */
+
+.sr-panel {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.sr-panel__heading {
+  font-size: var(--font-size-h2);
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.sr-panel__subtext {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* Vehicle selection cards — same shape as sr-nav-card, color dot instead of emoji */
+
+.sr-vehicle-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.sr-vehicle-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  min-height: 72px;
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: box-shadow var(--transition), background var(--transition);
+}
+
+.sr-vehicle-card:hover,
+.sr-vehicle-card:focus-visible {
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-md);
+  outline: 3px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.sr-vehicle-card__dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.12);
+  flex-shrink: 0;
+}
+
+.sr-vehicle-card__info  { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.sr-vehicle-card__number { font-size: var(--font-size-md); font-weight: 700; color: var(--color-text); }
+
+.sr-vehicle-card__type {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 1px 8px;
+  width: fit-content;
+}
+
+.sr-vehicle-card__arrow { font-size: 24px; color: var(--color-text-muted); flex-shrink: 0; }
+
+/* Empty / all-good states */
+
+.sr-empty {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-md);
+  padding: var(--space-xl) 0;
+}
+
+.sr-all-good {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xl) 0;
+  color: var(--color-status-pass, #166534);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  text-align: center;
+}
+
+.sr-all-good__icon { font-size: 40px; }
+
+/* Item transfer rows */
+
+.sr-transfer-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.sr-transfer-row {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  box-shadow: var(--shadow-sm);
+}
+
+.sr-transfer-row__name {
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.sr-transfer-row__stats {
+  display: flex;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+}
+
+.sr-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.sr-stat__label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.sr-stat__value {
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.sr-stat__value--low  { color: var(--color-status-fail, #dc2626); }
+.sr-stat__value--warn { color: #856404; }
+.sr-stat__value--ok   { color: var(--color-status-pass, #166534); }
+
+/* Quantity stepper */
+
+.sr-qty-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.sr-qty-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.sr-qty-btn:hover:not(:disabled) {
+  background: var(--color-surface-raised);
+  border-color: var(--color-brand);
+}
+
+.sr-qty-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.sr-qty-display {
+  font-size: var(--font-size-h2);
+  font-weight: 700;
+  color: var(--color-text);
+  min-width: 40px;
+  text-align: center;
+}
+
+/* At-par items (collapsed) */
+
+.sr-at-par-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-align: left;
+  padding: var(--space-sm) 0;
+  min-height: var(--tap-target);
+  text-decoration: underline;
+}
+
+.sr-at-par-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+}
+
+.sr-at-par-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  opacity: 0.65;
+}
+
+.sr-at-par-row__name  { font-size: var(--font-size-sm); font-weight: 600; color: var(--color-text); }
+.sr-at-par-row__count { font-size: var(--font-size-sm); color: var(--color-status-pass, #166534); font-weight: 700; }
+
+/* Success box */
+
+.sr-success-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl) var(--space-lg);
+  text-align: center;
+}
+
+.sr-success-box__icon    { font-size: 48px; line-height: 1; }
+.sr-success-box__heading { font-size: var(--font-size-h2); font-weight: 700; color: #166534; margin: 0; }
+.sr-success-box__detail  { font-size: var(--font-size-sm); color: var(--color-text-secondary); margin: 0; }
+
+.sr-transfer-errors {
+  background: var(--color-status-fail-bg);
+  border: 1px solid #fca5a5;
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.sr-transfer-errors__title {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-status-fail);
+  margin: 0;
+}
+
+.sr-transfer-error-item {
+  font-size: var(--font-size-sm);
+  color: var(--color-status-fail);
+}
+
+/* ── Receive Stock Panel (.rsp-*) ────────────────────────────────────────────── */
+/* Matches item-catalog / item-card formatting from admin.css.              */
+/* All values use design tokens -- no hardcoded hex, rem, or px.            */
+
+.rsp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md);
+}
+
+/* Form card -- matches item-card surface pattern */
+.rsp__form {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.rsp__form-title {
+  font-size: var(--font-size-h2);
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+/* Field -- matches item-form__field pattern */
+.rsp__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.rsp__label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.rsp__input {
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+  width: 100%;
+  min-height: var(--tap-target);
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.rsp__input:focus {
+  outline: 3px solid var(--color-brand);
+  outline-offset: 1px;
+  border-color: var(--color-brand);
+}
+
+/* Quantity input -- larger numerals for fast entry */
+.rsp__input--qty {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Two-column row for lot + expiry */
+.rsp__row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+}
+
+/* Status messages -- match item-catalog__error pattern */
+.rsp__success {
+  background: var(--color-status-pass-bg);
+  color: var(--color-status-pass);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.rsp__error {
+  background: var(--color-status-fail-bg);
+  color: var(--color-status-fail);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+

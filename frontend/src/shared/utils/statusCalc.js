@@ -83,7 +83,8 @@ export function lineItemStatus(status) {
  *
  * Draft items saved by ItemRow to localStorage do NOT have a `status` field —
  * that only exists on API response objects after submission. This function
- * mirrors server-side _compute_line_item_status so the frontend can derive
+ * mirrors server-side _compute_line_item_status (app/ems_readykit/routers/checks.py)
+ * so the frontend can derive
  * meaningful status from raw draft fields alone.
  *
  * MEASUREMENT items require `min_value` to be stored in the draft payload

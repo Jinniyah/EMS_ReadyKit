@@ -4,14 +4,14 @@
  * vehicle management, and station CRUD.
  */
 import { apiGet, apiPost, apiPatch, apiDelete, apiUpload } from '../../../shared/api/client.js'
+import { getMyStations } from '../../../shared/api/stationsApi.js'
 
 const ADMIN = '/api/v1/admin'
 
 export const adminApi = {
   // ── Station membership ─────────────────────────────────────────────────
 
-  getMyStations: (getToken) =>
-    apiGet('/api/v1/stations/my', getToken),
+  getMyStations,
 
   getStationMembers: (stationId, getToken) =>
     apiGet(`/api/v1/stations/${stationId}/members`, getToken),
@@ -97,12 +97,15 @@ export const adminApi = {
   createVehicle: (payload, getToken) =>
     apiPost('/api/v1/vehicles', payload, getToken),
 
-  updateVehicle: (vehicleId, payload, getToken) =>
+  /** OOS/RTS status toggle — sends {active, inactive_reason}. PATCH /api/v1/vehicles/{id} */
+  patchVehicleStatus: (vehicleId, payload, getToken) =>
     apiPatch(`/api/v1/vehicles/${vehicleId}`, payload, getToken),
 
+  /** Edit vehicle number + type. PATCH /admin/vehicles/{id}/details — Admin only */
   updateVehicleDetails: (vehicleId, payload, getToken) =>
     apiPatch(`${ADMIN}/vehicles/${vehicleId}/details`, payload, getToken),
 
+  /** Set vehicle color hex. PATCH /admin/vehicles/{id}/color — Supervisor+ */
   updateVehicleColor: (vehicleId, vehicleColor, getToken) =>
     apiPatch(`${ADMIN}/vehicles/${vehicleId}/color`, { vehicle_color: vehicleColor }, getToken),
 

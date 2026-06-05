@@ -212,6 +212,40 @@ def list_station_locations(
     )
 
 
+# ── GET /stations/{station_id}/supply-room — SUPPLY-B3 ───────────────────────
+
+@router.get(
+    "/{station_id}/supply-room",
+    response_model=InventoryLocationRead,
+    summary="Get the supply room for a station (SUPPLY-B3)",
+)
+def get_supply_room(
+    station_id: int,
+    current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
+    db: Session = Depends(get_db),
+) -> InventoryLocation:
+    """
+    Returns the STATION_SUPPLY_ROOM inventory location for this station.
+    Membership enforced. Returns 404 if no supply room has been created yet.
+    """
+    _get_station_or_404(station_id, db)
+    require_station_membership(station_id, current_user, db)
+    location = (
+        db.query(InventoryLocation)
+        .filter(
+            InventoryLocation.station_id   == station_id,
+            InventoryLocation.location_type == LocationType.STATION_SUPPLY_ROOM,
+        )
+        .first()
+    )
+    if not location:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Station {station_id} does not have a supply room configured.",
+        )
+    return location
+
+
 # ── GET /stations/{station_id} ─────────────────────────────────────────────────
 
 @router.get(

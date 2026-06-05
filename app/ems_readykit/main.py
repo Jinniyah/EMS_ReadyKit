@@ -26,6 +26,7 @@ import time
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 
 from ems_readykit.core.config import get_settings
 from ems_readykit.core.logging import configure_logging, set_request_id
@@ -115,6 +116,13 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # ── SEC-H1: Redirect HTTP → HTTPS at application layer (defence-in-depth) ──
+    # Azure App Service provides platform-level redirect, but this ensures any
+    # HTTP request that reaches the app is also redirected. Added last so it
+    # becomes the outermost middleware (first to process each incoming request).
+    if settings.is_production:
+        app.add_middleware(HTTPSRedirectMiddleware)
+
     # ── API Routers ────────────────────────────────────────────────────────────
     # Route ordering matters:
     #   1. station_members BEFORE stations — /stations/my must resolve before
@@ -134,7 +142,7 @@ def create_app() -> FastAPI:
 
     @app.get("/health", tags=["system"])
     def health():
-        return {"status": "ok", "env": settings.app_env}
+        return {"status": "ok"}
 
     logger.info(
         "EMS ReadyKit application created",

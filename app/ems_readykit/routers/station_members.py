@@ -66,7 +66,7 @@ def _enforce_role_assignment_permission(
 ) -> None:
     if target_role not in VALID_ROLES:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Invalid role '{target_role}'. Must be one of: {sorted(VALID_ROLES)}",
         )
     if target_role == ROLE_ADMINISTRATOR and not assigning_user.has_role(ROLE_ADMINISTRATOR):

@@ -6,7 +6,7 @@
  * localStorage mock.  The hook itself requires renderHook which we
  * test via the React Testing Library setup.
  */
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { draftKey } from '../useDraft.js'
 
 describe('draftKey', () => {

@@ -1,6 +1,6 @@
 # CLAUDE.md — AI Development Rules for EMS ReadyKit
-# Last updated: 2026-06-01
-# Updated: added CODEBASE_INDEX.md to Session Handoff checklist
+# Last updated: 2026-06-05
+# Updated: Pre-Session H — CSS theme rules added; code cleanup complete
 # Load this file at the start of every session alongside CODEBASE_INDEX.md.
 
 ---
@@ -152,6 +152,13 @@ Check `shared/api/client.js` for how it's consumed. The dev banner
 ### No HTML form tags
 Never use `<form>` elements in React components. Use `onClick`/`onChange`
 event handlers instead. (Causes submit behavior issues in the PWA.)
+
+### CSS and theming — mandatory rules
+1. **Tokens only.** All CSS values must use tokens from `index.css :root` — no hardcoded hex colors, raw rem values, or raw px sizes except for `0`, `1px` borders, and media query breakpoints.
+2. **Shared utility classes first.** Before writing custom CSS, check if `index.css` already has a class that does the job: `.ems-card`, `.ems-card--warn/fail/pass`, `.ems-section-head`, `.ems-preview-row`.
+3. **Station color is always `var(--station-primary)` / `var(--station-text)`.** Vehicle color is `var(--vehicle-primary)` which inherits station color by default; override via inline style on the component root.
+4. **Semantic color tokens for new Session H/I/J features:** `--color-damaged`/`--color-damaged-bg`, `--color-priority`/`--color-priority-bg`, `--color-no-change`/`--color-no-change-bg`.
+5. **Module CSS placement.** New styles go in the relevant module CSS file (e.g. `supervisor.css`, `supply-room.css`). Never create a new patch/fix CSS file — if a module doesn't have a CSS file yet, create one. Never create new root-level CSS files in `src/`.
 
 ### UX constraints — these are non-negotiable
 - Minimum tap target: **60px**

@@ -739,6 +739,32 @@ def create_station(
         active      = True,
     )
     db.add(member)
+
+    # Auto-create the station supply room with 4 default compartments.
+    from ems_readykit.models.inventory_location import InventoryLocation as IL, LocationType
+    supply_room = IL(
+        location_type = LocationType.STATION_SUPPLY_ROOM,
+        station_id    = station.station_id,
+        label         = f"{station.name} Supply Room",
+    )
+    db.add(supply_room)
+    db.flush()
+
+    _DEFAULT_SUPPLY_COMPARTMENTS = [
+        ("Cab 1 - Shelf 1", "Cabinet 1, top shelf — airway & PPE supplies",         1),
+        ("Cab 1 - Shelf 2", "Cabinet 1, bottom shelf — dressings & bandages",        2),
+        ("Cab 2 - Shelf 1", "Cabinet 2, top shelf — medications & controlled items", 3),
+        ("Cab 2 - Shelf 2", "Cabinet 2, bottom shelf — equipment & restock items",   4),
+    ]
+    for comp_name, comp_desc, sort_order in _DEFAULT_SUPPLY_COMPARTMENTS:
+        db.add(Compartment(
+            location_id          = supply_room.location_id,
+            name                 = comp_name,
+            location_descriptor  = comp_desc,
+            sort_order           = sort_order,
+            active               = True,
+        ))
+
     db.commit()
     db.refresh(station)
 

@@ -101,7 +101,10 @@ print(result)
 " 2>/dev/null || echo "0")
     echo "Member count: $MEMBER_COUNT"
 
-    if [ "$STATION_COUNT" = "0" ] || [ "$MEMBER_COUNT" = "0" ]; then
+    APP_ENV_LOWER=$(echo "${APP_ENV:-}" | tr '[:upper:]' '[:lower:]')
+    if [ "$APP_ENV_LOWER" = "production" ]; then
+        echo "APP_ENV=production — skipping seed."
+    elif [ "$STATION_COUNT" = "0" ] || [ "$MEMBER_COUNT" = "0" ]; then
         echo "Database needs seeding (stations=$STATION_COUNT, members=$MEMBER_COUNT) — running seed..."
         python seed.py && echo "Seed complete." || echo "WARNING: Seed failed — continuing startup."
     else

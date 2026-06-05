@@ -26,8 +26,14 @@ Prerequisites:
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from typing import Optional
+
+# ── Production guard ───────────────────────────────────────────────────────────
+if os.environ.get("APP_ENV", "").lower() == "production":
+    print("Seed skipped in production.")
+    sys.exit(0)
 
 logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 logging.getLogger("sqlalchemy.pool").setLevel(logging.WARNING)
@@ -45,6 +51,7 @@ from ems_readykit.models import (
     ParLevel,
     StationMember,
 )
+from ems_readykit.models.stock_lot import StockLot
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -164,6 +171,59 @@ def get_or_create_jump_bag_location(
     db.add(loc)
     db.flush()
     return loc, True
+
+
+# ---------------------------------------------------------------------------
+# Supply room builder — compartments + test stock lots
+# ---------------------------------------------------------------------------
+
+def build_supply_room(db: Session, loc: InventoryLocation) -> None:
+    """
+    Create 4 default cabinet compartments and seed a set of test stock lots
+    for the given STATION_SUPPLY_ROOM location. Idempotent.
+    """
+    from datetime import date as _date
+
+    default_compartments = [
+        ("Cab 1 - Shelf 1", "Cabinet 1, top shelf — airway & PPE supplies",         1),
+        ("Cab 1 - Shelf 2", "Cabinet 1, bottom shelf — dressings & bandages",        2),
+        ("Cab 2 - Shelf 1", "Cabinet 2, top shelf — medications & controlled items", 3),
+        ("Cab 2 - Shelf 2", "Cabinet 2, bottom shelf — equipment & restock items",   4),
+    ]
+    for name, descriptor, sort_order in default_compartments:
+        make_compartment(db, location=loc, name=name,
+                         location_descriptor=descriptor, sort_order=sort_order)
+
+    # Test stock lots — items that already exist in the shared item catalog
+    test_stock = [
+        ("Gauze Bandage Various Sizes", "LOT-G2026-001", _date(2027, 6, 30),  24),
+        ("Sterile Saline Solution",     "LOT-S2026-001", _date(2027, 3, 15),  12),
+        ("Gloves Medium",               None,            None,                 50),
+        ("ABD Pad 8x10",                "LOT-A2026-001", _date(2027, 9, 15),  18),
+        ("N-95 Masks",                  "LOT-N2026-001", _date(2027, 12, 31), 40),
+        ("KERLIX PC13",                 "LOT-K2026-001", _date(2027, 8, 31),  16),
+        ("Gloves Large",                None,            None,                 30),
+        ("Tape Various Sizes",          "LOT-T2026-001", _date(2027, 6, 30),  20),
+        ("Triangle Bandages",           "LOT-TB2026-001", _date(2027, 9, 30), 10),
+        ("CAT Tourniquet",              "LOT-C2026-001", _date(2028, 1, 31),   6),
+    ]
+    for item_name, lot_number, expiry, qty in test_stock:
+        item = db.query(Item).filter(Item.name == item_name).first()
+        if not item:
+            continue
+        existing = db.query(StockLot).filter(
+            StockLot.location_id == loc.location_id,
+            StockLot.item_id     == item.item_id,
+        ).first()
+        if not existing:
+            db.add(StockLot(
+                item_id         = item.item_id,
+                location_id     = loc.location_id,
+                quantity        = qty,
+                lot_number      = lot_number,
+                expiration_date = expiry,
+            ))
+    db.flush()
 
 
 # ---------------------------------------------------------------------------
@@ -804,14 +864,20 @@ def seed(db: Session) -> None:
         db.flush()
         print(f"  Created station: {newberg.name}")
 
-    if not db.query(InventoryLocation).filter(
-        InventoryLocation.station_id == newberg.station_id,
+    newberg_supply = db.query(InventoryLocation).filter(
+        InventoryLocation.station_id    == newberg.station_id,
         InventoryLocation.location_type == LocationType.STATION_SUPPLY_ROOM,
-    ).first():
-        db.add(InventoryLocation(location_type=LocationType.STATION_SUPPLY_ROOM,
-                                 station_id=newberg.station_id,
-                                 label="Newberg Station 1 Supply Room"))
+    ).first()
+    if not newberg_supply:
+        newberg_supply = InventoryLocation(
+            location_type = LocationType.STATION_SUPPLY_ROOM,
+            station_id    = newberg.station_id,
+            label         = "Newberg Station 1 Supply Room",
+        )
+        db.add(newberg_supply)
         db.flush()
+        print("  Created Newberg supply room")
+    build_supply_room(db, newberg_supply)
 
     v712 = db.query(Vehicle).filter(Vehicle.vehicle_number == "712").first()
     if not v712:
@@ -889,14 +955,20 @@ def seed(db: Session) -> None:
         db.flush()
         print(f"  Created station: {marcellus.name}")
 
-    if not db.query(InventoryLocation).filter(
-        InventoryLocation.station_id == marcellus.station_id,
+    marcellus_supply = db.query(InventoryLocation).filter(
+        InventoryLocation.station_id    == marcellus.station_id,
         InventoryLocation.location_type == LocationType.STATION_SUPPLY_ROOM,
-    ).first():
-        db.add(InventoryLocation(location_type=LocationType.STATION_SUPPLY_ROOM,
-                                 station_id=marcellus.station_id,
-                                 label="Marcellus Station 1 Supply Room"))
+    ).first()
+    if not marcellus_supply:
+        marcellus_supply = InventoryLocation(
+            location_type = LocationType.STATION_SUPPLY_ROOM,
+            station_id    = marcellus.station_id,
+            label         = "Marcellus Station 1 Supply Room",
+        )
+        db.add(marcellus_supply)
         db.flush()
+        print("  Created Marcellus supply room")
+    build_supply_room(db, marcellus_supply)
 
     v540 = db.query(Vehicle).filter(Vehicle.vehicle_number == "540").first()
     if not v540:
@@ -955,6 +1027,21 @@ def seed(db: Session) -> None:
         db.add(test_station)
         db.flush()
         print("  Created test station")
+
+    test_supply = db.query(InventoryLocation).filter(
+        InventoryLocation.station_id    == test_station.station_id,
+        InventoryLocation.location_type == LocationType.STATION_SUPPLY_ROOM,
+    ).first()
+    if not test_supply:
+        test_supply = InventoryLocation(
+            location_type = LocationType.STATION_SUPPLY_ROOM,
+            station_id    = test_station.station_id,
+            label         = "⚠ TEST Supply Room — Dev Only",
+        )
+        db.add(test_supply)
+        db.flush()
+        print("  Created TEST supply room")
+    build_supply_room(db, test_supply)
 
     v_test = db.query(Vehicle).filter(Vehicle.vehicle_number == "TEST").first()
     if not v_test:

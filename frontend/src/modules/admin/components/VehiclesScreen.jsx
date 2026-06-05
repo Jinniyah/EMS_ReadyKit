@@ -399,7 +399,7 @@ function VehicleAdminCard({ vehicle: initialVehicle, onVehicleUpdated }) {
     if (!oosReason.trim()) { setOosError('A reason is required.'); return }
     setToggling(true); setOosError(null)
     try {
-      await adminApi.updateVehicle(vehicle.vehicle_id, {
+      await adminApi.patchVehicleStatus(vehicle.vehicle_id, {
         active:          false,
         inactive_reason: oosReason.trim(),
       }, getToken)
@@ -417,7 +417,7 @@ function VehicleAdminCard({ vehicle: initialVehicle, onVehicleUpdated }) {
     e.preventDefault()
     setToggling(true)
     try {
-      await adminApi.updateVehicle(vehicle.vehicle_id, {
+      await adminApi.patchVehicleStatus(vehicle.vehicle_id, {
         active:          true,
         inactive_reason: rtsComment.trim() || null,
       }, getToken)

@@ -18,6 +18,7 @@ from ems_readykit.models.controlled_substance_check import ControlledSubstanceCh
 from ems_readykit.models.audit_event import AuditEvent
 from ems_readykit.models.repair_request import RepairRequest, RepairSeverity, RepairStatus
 from ems_readykit.models.station_member import StationMember
+from ems_readykit.models.stock_transfer import StockTransfer
 
 __all__ = [
     "Station",
@@ -41,4 +42,5 @@ __all__ = [
     "RepairSeverity",
     "RepairStatus",
     "StationMember",
+    "StockTransfer",
 ]

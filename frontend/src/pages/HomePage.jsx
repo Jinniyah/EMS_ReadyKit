@@ -30,6 +30,7 @@ const VehicleStatusScreen  = lazy(() => import('../modules/vehicles/index.jsx'))
 const CheckHistoryScreen   = lazy(() => import('../modules/check-history/index.jsx'))
 const SupervisorDashboard  = lazy(() => import('../modules/supervisor/index.jsx'))
 const AdminScreen          = lazy(() => import('../modules/admin/index.jsx'))
+const SupplyRoomScreen     = lazy(() => import('../modules/supply-room/index.jsx'))
 
 const STATION_STORAGE_KEY = 'ems_selected_station_id'  // store ID only, not full object
 
@@ -252,6 +253,20 @@ export default function HomePage() {
           <SupervisorDashboard
             station={selectedStation}
             onBack={() => setActiveModule(null)}
+            onNavigateToVehicles={() => setActiveModule('vehicles')}
+          />
+        </Suspense>
+      </ErrorBoundary>
+    )
+  }
+
+  if (activeModule === 'supply-room') {
+    return (
+      <ErrorBoundary moduleName="Supply Room">
+        <Suspense fallback={<Spinner label="Loading…" />}>
+          <SupplyRoomScreen
+            station={selectedStation}
+            onBack={() => setActiveModule(null)}
           />
         </Suspense>
       </ErrorBoundary>
@@ -418,6 +433,27 @@ export default function HomePage() {
                   className="btn btn--primary"
                   style={colors ? { background: colors.primary } : {}}
                   onClick={() => setActiveModule('supervisor')}
+                  disabled={!selectedStation}
+                  type="button"
+                >
+                  Open
+                </button>
+              </div>
+            </ErrorBoundary>
+          )}
+
+          {canAccess(user, 'supervisor') && !isCrewMode && (
+            <ErrorBoundary moduleName="Supply Room Card">
+              <div className="module-card">
+                <div className="module-card__icon" aria-hidden="true">🏪</div>
+                <div className="module-card__content">
+                  <div className="module-card__title">Supply Room</div>
+                  <div className="module-card__description">Stock levels, restock vehicles, receive shipments</div>
+                </div>
+                <button
+                  className="btn btn--primary"
+                  style={colors ? { background: colors.primary } : {}}
+                  onClick={() => setActiveModule('supply-room')}
                   disabled={!selectedStation}
                   type="button"
                 >

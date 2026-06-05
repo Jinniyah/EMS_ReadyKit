@@ -25,7 +25,7 @@ function vehicleWeight(vehicle, checks) {
   return SORT_WEIGHT[checks[0].status] ?? SORT_WEIGHT.PASS
 }
 
-export default function SupervisorDashboard({ station, onBack }) {
+export default function SupervisorDashboard({ station, onBack, onNavigateToVehicles }) {
   const { getToken } = useAuth()
   const [activeFilter, setActiveFilter]   = useState('all')
   const [selectedCheck, setSelectedCheck] = useState(null) // { check, vehicleId, vehicleNumber }
@@ -45,6 +45,7 @@ export default function SupervisorDashboard({ station, onBack }) {
           vehicleId={selectedCheck.vehicleId}
           vehicleNumber={selectedCheck.vehicleNumber ?? ''}
           onBack={() => setSelectedCheck(null)}
+          onNavigateToVehicles={onNavigateToVehicles}
         />
       </ErrorBoundary>
     )

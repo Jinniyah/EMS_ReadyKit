@@ -65,6 +65,20 @@
   /* Station color — set dynamically by HomePage via body style */
   --station-primary: var(--color-brand);
   --station-text:    #ffffff;
+
+  /* Vehicle color — inherits station color until overridden by inline style */
+  --vehicle-primary: var(--station-primary);
+
+  /* Semantic status colors for Session H+ features */
+  --color-damaged:          #dc2626;
+  --color-damaged-bg:       #fef2f2;
+  --color-priority:         #185fa5;
+  --color-priority-bg:      #e6f1fb;
+  --color-no-change:        #3b6d11;
+  --color-no-change-bg:     #eaf3de;
+
+  /* Extra-small font for dense labels (badges, calendar ticks, section heads) */
+  --font-size-xs: 12px;
 }
 
 /* ── Reset ─────────────────────────────────────────────────────────────────── */
@@ -586,6 +600,36 @@ h3 { font-size: var(--font-size-md); font-weight: 600; }
 .not-found-page__icon    { font-size: 64px; }
 .not-found-page__title   { font-size: var(--font-size-h1); }
 .not-found-page__message { color: var(--color-text-secondary); }
+
+/* ── Shared utility classes — use these before writing module-specific CSS ─── */
+
+/* Surface card — replaces per-module reinventions of the same white-card pattern */
+.ems-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.ems-card--warn { border-color: var(--color-status-warn); border-width: 2px; }
+.ems-card--fail { border-color: var(--color-status-fail); border-width: 2px; }
+.ems-card--pass { border-color: var(--color-status-pass); }
+
+/* Section heading — compact uppercase label above a list or group */
+.ems-section-head {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+/* Preview row — flex row with label left, value right (stock summary rows, etc.) */
+.ems-preview-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--font-size-sm);
+}
 
 /* ── Print styles ──────────────────────────────────────────────────────────── */
 @media print {

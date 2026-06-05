@@ -67,6 +67,17 @@ jobs:
         working-directory: ${{ env.FRONTEND_DIR }}
         run: npm ci
 
+      # SEC-PRE2: Dependency vulnerability audit (mirrors backend pip-audit pattern).
+      # Fails build on high/critical severity only.
+      - name: Security audit
+        working-directory: ${{ env.FRONTEND_DIR }}
+        run: npm audit --audit-level=high
+
+      # SEC-PRE4: Lint check (catches undefined vars, hook violations).
+      - name: Lint
+        working-directory: ${{ env.FRONTEND_DIR }}
+        run: npm run lint
+
       - name: Build
         working-directory: ${{ env.FRONTEND_DIR }}
         env:

@@ -4,6 +4,7 @@
  * All calls go through the shared authenticated client.
  */
 import { apiGet, apiPost } from '../../../shared/api/client.js'
+import { getMyStations } from '../../../shared/api/stationsApi.js'
 
 export const checkApi = {
   /**
@@ -15,8 +16,7 @@ export const checkApi = {
     apiGet(`/api/v1/stations/${stationId}/vehicles?active=true`, getToken),
 
   /** Stations the current user is assigned to (membership-scoped) */
-  getStations: (getToken) =>
-    apiGet('/api/v1/stations/my', getToken),
+  getStations: getMyStations,
 
   /**
    * Non-vehicle checkable locations at a station (JUMP_BAG, EQUIPMENT).

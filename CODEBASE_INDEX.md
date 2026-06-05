@@ -1,5 +1,5 @@
 # EMS ReadyKit — Codebase Index
-# Last updated: 2026-06-01 (Session F UAT complete: vehicle-centric par level view added, 217 tests passing)
+# Last updated: 2026-06-05 (Pre-Session H: code cleanup, CSS theme consolidation, security hardening)
 # PURPOSE: Load this file at the start of every session to orient quickly.
 # After reading this, load only the sections relevant to the current task.
 # Full project state → docs/project_index.md | Open work → docs/backlog.md
@@ -18,7 +18,7 @@ EMS_ReadyKit/
 │   │   ├── schemas/            # Pydantic request/response schemas
 │   │   └── main.py             # App factory, middleware, router registration
 │   ├── alembic/                # DB migrations (versions/ subdirectory)
-│   ├── tests/                  # pytest suite (191 tests passing)
+│   ├── tests/                  # pytest suite (231 tests passing)
 │   ├── seed.py                 # Dev seed data
 │   └── pyproject.toml          # Dependencies + pytest config
 ├── frontend/                   # React 18 + Vite PWA
@@ -56,7 +56,7 @@ All routes are prefixed `/api/v1/`. Router registration order in main.py matters
 | `checks.py` | 19 KB | `/checks/daily` | All + membership | Check wizard: create, draft save, line-item updates, submit |
 | `check_history.py` | 7 KB | `/checks/daily` | All / Supervisor+ | Read-only history; soft-delete; acknowledgement |
 | `repair_requests.py` | 9 KB | `/vehicles/{id}/repair-requests` | All roles | File, update, resolve repair requests |
-| `inventory.py` | 19 KB | `/inventory` | All + membership | Locations, compartments, par levels, lots, stock summary |
+| `inventory.py` | 26 KB | `/inventory` | All + membership | Locations, compartments, par levels, lots, stock summary, transfer, CSV receive. Uses `HTTP_422_UNPROCESSABLE_CONTENT` (starlette deprecation fixed) |
 | `items.py` | 3 KB | `/items` | All | Item catalog search and detail |
 | `admin.py` | 29 KB | `/admin` | Admin (most) / Supervisor+ | Stations, vehicles, items, par levels, CSV import, members |
 | `audit.py` | 2 KB | `/audit` | Supervisor+ | Paginated audit event log |
@@ -93,6 +93,7 @@ from ems_readykit.routers.deps import (
 | `repair_request.py` | `RepairRequest` | OPEN → IN_PROGRESS → RESOLVED; corrective_action prefix sentinel |
 | `station_member.py` | `StationMember` | user_id = email (JWT preferred_username) |
 | `audit_event.py` | `AuditEvent` | Immutable; write via `core/audit.py` |
+| `stock_transfer.py` | `StockTransfer` | Transfer record: from/to location, item, qty, FIFO lot snapshot; from_location_id nullable (null = external receipt) |
 
 ### Domain model hierarchy
 ```
@@ -133,6 +134,7 @@ AuditEvent     (immutable log)
 | File | Size | Coverage |
 |------|------|----------|
 | `test_routers.py` | 67 KB | Main router integration tests (bulk of 217 tests) |
+| `test_supply_room.py` | 8 KB | Supply room: SUPPLY-B1/B2/B3, transfer, history, CSV |
 | `test_repair_requests.py` | 17 KB | Repair request lifecycle |
 | `test_station_membership.py` | 15 KB | RBAC + station membership enforcement |
 | `test_check_history.py` | 15 KB | Check history, soft-delete, acknowledgement |
@@ -141,6 +143,8 @@ AuditEvent     (immutable log)
 | `conftest.py` | 4 KB | Shared fixtures: in-memory SQLite, test client, user factories |
 
 Run tests: `cd app && pytest` (uses SQLite in-memory; no external services needed)
+
+**Test isolation note:** Route handlers that call `db.commit()` release the active SQLAlchemy savepoint. SQLite's in-memory engine does not fully undo released savepoints on outer transaction rollback. Any fixture creating a row with a UNIQUE constraint must use **get-or-create semantics** (see `test_item` and `vehicle_location` fixtures in `test_supply_room.py` for the pattern).
 
 ---
 
@@ -168,7 +172,7 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 |------|------|---------|
 | `index.jsx` | 7 KB | Dashboard entry, tab routing |
 | `components/ComplianceCalendar.jsx` | 15 KB | Calendar view of check compliance |
-| `components/CheckDetailPanel.jsx` | 15 KB | Drill-down check detail with acknowledgement |
+| `components/CheckDetailPanel.jsx` | 9 KB | Drill-down check detail — read-only + comments only (no acknowledge, no "I Fixed This") |
 | `components/VehicleComplianceCard.jsx` | 7 KB | Per-vehicle compliance summary card |
 | `components/PortableComplianceCard.jsx` | — | Per-portable-location compliance summary card |
 
@@ -185,6 +189,19 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 | `components/ItemAssignments.jsx` | 18 KB | Par level assignment — item-centric (vehicle→compartment cascade) |
 | `components/CompartmentParLevels.jsx` | — | Par level assignment — vehicle-centric (per-compartment item list with add/edit/remove) |
 | `components/CsvImport.jsx` | 8 KB | Bulk item import with template download |
+
+### supply-room/  (Supply Room & Restocking — Session G)
+| File | Size | Purpose |
+|------|------|---------|
+| `index.jsx` | 5 KB | Nav-card landing (4 large cards) → full-screen section views; no horizontal tab bar |
+| `supply-room.css` | — | All supply-room CSS using design tokens; mirrors admin.css patterns |
+| `api/supplyApi.js` | 2 KB | API calls: supply-room, stock-summary, transfer, CSV, station locations |
+| `components/StockSummaryView.jsx` | 6 KB | SUPPLY-F1: color-coded stock list with lot drill-down |
+| `components/RestockVehiclePanel.jsx` | 9 KB | SUPPLY-F2: vehicle selector → par comparison → transfer. Resolves vehicle location_id via `getStationLocations` (VehicleRead does not include location_id) |
+| `components/ReceiveStockPanel.jsx` | 8 KB | SUPPLY-F3: manual add + CSV bulk upload |
+| `components/TransferHistory.jsx` | 4 KB | SUPPLY-F4: inbound/outbound transfer log |
+
+**Key architectural note — vehicle location_id:** `VehicleRead` does not expose `location_id`. To get a vehicle's inventory location ID, call `GET /inventory/locations?station_id=` and match on `vehicle_id + location_type === 'VEHICLE'`. This is the same pattern used by the check wizard.
 
 ### vehicles/  (V&E Status)
 | File | Size | Purpose |
@@ -209,6 +226,7 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 |------|---------|
 | `client.js` | Axios instance; base URL from VITE_API_BASE_URL; auth token injector |
 | `authConfig.js` | MSAL config: tenant ID, client ID, scopes |
+| `stationsApi.js` | Shared `getMyStations` — imported by checkApi + adminApi (deduplication) |
 
 ### hooks/
 | File | Purpose |
@@ -241,7 +259,7 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 
 ## Migrations (app/alembic/versions/)
 
-13 migrations applied (0001–0013, plus 0003a branch). Run automatically at startup via `startup.sh`.
+14 migrations applied (0001–0014, plus 0003a branch). Run automatically at startup via `startup.sh`.
 To add a new migration: `cd app && alembic revision --autogenerate -m "description"`
 
 Key recent migrations:
@@ -252,6 +270,7 @@ Key recent migrations:
 - **0011** — `primary_color` on `stations`; `vehicle_color` on `vehicles` (CSS hex, nullable)
 - **0012** — `call_sign` on `stations` (VARCHAR 20, nullable)
 - **0013** — `vehicle_id` nullable on `daily_inventory_checks`; adds `location_id` FK for portable checks; index on (location_id, check_date)
+- **0014** — `stock_transfers` table; backfills 4 default compartments (Cab 1–2, Shelf 1–2) for any supply room with zero compartments
 
 ---
 
@@ -276,6 +295,8 @@ Key recent migrations:
 | `frontend/src/modules/admin/index.jsx` | 21 KB — candidate for sub-screen extraction |
 | `frontend/src/modules/admin/components/VehiclesScreen.jsx` | 25 KB — candidate for splitting |
 | `frontend/src/modules/check-wizard/components/ItemRow.jsx` | 16 KB — complex, touch carefully |
+| `frontend/staticwebapp.config.json` | NEW — CSP, HSTS, X-Frame-Options, SWA routing fallback (SEC-PRE1) |
+| `frontend/.eslintrc.cjs` | NEW — ESLint 8 config (eslint:recommended + react-hooks) |
 
 ---
 
@@ -283,7 +304,8 @@ Key recent migrations:
 
 | Session | Focus | Key Items |
 |---------|-------|-----------|
-| **G** | Supply Room & Restocking | SUPPLY-M1, SUPPLY-B1–B3, SUPPLY-F1–F3 |
-| **H** | Check Wizard UX Polish | F-UX2, F-UX3, F-UX6, F-UX4, B-E8, CH-F7/F8 |
-| **I** | Retirement, Settings, Data Export | RET-M1–M3, RET-B1–B4, RET-F1–F5, F-5G3 |
-| **J** | UAT, Help System, Final Polish | UAT-2–6, F-5C1, F-5C2, F-5G1, I-3 |
+| **G** | Supply Room & Restocking | ✅ Complete — all tests passing |
+| **Pre-H** | Code Cleanup + Security | ✅ Complete — all 13 items done |
+| **H** | Workflow Acceleration + Check Wizard Redesign | RX-F1 through RX-F11, DMG-B1/F1-F3, SUP-F1/F3, F-UX2/F-UX3, B-E8, CH-F7/F8 |
+| **I** | After-Call Reset + Retirement + Settings + AI Groundwork | RX-F6/RX-B1, RET-M1-M3/B1-B4/F1-F5, SUP-F2, F-5G3, AI-B1/F1 |
+| **J** | UAT Dress Rehearsal + Operational Launch Setup | LAUNCH-OPS1-OPS9, UAT-2-11, F-5C2, I-3 |

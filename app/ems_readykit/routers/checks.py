@@ -57,6 +57,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/checks", tags=["checks"])
 
 
+# Frontend mirror: deriveDraftItemStatus() in frontend/src/shared/utils/statusCalc.js
+# Changes to this function must be reflected there to keep draft status in sync.
 def _compute_line_item_status(
     needed: int,
     found: int,

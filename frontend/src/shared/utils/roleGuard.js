@@ -14,7 +14,6 @@
  *   </RoleGuard>
  */
 
-import React from 'react'
 import { ROLE_ADMINISTRATOR, ROLE_SUPERVISOR, ROLE_RESPONDER } from '../hooks/useAuth.jsx'
 
 // Role hierarchy — higher index = more privilege

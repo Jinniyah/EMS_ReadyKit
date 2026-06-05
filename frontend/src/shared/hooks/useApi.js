@@ -31,6 +31,7 @@ export function useApi(fetchFn, deps = []) {
   const execute = useCallback(async () => {
     setLoading(true)
     setError(null)
+    setData(null)
     try {
       const result = await fetchFn()
       if (mountedRef.current) {

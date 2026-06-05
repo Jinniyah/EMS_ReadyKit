@@ -103,7 +103,7 @@ function CommentForm({ checkId, existing, onDone, onCancel }) {
   )
 }
 
-export default function CheckDetailPanel({ checkSummary, vehicleId, vehicleNumber, onBack }) {
+export default function CheckDetailPanel({ checkSummary, vehicleId, vehicleNumber, onBack, onNavigateToVehicles }) {
   const { getToken } = useAuth()
   const [activePanel, setActivePanel] = useState(null) // 'comment' | null
 
@@ -206,6 +206,15 @@ export default function CheckDetailPanel({ checkSummary, vehicleId, vehicleNumbe
                   )
                 })}
               </ul>
+              {onNavigateToVehicles && (
+                <button
+                  className="btn btn--primary btn--full cdp__ve-btn no-print"
+                  onClick={onNavigateToVehicles}
+                  type="button"
+                >
+                  🚑 Go to Vehicle &amp; Equipment Status
+                </button>
+              )}
             </div>
           )}
 
