@@ -48,6 +48,7 @@ export function RoleGuard({ role, user, children, fallback = null }) {
 function _normalise(role) {
   const map = {
     administrator: ROLE_ADMINISTRATOR,
+    admin:         ROLE_ADMINISTRATOR,  // alias — prevent canAccess(user, 'admin') silently failing
     supervisor:    ROLE_SUPERVISOR,
     responder:     ROLE_RESPONDER,
     // Accept canonical values too

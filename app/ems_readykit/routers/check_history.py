@@ -26,7 +26,7 @@ from ems_readykit.core.auth import (
 )
 from ems_readykit.core.database import get_db
 from ems_readykit.models.daily_inventory_check import DailyInventoryCheck, CheckStatus
-from ems_readykit.routers.deps import ALL_ROLES, SUPERVISOR_PLUS, require_role
+from ems_readykit.routers.deps import ALL_ROLES, ADMIN_ONLY, SUPERVISOR_PLUS, require_role
 from ems_readykit.schemas.daily_inventory_check import (
     AcknowledgeRequest,
     DailyInventoryCheckRead,
@@ -219,3 +219,70 @@ def soft_delete_check(
         extra={"check_id": check_id, "actor": current_user.user_id},
     )
     return check
+
+
+# ── CH-F7: GET deleted checks for a station ─────────────────────────────────
+
+@router.get(
+    "/checks/daily/deleted",
+    response_model=List[DailyInventoryCheckRead],
+    summary="List soft-deleted checks for a station (CH-F7)",
+)
+def list_deleted_checks(
+    station_id: int = Query(..., gt=0, description="Station to scope the query"),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
+) -> List[DailyInventoryCheck]:
+    return (
+        db.query(DailyInventoryCheck)
+        .filter(
+            DailyInventoryCheck.station_id == station_id,
+            DailyInventoryCheck.deleted_at.isnot(None),
+        )
+        .order_by(DailyInventoryCheck.deleted_at.desc())
+        .all()
+    )
+
+
+# ── CH-F8: DELETE /checks/daily/{id}/force — permanent hard-delete ────────────
+
+@router.delete(
+    "/checks/daily/{check_id}/force",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Permanently delete a soft-deleted check (CH-F8, Admin only)",
+)
+def force_delete_check(
+    check_id: int,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*ADMIN_ONLY)),
+) -> None:
+    check = _get_check_or_404(check_id, db, include_deleted=True)
+    if check.deleted_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only soft-deleted checks can be permanently deleted. Soft-delete it first.",
+        )
+
+    write_audit_event(
+        db,
+        actor=current_user.user_id,
+        action="CHECK_HARD_DELETED",
+        entity_type="daily_inventory_check",
+        entity_id=str(check_id),
+        station_id=check.station_id,
+        vehicle_id=check.vehicle_id,
+        metadata={
+            "deletion_reason": check.deletion_reason,
+            "check_date":      check.check_date,
+            "check_status":    check.status.value,
+        },
+        severity="CRITICAL",
+    )
+
+    db.delete(check)
+    db.commit()
+    logger.warning(
+        "Check %s permanently deleted by %s",
+        check_id, current_user.user_id,
+        extra={"check_id": check_id, "actor": current_user.user_id},
+    )

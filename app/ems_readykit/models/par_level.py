@@ -53,6 +53,8 @@ class ParLevel(TimestampMixin, Base):
     priority_check: Mapped[Optional[bool]] = mapped_column(sa.Boolean, nullable=True, default=False)
     # Plain-English question shown to responder in place of item name (max 150 chars).
     priority_question: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    # Damaged flag — responder marks item as damaged/unavailable at this compartment.
+    is_damaged: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=False, server_default=sa.false())
 
     # Relationships
     item: Mapped["Item"] = relationship("Item", back_populates="par_levels")

@@ -28,10 +28,12 @@ from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from ems_readykit.core.audit import write_audit_event
 from ems_readykit.core.auth import ROLE_ADMINISTRATOR, CurrentUser
 from ems_readykit.core.database import get_db
 from ems_readykit.models.compartment import Compartment
@@ -50,7 +52,7 @@ from ems_readykit.routers.deps import (
 from ems_readykit.schemas.compartment import CompartmentCreate, CompartmentRead
 from ems_readykit.schemas.inventory_location import InventoryLocationRead, InventoryLocationCreate
 from ems_readykit.schemas.par_level import ParLevelCreate, ParLevelRead
-from ems_readykit.schemas.stock_lot import StockLotCreate, StockLotRead
+from ems_readykit.schemas.stock_lot import StockLotCreate, StockLotRead, StockLotUpdate
 from ems_readykit.schemas.stock_transfer import (
     CsvReceiveResult, StockItemSummary, StockTransferRead, TransferRequest,
 )
@@ -430,6 +432,53 @@ def get_stock_lot(
         )
     location = _get_location_or_404(lot.location_id, db)
     require_station_membership(location.station_id, current_user, db)
+    return lot
+
+
+@router.put(
+    "/lots/{lot_id}",
+    response_model=StockLotRead,
+    summary="Correct expiry date or lot number on a stock lot (Supervisor+)",
+)
+def update_stock_lot(
+    lot_id: int,
+    payload: StockLotUpdate,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
+) -> StockLot:
+    lot = db.query(StockLot).filter(StockLot.lot_id == lot_id).first()
+    if not lot:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Stock lot {lot_id} not found.",
+        )
+    location = _get_location_or_404(lot.location_id, db)
+    require_station_membership(location.station_id, current_user, db)
+
+    old_expiry = lot.expiration_date
+    old_lot_number = lot.lot_number
+
+    if "expiration_date" in payload.model_fields_set:
+        lot.expiration_date = payload.expiration_date
+    if "lot_number" in payload.model_fields_set:
+        lot.lot_number = payload.lot_number
+
+    db.commit()
+    db.refresh(lot)
+
+    write_audit_event(
+        db=db,
+        actor=current_user.email,
+        action="STOCK_LOT_UPDATED",
+        entity_type="stock_lot",
+        entity_id=str(lot_id),
+        metadata={
+            "old_expiration_date": str(old_expiry) if old_expiry else None,
+            "new_expiration_date": str(lot.expiration_date) if lot.expiration_date else None,
+            "old_lot_number": old_lot_number,
+            "new_lot_number": lot.lot_number,
+        },
+    )
     return lot
 
 
@@ -846,6 +895,59 @@ def receive_stock_template() -> StreamingResponse:
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=supply_room_receive_template.csv"},
     )
+
+
+# ── PATCH /inventory/items/{item_id}/status — DMG-B1 ─────────────────────────
+
+class _ItemStatusPatch(BaseModel):
+    compartment_id: int
+    is_damaged: bool
+
+
+@router.patch(
+    "/items/{item_id}/status",
+    response_model=ParLevelRead,
+    summary="Mark an item damaged/unavailable at a compartment (DMG-B1)",
+)
+def patch_item_status(
+    item_id: int,
+    payload: _ItemStatusPatch,
+    current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
+    db: Session = Depends(get_db),
+) -> ParLevel:
+    par = (
+        db.query(ParLevel)
+        .filter(
+            ParLevel.item_id == item_id,
+            ParLevel.compartment_id == payload.compartment_id,
+        )
+        .first()
+    )
+    if not par:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No par level for item {item_id} in compartment {payload.compartment_id}.",
+        )
+    location = _get_location_or_404(par.location_id, db)
+    require_station_membership(location.station_id, current_user, db)
+
+    par.is_damaged = payload.is_damaged
+    db.commit()
+    db.refresh(par)
+
+    write_audit_event(
+        db=db,
+        actor=current_user.email or current_user.oid,
+        action="ITEM_DAMAGED" if payload.is_damaged else "ITEM_DAMAGE_CLEARED",
+        entity_type="par_level",
+        entity_id=str(par.par_id),
+        metadata={
+            "item_id": item_id,
+            "compartment_id": payload.compartment_id,
+            "is_damaged": payload.is_damaged,
+        },
+    )
+    return par
 
 
 # ── CSV bulk receive ──────────────────────────────────────────────────────────

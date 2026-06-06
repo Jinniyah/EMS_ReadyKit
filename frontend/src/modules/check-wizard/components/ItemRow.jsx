@@ -31,6 +31,7 @@ export default function ItemRow({
   draftItem,
   onUpdate,
   onTouched,
+  onMarkDamaged,
 }) {
   const checkType      = item.check_type ?? 'SUPPLY'
   const quantityNeeded = parLevel?.min_quantity ?? 0
@@ -162,8 +163,11 @@ export default function ItemRow({
   const isAtPar          = isCountType && quantityNeeded > 0 && currentQty === quantityNeeded
   const showSubmitButton = (isCountType && hasDraft && !isAtPar) || checkType === 'MEASUREMENT' || isFailPending
 
+  const isDamaged = parLevel?.is_damaged === true
+
   // ── Confirmed (locked) display ────────────────────────────────────────────
   if (confirmed) {
+    const canMarkDamaged = onMarkDamaged && (isZeroCount || isFunctionalFail)
     return (
       <div className="item-row item-row--confirmed" style={{ '--row-bg': rowBg }}
         aria-label={`${item.name}: ${countLabel}`}>
@@ -172,15 +176,30 @@ export default function ItemRow({
             <div className="item-row__name item-row__name--submitted">
               {item.name}
               {item.controlled_substance && <span className="item-row__cs-badge" aria-label="Controlled substance">🔒</span>}
+              {isDamaged && <span className="item-row__damaged-badge" aria-label="Item marked damaged">⚠ Damaged</span>}
             </div>
             <div className="item-row__submitted-count">
               {countLabel}
               {isZeroCount      && <span className="item-row__zero-warning"> ⚠ check count</span>}
               {isShortCount     && <span className="item-row__short-warning"> ↓ short</span>}
               {isMeasurementLow && <span className="item-row__short-warning"> ↓ low — below {minValue} {item.unit_of_measure ?? ''}</span>}
-              {isFunctionalFail && <span className="item-row__fail-tag"> ✗ Failed</span>}
+              {isFunctionalFail && <span className="item-row__fail-tag"> ✗ Problem found</span>}
             </div>
             {draftItem?.notes && <div className="item-row__submitted-note">📝 {draftItem.notes}</div>}
+            {canMarkDamaged && !isDamaged && (
+              <button className="item-row__damage-btn" type="button"
+                onClick={() => onMarkDamaged(item, parLevel, true)}
+                aria-label={`Mark ${item.name} as damaged`}>
+                ⚠ Mark as damaged
+              </button>
+            )}
+            {isDamaged && (
+              <button className="item-row__damage-btn item-row__damage-btn--clear" type="button"
+                onClick={() => onMarkDamaged(item, parLevel, false)}
+                aria-label={`Clear damaged flag for ${item.name}`}>
+                Clear damaged flag
+              </button>
+            )}
           </div>
           <button className="item-row__edit-btn" onClick={handleEdit} type="button"
             aria-label={`Edit ${item.name}`} title="Edit">✏</button>
@@ -197,6 +216,7 @@ export default function ItemRow({
           {item.name}
           {item.controlled_substance && <span className="item-row__cs-badge" aria-label="Controlled substance">🔒 CS</span>}
           {checkType !== 'SUPPLY' && <span className="item-row__type-badge">{checkTypeLabel(checkType)}</span>}
+          {isDamaged && <span className="item-row__damaged-badge" aria-label="Item marked damaged">⚠ Damaged</span>}
         </div>
       </div>
 
@@ -274,12 +294,23 @@ export default function ItemRow({
             onClick={() => { setShowNotes(true); setTimeout(() => notesRef.current?.focus(), 50) }}
             aria-label={`Add note for ${item.name}`}>+ Note</button>
         ) : <div />}
-        {showSubmitButton && (
-          <button className="btn btn--submit-count" onClick={handleSubmitCount} type="button"
-            aria-label={isFailPending ? `Confirm fail for ${item.name}` : `Submit count for ${item.name}`}>
-            {isFailPending ? 'Confirm fail' : 'Submit count'}
-          </button>
-        )}
+        <div className="item-row__actions-right">
+          {onMarkDamaged && (
+            isDamaged
+              ? <button className="btn-text btn-text--damaged" type="button"
+                  onClick={() => onMarkDamaged(item, parLevel, false)}
+                  aria-label={`Clear damaged flag for ${item.name}`}>Clear Damaged</button>
+              : <button className="btn-text btn-text--damaged" type="button"
+                  onClick={() => onMarkDamaged(item, parLevel, true)}
+                  aria-label={`Mark ${item.name} as damaged`}>+ Mark Damaged</button>
+          )}
+          {showSubmitButton && (
+            <button className="btn btn--submit-count" onClick={handleSubmitCount} type="button"
+              aria-label={isFailPending ? `Confirm fail for ${item.name}` : `Submit count for ${item.name}`}>
+              {isFailPending ? 'Confirm fail' : 'Submit count'}
+            </button>
+          )}
+        </div>
       </div>
 
       {showKeypad && (
@@ -354,13 +385,13 @@ function DateRecordInput({ value, onChange, onBlur, onToday }) {
     <div className="date-record-input">
       <div className="date-record-input__row">
         <div className="date-record-input__picker">
-          <label className="measurement-input__label">Date recorded</label>
+          <label className="measurement-input__label">Expiration date</label>
           <input type="date" className="form-input"
             value={value}
             onChange={e => onChange(e.target.value)}
             onBlur={e => onBlur(e.target.value)}
             max={new Date().toISOString().slice(0, 10)}
-            aria-label="Date recorded" />
+            aria-label="Expiration date" />
         </div>
         <button className="btn btn--today" onClick={onToday} type="button"
           aria-label="Set date to today and confirm">Today</button>

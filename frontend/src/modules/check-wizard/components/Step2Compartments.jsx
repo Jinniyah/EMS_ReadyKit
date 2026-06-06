@@ -233,9 +233,11 @@ export default function Step2Compartments({
             pl => pl.compartment_id === comp.compartment_id && pl.active !== false
           )
           const hasPriorityItem  = compPars.some(pl => pl.priority_check === true)
-          const noChangeBlocked  = comp.requires_full_check || hasPriorityItem
+          const damagedCount     = compPars.filter(pl => pl.is_damaged).length
+          const noChangeBlocked  = comp.requires_full_check || hasPriorityItem || damagedCount > 0
           const noChangeBlockMsg = comp.requires_full_check ? 'Full check required'
                                  : hasPriorityItem          ? 'Has priority items'
+                                 : damagedCount > 0         ? 'Has damaged items'
                                  : ''
 
           // Reading items: MEASUREMENT/FUNCTIONAL/DATE_RECORD, not flagged as priority
@@ -275,7 +277,7 @@ export default function Step2Compartments({
 
           if (noChange) {
             return (
-              <div key={comp.compartment_id} role="listitem"
+              <div key={comp.compartment_id} id={`comp-${comp.compartment_id}`} role="listitem"
                 className="compartment-card compartment-card--no-change">
                 <div className="compartment-card__number compartment-card__number--done" aria-hidden="true">✓</div>
                 <div className="compartment-card__info">
@@ -300,6 +302,7 @@ export default function Step2Compartments({
             return (
               <button
                 key={comp.compartment_id}
+                id={`comp-${comp.compartment_id}`}
                 role="listitem"
                 className="compartment-card compartment-card--done"
                 onClick={() => onSelectCompartment(comp)}
@@ -325,6 +328,7 @@ export default function Step2Compartments({
             return (
               <button
                 key={comp.compartment_id}
+                id={`comp-${comp.compartment_id}`}
                 role="listitem"
                 className="compartment-card compartment-card--in-progress"
                 onClick={() => onSelectCompartment(comp)}
@@ -351,7 +355,7 @@ export default function Step2Compartments({
 
           // Not started — show reading confirmations + preview + No Change / Modify
           return (
-            <div key={comp.compartment_id} role="listitem" className="compartment-card compartment-card--actions">
+            <div key={comp.compartment_id} id={`comp-${comp.compartment_id}`} role="listitem" className="compartment-card compartment-card--actions">
               <div className="compartment-card__header-row">
                 <div className="compartment-card__info">
                   <div className="compartment-card__name">{comp.name}</div>
@@ -361,6 +365,11 @@ export default function Step2Compartments({
                   {comp.restriction_note && (
                     <div className="compartment-card__restriction" role="note">
                       ⚠ {comp.restriction_note}
+                    </div>
+                  )}
+                  {damagedCount > 0 && (
+                    <div className="compartment-card__damaged-badge" role="note">
+                      ⚠ {damagedCount} damaged item{damagedCount !== 1 ? 's' : ''}
                     </div>
                   )}
                 </div>
@@ -581,6 +590,27 @@ export default function Step2Compartments({
           )
         })}
       </div>
+
+      {/* Sticky jump button — scrolls to first unchecked compartment */}
+      {(() => {
+        if (allDone) return null
+        const firstUnchecked = compartments?.find(c =>
+          draft?.compartments?.[String(c.compartment_id)]?.status !== 'complete'
+        )
+        if (!firstUnchecked) return null
+        return (
+          <button
+            className="jump-btn"
+            type="button"
+            onClick={() =>
+              document.getElementById(`comp-${firstUnchecked.compartment_id}`)
+                ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+            }
+          >
+            Next unchecked: {firstUnchecked.name} →
+          </button>
+        )
+      })()}
 
       {!allDone && (
         <p className="wizard-step__hint">

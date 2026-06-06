@@ -29,14 +29,14 @@ const CHECK_STATUS_MAP = {
     severity: 'ok',
   },
   NEEDS_RESTOCK: {
-    label:    'Needs Restock',
+    label:    'Restock needed',
     icon:     '↓',
     color:    'var(--color-status-warn)',
     bg:       'var(--color-status-warn-bg)',
     severity: 'warn',
   },
   FAIL: {
-    label:    'Fail',
+    label:    'Problem found',
     icon:     '✗',
     color:    'var(--color-status-fail)',
     bg:       'var(--color-status-fail-bg)',
@@ -64,7 +64,7 @@ const LINE_ITEM_STATUS_MAP = {
   LOW:     { label: 'Low',      icon: '↓', color: 'var(--color-status-warn)', bg: 'var(--color-status-warn-bg)', severity: 'warn' },
   MISSING: { label: 'Missing',  icon: '✗', color: 'var(--color-status-fail)', bg: 'var(--color-status-fail-bg)', severity: 'fail' },
   EXPIRED: { label: 'Expired',  icon: '⚠', color: 'var(--color-status-fail)', bg: 'var(--color-status-fail-bg)', severity: 'fail' },
-  FAIL:    { label: 'Failed',   icon: '✗', color: 'var(--color-status-fail)', bg: 'var(--color-status-fail-bg)', severity: 'fail' },
+  FAIL:    { label: 'Problem found', icon: '✗', color: 'var(--color-status-fail)', bg: 'var(--color-status-fail-bg)', severity: 'fail' },
   OVERDUE: { label: 'Overdue',  icon: '⚠', color: 'var(--color-status-fail)', bg: 'var(--color-status-fail-bg)', severity: 'fail' },
 }
 

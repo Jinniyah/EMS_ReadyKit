@@ -18,6 +18,7 @@ import { checkApi } from '../api/checkApi.js'
 import ItemRow from './ItemRow.jsx'
 import Spinner from '../../../shared/components/Spinner.jsx'
 
+
 export default function Step3Items({
   compartment,
   locationId,
@@ -106,6 +107,15 @@ export default function Step3Items({
     handleItemTouched(payload.item_id)
   }, [compartment.compartment_id, onUpdateItem, handleItemTouched])
 
+  const [damagedState, setDamagedState] = useState({})
+
+  const handleMarkDamaged = useCallback(async (item, parLevel, isDamaged) => {
+    try {
+      await checkApi.markItemDamaged(item.item_id, parLevel.compartment_id, isDamaged, getToken)
+      setDamagedState(prev => ({ ...prev, [parLevel.par_id]: isDamaged }))
+    } catch { /* silently ignore — not blocking */ }
+  }, [getToken])
+
   const handleSave = useCallback(() => {
     onSaveCompartment(compartment.compartment_id)
   }, [compartment.compartment_id, onSaveCompartment])
@@ -172,15 +182,19 @@ export default function Step3Items({
           {compartmentPars.map(pl => {
             const item = itemMap[pl.item_id]
             if (!item) return null
+            const resolvedParLevel = pl.par_id in damagedState
+              ? { ...pl, is_damaged: damagedState[pl.par_id] }
+              : pl
             return (
               <ItemRow
                 key={pl.item_id}
                 item={item}
-                parLevel={pl}
+                parLevel={resolvedParLevel}
                 lot={lotMap[pl.item_id] ?? null}
                 draftItem={lineItemDraftMap[pl.item_id] ?? null}
                 onUpdate={handleUpdateItem}
                 onTouched={handleItemTouched}
+                onMarkDamaged={handleMarkDamaged}
               />
             )
           })}

@@ -3,7 +3,7 @@
  * API calls for the check wizard module.
  * All calls go through the shared authenticated client.
  */
-import { apiGet, apiPost } from '../../../shared/api/client.js'
+import { apiGet, apiPatch, apiPost } from '../../../shared/api/client.js'
 import { getMyStations } from '../../../shared/api/stationsApi.js'
 
 export const checkApi = {
@@ -62,4 +62,8 @@ export const checkApi = {
     const param = vehicleId ? `vehicle_id=${vehicleId}` : `location_id=${locationId}`
     return apiGet(`/api/v1/checks/daily/last-readings?${param}`, getToken)
   },
+
+  /** Mark an item damaged or clear the damaged flag at a specific compartment (DMG-B1) */
+  markItemDamaged: (itemId, compartmentId, isDamaged, getToken) =>
+    apiPatch(`/api/v1/inventory/items/${itemId}/status`, { compartment_id: compartmentId, is_damaged: isDamaged }, getToken),
 }

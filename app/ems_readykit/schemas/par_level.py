@@ -39,6 +39,10 @@ class ParLevelBase(BaseModel):
         max_length=150,
         description="Plain-English question shown to the responder (e.g. 'Is the ready light solid green?'). Falls back to item name if unset.",
     )
+    is_damaged: bool = Field(
+        default=False,
+        description="When True, item is marked damaged/unavailable at this compartment.",
+    )
 
     @model_validator(mode="after")
     def validate_min_max(self) -> "ParLevelBase":
@@ -101,6 +105,7 @@ class ParLevelAssignment(BaseModel):
     active:            bool
     priority_check:    Optional[bool] = False
     priority_question: Optional[str]  = None
+    is_damaged:        bool = False
     created_at:        datetime
     updated_at:        datetime
     # Enriched fields — joined server-side

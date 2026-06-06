@@ -13,7 +13,7 @@
  * "The goal is to make failure less likely with a stressed, tired EMS Responder
  *  so that when ambulances go out they have the right supplies to save lives."
  */
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useAuth } from '../../../shared/hooks/useAuth.jsx'
 import { vehicleApi } from '../../vehicles/api/vehicleApi.js'
 import { formatCheckDate, formatTime } from '../../../shared/utils/dateHelpers.js'
@@ -24,13 +24,29 @@ export default function SubmittedScreen({
   onStartNew, onGoHome,
 }) {
   const { getToken } = useAuth()
-  const [repairFiled, setRepairFiled]   = useState(false)
-  const [repairError, setRepairError]   = useState(null)
+  const [repairFiled, setRepairFiled]     = useState(false)
+  const [repairError, setRepairError]     = useState(null)
   const [isFilingRepair, setFilingRepair] = useState(false)
+  const [showRestock, setShowRestock]     = useState(false)
 
-  const isFail   = overallStatus === 'FAIL'
+  const isFail    = overallStatus === 'FAIL'
   const isRestock = overallStatus === 'NEEDS_RESTOCK'
-  const isPass   = !isFail && !isRestock
+  const isPass    = !isFail && !isRestock
+
+  // Build restock list from draft — items below par, grouped by compartment name
+  const restockList = useMemo(() => {
+    const groups = []
+    for (const cd of Object.values(draft?.compartments ?? {})) {
+      const short = (cd.line_items ?? []).filter(li =>
+        li.check_type === 'SUPPLY' &&
+        li.quantity_found != null &&
+        li.quantity_needed != null &&
+        li.quantity_found < li.quantity_needed
+      )
+      if (short.length > 0) groups.push({ name: cd.name ?? 'Compartment', items: short })
+    }
+    return groups
+  }, [draft])
 
   const checkSubject = vehicle?.vehicle_number
     ? `Unit ${vehicle.vehicle_number}`
@@ -122,7 +138,7 @@ export default function SubmittedScreen({
       {isFail && !repairFiled && vehicle?.vehicle_id && (
         <div className="submitted-screen__repair-prompt">
           <p className="submitted-screen__repair-prompt-title">
-            🔧 File a repair request?
+            🔧 Report a problem?
           </p>
           <p className="submitted-screen__repair-prompt-body">
             This will alert your supervisor immediately and create a record
@@ -135,7 +151,7 @@ export default function SubmittedScreen({
           )}
           {repairError && (
             <div className="submitted-screen__repair-error" role="alert">
-              {repairError}
+              Something went wrong — please tell your supervisor directly.
             </div>
           )}
           <button
@@ -144,7 +160,7 @@ export default function SubmittedScreen({
             disabled={isFilingRepair}
             type="button"
           >
-            {isFilingRepair ? 'Filing…' : '⚠ File Repair Request Now'}
+            {isFilingRepair ? 'Reporting…' : '⚠ Report a Problem'}
           </button>
           <button
             className="btn btn--secondary btn--full"
@@ -159,14 +175,40 @@ export default function SubmittedScreen({
       {/* ── Repair filed confirmation ── */}
       {isFail && repairFiled && (
         <div className="submitted-screen__repair-filed">
-          ✓ Repair request filed — supervisor will be notified
+          ✓ Problem reported — supervisor will be notified
         </div>
       )}
 
-      {/* ── RESTOCK: softer nudge ── */}
-      {isRestock && (
-        <div className="submitted-screen__restock-note">
-          Use the reconcile shopping list to restock before the next shift.
+      {/* ── RESTOCK: restock list ── */}
+      {isRestock && restockList.length > 0 && (
+        <div className="submitted-screen__restock-section">
+          <button
+            className="btn btn--secondary btn--full"
+            onClick={() => setShowRestock(s => !s)}
+            type="button"
+          >
+            {showRestock ? 'Hide restock list' : 'View restock list'}
+          </button>
+          {showRestock && (
+            <div className="submitted-screen__restock-list">
+              {restockList.map(group => (
+                <div key={group.name} className="submitted-screen__restock-group">
+                  <div className="submitted-screen__restock-group-name">{group.name}</div>
+                  {group.items.map(li => (
+                    <div key={li.item_id} className="submitted-screen__restock-row">
+                      <span className="submitted-screen__restock-item">{li.item_name}</span>
+                      <span className="submitted-screen__restock-qty">
+                        Need {li.quantity_needed - li.quantity_found} more
+                        <span className="submitted-screen__restock-qty-detail">
+                          {' '}({li.quantity_found} of {li.quantity_needed})
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

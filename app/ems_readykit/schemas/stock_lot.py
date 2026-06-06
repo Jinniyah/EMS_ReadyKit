@@ -61,6 +61,29 @@ class StockLotCreate(StockLotBase):
     pass
 
 
+class StockLotUpdate(BaseModel):
+    """Request body for PUT /inventory/lots/{lot_id} — correct expiry/lot number."""
+
+    expiration_date: Optional[date] = Field(
+        default=None,
+        description="Corrected expiration date. Null clears the existing expiry.",
+    )
+    lot_number: Optional[str] = Field(
+        default=None,
+        max_length=50,
+        description="Corrected manufacturer lot number.",
+    )
+
+    @field_validator("expiration_date")
+    @classmethod
+    def expiration_not_in_far_future(cls, v: Optional[date]) -> Optional[date]:
+        if v is not None:
+            max_date = date.today().replace(year=date.today().year + 10)
+            if v > max_date:
+                raise ValueError("Expiration date cannot be more than 10 years in the future.")
+        return v
+
+
 class StockLotRead(StockLotBase):
     """
     Response model for stock lot endpoints.

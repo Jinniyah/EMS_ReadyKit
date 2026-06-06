@@ -1,5 +1,5 @@
 # EMS ReadyKit — Codebase Index
-# Last updated: 2026-06-05 (Session H: RX-F7/F1/F2/F8/F9, SEED-GAP1, RX-M1 migration 0015)
+# Last updated: 2026-06-06 (Session J: CH-F7/F8 CSS, F-UX3 jump button, B-E8 PUT /lots/{id})
 # PURPOSE: Load this file at the start of every session to orient quickly.
 # After reading this, load only the sections relevant to the current task.
 # Full project state → docs/project_index.md | Open work → docs/backlog.md
@@ -53,10 +53,10 @@ All routes are prefixed `/api/v1/`. Router registration order in main.py matters
 | `stations.py` | 8 KB | `/stations` | All / Admin | CRUD; GET /my for current user's stations |
 | `station_members.py` | 8 KB | `/stations/{id}/members` | Supervisor+ | Membership management |
 | `vehicles.py` | 6 KB | `/vehicles` | All + membership | Vehicle CRUD; OOS/RTS status toggle |
-| `checks.py` | 19 KB | `/checks/daily` | All + membership | Check wizard: create, draft save, line-item updates, submit |
-| `check_history.py` | 7 KB | `/checks/daily` | All / Supervisor+ | Read-only history; soft-delete; acknowledgement |
+| `checks.py` | 20 KB | `/checks/daily` | All + membership | Check wizard: create, draft save, line-item updates, submit; `GET /daily/last-readings` returns last quantity_found + readings per item for vehicle/location |
+| `check_history.py` | 7 KB | `/checks/daily` | All / Supervisor+ | Read-only history; soft-delete; acknowledgement; `my-history` accepts optional `station_id` filter |
 | `repair_requests.py` | 9 KB | `/vehicles/{id}/repair-requests` | All roles | File, update, resolve repair requests |
-| `inventory.py` | 26 KB | `/inventory` | All + membership | Locations, compartments, par levels, lots, stock summary, transfer, CSV receive. Uses `HTTP_422_UNPROCESSABLE_CONTENT` (starlette deprecation fixed) |
+| `inventory.py` | 26 KB | `/inventory` | All + membership | Locations, compartments, par levels, lots, stock summary, transfer, CSV receive. `PUT /inventory/lots/{id}` (Supervisor+) corrects expiry/lot number. Uses `HTTP_422_UNPROCESSABLE_CONTENT` (starlette deprecation fixed) |
 | `items.py` | 3 KB | `/items` | All | Item catalog search and detail |
 | `admin.py` | 29 KB | `/admin` | Admin (most) / Supervisor+ | Stations, vehicles, items, par levels, CSV import, members |
 | `audit.py` | 2 KB | `/audit` | Supervisor+ | Paginated audit event log |
@@ -142,7 +142,7 @@ AuditEvent     (immutable log)
 | `test_models.py` | 7 KB | Model-level unit tests |
 | `conftest.py` | 4 KB | Shared fixtures: in-memory SQLite, test client, user factories |
 
-Run tests: `cd app && pytest` (uses SQLite in-memory; no external services needed)
+Run tests: `cd app && pytest` (uses SQLite in-memory; no external services needed) — **237 tests passing**
 
 **Test isolation note:** Route handlers that call `db.commit()` release the active SQLAlchemy savepoint. SQLite's in-memory engine does not fully undo released savepoints on outer transaction rollback. Any fixture creating a row with a UNIQUE constraint must use **get-or-create semantics** (see `test_item` and `vehicle_location` fixtures in `test_supply_room.py` for the pattern).
 
@@ -157,7 +157,7 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 |------|------|---------|
 | `index.jsx` | 15 KB | Wizard orchestration, step routing, draft state |
 | `components/Step1Vehicle.jsx` | 14 KB | Vehicle selection + CS check toggle |
-| `components/Step2Compartments.jsx` | 11 KB | Priority items section (inline confirm) + compartment list with No Change / Modify / stock preview (RX-F8/F9) |
+| `components/Step2Compartments.jsx` | 14 KB | Priority items section (inline confirm) + compartment list with reading confirmations (MEASUREMENT/FUNCTIONAL/DATE_RECORD with last values), No Change / Modify / stock preview. Short count based on last check quantity_found, not stock lots. |
 | `components/Step3Items.jsx` | 7 KB | Item counting per compartment |
 | `components/ItemRow.jsx` | 16 KB | Per-item row — all check types (supply/measurement/functional/date) |
 | `components/Step4Reconcile.jsx` | 13 KB | Flagged items review |
@@ -307,6 +307,7 @@ Key recent migrations:
 |---------|-------|-----------|
 | **G** | Supply Room & Restocking | ✅ Complete — all tests passing |
 | **Pre-H** | Code Cleanup + Security | ✅ Complete — all 13 items done |
-| **H** | Workflow Acceleration + Check Wizard Redesign | RX-F1 through RX-F11, DMG-B1/F1-F3, SUP-F1/F3, F-UX2/F-UX3, B-E8, CH-F7/F8 |
-| **I** | After-Call Reset + Retirement + Settings + AI Groundwork | RX-F6/RX-B1, RET-M1-M3/B1-B4/F1-F5, SUP-F2, F-5G3, AI-B1/F1 |
+| **H** | Workflow Acceleration + Check Wizard Redesign | ✅ Complete — RX-F1/F2/F7/F8/F9, SEED-GAP1, RX-M1 migration 0015 |
+| **I** | Reading confirmations, bug fixes, station scoping | ✅ Complete — reading UI, vehicle on-hand fix, No Change fixes, station bleed fix |
+| **I continued** | After-Call Reset + Retirement + Settings + AI Groundwork | RX-F6/RX-B1, RET-M1-M3/B1-B4/F1-F5, SUP-F2, F-5G3, AI-B1/F1, RX-F3/F4/F5 |
 | **J** | UAT Dress Rehearsal + Operational Launch Setup | LAUNCH-OPS1-OPS9, UAT-2-11, F-5C2, I-3 |

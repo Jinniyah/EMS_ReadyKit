@@ -33,7 +33,7 @@
  *     selectionLabel, // display name for the submitted check
  *   }
  */
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '../../../shared/hooks/useAuth.jsx'
 import { useApi } from '../../../shared/hooks/useApi.js'
 import { checkApi } from '../api/checkApi.js'
@@ -64,6 +64,10 @@ export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
 
   const [checkDate, setCheckDate]   = useState(draft?.check_date ?? today)
   const [secondCrew, setSecondCrew] = useState(draft?.second_crew ?? '')
+
+  // Collapse date/crew by default unless something non-default is already set
+  const defaultOpen = (draft?.check_date && draft.check_date !== today) || !!draft?.second_crew
+  const [detailsOpen, setDetailsOpen] = useState(!!defaultOpen)
 
   const station   = preselectedStation ?? null
   const stationId = station?.station_id ?? null
@@ -306,49 +310,70 @@ export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
         />
       )}
 
-      {/* Check date */}
-      <div className="form-group">
-        <label className="form-label" htmlFor="check-date">Check date</label>
-        <div className="date-field">
-          <div
-            className="date-field__display"
-            style={stColors ? { color: stColors.primary } : {}}
-          >
-            {formatCheckDate(checkDate)}
-          </div>
-          <input
-            id="check-date"
-            type="date"
-            className="form-input date-field__input"
-            value={checkDate}
-            min={relativeIso(-7)}
-            max={todayIso()}
-            onChange={handleDateChange}
-            aria-label="Change check date"
-          />
-        </div>
-        <p className="form-hint">Defaults to today. Can be changed up to 7 days back.</p>
-      </div>
+      {/* Collapsible date / crew — collapsed by default for today's date with no second crew */}
+      <button
+        className="step1-details-toggle"
+        type="button"
+        aria-expanded={detailsOpen}
+        onClick={() => setDetailsOpen(o => !o)}
+      >
+        <span>
+          {checkDate !== today || secondCrew
+            ? `${formatCheckDate(checkDate)}${secondCrew ? ` · ${secondCrew}` : ''}`
+            : 'Change date or add crew member'}
+        </span>
+        <span className="step1-details-toggle__chevron" aria-hidden="true">
+          {detailsOpen ? '∧' : '∨'}
+        </span>
+      </button>
 
-      {/* Second crew */}
-      <div className="form-group">
-        <label className="form-label" htmlFor="second-crew">
-          Second crew member{' '}
-          <span className="form-label__optional">(optional)</span>
-        </label>
-        <input
-          id="second-crew"
-          type="text"
-          className="form-input"
-          value={secondCrew}
-          onChange={e => setSecondCrew(e.target.value)}
-          placeholder="Enter name…"
-          autoComplete="off"
-        />
-        <p className="form-hint">
-          Required for controlled substance checks on ALS vehicles.
-        </p>
-      </div>
+      {detailsOpen && (
+        <div className="step1-details">
+          {/* Check date */}
+          <div className="form-group">
+            <label className="form-label" htmlFor="check-date">Check date</label>
+            <div className="date-field">
+              <div
+                className="date-field__display"
+                style={stColors ? { color: stColors.primary } : {}}
+              >
+                {formatCheckDate(checkDate)}
+              </div>
+              <input
+                id="check-date"
+                type="date"
+                className="form-input date-field__input"
+                value={checkDate}
+                min={relativeIso(-7)}
+                max={todayIso()}
+                onChange={handleDateChange}
+                aria-label="Change check date"
+              />
+            </div>
+            <p className="form-hint">Defaults to today. Can be changed up to 7 days back.</p>
+          </div>
+
+          {/* Second crew */}
+          <div className="form-group">
+            <label className="form-label" htmlFor="second-crew">
+              Second crew member{' '}
+              <span className="form-label__optional">(optional)</span>
+            </label>
+            <input
+              id="second-crew"
+              type="text"
+              className="form-input"
+              value={secondCrew}
+              onChange={e => setSecondCrew(e.target.value)}
+              placeholder="Enter name…"
+              autoComplete="off"
+            />
+            <p className="form-hint">
+              Required for controlled substance checks on ALS vehicles.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Proceed */}
       <button

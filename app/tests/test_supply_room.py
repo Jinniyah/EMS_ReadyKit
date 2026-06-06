@@ -372,3 +372,71 @@ def test_csv_receive_unknown_item(client, db, supply_room, membership, auth_supe
     assert data["rows_imported"] == 0
     assert data["rows_skipped"] == 1
     assert "not found" in data["errors"][0]["error"]
+
+
+# ---------------------------------------------------------------------------
+# B-E8: PUT /inventory/lots/{lot_id} — correct expiry date / lot number
+# ---------------------------------------------------------------------------
+
+def test_update_lot_expiry(client, db, supply_lot, membership, auth_supervisor):
+    new_expiry = str(date.today() + timedelta(days=365))
+    r = client.put(
+        f"/api/v1/inventory/lots/{supply_lot.lot_id}",
+        json={"expiration_date": new_expiry},
+        headers=auth_supervisor,
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["expiration_date"] == new_expiry
+    assert data["lot_number"] == supply_lot.lot_number
+
+
+def test_update_lot_number(client, db, supply_lot, membership, auth_supervisor):
+    r = client.put(
+        f"/api/v1/inventory/lots/{supply_lot.lot_id}",
+        json={"lot_number": "LOT-CORRECTED-999"},
+        headers=auth_supervisor,
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["lot_number"] == "LOT-CORRECTED-999"
+    # expiry unchanged
+    assert data["expiration_date"] == str(supply_lot.expiration_date)
+
+
+def test_update_lot_clear_expiry(client, db, supply_lot, membership, auth_supervisor):
+    r = client.put(
+        f"/api/v1/inventory/lots/{supply_lot.lot_id}",
+        json={"expiration_date": None},
+        headers=auth_supervisor,
+    )
+    assert r.status_code == 200
+    assert r.json()["expiration_date"] is None
+
+
+def test_update_lot_404(client, db, membership, auth_supervisor):
+    r = client.put(
+        "/api/v1/inventory/lots/99999",
+        json={"expiration_date": str(date.today() + timedelta(days=30))},
+        headers=auth_supervisor,
+    )
+    assert r.status_code == 404
+
+
+def test_update_lot_requires_supervisor(client, db, supply_lot, membership, auth_responder):
+    r = client.put(
+        f"/api/v1/inventory/lots/{supply_lot.lot_id}",
+        json={"expiration_date": str(date.today() + timedelta(days=30))},
+        headers=auth_responder,
+    )
+    assert r.status_code == 403
+
+
+def test_update_lot_requires_membership(client, db, supply_lot, auth_supervisor):
+    # No membership fixture — supervisor has no station access
+    r = client.put(
+        f"/api/v1/inventory/lots/{supply_lot.lot_id}",
+        json={"expiration_date": str(date.today() + timedelta(days=30))},
+        headers=auth_supervisor,
+    )
+    assert r.status_code == 403

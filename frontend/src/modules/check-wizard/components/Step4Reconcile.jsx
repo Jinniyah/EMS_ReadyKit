@@ -78,13 +78,13 @@ export default function Step4Reconcile({
     if (restockLines.length) sections.push(`NEED TO RESTOCK:\n${restockLines.join('\n')}`)
     if (lowLines.length)     sections.push(`LOW READINGS:\n${lowLines.join('\n')}`)
     if (failLines.length)    sections.push(`NEEDS SUPERVISOR:\n${failLines.join('\n')}`)
-    return [`🚑 Reconcile List — ${label}`, date, '', ...sections, '', '— EMS ReadyKit'].join('\n')
+    return [`🚑 Restock List — ${label}`, date, '', ...sections, '', '— EMS ReadyKit'].join('\n')
   }, [draft, selectionLabel, restockItems, lowReadingItems, failItems])
 
   const handleShare = useCallback(async () => {
     const text = buildShareText()
     if (navigator.share) {
-      try { await navigator.share({ title: 'Reconcile List', text }); setShareStatus('shared'); setTimeout(() => setShareStatus(null), 2000) }
+      try { await navigator.share({ title: 'Restock List', text }); setShareStatus('shared'); setTimeout(() => setShareStatus(null), 2000) }
       catch { /* user cancelled */ }
     } else {
       try { await navigator.clipboard.writeText(text); setShareStatus('copied'); setTimeout(() => setShareStatus(null), 2000) }
@@ -103,10 +103,10 @@ export default function Step4Reconcile({
     <div className="wizard-step">
 
       <div className="reconcile-header">
-        <h2 className="wizard-step__title">Step 4 — Reconcile</h2>
+        <h2 className="wizard-step__title">Step 4 — Restock</h2>
         {hasAnything && (
           <button className="btn btn--secondary reconcile-share-btn" onClick={handleShare}
-            type="button" aria-label="Share or copy the reconcile list">{shareLabel}</button>
+            type="button" aria-label="Share or copy the restock list">{shareLabel}</button>
         )}
       </div>
 
@@ -277,7 +277,7 @@ function LowReadingRow({ item }) {
 // ── FailRow — FUNCTIONAL/MISSING items ───────────────────────────────────────
 function FailRow({ item }) {
   const reason = item.check_type === 'FUNCTIONAL'
-    ? 'Functional check failed'
+    ? 'Problem found — needs supervisor'
     : item.quantity_found === 0
       ? 'Count is zero — verify with supervisor'
       : 'Requires supervisor review'

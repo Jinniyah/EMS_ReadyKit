@@ -24,12 +24,12 @@ describe('checkStatus', () => {
 
   it('NEEDS_RESTOCK returns warn severity', () => {
     expect(checkStatus('NEEDS_RESTOCK').severity).toBe('warn')
-    expect(checkStatus('NEEDS_RESTOCK').label).toBe('Needs Restock')
+    expect(checkStatus('NEEDS_RESTOCK').label).toBe('Restock needed')
   })
 
   it('FAIL returns fail severity', () => {
     expect(checkStatus('FAIL').severity).toBe('fail')
-    expect(checkStatus('FAIL').label).toBe('Fail')
+    expect(checkStatus('FAIL').label).toBe('Problem found')
   })
 
   it('unknown status returns ok severity with Unknown label', () => {

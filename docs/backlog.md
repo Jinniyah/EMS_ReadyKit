@@ -1,69 +1,15 @@
 # EMS ReadyKit — Active Backlog
-# v1.56 | Updated: 2026-06-04
+# v1.62 | Updated: 2026-06-06 | Current: Session K
 # Completed items -> backlog_completed.md
 # Priority: Critical / High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
-# ✅ SESSION COMPLETE 2026-05-24 — Phase 5H Infrastructure
-# ✅ SESSION COMPLETE 2026-05-25 — Draft flow, UTC fix, Azure AD, station membership endpoints
-# ✅ SESSION COMPLETE 2026-05-26 — Session A: Security Gate (OWASP A02/A04/A05/A06/A09, 0 CVEs)
-# ✅ SESSION COMPLETE 2026-05-27 — Session B: Refactor Sprint (REF-1 through REF-7)
-# ✅ SESSION COMPLETE 2026-05-29 — Session C: Access Control Enforcement (OWASP A01)
-# ✅ SESSION COMPLETE 2026-05-29 — Session D: Features
-# ✅ SESSION COMPLETE 2026-05-30 — Session E: Admin updates and bug fixes
-# ✅ SESSION COMPLETE 2026-05-30 — Session F: Station Setup + Compliance Calendar + Par Levels
-# ✅ SESSION COMPLETE 2026-06-01 — Session F UAT + Vehicle-Centric Par Level View
-# ✅ SESSION COMPLETE 2026-06-02 — UAT Bug Fixes + Security Patch
-# ✅ SESSION COMPLETE 2026-06-03 — Session G: Supply Room & Restocking (all tests passing)
-# ✅ SESSION H FEATURE WORK COMPLETE 2026-06-05
-#    ✅ RX-F7: "Save compartment" → "Done — [Name]" / "Next — [Name]" (Step3Items.jsx)
-#    ✅ RX-F1: Home screen — "Check the Truck" hero button (full-width, station-colored) + "Log Items Used" (secondary, wired in Session I)
-#    ✅ RX-F2: Auto-confirm at par — +/- tap to par auto-confirms SUPPLY/DOCUMENT items; no "Submit count" button when at par
-#    ✅ SEED-GAP1: "LUCAS Device Ready Check" FUNCTIONAL item added to seed.py PC 8
-#    ✅ RX-M1 + migration 0015: priority_check + priority_question on par_levels; requires_full_check on compartments
-#    ✅ RX-F9: Priority items pinned above compartment list in Step 2 — inline ItemRow confirm; blocked on No Change
-#    ✅ RX-F8: No Change / Modify compartment flow — stock preview strip, No Change attests at par, Undo available; blocked for requires_full_check + priority item compartments
-#    All 231 backend tests passing. 63/63 frontend tests passing. 0 npm vulnerabilities.
-# ✅ SESSION H SECURITY + DEPLOYMENT FIXES COMPLETE 2026-06-05
-#    ✅ SEC-H1: HTTPSRedirectMiddleware — added then removed (Azure App Service SSL-offloads to HTTP;
-#               middleware caused redirect loop; HTTPS enforced by Azure "HTTPS Only" platform setting)
-#    ✅ SEC-H2: MSAL cacheLocation already sessionStorage — confirmed, no change needed
-#    ✅ SEC-H3: /health now returns {"status": "ok"} only — env field removed (unauthenticated recon)
-#    ✅ FIX: npm audit — upgraded vite 5→7, vitest 1→4, @vitejs/plugin-react 4→5
-#             Resolves GHSA-5xrq-8626-4rwp (vitest critical, CVSS 9.8) + react-router open redirect
-#             63/63 frontend tests pass; 0 lint warnings; production build clean
-#    ✅ FIX: Migration 0014 — boolean columns used 0/1 (SQLite-ok, PostgreSQL-fail)
-#             Fixed als_only/active INSERT to use True/False. Migration was rolled back by
-#             PostgreSQL transactional DDL so database was cleanly at 0013; reruns cleanly.
-# ✅ PRE-SESSION H COMPLETE 2026-06-05 — Code cleanup + Theme consolidation + Security
-#    ✅ SEC-PRE1: staticwebapp.config.json (CSP, HSTS, X-Frame-Options, SWA routing)
-#    ✅ SEC-PRE2: npm audit --audit-level=high added to CI frontend job
-#    ✅ SEC-PRE3: seed.py production guard + startup.sh APP_ENV check
-#    ✅ SEC-PRE4: ESLint (eslint@8, react-hooks plugin) + lint script + CI step (0 warnings)
-#    ✅ TECH-THEME1: index.css extended (--vehicle-primary, --color-damaged/priority/no-change, --font-size-xs, utility classes)
-#    ✅ TECH-THEME2: supervisor.css fully converted to tokens
-#    ✅ TECH-THEME3: supply-room.css fixed (--color-background → --color-surface-raised, font-size-xs)
-#    ✅ TECH-THEME4: CSS/theming rules added to CLAUDE.md (5 mandatory rules)
-#    ✅ TECH-CSS1a: Deleted 5 tombstone CSS files + admin-station-edit.css + admin-wrap-fix.css
-#    ✅ TECH-CSS1b: admin-wrap-fix.css deleted (content already in admin.css)
-#    ✅ TECH-CODE1a: Deleted Step4Review.jsx (dead — replaced by Step5Submit.jsx)
-#    ✅ TECH-CODE1b: Deleted vehicles/_patch_note.txt
-#    ✅ TECH-CODE1c: useApi.js — setData(null) added at start of execute()
-#    ✅ TECH-CODE1d: Cross-ref comments: _compute_line_item_status ↔ deriveDraftItemStatus
-#    ✅ TECH-CODE1e: adminApi.js — renamed updateVehicle→patchVehicleStatus; added JSDoc to all 3 vehicle fns
-#    ✅ TECH-CODE1f: getStations/getMyStations deduplicated via shared/api/stationsApi.js
+# ✅ Sessions A–J complete — see backlog_completed.md
 
 ---
 
-## ──────────────────────────────────────────────────────────────────────────────
 ## LAUNCH PHILOSOPHY (established 2026-06-04)
-## ──────────────────────────────────────────────────────────────────────────────
-##
-## This app ships ONCE to a real EMS team. There is no beta, no soft launch,
-## no "we'll fix it after they try it." The first time Earl sees it, it must:
-##   1. Work without explanation
-##   2. Match how the team actually operates (real truck names, real item names)
-##   3. Feel faster than paper for a clean check
-##   4. Handle the hard cases (damaged AED, short O2, post-call restock) cleanly
+## This app ships ONCE to a real EMS team. One launch, one chance.
+## The first time Earl sees it, it must work without explanation.
 ##
 ## Launch gate criteria — ALL must be met before any user sees the app:
 ##   ✓ Check wizard redesign complete (No Change / Modify / Priority Items)
@@ -76,248 +22,149 @@
 ##   ✓ Priority items configured in admin for Unit 712 (AED, LUCAS, O2, Truck Ops)
 ##   ✓ UAT executed against live Azure deployment with real Unit 712 inventory
 ##   ✓ Physical stock count entered for Unit 712 (not seed quantities — actual counts)
-##   ✓ All tests passing (231+ tests green)
+##   ✓ All tests passing (237+ tests green)
 ##   ✓ Code cleanup complete (dead files deleted, CSS consolidated)
-##
-## ──────────────────────────────────────────────────────────────────────────────
+
+---
+
 ## UPCOMING SESSIONS
-## ──────────────────────────────────────────────────────────────────────────────
-## Session H — Workflow Acceleration + Check Wizard Redesign (5-6 hrs)
-##   RX-F1        Home screen — two dominant actions                  ~30 min
-##   RX-F2        Auto-confirm supply items at par                    ~45 min
-##   RX-F3        Collapse Step 1 (label fix: "Change date or add crew member")  ~30 min
-##   RX-F4        Simplify Step 5 for clean PASS                      ~30 min
-##   RX-F5        Restock list link on SubmittedScreen                ~20 min
-##   RX-F7        "Save compartment" -> "Done — [Name]"               ~15 min
-##   RX-F8        No Change / Modify compartment flow                 ~90 min
-##   RX-F9        Priority items pinned above compartments            ~75 min
-##   RX-M1        Migration 0015: priority_check on par_levels        ~20 min
-##   RX-F10       Language pass: responder strings + error messages   ~60 min
-##   RX-F11       First-run tutorial — 3 screens on first login       ~60 min
-##   DMG-F1       Mark item damaged — inline in check wizard          ~45 min
-##   DMG-B1       PATCH /inventory/items/{id}/status                  ~30 min
-##   SUP-F1       Open repair count on compliance dashboard           ~30 min
-##   SUP-F3       Expiring items alert on dashboard                    ~45 min
-##   SEC-H1       HTTPSRedirectMiddleware (moved from Session J)       ~15 min
-##   SEC-H2       MSAL cacheLocation: sessionStorage                   ~10 min
-##   SEC-H3       Remove env field from /health response               ~10 min
-##   F-UX2        Left/right chevron nav between compartments         ~30 min
-##   F-UX3        Jump to unvalidated sticky button                   ~30 min
-##   B-E8         PUT /inventory/lots/{id} — correct expiry           ~30 min
-##   CH-F7/F8     Deleted records screen + force hard-delete          ~45 min
 ##
-## Session I — After-Call Reset + Retirement + Settings + Data Export (4-5 hrs)
-##   RX-F6        After-Call Reset — recents + search                 ~90 min
-##   RX-B1        POST /checks/usage — lightweight usage record       ~45 min
+## Session K — Supply Room Redesign (~7 hrs)
+##   SR-M1        Migration 0017: station_supply bool on items        ~20 min
+##   SR-SEED1     Flag station_supply=False for AED/LUCAS/drug items  ~20 min
+##   SR-B1        GET /inventory/supply-catalog?station_id=           ~30 min
+##   SR-B2        PATCH /inventory/supply-catalog/items/{id}/count    ~30 min
+##   SR-B3        GET /stations/{id}/supply-alerts                    ~30 min
+##   SR-B4        Wire auto-decrement to reconciliation step          ~45 min
+##   SR-B5        Remove/deprecate restock-vehicle transfer endpoint  ~15 min
+##   SR-F1        Home screen — "Station Supplies" nav card           ~20 min
+##   SR-F2        Station Supplies module landing (2-card layout)     ~20 min
+##   SR-F3        View Supplies — reused ItemCatalog + count form     ~60 min
+##   SR-F4        Count Supplies — supply room check wizard           ~30 min
+##   SR-F5        Supply room low-stock inline alert on dashboard     ~45 min
+##   SR-F6        Remove Restock Vehicle panel from supply room       ~15 min
+##   SR-F7        Edit lot expiry date in View Supplies (Sup+)       ~30 min
+##
+## Session L — Priority Admin UI + Deferred UX (~4 hrs)
+##   RX-B2        PATCH /admin/par-levels/{id} priority fields        ~20 min
+##   RX-F12       Priority toggle + question in par level edit form   ~45 min
+##   RX-F3        Collapse Step 1 for single-station users            ~30 min
+##   RX-F4        Simplify Step 5 for clean PASS                     ~30 min
+##   RX-F5        Restock list persists on SubmittedScreen            ~30 min
+##   RX-F9b       Priority item "last confirmed" display              ~30 min
+##   F-UX10       Scroll-to-card on return from compartment           ~30 min
+##
+## Session M — After-Call Reset (~3 hrs)
+##   RX-B1        POST /checks/usage                                  ~45 min
+##   RX-F6        After-Call Reset flow — recents + search            ~90 min
+##
+## Session N — Retirement + Settings (~4 hrs)
 ##   RET-M1-M3    Migrations: retired_at/by/reason                    ~30 min
-##   RET-B1-B4    Retire vehicle/location/station endpoints           ~45 min
+##   RET-B1-B6    Retire vehicle/location/station endpoints           ~60 min
 ##   RET-F1-F5    Retire actions in UI                                ~60 min
-##   SUP-F2       Repair count drill-down to V&E Status               ~20 min
-##   F-5G3        Data export — CSV for history/audit/repairs         ~45 min
-##   B-E18        GET /audit?from=&to= — date-range audit             ~30 min
-##   S-F3         Allow check modification toggle (Admin)             ~20 min
-##   S-F6         Station management in Settings                      ~30 min
-##   AI-B1        PATCH /admin/items/{id}/ai-fields                   ~30 min
-##   AI-F1        AI fields editor in Item admin screen               ~45 min
+##   S-F1/F3/F6/F7/F8  Settings module                               ~90 min
 ##
-## Session J — UAT Dress Rehearsal + Final Polish (3-4 hrs)
-##   LAUNCH-OPS1  Supervisor configures priority items in production  ~60 min
-##   LAUNCH-OPS2  Physical stock count entered for Unit 712           ~45 min
-##   LAUNCH-OPS3  Unit 712 Jump Bag stock count entered               ~20 min
-##   UAT-2-6      Execute all UAT test cases (live Azure, real data)  ~90 min
-##   F-5C1        First-run tutorial review + polish                  ~30 min
-##   F-5C2        Contextual ? help — bottom sheet per step           ~30 min
-##   I-3          HTTPSRedirectMiddleware                              ~10 min
-##   LAUNCH-OPS4  Add all EMS team members in admin                   ~20 min
-##   LAUNCH-OPS5  Chief walkthrough: full check on Unit 712           ~30 min
-##   LAUNCH-OPS6  Volunteer walkthrough: Earl or equivalent           ~30 min
-##
-## Post-launch (add when the team asks for it):
-##   AI-F2/F3     Barcode scan in after-call log + supply receive
-##   F-5G3        Data export CSV (when first compliance report is due)
-##   F-5C2        Contextual per-step help (based on what questions team actually asks)
-##   I-1          Azure Firewall (before scaling to second service)
-##
-## ──────────────────────────────────────────────────────────────────────────────
+## Session O — UAT Dress Rehearsal + Launch
+##   LAUNCH-OPS1–9  Operational checklist
+##   UAT-2–11       Execute all test cases
 
 ---
 
-## 0. Security — Pre-User Gate
-
+## 0. Security
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| I-3 | `HTTPSRedirectMiddleware` in `main.py` | High | 📋 | Moved from Session J to Session H. Azure App Service provides platform-level redirect but application-layer enforcement is defence-in-depth. Three lines in main.py. |
+| I-3 | `HTTPSRedirectMiddleware` in `main.py` | Low | 📋 | Azure App Service enforces HTTPS at platform level. Application-layer enforcement is defence-in-depth. Three lines in main.py. |
+| SEC-OPS1 | Scheduled monthly dependency audit workflow | Low | 📋 | `.github/workflows/dependency-audit.yml` — runs pip-audit + npm audit on first of each month, opens GitHub issue on findings above moderate. |
 
 ---
 
-## 0A. Security — Pre-Session H (OPSECDEV findings 2026-06-04)
-##
-## Full OPSECDEV review conducted 2026-06-04. Authentication (A), authorization (A),
-## audit trail (A), secrets management (A), dependency security (A) all solid.
-## The following gaps are in the deployment pipeline and configuration layer only.
-## Fix all four SEC-PRE items before writing any Session H code.
+## 1. Workflow Acceleration — Check Wizard
 
-### Session H security items
+### Interaction redesign
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| SEC-H1 | `HTTPSRedirectMiddleware` in `main.py` | High | ✅ N/A | Added then removed: Azure App Service SSL-offloads to HTTP internally, so the middleware sees scheme=http on every request and creates an infinite redirect loop. HTTPS enforcement is handled by Azure's "HTTPS Only" platform setting instead. |
-| SEC-H2 | MSAL `cacheLocation: "sessionStorage"` | High | ✅ Done | Already set correctly in authConfig.js — no change needed. |
-| SEC-H3 | Remove `env` field from `/health` response | Medium | ✅ Done | /health now returns `{"status": "ok"}` only. main.py:136. |
-
-### Post-launch security (operational)
-| # | Item | Pri | Status | Notes |
-|---|------|-----|--------|-------|
-| SEC-OPS1 | Scheduled monthly dependency audit workflow | Low | 📋 | Add `.github/workflows/dependency-audit.yml` with `on: schedule: - cron: "0 9 1 * *"` (first of each month). Runs pip-audit and npm audit, opens a GitHub issue if findings above moderate severity. Keeps audit cadence from depending on manual intervention. |
-
----
-
-## 1. Workflow Acceleration — Responder UX (Session H/I)
-##
-## Context: Dual sanity-check reviews 2026-06-04.
-##   Persona 1: Responder — hour 11 of a 12-hour shift, just cleared a call,
-##              truck needs to go back in service. App must be faster than paper.
-##   Persona 2: Rural EMS chief — 68yo ex-Detroit PD, 10 volunteers including
-##              farmers and retirees, 2 BLS trucks, 5 calls/week, not tech-savvy.
-##              "If Earl can do a truck check without calling me for help, you got it right."
-## Design principle: match the speed of a paper checkmark on a clean truck.
-## Never add time on top of the physical work.
-## One launch. One chance. Get it right first.
-
-### Check wizard — interaction redesign
-| # | Item | Pri | Status | Notes |
-|---|------|-----|--------|-------|
-| RX-F1 | Home screen — two dominant actions | Critical | ✅ Done | "Check the Truck" (full-width, station-colored, top) + "Log Items Used" (prominent secondary). All other module cards visually subordinate. Supervisor-only cards must not compete with the primary responder action. Single-station users never see a station picker. |
-| RX-F2 | Auto-confirm supply items at par | Critical | ✅ Done | When quantity_found === quantity_needed after +/- tap, auto-confirm with green checkmark — no "Submit count" button. Only show explicit confirm when count does NOT match par. Eliminates ~170 redundant taps on a clean 200-item truck. ItemRow.jsx only. |
-| RX-F3 | Collapse Step 1 for single-station users | High | 📋 | Single-station: vehicle picker + "Continue" only. Date and second crew collapse into a disclosure — label must say "Change date or add crew member" not "More options." Open by default only if date != today or draft has second crew pre-filled. |
+| RX-F3 | Collapse Step 1 for single-station users | High | 📋 | Single-station: vehicle picker + "Continue" only. Date and second crew collapse into a disclosure — "Change date or add crew member". Open by default only if date != today or draft has second crew. |
 | RX-F4 | Simplify Step 5 for clean PASS checks | High | 📋 | PASS: status badge + single "Submit — Unit 712" button. No compartment re-review, no repair toggle, no notes field, no confirmation modal. Repair toggle and notes appear only on NEEDS_RESTOCK or FAIL. |
 | RX-F5 | Restock list persists on SubmittedScreen | High | 📋 | On NEEDS_RESTOCK: "View restock list" button on SubmittedScreen opens read-only reconcile summary. Currently the list disappears after submission. |
-| RX-F7 | "Save compartment" language fix | Low | ✅ Done | Rename to "Done — [Compartment Name]". When next compartment exists: "Next — [Name]". Step3Items.jsx only. |
 
-### No Change / Modify compartment flow
+### Priority items
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| RX-F8 | No Change / Modify compartment interaction | Critical | ✅ Done | Redesign Step2Compartments. Each compartment card shows: (1) 3-item stock preview with "Stock: N / N" real quantities, (2) "No Change" button — attests all items at par, writes all line items with quantity_found = min_quantity (real numbers, not flags), records user + timestamp, (3) "Modify" button — expands inline, responder adjusts only what changed. No Change BLOCKED if: last check had FAIL or SHORT in this compartment, compartment contains a priority item, or compartment contains items flagged as damaged. Modify button relabels to "N item short" in amber when preview shows shortage. Undo available until check submitted. |
-| RX-F8a | No Change — audit record specification | High | ✅ Done | On No Change: write all par_level line items as CheckLineItem rows with quantity_found = min_quantity (real number from par level), status = PASS, confirmed = true. Real quantities always recorded. No new fields required on CheckLineItem. Equivalent to fully-tapped for compliance purposes (Q-14 resolved). |
-
-### Priority items — critical equipment pinned above compartments
-| # | Item | Pri | Status | Notes |
-|---|------|-----|--------|-------|
-| RX-M1 | Alter `par_levels`: add `priority_check` boolean | High | ✅ Done | Nullable boolean, default false. Supervisor marks per vehicle. No ceiling — supervisor judges per vehicle. Migration 0015. Admin UI toggle on par level assignment screen. Also add `priority_question` VARCHAR(150) nullable — supervisor sets the plain-English question shown to responder (e.g. "Is the ready light solid green?"). |
-| RX-F9 | Priority items section — pinned above compartment list | Critical | ✅ Done | Items where priority_check = true pulled OUT of compartment and rendered in "Check these first" section at top of Step 2. Each item expands inline on tap — no navigation. Functional: custom question + Yes/No. FAIL auto-routes to repair request + damaged flag. Measurement: enter reading inline, threshold check immediate. Priority items cannot be skipped via No Change on parent compartment. See SEED-GAP1/GAP2/GAP3 for Unit 712 specific configuration decisions needed. |
-| RX-F9a | Priority item custom question text | High | ✅ Done | Stored in par_level.priority_question (from RX-M1). Displayed verbatim to responder. Falls back to item name if unset. Max 150 chars. |
-| RX-F9b | Priority item "last confirmed" display | Medium | 📋 | "Last confirmed ready: [date] · [N] days ago" below each priority item. Pulls from most recent PASS line item for that item on that vehicle. Amber if > threshold days (Q-15). |
+| RX-F9b | Priority item "last confirmed" display | Medium | 📋 | "Last confirmed ready: [date] · [N] days ago" below each priority item. Pulls from most recent PASS line item for that item on that vehicle. Amber if > threshold days (7 amber / 14 red — Q-15 resolved). |
+| RX-B2 | `PATCH /admin/par-levels/{id}` — accept priority_check + priority_question | High | 📋 | Verify or extend: endpoint must accept `priority_check` (bool) and `priority_question` (VARCHAR 150). Migration 0015 added these columns. Admin+ only. Uses `write_audit_event()`. ~20 min |
+| RX-F12 | Priority toggle + question in par level edit form (Admin) | High | 📋 | In `CompartmentParLevels.jsx`: add **"Show as priority at start of check"** toggle and conditional **"Custom check question"** text field (max 150 chars, appears when toggle is on). Save via RX-B2. Gap from SEED-GAP3 — DB columns exist since migration 0015, UI was never built. ~45 min |
 
 ### After-Call Reset
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| RX-F6 | After-Call Reset flow — recents + search | Critical | 📋 | Home screen second button: "Log Items Used." Auto-selects truck if only one. Shows: (1) last 8-10 items used on that vehicle ranked by frequency — falls back to common BLS consumables (gloves, gauze, tourniquets — drawn from Unit 712 actual inventory) on first use, (2) search bar for anything not in recents. Each item: +/- controls starting at 0. Restock delta updates live. "Done" commits. Target: ≤3 taps for 2-3 item case. No compartment walk required. |
-| RX-B1 | `POST /checks/usage` — lightweight usage record | Critical | 📋 | Accepts: vehicle_id, station_id, timestamp, [{item_id, compartment_id, quantity_used}]. Decrements stock lots FIFO. Creates audit record. Does NOT create a DailyInventoryCheck. ADR needed (Q-11) before implementation. Returns updated restock delta. |
+| RX-F6 | After-Call Reset flow — recents + search | Critical | 📋 | Home screen "Log Items Used." Auto-selects truck if only one. Shows last 8-10 items by frequency + search. +/− controls per item. "Done" commits. Target: ≤3 taps for 2-3 item case. |
+| RX-B1 | `POST /checks/usage` — lightweight usage record | Critical | 📋 | Uses DailyInventoryCheck (Q-11 resolved — reuse existing model). Auto-decrements stock lots FIFO (Q-12 resolved). Accepts: vehicle_id, station_id, timestamp, [{item_id, compartment_id, quantity_used}]. |
 
-### Responder language + error message pass
+### Responder language + error messages
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| RX-F10 | Responder-facing language + error message replacement | Critical | 📋 | Display strings only — no backend changes. Applies to ALL responder-facing screens including every error state. Jargon replacements: "Par level" -> "Stock: N / N", "Reconcile" -> "Restock list", "Functional check" -> custom question text, "Date record" -> "Expiration date", "Submit count" -> removed (auto-confirm), "NEEDS_RESTOCK" -> "Restock needed", "FAIL" -> "Problem found", "Measurement" -> "Reading", "Repair request" -> "Report a problem". "Out of service" KEPT — team uses this term. Error message replacements: "Could not load vehicles — is the backend running?" -> "Can't reach the server. Check your connection and try again.", "Could not load compartments" -> "Having trouble loading the truck layout. Try again.", all 401 errors -> "Your session expired. Sign out and sign back in.", all 403 errors -> "You don't have permission to do that. Ask your supervisor if something seems wrong." No technical HTTP status codes or server terminology visible to responders ever. |
+| RX-F10 | Responder-facing language + error message replacement | Critical | 📋 | Display strings only. Jargon replacements: "Par level" → "Stock: N / N", "Reconcile" → "Restock list", "Functional check" → custom question text, "Date record" → "Expiration date", "NEEDS_RESTOCK" → "Restock needed", "FAIL" → "Problem found", "Measurement" → "Reading", "Repair request" → "Report a problem". Error replacements: 401 → "Your session expired. Sign out and sign back in.", 403 → "You don't have permission to do that. Ask your supervisor if something seems wrong." No HTTP codes or server terminology visible to responders ever. |
 
 ### First-run tutorial
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| RX-F11 | First-run tutorial — 3 screens on first login | Critical | 📋 | Shown exactly once on first authenticated login, never again. localStorage flag `ems_tutorial_complete` prevents repeat. Three screens: (1) Home screen overlay — "Check the Truck starts your shift check. Log Items Used records what you used on a call." (2) Check flow overlay — "Tap No Change on compartments that look right. Tap Modify to update anything that changed. Check these first items need individual confirmation every time." (3) After-call overlay — "After a call, tap Log Items Used. Pick what you used. The restock list updates automatically." Each screen: large text, one illustration, "Got it" button. Skip button on screen 1 only. Must work on a cracked screen in poor lighting — minimum 60px tap targets throughout. |
+| RX-F11 | First-run tutorial — 3 screens on first login | Critical | 📋 | Shown exactly once. localStorage flag `ems_tutorial_complete`. Three screens: (1) Home — Check the Truck vs Log Items Used. (2) Check flow — No Change vs Modify vs priority items. (3) After-call — Log Items Used. Each: large text, one illustration, "Got it" button. Skip on screen 1 only. 60px tap targets throughout. |
 
 ---
 
-## 2. Damaged Item Status (Session H)
-##
-## Rationale: EMS chief confirmed this will be commonly used. A responder who
-## finds a damaged AED during a check needs a fast, in-context path to flag it.
-## The repair request workflow handles supervisor notification and resolution.
-## Inline — not a separate screen, not a navigation away from the check.
-
-### Backend
+## 2. Damaged Item Status
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| DMG-B1 | `PATCH /inventory/items/{id}/status` — damaged flag | High | 📋 | Sets item as damaged/unavailable at a specific location. Responder+ role. Creates audit event. Does not delete or retire — marks unavailable at that location until resolved. Supervisor resolves via repair request workflow. |
-| DMG-B2 | Include damaged flag in stock summary response | High | 📋 | Extend existing stock summary response: add `is_damaged: bool` per item. Damaged items shown with visual indicator in check wizard compartment preview and supply room. |
-
-### Frontend
-| # | Item | Pri | Status | Notes |
-|---|------|-----|--------|-------|
-| DMG-F1 | Mark item damaged — inline in check wizard | High | 📋 | In ItemRow (Step 3) and priority item cards (Step 2): after a FAIL or zero-count, "Mark as damaged" button appears. One tap: small inline form with reason (free text, max 100 chars) + confirm. Writes damaged flag, auto-creates repair request. Item immediately shows DAMAGED badge in subsequent checks until resolved. |
-| DMG-F2 | Damaged item badge in compartment preview | High | 📋 | Compartment preview strip shows damaged items with a distinct red "⚠ Damaged" badge. No Change is blocked on compartments with damaged items — must open and verify. |
-| DMG-F3 | Damaged item visibility in supply room | Medium | 📋 | StockSummaryView shows damaged items with badge. Damaged items excluded from restock transfer suggestions — don't restock a damaged item, repair it first. |
+| DMG-F3 | Damaged item visibility in supply room | Medium | 📋 | View Supplies shows damaged items with ⚠ badge. Damaged items excluded from restock suggestions — repair first. |
 
 ---
 
-## 3. Supervisor Dashboard Enhancements (Session I)
-##
-## Rationale: The chief needs to see open repair requests without navigating.
-## V&E Status is three taps from the home screen. A broken AED on Unit 712
-## must be visible the moment he opens the dashboard — not buried.
-
+## 3. Supervisor Dashboard Enhancements
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| SUP-F1 | Open repair count on compliance dashboard header | Critical | 📋 | Add to ComplianceSummary: "N open repair requests" count line. Data already available — reuse vehicle list that's already loaded. Tapping the count navigates to V&E Status. If zero open requests, line is hidden. No new API call required. |
-| SUP-F2 | Repair count drill-down to V&E Status | High | 📋 | Tap on the repair count in SUP-F1 navigates directly to V&E Status screen filtered to open/in-progress requests, then back to compliance dashboard. Uses existing onNavigateToVehicles prop already wired through the module. |
-| SUP-F3 | Expiring items alert on compliance dashboard | High | 📋 | Query stock_lots where expiration_date is within 30 days, grouped by vehicle/location. Display count in dashboard header alongside repair count: "N items expiring within 30 days." Tap opens a list grouped by vehicle showing item name, lot number, expiry date, and compartment. Amber at 30 days, red at 7 days. Backend: extend GET /stations/{id}/compliance or add GET /inventory/locations/{id}/expiring-soon?days=30. Frontend: new ExpiringItemsPanel component in supervisor module. No new migration required — expiration_date already on StockLot. This is the one commercial feature (present in every competitor) that EMS ReadyKit was missing at launch. A supervisor who doesn't know AED pads expire next month finds out during a check — or worse, during a call. |
+| SUP-F1 | Open repair count on compliance dashboard | Critical | 📋 | "N open repair requests" count line. Tap navigates to V&E Status. Hidden if zero. No new API call. |
+| SUP-F2 | Repair count drill-down to V&E Status | High | 📋 | Tap navigates to V&E Status filtered to open/in-progress. Uses existing onNavigateToVehicles prop. |
+| SUP-F3 | Expiring items alert on compliance dashboard | High | 📋 | Query stock_lots expiring within 30 days. Show count in dashboard header. Tap opens list grouped by vehicle: item name, lot number, expiry date, compartment. Amber at 30 days, red at 7 days. No new migration — expiration_date already on StockLot. |
 
 ---
 
-## 4. AI Item Identification — Groundwork (Session I)
-##
-## Rationale: The dormant AI fields (ai_tags, alternate_names, reference_image_url,
-## barcode) already exist on the Item model (migration 0009). Build the admin
-## interface now so the chief can populate reference data. Barcode scanning drops
-## in cleanly on top once the data is there.
-
+## 4. AI Item Identification — Groundwork
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| AI-B1 | `PATCH /admin/items/{id}/ai-fields` — activate AI identification fields | High | 📋 | Admin-only endpoint to set ai_tags, alternate_names, reference_image_url, barcode on an item. Fields exist in DB since migration 0009. This activates them for use. |
-| AI-F1 | AI fields editor in Item admin screen | High | 📋 | Extend ItemForm.jsx: collapsible "AI Identification" section (collapsed by default, admin only). Fields: barcode (text), alternate names (comma-separated), reference image URL (text), AI tags (comma-separated). Save via AI-B1. |
-| AI-F2 | Barcode search in After-Call Reset | Medium | 📋 | Post-launch. In RX-F6 after-call search: if device has camera, show barcode scan button. Scan -> look up item.barcode -> auto-populate item. Graceful text search fallback. |
-| AI-F3 | Barcode search in supply room receive | Medium | 📋 | Post-launch. In ReceiveStockPanel: scan barcode to identify item being received rather than typing name. Same lookup as AI-F2. |
+| AI-B1 | `PATCH /admin/items/{id}/ai-fields` | High | 📋 | Admin-only. Sets ai_tags, alternate_names, reference_image_url, barcode. Fields exist in DB since migration 0009. |
+| AI-F1 | AI fields editor in Item admin screen | High | 📋 | Collapsible "AI Identification" section in ItemForm.jsx (collapsed by default, admin only). Barcode, alternate names, reference image URL, AI tags. Save via AI-B1. |
+| AI-F2 | Barcode search in After-Call Reset | Medium | 📋 | Post-launch. Camera barcode scan → item lookup in RX-F6. Graceful text search fallback. |
+| AI-F3 | Barcode search in supply room receive | Medium | 📋 | Post-launch. Scan barcode to identify item being received. |
 
 ---
 
-## 5. Seed Data Gaps — Unit 712 Specific (resolve before Session H)
-##
-## Context: The real Unit 712 BLS inventory is already seeded from the actual
-## paper inventory sheets. Compartment names match what is stenciled on the
-## physical compartment doors. Item names match the paper forms exactly.
-## These gaps are configuration decisions the chief must make, not code bugs.
-
+## 5. Seed Data Gaps — Unit 712
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| SEED-GAP1 | LUCAS needs a FUNCTIONAL check item | High | ✅ Done — added to seed.py | Currently seeded as SUPPLY (qty 1) + DATE_RECORD "LUCAS Date of Last Charge". Missing: FUNCTIONAL item "LUCAS Device Ready Check" with priority_question "Is the battery charged and the device ready to deploy?" Chief should add this item in admin Item Catalog and assign it to PC 8. Then mark it priority. Alternatively, add to seed.py alongside existing LUCAS items before Session H. Decision: add to seed.py so it's consistent across all environments. |
-| SEED-GAP2 | Truck Operations compartment — No Change policy | High | 📋 | Truck Operations (sort_order=40) contains 12 FUNCTIONAL checks (Runs and Starts, Lights & Sirens, Medcom, etc.) and 3 SUPPLY items (cab gloves). These require physical verification — you cannot tap No Change without starting the truck and testing the systems. Two options: (A) Mark all Truck Operations FUNCTIONAL items as priority_check = true, forcing individual confirmation. (B) Add a compartment-level flag `requires_full_check` that blocks No Change entirely for that compartment. Option A is simpler and uses existing infrastructure. Decision needed from chief before RX-F8 is built. |
-| SEED-GAP3 | AED priority item configuration | High | 📋 | AED is modeled as 4 items in PC 8: "AED Battery" (FUNCTIONAL), "AED Date of Last Charge" (DATE_RECORD), "AED Pads Adult" (DATE_RECORD), "AED Pads Pediatric" (DATE_RECORD). For priority items, "AED Battery" should be marked priority_check = true with priority_question "Is the ready light solid green with no error indicators showing?" The date and pad checks remain inside PC 8 for normal check flow. Chief sets this in admin after RX-M1 migration ships. Document in setup guide (LAUNCH-OPS1). |
-| SEED-GAP4 | O2 PSI items need priority consideration | Medium | 📋 | Two O2 PSI MEASUREMENT items exist: "On-Board O2 PSI" (DS EC 1) and "Stretcher O2 PSI" (Stretcher compartment). Both have measurement_minimum=500.0 PSI. Chief should decide whether to mark these as priority items surfacing above the compartment list, or leave them in their compartments for normal check flow. Stretcher O2 is likely priority; on-board O2 may be as well. |
-| SEED-GAP5 | Jump bag O2 PSI priority consideration | Low | 📋 | Jump Bag Main Pocket contains "Jump Bag O2 PSI" MEASUREMENT item with same 500 PSI minimum. Same decision as SEED-GAP4 for jump bag context. |
+| SEED-GAP2 | Truck Operations — requires_full_check=True | High | 📋 | Q-16 resolved: compartment-level flag. All Truck Operations FUNCTIONAL items require physical verification — No Change must be blocked. Set `requires_full_check=True` on Truck Operations compartment in seed.py. |
+| SEED-GAP4 | O2 PSI items — priority consideration | Medium | 📋 | "On-Board O2 PSI" (DS EC 1) and "Stretcher O2 PSI" — both min 500 PSI. Chief decides whether to mark priority. Stretcher O2 likely priority. |
+| SEED-GAP5 | Jump bag O2 PSI priority consideration | Low | 📋 | "Jump Bag O2 PSI" MEASUREMENT item. Same priority decision as SEED-GAP4. |
 
 ---
 
-## 6. Launch Readiness — Operational Checklist (Session J)
-##
-## These are not development tasks. They are operational tasks the EMS chief
-## and project owner must complete before any team member sees the app.
-## Tracked here so nothing falls through the cracks at launch time.
-
+## 6. Launch Readiness — Operational Checklist
 | # | Task | Owner | Status | Notes |
 |---|------|-------|--------|-------|
-| LAUNCH-OPS1 | Configure priority items for Unit 712 in production admin | EMS chief | 📋 | After RX-M1 ships: open Admin -> Vehicles -> Unit 712 -> Par Levels. Mark AED Battery, LUCAS Device Ready Check, On-Board O2 PSI (and Stretcher O2 PSI if desired) as priority. Set custom question text for each. See SEED-GAP1/GAP2/GAP3/GAP4. |
-| LAUNCH-OPS2 | Enter actual physical stock count for Unit 712 | EMS chief / responder | 📋 | Seed data has par levels (target quantities) but NOT actual current stock counts. Before UAT, do a physical count of Unit 712 and enter actual lot quantities via the supply room receive flow or direct stock entry. This is what makes the restock list meaningful from day one. |
-| LAUNCH-OPS3 | Enter actual stock count for Unit 712 Jump Bag and Unit 710 Jump Bag | EMS chief / responder | 📋 | Same as LAUNCH-OPS2 for both jump bags. |
-| LAUNCH-OPS4 | Add all EMS team members in admin | EMS chief | 📋 | Each of the ~10 team members (EMTs and MFRs) needs to be added to Newberg Township Station 1 with the correct role (Responder or Supervisor). They will receive Azure AD login credentials and need to be on the station member list before their first login. |
-| LAUNCH-OPS5 | Chief full walkthrough — shift-start check on Unit 712 | EMS chief | 📋 | Before any volunteer sees the app, the chief should run a complete shift-start check on Unit 712 in the production environment. Every compartment. Priority items. Truck Operations. Submit. Verify the compliance dashboard reflects it. This is his acceptance test. |
-| LAUNCH-OPS6 | Volunteer walkthrough — Earl or equivalent | Volunteer responder | 📋 | One volunteer (ideally less tech-comfortable, not the chief) runs a complete check cold, with the 3-screen tutorial as their only guidance. Observe without helping. If they need to ask a question, that's a UX issue to fix before broader launch. |
-| LAUNCH-OPS7 | Marcellus Township Station 1 configuration | EMS chief | 📋 | If Ambulance 540 (ALS) is also being launched, repeat LAUNCH-OPS1 through OPS3 for Unit 540. The ALS drug cabinet and controlled substance check configuration needs supervisor review — the ALS drug bag and dual-signature workflow are already seeded but need validation against actual Marcellus Township protocols. |
-| LAUNCH-OPS8 | Remove or hide TEST STATION from production | Engineering | 📋 | The "⚠ TEST STATION — Dev Only" and "Unit TEST QRV" must not appear in the production environment. Options: (A) Don't seed test data in production (seed.py already structured to skip it if a flag is set). (B) Deactivate the test station via admin before launch. Option A is cleaner — add a `SEED_TEST_DATA=false` env var check to seed.py. |
-| LAUNCH-OPS9 | Verify Azure AD users match station member emails | Engineering | 📋 | StationMember.user_id is keyed on email (preferred_username from JWT). Every team member's Azure AD email must exactly match what the chief enters in the station member list. A mismatch means the member gets the "you're not listed" error on first login. Verify before launch day. |
+| LAUNCH-OPS1 | Configure priority items for Unit 712 in production admin | EMS chief | 📋 | After RX-F12 ships: Admin → Vehicles → Unit 712 → Par Levels. Mark AED Battery, LUCAS Device Ready Check, O2 PSI items as priority. Set custom question text. |
+| LAUNCH-OPS2 | Enter actual physical stock count for Unit 712 | EMS chief | 📋 | Seed has par levels (targets) not actual counts. Do physical count before UAT. |
+| LAUNCH-OPS3 | Enter actual stock count for Unit 712 Jump Bag and Unit 710 Jump Bag | EMS chief | 📋 | Same as LAUNCH-OPS2 for both jump bags. |
+| LAUNCH-OPS4 | Add all EMS team members in admin | EMS chief | 📋 | ~10 team members need Azure AD login + station member assignment with correct role. |
+| LAUNCH-OPS5 | Chief full walkthrough — shift-start check on Unit 712 | EMS chief | 📋 | Complete check in production. Every compartment. Priority items. Truck Operations. Submit. Verify compliance dashboard reflects it. |
+| LAUNCH-OPS6 | Volunteer walkthrough — Earl or equivalent | Volunteer | 📋 | One less tech-comfortable volunteer runs a complete check cold. Observe without helping. Questions = UX issues. |
+| LAUNCH-OPS7 | Marcellus Township — NOT in initial launch | — | N/A | Q-19 resolved: Newberg Township only at launch. |
+| LAUNCH-OPS8 | Remove TEST STATION from production | Engineering | 📋 | `SEED_TEST_DATA=false` env var check in seed.py. Q-18 resolved: env var approach. |
+| LAUNCH-OPS9 | Verify Azure AD user emails match station member emails | Engineering | 📋 | StationMember.user_id keyed on email. Mismatch = "not listed" error on first login. Verify before launch day. |
 
 ---
 
 ## 7. Backend — Endpoints
 | # | Endpoint | Description | Pri | Status |
 |---|----------|-------------|-----|--------|
-| B-E8 | `PUT /inventory/lots/{id}` | Supervisor corrects expiry date on lot | Medium | 📋 |
 | B-E9 | `PATCH /inventory/par-levels/{id}` | Soft-deactivate par level | Medium | 📋 |
 | B-E18 | `GET /audit?from=&to=` | Date-range audit export | Medium | 📋 |
 
@@ -327,7 +174,7 @@
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
 | B-M6 | Alter `par_levels`: add `active`, `deactivated_at`, `deactivation_reason` | Medium | 📋 | |
-| B-M10 | Alter `stations`: add `allow_check_modification` | High | 📋 | |
+| B-M10 | Alter `stations`: add `allow_check_modification` (default True — Q-7 resolved) | High | 📋 | |
 | RET-M1 | Alter `vehicles`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 | |
 | RET-M2 | Alter `locations`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 | |
 | RET-M3 | Alter `stations`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 | |
@@ -338,8 +185,8 @@
 | # | Endpoint | Description | Pri | Status | Notes |
 |---|----------|-------------|-----|--------|-------|
 | CH-B4 | `DELETE /checks/daily/{id}/force` | Force hard-delete | High | 📋 | Admin only |
-| CH-B5 | `GET /checks/daily/deleted?station_id=` | List soft-deleted checks | Medium | 📋 | Admin only |
-| CH-B6 | `PATCH /checks/daily/{id}/restore` | Restore soft-deleted check | Low | 📋 | Admin only |
+| CH-B5 | `GET /checks/daily/deleted?station_id=` | List soft-deleted checks | Medium | 📋 | Supervisor+ |
+| CH-B6 | `PATCH /checks/daily/{id}/restore` | Restore soft-deleted (Q-8: all roles) | Low | 📋 | |
 | CH-B7 | `PATCH /stations/{id}/settings` | Update station settings | High | 📋 | Admin only |
 | CH-B8 | `GET /stations/{id}/settings` | Read station settings | High | 📋 | Supervisor+ |
 
@@ -360,36 +207,31 @@
 ## 11. Frontend — Help System
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| F-5C1 | First-run tutorial — 3 screens (see RX-F11) | Critical | ➡ RX-F11 | Moved to Section 1 as RX-F11. Session H. |
-| F-5C2 | Contextual "?" help — bottom sheet per wizard step | Medium | 📋 | Session J / post-launch. Based on what questions the team actually asks after first month. |
+| F-5C2 | Contextual "?" help — bottom sheet per wizard step | Medium | 📋 | Post-launch. Based on what questions the team actually asks after first month. |
 
 ---
 
 ## 12. Frontend — Supervisor Dashboard
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| SUP-F1 | Open repair count on dashboard header | Critical | ➡ Section 3 | |
-| SUP-F2 | Repair count drill-down to V&E Status | High | ➡ Section 3 | |
-| F-5F7 | Supply room stock view | Medium | 📋 | Post-launch enhancement |
+| F-5F7 | Supply room stock view on dashboard | Medium | 📋 | Post-launch enhancement |
 
 ---
 
 ## 13. Frontend — Supporting Modules
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| F-5G3 | Data export — CSV for history, audit, repairs | Medium | 📋 | Session I. Chief will need this for first compliance reporting cycle. |
+| F-5G3 | Data export — CSV for history, audit, repairs | Medium | 📋 | Q-3 answered: yes, download history. When first compliance report is due. |
 
 ---
 
 ## 14. Frontend — Check Wizard UX
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| F-UX2 | Left/right chevron navigation between compartments | Medium | 📋 | Session H |
-| F-UX3 | "Jump to unvalidated" sticky button | Medium | 📋 | Session H |
-| F-UX4 | Expired item replacement prompt | Medium | 📋 | Session H — important for lot expiry management |
+| F-UX10 | Scroll-to-card on return from compartment item list | Low | 📋 | Sticky button handles the common case. Revisit post-launch if team finds it insufficient. ~30 min |
+| F-UX4 | Expired item replacement prompt | Medium | 📋 | |
 | F-UX5 | Check handoff support | Medium | ⛔ | B-M8 (started_by field) — post-launch |
-| F-UX6 | Compartment location descriptor on cards | Medium | 📋 | Session H — already in seed data, just needs display |
-| F-UX7 | Last check banner | High | ✅ Done | Session F Block 4 |
+| F-UX6 | Compartment location descriptor on cards | Medium | 📋 | Already in seed data, just needs display |
 | F-UX9 | Two-state submit with offline queue | Low | 📋 | Post-launch |
 
 ---
@@ -398,18 +240,16 @@
 | # | Item | Pri | Status | Needs |
 |---|------|-----|--------|-------|
 | CH-F6 | Acknowledgement / corrective note | High | ⛔ | B-M10, CH-B8 |
-| CH-F7 | Deleted records screen | High | 📋 | Session H |
-| CH-F8 | Force hard-delete confirmation | High | 📋 | Session H |
 
 ---
 
 ## 16. Frontend — Settings Module
 | # | Item | Pri | Status | Needs |
 |---|------|-----|--------|-------|
-| S-F1 | Settings nav entry | High | 📋 | Session I |
-| S-F3 | Allow check modification toggle | High | 📋 | B-M10 — Session I |
-| S-F6 | Station management | High | 📋 | RET-B3/B4 — Session I |
-| S-F7 | Vehicle management | High | 📋 | RET-B1/B2 — Session I |
+| S-F1 | Settings nav entry | High | 📋 | Session N |
+| S-F3 | Allow check modification toggle (default True) | High | 📋 | B-M10 |
+| S-F6 | Station management | High | 📋 | RET-B3/B4 |
+| S-F7 | Vehicle management | High | 📋 | RET-B1/B2 |
 | S-F8 | Par level management | Medium | 📋 | B-E9 |
 
 ---
@@ -417,8 +257,8 @@
 ## 17. Frontend — Retirement Actions
 | # | Item | Pri | Status | Needs |
 |---|------|-----|--------|-------|
-| RET-F1 | Retire vehicle | High | 📋 | RET-B1 — Session I |
-| RET-F2 | Retire jump bag / portable location | High | 📋 | RET-B2 — Session I |
+| RET-F1 | Retire vehicle | High | 📋 | RET-B1 |
+| RET-F2 | Retire jump bag / portable location | High | 📋 | RET-B2 |
 | RET-F3 | Retire inventory lot | High | 📋 | RET-B5 |
 | RET-F4 | Retire station | High | 📋 | RET-B3 |
 | RET-F5 | Retired objects list | Medium | 📋 | RET-B4 |
@@ -430,20 +270,16 @@
 |---|------|-----|--------|-------|
 | I-1 | Azure Firewall | Medium | 📋 | Before scaling to second service |
 | I-2 | Re-add route table | Medium | ⛔ | |
-| I-3 | `HTTPSRedirectMiddleware` | Low | 📋 | Session J |
 | I-5 | Document Azure AD token lifetime | Low | 📋 | |
 
 ---
 
 ## 19. Equipment & Station Administration
-
-### Vehicle & Location Management
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
 | ADMIN-B14 | `PATCH /admin/locations/{id}` | High | 📋 | Label rename for portable locations |
-| ADMIN-F7 | Portable location list view (Jump Bags) | High | 📋 | PortableLocationsScreen — Session I |
+| ADMIN-F7 | Portable location list view (Jump Bags) | High | 📋 | Session N |
 | ADMIN-F10 | Member list search | Low | 📋 | Post-launch |
-
 
 ---
 
@@ -458,112 +294,97 @@
 
 ---
 
-## 23. User Acceptance Testing
-| # | Item | Pri | Status | Notes |
-|---|------|-----|--------|-------|
-| UAT-1 | Test case document | High | ✅ Done | `docs/uat_test_cases.md` |
-| UAT-2 | Execute Responder test cases | High | 📋 | Session J — against live Azure, real Unit 712 data |
-| UAT-3 | Execute Supervisor test cases | High | 📋 | Session J — chief logged in as Supervisor |
-| UAT-4 | Execute Administrator test cases | High | 📋 | Session J |
-| UAT-5 | Execute cross-role test cases | Medium | 📋 | Session J |
-| UAT-6 | Execute edge case test cases | Medium | 📋 | Session J |
-| UAT-7 | Pending assignment test case | High | ⛔ | Needs ACC-F5 |
-| UAT-8 | Multi-station test case | Medium | ⛔ | Needs ACC-F1-F5 |
-| UAT-9 | Unit 712 full shift-start check — cold run | Critical | 📋 | LAUNCH-OPS5/OPS6. Chief + one volunteer, no coaching, production environment. Pass criterion: zero calls for help, check submitted correctly, compliance dashboard reflects it. |
-| UAT-10 | After-call usage log — cold run | Critical | 📋 | Same volunteers, same session. Simulate returning from a call. Log 2-3 items used. Verify restock list updates. Pass criterion: completed in under 60 seconds without explanation. |
-| UAT-11 | Damaged item scenario — cold run | High | 📋 | During UAT-9 or UAT-10: simulate discovering a damaged item (e.g. AED battery light not green). Verify the in-context path works, repair request is created, chief sees it on compliance dashboard. |
+## 21. Supply Room Redesign (Session K)
+## Rationale: Supply room = location counted like a vehicle. Same wizard, same
+## compartment model (cabinets/shelves). Stock depletes automatically during
+## reconciliation. Goal: catch critical shortages, not precise inventory.
+## Everything reuses existing code — ItemCatalog.jsx, check wizard, FIFO lot logic.
+
+### Backend
+| # | Item | Pri | Status | Notes | Est |
+|---|------|-----|--------|-------|-----|
+| SR-M1 | Migration 0017: add `station_supply` bool to `items` | High | 📋 | Not null, default true. FUNCTIONAL items auto-excluded in queries regardless of flag. Alembic batch mode required. | ~20 min |
+| SR-B1 | `GET /inventory/supply-catalog?station_id=` | High | 📋 | Items where `station_supply = true` AND `check_type != FUNCTIONAL`, with on-hand quantity from stock lots. Responder+ role. Sorted by item name. | ~30 min |
+| SR-B2 | `PATCH /inventory/supply-catalog/items/{id}/count` | High | 📋 | Responder+ role. Body: `{location_id, quantity, comment?}`. FIFO lot adjustment. Writes audit event: actor from JWT, old_qty, new_qty, optional comment. | ~30 min |
+| SR-B3 | `GET /stations/{id}/supply-alerts` | High | 📋 | Items where on-hand < par level minimum. Response: `[{item_name, on_hand, par_min, unit}]`. Supervisor+ role. | ~30 min |
+| SR-B4 | Wire auto-decrement to reconciliation step | High | 📋 | In checks.py reconciliation submit: when responder tops off an item, call FIFO lot decrement against station supply room. Decrement = quantity_found - last_quantity_found. Best-effort — decrement to zero if insufficient, log warning audit event, never block check submit. | ~45 min |
+| SR-B5 | Remove restock-vehicle transfer action | Medium | 📋 | Remove the "restock vehicle" action path. Keep `stock_transfers` table and Transfer History endpoint. Add rationale comment in inventory.py. | ~15 min |
+
+### Seed update
+| # | Item | Pri | Status | Notes | Est |
+|---|------|-----|--------|-------|-----|
+| SR-SEED1 | Set `station_supply = False` for non-stockable items | High | 📋 | AED Battery, AED Pads, AED Date check, LUCAS Device, LUCAS Date of Last Charge, LUCAS Device Ready Check, drug bag contents. FUNCTIONAL items already auto-excluded by SR-B1 query. Use upsert pattern. | ~20 min |
+
+### Frontend
+| # | Item | Pri | Status | Notes | Est |
+|---|------|-----|--------|-------|-----|
+| SR-F1 | Home screen — "Station Supplies" nav card | High | 📋 | Responder+ visible. Below Check the Truck / Log Items Used. Same visual weight as Check History. 60px tap target. | ~20 min |
+| SR-F2 | Station Supplies module landing — 2-card layout | High | 📋 | Replace 4-card landing with 2 large nav cards: **"View Supplies"** and **"Count Supplies"**. Transfer History demoted to small text link. | ~20 min |
+| SR-F3 | View Supplies — reused ItemCatalog + inline count correction | High | 📋 | Reuse `ItemCatalog.jsx` with SR-B1 data source. Add on-hand quantity: "On hand: 4 / Par: 10" — amber if below par, red if zero. Tap item → inline count correction (number input + optional comment). Save immediately, no confirmation modal. Count correction: Supervisor+ only. View: Responder+. | ~60 min |
+| SR-F4 | Count Supplies — supply room check wizard | Medium | 📋 | Verify wizard routes correctly to STATION_SUPPLY_ROOM location. Compartments = shelves/cabinets already seeded. No Change works identically. NOT on compliance calendar. Appears in Check History. Mostly a routing wire-up. | ~30 min |
+| SR-F5 | Supply room low-stock inline alert on supervisor dashboard | High | 📋 | No tap required. Calls SR-B3 on dashboard load. Renders below SUP-F3. Format: "⚠ Station Supplies — Low Stock" + item list "• Tourniquets — 4 on hand, 10 needed". Red if zero, amber if below par. Hidden if nothing low. Large text, high contrast. | ~45 min |
+| SR-F6 | Remove Restock Vehicle panel from supply room module | Medium | 📋 | Remove from module routing and landing card. Keep file (rename/retire). Update supply-room.css if styles are specific to the panel. | ~15 min |
+| SR-F7 | Edit lot expiry date in View Supplies (Supervisor+) | Medium | 📋 | Tap stock lot → inline expiry date editor. Saves via `PUT /inventory/lots/{id}` (B-E8 — built Session J). Plain English label: "Correct expiry date". 60px tap target. | ~30 min |
 
 ---
 
-## 25. Open Questions
-| # | Question | Owner | Notes |
-|---|----------|-------|-------|
-| Q-3 | 90-day max range sufficient for compliance calendar? | Project owner | |
-| Q-6 | Auto-hard-delete scheduler: Azure Function or startup cleanup job? | Engineering | |
-| Q-7 | Check modification setting default: False or True? | Project owner | |
-| Q-8 | Restored soft-deleted checks: responder history or admin screen only? | Project owner | |
-| Q-11 | After-Call Reset: lightweight standalone usage record vs DailyInventoryCheck with check_type='USAGE'? ADR needed before RX-B1. | Engineering | Resolve before Session I |
-| Q-12 | After-Call Reset: auto-decrement stock lots on log, or record-only until supervisor confirms? | Project owner | Resolve before Session I |
-| Q-15 | Priority item staleness thresholds: 7 days amber / 14 days red — right for your check frequency? | Project owner | Resolve before Session H |
-| Q-16 | SEED-GAP2: Truck Operations compartment — should all FUNCTIONAL items be marked priority_check (forcing individual confirmation), or add a compartment-level `requires_full_check` flag? | Project owner + Engineering | Resolve before RX-F8 is built |
-| Q-17 | SEED-GAP1: Add "LUCAS Device Ready Check" FUNCTIONAL item to seed.py before Session H, or have chief add it manually in production admin? | Engineering | Recommendation: add to seed.py for consistency |
-| Q-18 | LAUNCH-OPS8: Suppress test station in production via SEED_TEST_DATA env var, or deactivate via admin before launch? | Engineering | Recommendation: env var — cleaner, no admin action needed |
-| Q-19 | LAUNCH-OPS7: Is Marcellus Township Station 1 (Unit 540 ALS) in scope for initial launch, or Newberg Township only? | Project owner | Determines scope of LAUNCH-OPS1-OPS6 |
+## 22. User Acceptance Testing
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| UAT-2 | Execute Responder test cases | High | 📋 | Against live Azure, real Unit 712 data |
+| UAT-3 | Execute Supervisor test cases | High | 📋 | Chief logged in as Supervisor |
+| UAT-4 | Execute Administrator test cases | High | 📋 | |
+| UAT-5 | Execute cross-role test cases | Medium | 📋 | |
+| UAT-6 | Execute edge case test cases | Medium | 📋 | |
+| UAT-7 | Pending assignment test case | High | ⛔ | Needs ACC-F5 |
+| UAT-8 | Multi-station test case | Medium | ⛔ | Needs ACC-F1-F5 |
+| UAT-9 | Unit 712 full shift-start check — cold run | Critical | 📋 | Chief + one volunteer, no coaching, production. Pass: zero calls for help, check submitted, dashboard reflects it. |
+| UAT-10 | After-call usage log — cold run | Critical | 📋 | Log 2-3 items used. Verify restock list updates. Pass: completed in under 60 seconds without explanation. |
+| UAT-11 | Damaged item scenario — cold run | High | 📋 | Simulate discovering a damaged item during UAT-9. Verify in-context path, repair request created, chief sees it on dashboard. |
 
-## Answers to open questions:
-Q-7 ANSWERED: True — allow_check_modification defaults to True. Small team, trust-based culture, easier for new stations.
-Q-3: Yes.  That seems like enough of a range.  Can we eventually put in a way for them to download the history?
-Q-6: Azure function.  If we leave it to the user, it will never happen.
-Q-7: I don't understand this question.  Do you remember what it is for?
-Q-8: Responder history.  They should be able to undo what they've done if it was by accident.  Supervisor and admin should be able to do it too.
-Q-11: I like to reuse what we've already got.  Let's use the DailyInventoryCheck.  That way we don't have to implement new code.
-Q-12: Auto-decrement.  If we wait for a human, it will never happen.
-Q-15: Staleness is fine.  7 Days and 14 days.
-Q-16: Compartment level.  We are trying to keep things light and fast for the user, until told otherwise.
-Q-17: Add to the seed.py.  Want to make sure the first use for the team is quick and easy.  We only have 1 chance to get this right and sell it.
-Q-18: Env Vars.  I think we've already fixed this one.
-Q-19: Marcellus is not in initial launch.
+---
+
+## 23. Open Questions
+| # | Question | Notes |
+|---|----------|-------|
+| Q-3 | Download check history CSV? | Yes — add to F-5G3 scope when first compliance report is due |
+| Q-6 | Auto-hard-delete: Azure Function | Resolved: Azure Function (Q-6 answered) |
 
 ---
 
 ## Summary
 | Area | 📋 | ⛔ | Total |
 |------|----|----|-------|
-| Workflow Acceleration — Check Wizard | 6 | 0 | 6 |
-| Workflow Acceleration — No Change / Modify | 2 | 0 | 2 |
-| Workflow Acceleration — Priority Items | 4 | 0 | 4 |
-| Workflow Acceleration — After-Call Reset | 2 | 0 | 2 |
-| Workflow Acceleration — Language + Errors | 1 | 0 | 1 |
-| Workflow Acceleration — Tutorial | 1 | 0 | 1 |
-| Damaged Item Status | 5 | 0 | 5 |
-| Supervisor Dashboard Enhancements | 3 | 0 | 3 |
-| AI Item Identification — Groundwork | 4 | 0 | 4 |
-| Seed Data Gaps — Unit 712 | 5 | 0 | 5 |
-| Launch Readiness — Operational Checklist | 9 | 0 | 9 |
-| Security — Pre-H + Session H + Operational | 8 | 0 | 8 |
-| Security — Pre-User Gate | 1 | 0 | 1 |
-| Backend — Endpoints | 5 | 0 | 5 |
-| Backend — Data Models | 6 | 0 | 6 |
-| Backend — Check History | 5 | 1 | 6 |
+| Security | 2 | 0 | 2 |
+| Workflow — Check Wizard | 3 | 0 | 3 |
+| Workflow — Priority Items | 3 | 0 | 3 |
+| Workflow — After-Call Reset | 2 | 0 | 2 |
+| Workflow — Language + Errors | 1 | 0 | 1 |
+| Workflow — Tutorial | 1 | 0 | 1 |
+| Damaged Item Status | 1 | 0 | 1 |
+| Supervisor Dashboard | 3 | 0 | 3 |
+| AI Identification — Groundwork | 4 | 0 | 4 |
+| Seed Data Gaps — Unit 712 | 3 | 0 | 3 |
+| Launch Readiness — Operational | 8 | 0 | 8 |
+| Backend — Endpoints | 2 | 0 | 2 |
+| Backend — Data Models | 5 | 0 | 5 |
+| Backend — Check History | 5 | 0 | 5 |
 | Backend — Retirement | 6 | 0 | 6 |
 | Frontend — Help System | 1 | 0 | 1 |
 | Frontend — Supervisor Dashboard | 1 | 0 | 1 |
 | Frontend — Supporting Modules | 1 | 0 | 1 |
-| Frontend — Check Wizard UX | 5 | 1 | 6 |
-| Frontend — Check History | 3 | 1 | 4 |
+| Frontend — Check Wizard UX | 4 | 1 | 5 |
+| Frontend — Check History | 1 | 1 | 2 |
 | Frontend — Settings | 5 | 0 | 5 |
 | Frontend — Retirement Actions | 5 | 0 | 5 |
-| Infrastructure / Security | 3 | 1 | 4 |
-| Equipment & Station Admin | 4 | 0 | 4 |
+| Infrastructure / Security | 2 | 1 | 3 |
+| Equipment & Station Admin | 3 | 0 | 3 |
 | Station Membership Frontend | 5 | 0 | 5 |
-| Supply Room & Restocking | 8 | 0 | 8 |
-| Par Level Assignment | 6 | 0 | 6 |
+| Supply Room Redesign (Session K) | 14 | 0 | 14 |
 | User Acceptance Testing | 9 | 2 | 11 |
-| Code Cleanup + Theme Pre-Session H | 13 | 0 | 13 |
-| **Total open** | **142** | **6** | **148** |
+| **Total open** | **101** | **5** | **106** |
 
-*Completed items — Sessions A-G — are in backlog_completed.md.*
-*v1.52 — 2026-06-04: Major bloat-drop (142 -> 115). Promoted damaged items. Added AI groundwork.*
-*v1.56 — 2026-06-04: OPSECDEV review complete. Scores: Auth A, AuthZ A, Audit A, Secrets A,*
-*  Dependency security A. Gaps: staticwebapp.config.json missing (Critical), no npm audit in CI,*
-*  seed.py no production guard, no ESLint in CI, HTTPSRedirectMiddleware deferred too long,*
-*  MSAL tokens in localStorage, /health leaks env. Added Section 0A (8 security items).*
-*  I-3 upgraded from Low to High, moved from Session J to Session H.*
-*v1.55 — 2026-06-04: CSS theme consolidation (TECH-THEME1 through TECH-THEME4).*
-*  Diagnosis: index.css token system is sound. supervisor.css and supply-room.css use raw rem values*
-*  instead of tokens. Fix: extend tokens (vehicle color, damaged, priority, no-change, xs font size,*
-*  shared .ems-card/.ems-section-head/.ems-preview-row utility classes), fix the two offending files,*
-*  enforce via CLAUDE.md. Not a full refactor — targeted token enforcement.*
-*  Pre-H now 13 items across theme (4) + CSS cleanup (3) + code cleanup (6). Est. 90 min.*
-*v1.54 — 2026-06-04: Added SUP-F3 (expiring items alert).*
-*  SEED-GAP1 through GAP5 documenting Unit 712 specific configuration decisions needed before Session H).*
-*  Added Section 6 (Launch Readiness Operational Checklist — LAUNCH-OPS1 through OPS9).*
-*  Added RX-F11 (first-run tutorial — moved from F-5C1, elevated to Critical, Session H not J).*
-*  Added SUP-F1/F2 (repair count on compliance dashboard — new Section 3).*
-*  Extended RX-F10 to explicitly cover all error messages in plain English.*
-*  Added UAT-9/10/11 (cold-run dress rehearsals with real users on real data).*
-*  Added Q-16/17/18/19 (Truck Operations policy, LUCAS seed gap, test station suppression, Marcellus scope).*
-*  RX-M1 updated: also add priority_question VARCHAR(150) alongside priority_check boolean.*
-*  Real inventory confirmed: Unit 712 BLS, Unit 712 Jump Bag, Unit 710 Jump Bag all seeded from*
-*  actual paper inventory sheets. Compartment names match physical stencils on the vehicle.*
-*  Physical stock counts (LAUNCH-OPS2/3) are the one remaining data gap before UAT is meaningful.*
+*Completed items — Sessions A–J — are in backlog_completed.md.*
+*v1.62 — 2026-06-06: Backlog cleaned. All ✅ Done items moved to backlog_completed.md.*
+*  Resolved Q answers folded into item notes. Duplicate/superseded items removed.*
+*  Open items: 106 (down from 164). Sessions A–J complete.*

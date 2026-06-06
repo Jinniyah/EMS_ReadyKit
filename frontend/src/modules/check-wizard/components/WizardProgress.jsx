@@ -15,7 +15,7 @@
  */
 import React from 'react'
 
-const STEPS = ['Vehicle', 'Compartments', 'Items', 'Reconcile', 'Submit']
+const STEPS = ['Vehicle', 'Compartments', 'Items', 'Restock', 'Submit']
 
 export default function WizardProgress({ step, draft, compartments }) {
   const compDrafts        = Object.values(draft?.compartments ?? {})

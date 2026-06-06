@@ -117,18 +117,20 @@ def make_compartment(
     restriction_note: Optional[str] = None,
     parent: Optional[Compartment] = None,
     als_only: bool = False,
+    requires_full_check: bool = False,
 ) -> Compartment:
     comp = db.query(Compartment).filter(
         Compartment.location_id == location.location_id,
         Compartment.name == name,
     ).first()
     if comp:
+        comp.requires_full_check = requires_full_check
         return comp
     comp = Compartment(
         location_id=location.location_id, name=name, sort_order=sort_order,
         location_descriptor=location_descriptor, restriction_note=restriction_note,
         parent_compartment_id=parent.compartment_id if parent else None,
-        als_only=als_only, active=True,
+        als_only=als_only, active=True, requires_full_check=requires_full_check,
     )
     db.add(comp)
     db.flush()
@@ -610,7 +612,8 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
                 location=loc, compartment=ps_ec3, min_qty=qty)
 
     truck_ops = make_compartment(db, location=loc, name="Truck Operations", sort_order=40,
-                                 location_descriptor="Operational vehicle systems check")
+                                 location_descriptor="Operational vehicle systems check",
+                                 requires_full_check=True)
     for name in [
         "Runs and Starts", "External Warning Systems (Lights & Sirens)",
         "Loading & Unloading Access", "Ambulance Cot and Straps Secured",

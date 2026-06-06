@@ -22,6 +22,7 @@ import ErrorBoundary from '../shared/components/ErrorBoundary.jsx'
 import DraftBanner from '../modules/check-wizard/components/DraftBanner.jsx'
 import Spinner from '../shared/components/Spinner.jsx'
 import PendingAssignmentScreen from '../modules/admin/components/PendingAssignmentScreen.jsx'
+import Tutorial, { isTutorialComplete } from '../shared/components/Tutorial.jsx'
 import { checkApi } from '../modules/check-wizard/api/checkApi.js'
 import { vehicleApi } from '../modules/vehicles/api/vehicleApi.js'
 
@@ -114,6 +115,7 @@ export default function HomePage() {
   const { user, getToken } = useAuth()
   const { isCrewMode } = useRoleMode()
 
+  const [showTutorial, setShowTutorial] = useState(() => !isTutorialComplete())
   const [activeWizard, setActiveWizard]       = useState(null)
   const [activeDraftKey, setActiveDraftKey]   = useState(null)
   const [activeModule, setActiveModule]       = useState(null)
@@ -271,6 +273,10 @@ export default function HomePage() {
         </Suspense>
       </ErrorBoundary>
     )
+  }
+
+  if (showTutorial) {
+    return <Tutorial onDone={() => setShowTutorial(false)} />
   }
 
   return (

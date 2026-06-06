@@ -5,6 +5,7 @@
 
 import { apiGet, apiPost, apiPatch } from '../../../shared/api/client.js'
 import { checkHistoryApi } from '../../check-history/api/checkHistoryApi.js'
+import { vehicleApi } from '../../vehicles/api/vehicleApi.js'
 
 const BASE = '/api/v1'
 
@@ -23,8 +24,8 @@ export const supervisorApi = {
       apiGet(`${BASE}/stations/${stationId}/locations`, getToken).catch(() => []),
     ])
 
-    // Fetch today's checks for vehicles and portable locations in parallel
-    const [vehicleCheckResults, portableCheckResults] = await Promise.all([
+    // Fetch today's checks + open repair requests in parallel
+    const [vehicleCheckResults, portableCheckResults, repairResults] = await Promise.all([
       Promise.allSettled(
         vehicles.map(v =>
           apiGet(`${BASE}/checks/daily/vehicle/${v.vehicle_id}`, getToken)
@@ -41,6 +42,13 @@ export const supervisorApi = {
               location_id: loc.location_id,
               checks: checks.filter(c => c.check_date === today && !c.deleted_at),
             }))
+        )
+      ),
+      Promise.allSettled(
+        vehicles.filter(v => v.active).map(v =>
+          vehicleApi.getRepairRequests(v.vehicle_id, getToken, 'OPEN')
+            .then(reqs => ({ vehicle_id: v.vehicle_id, count: reqs.length }))
+            .catch(() => ({ vehicle_id: v.vehicle_id, count: 0 }))
         )
       ),
     ])
@@ -76,11 +84,16 @@ export const supervisorApi = {
       else                                           passCount++
     })
 
+    const openRepairCount = repairResults.reduce((sum, r) =>
+      sum + (r.status === 'fulfilled' ? r.value.count : 0), 0
+    )
+
     return {
       vehicles,
       checksByVehicle,
       portables,
       checksByLocation,
+      openRepairCount,
       summary: {
         total:     activeVehicles.length + portables.length,
         pass:      passCount,
@@ -102,6 +115,9 @@ export const supervisorApi = {
 
   getCheckDateRange: (stationId, getToken) =>
     apiGet(`${BASE}/checks/daily/station/${stationId}/date-range`, getToken),
+
+  getExpiringSoon: (stationId, getToken, days = 30) =>
+    apiGet(`${BASE}/stations/${stationId}/expiring-soon?days=${days}`, getToken).catch(() => []),
 
   getCheckDetail: (checkId, getToken) =>
     checkHistoryApi.getCheckDetail(checkId, getToken),

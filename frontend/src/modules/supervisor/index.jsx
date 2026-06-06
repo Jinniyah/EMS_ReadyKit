@@ -13,6 +13,7 @@ import VehicleComplianceCard from './components/VehicleComplianceCard.jsx'
 import CheckDetailPanel from './components/CheckDetailPanel.jsx'
 import ComplianceCalendar from './components/ComplianceCalendar.jsx'
 import PortableComplianceCard from './components/PortableComplianceCard.jsx'
+import ExpiringItemsPanel from './components/ExpiringItemsPanel.jsx'
 import { supervisorApi } from './api/supervisorApi.js'
 import { useApi } from '../../shared/hooks/useApi.js'
 import './supervisor.css'
@@ -35,6 +36,11 @@ export default function SupervisorDashboard({ station, onBack, onNavigateToVehic
     [station.station_id]
   )
 
+  const { data: expiringGroups } = useApi(
+    () => supervisorApi.getExpiringSoon(station.station_id, getToken),
+    [station.station_id]
+  )
+
   // If a check detail is requested (either from today's cards or from the calendar),
   // push to CheckDetailPanel
   if (selectedCheck) {
@@ -51,11 +57,12 @@ export default function SupervisorDashboard({ station, onBack, onNavigateToVehic
     )
   }
 
-  const vehicles    = data?.vehicles        ?? []
-  const byVehicle   = data?.checksByVehicle ?? {}
-  const portables   = data?.portables       ?? []
-  const byLocation  = data?.checksByLocation ?? {}
-  const summary     = data?.summary ?? { total: 0, pass: 0, fail: 0, restock: 0, unchecked: 0 }
+  const vehicles        = data?.vehicles          ?? []
+  const byVehicle       = data?.checksByVehicle   ?? {}
+  const portables       = data?.portables         ?? []
+  const byLocation      = data?.checksByLocation  ?? {}
+  const openRepairCount = data?.openRepairCount   ?? 0
+  const summary         = data?.summary ?? { total: 0, pass: 0, fail: 0, restock: 0, unchecked: 0 }
 
   const filteredVehicles = vehicles.filter(v => {
     if (activeFilter === 'all') return true
@@ -74,7 +81,11 @@ export default function SupervisorDashboard({ station, onBack, onNavigateToVehic
     vehicleWeight(b, byVehicle[b.vehicle_id])
   )
 
-  const allClear = summary.fail === 0 && summary.unchecked === 0 && summary.total > 0
+  const expiryGroups  = expiringGroups ?? []
+  const expiryTotal   = expiryGroups.reduce((n, g) => n + g.lots.length, 0)
+  const expiryUrgent  = expiryGroups.reduce((n, g) => n + g.lots.filter(l => l.days_until_expiry <= 7).length, 0)
+
+  const allClear = summary.fail === 0 && summary.unchecked === 0 && summary.total > 0 && expiryUrgent === 0
 
   const dateLabel = new Date().toLocaleDateString(undefined, {
     weekday: 'long', month: 'long', day: 'numeric',
@@ -137,7 +148,25 @@ export default function SupervisorDashboard({ station, onBack, onNavigateToVehic
                 — must be checked before going out
               </div>
             )}
-            {allClear && (
+            {openRepairCount > 0 && (
+              <button
+                className="sup-alert sup-alert--repair"
+                role="alert"
+                type="button"
+                onClick={onNavigateToVehicles}
+              >
+                🔧 {openRepairCount} problem{openRepairCount !== 1 ? 's' : ''} reported
+                — tap to review
+              </button>
+            )}
+            {expiryTotal > 0 && (
+              <ExpiringItemsPanel
+                groups={expiryGroups}
+                totalCount={expiryTotal}
+                urgentCount={expiryUrgent}
+              />
+            )}
+            {allClear && openRepairCount === 0 && expiryTotal === 0 && (
               <div className="sup-alert sup-alert--all-clear">
                 ✓ All vehicles and equipment checked — no issues today
               </div>

@@ -8,8 +8,8 @@ import React from 'react'
 
 const STATUS_META = {
   PASS:          { label: 'Pass',          icon: '✓', className: 'check-status--pass' },
-  NEEDS_RESTOCK: { label: 'Needs Restock', icon: '⚠', className: 'check-status--warn' },
-  FAIL:          { label: 'Fail',          icon: '✗', className: 'check-status--fail' },
+  NEEDS_RESTOCK: { label: 'Restock needed', icon: '⚠', className: 'check-status--warn' },
+  FAIL:          { label: 'Problem found',  icon: '✗', className: 'check-status--fail' },
 }
 
 function formatTime(isoString) {

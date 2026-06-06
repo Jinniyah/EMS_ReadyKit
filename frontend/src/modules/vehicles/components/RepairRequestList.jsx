@@ -214,7 +214,7 @@ export default function RepairRequestList({ requests, canManage, canResolve, onU
     return (
       <div className="repair-list__empty">
         <span aria-hidden="true">✓</span>
-        <p>No repair requests on file for this vehicle.</p>
+        <p>No problems reported for this vehicle.</p>
       </div>
     )
   }
@@ -242,7 +242,7 @@ export default function RepairRequestList({ requests, canManage, canResolve, onU
           No {statusFilter.replace('_', ' ').toLowerCase()} requests.
         </div>
       ) : (
-        <ul className="repair-list__items" aria-label="Repair requests">
+        <ul className="repair-list__items" aria-label="Reported problems">
           {filtered.map(repair => {
             const statusMeta   = STATUS_META[repair.status]     ?? STATUS_META.OPEN
             const severityMeta = SEVERITY_META[repair.severity] ?? SEVERITY_META.ROUTINE

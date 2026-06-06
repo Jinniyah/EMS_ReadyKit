@@ -28,6 +28,7 @@
 .sup-alert--fail      { background: var(--color-status-fail-bg); border: 2px solid var(--color-status-fail); color: #7f1d1d; }
 .sup-alert--unchecked { background: var(--color-status-warn-bg); border: 2px solid var(--color-status-warn); color: #78350f; }
 .sup-alert--all-clear { background: var(--color-status-pass-bg); border: 1px solid #86efac; color: #2d7a2d; font-weight: 400; }
+.sup-alert--repair    { background: #fff7ed; border: 2px solid #f97316; color: #9a3412; cursor: pointer; text-align: left; }
 
 .sup-dashboard__vehicle-list { list-style: none; padding: 0; margin: var(--space-sm) 0 0; display: flex; flex-direction: column; gap: var(--space-sm); }
 
@@ -619,3 +620,25 @@
   color: #fca5a5;
   font-size: 16px;
 }
+
+/* ── Expiring items panel (SUP-F3) ───────────────────────────────────────── */
+
+.sup-expiry-panel { display: flex; flex-direction: column; }
+
+.sup-alert--expiry-warn   { background: var(--color-status-warn-bg); border: 2px solid var(--color-status-warn); color: #78350f; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.sup-alert--expiry-urgent { background: var(--color-status-fail-bg); border: 2px solid var(--color-status-fail); color: #7f1d1d; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center; width: 100%; }
+
+.sup-expiry-panel__chevron { font-size: var(--font-size-xs); flex-shrink: 0; margin-left: var(--space-sm); }
+
+.sup-expiry-panel__body { background: var(--color-surface); border: 1px solid var(--color-border); border-top: none; border-radius: 0 0 var(--radius-md) var(--radius-md); padding: var(--space-sm) var(--space-md); display: flex; flex-direction: column; gap: var(--space-sm); }
+
+.sup-expiry-group { display: flex; flex-direction: column; gap: 4px; }
+.sup-expiry-group__name { font-size: var(--font-size-xs); font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; padding: 4px 0 2px; border-top: 1px solid var(--color-border-light); }
+.sup-expiry-group:first-child .sup-expiry-group__name { border-top: none; padding-top: 0; }
+
+.sup-expiry-row { display: flex; flex-direction: column; gap: 2px; padding: 6px 0; }
+.sup-expiry-row--urgent { background: var(--color-status-fail-bg); border-radius: var(--radius-sm); padding: 6px var(--space-xs); }
+.sup-expiry-row__name   { font-size: var(--font-size-sm); font-weight: 600; }
+.sup-expiry-row__detail { font-size: var(--font-size-xs); color: var(--color-text-muted); }
+.sup-expiry-row__days   { font-weight: 700; }
+.sup-expiry-row__days--urgent { color: var(--color-status-fail); }

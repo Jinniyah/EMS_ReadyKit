@@ -225,7 +225,7 @@ export default function VehicleCard({ vehicle, onVehicleUpdated }) {
           <div className="vehicle-card__section">
             <div className="vehicle-card__section-header">
               <h4 className="vehicle-card__section-title">
-                Repair Requests
+                Reported Problems
                 {openCount > 0 && (
                   <span className="vehicle-card__open-count"> ({openCount} open)</span>
                 )}
@@ -245,7 +245,7 @@ export default function VehicleCard({ vehicle, onVehicleUpdated }) {
             {loadingRepairs ? (
               <div className="vehicle-card__loading">Loading…</div>
             ) : repairsError ? (
-              <div className="vehicle-card__error">Could not load repair requests.</div>
+              <div className="vehicle-card__error">Could not load reported problems.</div>
             ) : (
               <RepairRequestList
                 requests={displayRepairs}

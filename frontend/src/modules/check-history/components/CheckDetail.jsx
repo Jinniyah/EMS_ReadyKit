@@ -24,19 +24,19 @@ import { useAuth } from '../../../shared/hooks/useAuth.jsx'
 import { checkHistoryApi } from '../api/checkHistoryApi.js'
 import { formatDateTime } from '../../../shared/utils/dateHelpers.js'
 const STATUS_LABEL = {
-  PASS:          { label: 'Pass',          className: 'check-status--pass' },
-  NEEDS_RESTOCK: { label: 'Needs Restock', className: 'check-status--warn' },
-  FAIL:          { label: 'Fail',          className: 'check-status--fail' },
+  PASS:          { label: 'Pass',           className: 'check-status--pass' },
+  NEEDS_RESTOCK: { label: 'Restock needed', className: 'check-status--warn' },
+  FAIL:          { label: 'Problem found',  className: 'check-status--fail' },
 }
 
 const LINE_STATUS_LABEL = {
-  OK:       { label: 'OK',       className: 'line-status--ok'   },
-  SHORT:    { label: 'Short',    className: 'line-status--warn'  },
-  LOW:      { label: 'Low',      className: 'line-status--warn'  },
-  MISSING:  { label: 'Missing',  className: 'line-status--fail'  },
-  EXPIRED:  { label: 'Expired',  className: 'line-status--fail'  },
-  FAIL:     { label: 'Fail',     className: 'line-status--fail'  },
-  OVERDUE:  { label: 'Overdue',  className: 'line-status--fail'  },
+  OK:       { label: 'OK',            className: 'line-status--ok'   },
+  SHORT:    { label: 'Short',         className: 'line-status--warn'  },
+  LOW:      { label: 'Low',           className: 'line-status--warn'  },
+  MISSING:  { label: 'Missing',       className: 'line-status--fail'  },
+  EXPIRED:  { label: 'Expired',       className: 'line-status--fail'  },
+  FAIL:     { label: 'Problem found', className: 'line-status--fail'  },
+  OVERDUE:  { label: 'Overdue',       className: 'line-status--fail'  },
 }
 
 function formatDate(isoString) {
@@ -56,7 +56,7 @@ function LineItemMeta({ li }) {
   } else if (type === 'MEASUREMENT') {
     if (li.measurement_value != null) parts.push(`Reading: ${li.measurement_value}`)
   } else if (type === 'FUNCTIONAL') {
-    if (li.functional_pass != null) parts.push(li.functional_pass ? 'Pass ✓' : 'Fail ✗')
+    if (li.functional_pass != null) parts.push(li.functional_pass ? 'Pass ✓' : 'Problem ✗')
   } else if (type === 'DATE_RECORD') {
     if (li.date_value) parts.push(`Last recorded: ${formatDate(li.date_value)}`)
   }
@@ -222,8 +222,8 @@ export default function CheckDetail({ check, onBack, onDeleted, onNavigateToVehi
       {hasFails && isSupervisor && (
         <div className="check-detail__ve-banner">
           <div className="check-detail__ve-banner-text">
-            <strong>⚠ This check has failed items.</strong>
-            <span> Repair requests are managed in Vehicle &amp; Equipment Status.</span>
+            <strong>⚠ This check has items needing attention.</strong>
+            <span> Reported problems are managed in Vehicle &amp; Equipment Status.</span>
           </div>
           {onNavigateToVehicles && (
             <button

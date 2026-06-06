@@ -409,6 +409,61 @@
   line-height: 1.4;
 }
 
+/* ── Deleted records list (CH-F7 / CH-F8) ────────────────────────────────── */
+
+.check-history-empty {
+  padding: var(--space-xl) var(--space-md);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.deleted-checks-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.deleted-check-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  gap: var(--space-md);
+}
+
+.deleted-check-row__info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  flex: 1;
+  min-width: 0;
+}
+
+.deleted-check-row__date {
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.deleted-check-row__by {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.deleted-check-row__reason {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
 /* ── Resolution tag ──────────────────────────────────────────────────── */
 
 .resolution-tag {

@@ -3,7 +3,7 @@
  * API calls for the Check History module.
  */
 
-import { apiGet, apiPatch, apiDeleteWithBody } from '../../../shared/api/client.js'
+import { apiDelete, apiGet, apiPatch, apiDeleteWithBody } from '../../../shared/api/client.js'
 
 const BASE = '/api/v1'
 
@@ -49,4 +49,12 @@ export const checkHistoryApi = {
   /** CH-B3: Supervisor+ soft-deletes a check with mandatory reason */
   softDeleteCheck: (checkId, deletionReason, getToken) =>
     apiDeleteWithBody(`${BASE}/checks/daily/${checkId}`, { deletion_reason: deletionReason }, getToken),
+
+  /** CH-F7: List soft-deleted checks for a station (Supervisor+) */
+  getDeletedChecks: (stationId, getToken) =>
+    apiGet(`${BASE}/checks/daily/deleted?station_id=${stationId}`, getToken),
+
+  /** CH-F8: Permanently hard-delete a soft-deleted check (Admin only) */
+  forceDeleteCheck: (checkId, getToken) =>
+    apiDelete(`${BASE}/checks/daily/${checkId}/force`, getToken),
 }

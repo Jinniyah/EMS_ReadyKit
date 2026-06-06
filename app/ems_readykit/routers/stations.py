@@ -14,9 +14,11 @@ Post-Block-6 additions:
 from __future__ import annotations
 
 import logging
-from typing import List
+from datetime import date, timedelta
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ems_readykit.core.auth import (
@@ -27,6 +29,7 @@ from ems_readykit.core.database import get_db
 from ems_readykit.models.inventory_location import InventoryLocation, LocationType
 from ems_readykit.models.station import Station
 from ems_readykit.models.station_member import StationMember
+from ems_readykit.models.stock_lot import StockLot
 from ems_readykit.routers.deps import (
     ALL_ROLES,
     ADMIN_ONLY,
@@ -244,6 +247,79 @@ def get_supply_room(
             detail=f"Station {station_id} does not have a supply room configured.",
         )
     return location
+
+
+# ── GET /stations/{station_id}/expiring-soon — SUP-F3 ───────────────────────
+
+class _ExpiringLot(BaseModel):
+    lot_id: int
+    item_name: str
+    lot_number: Optional[str]
+    expiration_date: date
+    days_until_expiry: int
+    quantity: int
+
+class _ExpiringGroup(BaseModel):
+    location_id: int
+    location_label: str
+    vehicle_number: Optional[str]
+    lots: List[_ExpiringLot]
+
+@router.get(
+    "/{station_id}/expiring-soon",
+    response_model=List[_ExpiringGroup],
+    summary="Stock lots expiring within N days at this station (SUP-F3)",
+    dependencies=[Depends(require_role(*SUPERVISOR_PLUS))],
+)
+def get_expiring_soon(
+    station_id: int,
+    days: int = Query(default=30, ge=1, le=365),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
+    db: Session = Depends(get_db),
+) -> List[_ExpiringGroup]:
+    _get_station_or_404(station_id, db)
+    require_station_membership(station_id, current_user, db)
+
+    today   = date.today()
+    cutoff  = today + timedelta(days=days)
+
+    lots = (
+        db.query(StockLot)
+        .join(StockLot.location)
+        .join(StockLot.item)
+        .filter(
+            InventoryLocation.station_id == station_id,
+            StockLot.expiration_date.is_not(None),
+            StockLot.expiration_date >= today,
+            StockLot.expiration_date <= cutoff,
+            StockLot.quantity > 0,
+        )
+        .order_by(StockLot.expiration_date)
+        .all()
+    )
+
+    groups: dict[int, _ExpiringGroup] = {}
+    for lot in lots:
+        loc = lot.location
+        if loc.location_id not in groups:
+            vehicle_number = loc.vehicle.vehicle_number if loc.vehicle else None
+            groups[loc.location_id] = _ExpiringGroup(
+                location_id=loc.location_id,
+                location_label=loc.label,
+                vehicle_number=vehicle_number,
+                lots=[],
+            )
+        days_left = (lot.expiration_date - today).days
+        groups[loc.location_id].lots.append(_ExpiringLot(
+            lot_id=lot.lot_id,
+            item_name=lot.item.name,
+            lot_number=lot.lot_number,
+            expiration_date=lot.expiration_date,
+            days_until_expiry=days_left,
+            quantity=lot.quantity,
+        ))
+
+    return list(groups.values())
 
 
 # ── GET /stations/{station_id} ─────────────────────────────────────────────────

@@ -15,6 +15,7 @@ Every new session MUST follow this sequence before writing any code:
 4. **Confirm understanding** of the task before touching any file
 
 Do not read files you don't need. Do not load entire modules to change one function.
+Do not write session handoff files — backlog.md is the single source of truth.
 
 ---
 
@@ -192,19 +193,13 @@ technology choice), write a new ADR in `docs/adr/` following the existing format
 
 ## Session Handoff
 
-At the end of every session, before closing:
-1. Write a brief handoff note summarizing what was completed and what's next
-2. Confirm `docs/backlog.md` reflects the current state
+No handoff files. At the end of every session:
+1. Move completed items to `docs/backlog_completed.md`
+2. Update session complete line + summary table in `docs/backlog.md`
 3. Run `cd app; pytest` and confirm all tests pass
-4. Note any known issues or incomplete items that need follow-up
-5. **Update `CODEBASE_INDEX.md`** — review and update every section that changed:
-   - File sizes for any file that was significantly modified
-   - New files added (routers, models, schemas, components, hooks, tests)
-   - Removed or renamed files
-   - Migration list (number + one-line description)
-   - "Flagged for Attention" table (add new candidates; remove resolved ones)
-   - "Next Sessions" table if the session plan shifted
-   - Update the `# Last updated:` date at the top of the file
+4. Update `CODEBASE_INDEX.md` — file sizes, new files, migration list, flagged items
+5. Add any new architectural decisions to CLAUDE.md Key Architectural Decisions table
+6. Note incomplete items with 🔄 In progress status in backlog.md
 
 ---
 
@@ -223,6 +218,9 @@ At the end of every session, before closing:
 | Build zip | Always on Linux in CI — Windows paths break Oryx extraction |
 | OpenAPI docs | Disabled in production (SEC-2) |
 | X-Frame-Options | NOT set on API — set in staticwebapp.config.json (SWA only) |
+| Migration booleans | Always use Python `True`/`False` in raw SQL parameters — never `0`/`1`. PostgreSQL rejects integer literals for boolean columns; SQLite accepts them silently. |
+| Vehicle on-hand | Computed from last check `quantity_found`, not stock lots. Once items leave the supply room the stock room doesn't track them on the vehicle. `stockQtyMap` removed from compartment card calculations. |
+| No Change line items | `buildNoChangeLineItems` skips ALL reading types (MEASUREMENT, FUNCTIONAL, DATE_RECORD). Submitting null reading values → MISSING → FAIL on backend. Reading items must be confirmed inline and merged separately. Mirror: `_compute_line_item_status` in checks.py. |
 
 ---
 
@@ -237,3 +235,5 @@ Address these when touching the relevant area:
 | `test_routers.py` | `app/tests/` | 67 KB — split by domain when it next needs major additions |
 | `admin/components/VehiclesScreen.jsx` | frontend | 25 KB — extract sub-components when next modified |
 | CSS patch files | `frontend/src/` | `module-card-fix.css`, `submitted-screen-patch.css`, `wizard-station.css`, `wizard.css` in src root — consolidate into module CSS files |
+| `wizard.css` location | `frontend/src/styles/` | Should be in `modules/check-wizard/` — move when next modified |
+| `_damagedOverrides` comment | `modules/check-wizard/components/Step3Items.jsx` | Abandoned approach left as comment artifact — remove on next touch |
