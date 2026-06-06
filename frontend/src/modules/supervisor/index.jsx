@@ -14,6 +14,7 @@ import CheckDetailPanel from './components/CheckDetailPanel.jsx'
 import ComplianceCalendar from './components/ComplianceCalendar.jsx'
 import PortableComplianceCard from './components/PortableComplianceCard.jsx'
 import ExpiringItemsPanel from './components/ExpiringItemsPanel.jsx'
+import SupplyLowStockPanel from './components/SupplyLowStockPanel.jsx'
 import { supervisorApi } from './api/supervisorApi.js'
 import { useApi } from '../../shared/hooks/useApi.js'
 import './supervisor.css'
@@ -38,6 +39,11 @@ export default function SupervisorDashboard({ station, onBack, onNavigateToVehic
 
   const { data: expiringGroups } = useApi(
     () => supervisorApi.getExpiringSoon(station.station_id, getToken),
+    [station.station_id]
+  )
+
+  const { data: supplyAlerts } = useApi(
+    () => supervisorApi.getSupplyAlerts(station.station_id, getToken),
     [station.station_id]
   )
 
@@ -85,7 +91,9 @@ export default function SupervisorDashboard({ station, onBack, onNavigateToVehic
   const expiryTotal   = expiryGroups.reduce((n, g) => n + g.lots.length, 0)
   const expiryUrgent  = expiryGroups.reduce((n, g) => n + g.lots.filter(l => l.days_until_expiry <= 7).length, 0)
 
-  const allClear = summary.fail === 0 && summary.unchecked === 0 && summary.total > 0 && expiryUrgent === 0
+  const supplyLow = supplyAlerts ?? []
+
+  const allClear = summary.fail === 0 && summary.unchecked === 0 && summary.total > 0 && expiryUrgent === 0 && supplyLow.length === 0
 
   const dateLabel = new Date().toLocaleDateString(undefined, {
     weekday: 'long', month: 'long', day: 'numeric',
@@ -166,6 +174,7 @@ export default function SupervisorDashboard({ station, onBack, onNavigateToVehic
                 urgentCount={expiryUrgent}
               />
             )}
+            <SupplyLowStockPanel alerts={supplyLow} />
             {allClear && openRepairCount === 0 && expiryTotal === 0 && (
               <div className="sup-alert sup-alert--all-clear">
                 ✓ All vehicles and equipment checked — no issues today

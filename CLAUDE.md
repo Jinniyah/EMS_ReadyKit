@@ -1,6 +1,6 @@
 # CLAUDE.md — AI Development Rules for EMS ReadyKit
-# Last updated: 2026-06-05
-# Updated: Pre-Session H — CSS theme rules added; code cleanup complete
+# Last updated: 2026-06-06
+# Updated: Session K — Supply Room Redesign complete; 3 architectural decisions added
 # Load this file at the start of every session alongside CODEBASE_INDEX.md.
 
 ---
@@ -221,6 +221,9 @@ No handoff files. At the end of every session:
 | Migration booleans | Always use Python `True`/`False` in raw SQL parameters — never `0`/`1`. PostgreSQL rejects integer literals for boolean columns; SQLite accepts them silently. |
 | Vehicle on-hand | Computed from last check `quantity_found`, not stock lots. Once items leave the supply room the stock room doesn't track them on the vehicle. `stockQtyMap` removed from compartment card calculations. |
 | No Change line items | `buildNoChangeLineItems` skips ALL reading types (MEASUREMENT, FUNCTIONAL, DATE_RECORD). Submitting null reading values → MISSING → FAIL on backend. Reading items must be confirmed inline and merged separately. Mirror: `_compute_line_item_status` in checks.py. |
+| Supply room wizard | Pass `{ _supplyRoom: true, location_id, station_id }` as `activeWizard` to launch wizard for supply room. `Step1Vehicle` detects `draft._supplyRoom` and auto-calls `onSelect` with the supply room location, skipping vehicle selection entirely. |
+| `station_supply` flag | `Item.station_supply = False` excludes item from supply catalog (SR-B1). Set in seed.py for AED, LUCAS, drug items. FUNCTIONAL items are also excluded by SR-B1 query regardless of flag. |
+| Auto-decrement supply room | `_auto_decrement_supply_room` fires in `create_daily_check` only when `payload.vehicle_id` is set — supply room checks (vehicle_id=None) do NOT trigger auto-decrement. Best-effort: depletes to zero, never blocks submission. |
 
 ---
 

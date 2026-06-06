@@ -1165,6 +1165,38 @@ def seed(db: Session) -> None:
     db.flush()
 
     # =========================================================================
+    # SR-SEED1: Flag non-stockable items — not tracked in station supply room.
+    # Medications, drug bags, and AED/LUCAS equipment are managed separately.
+    # FUNCTIONAL items are also excluded from the supply catalog by SR-B1 query,
+    # but station_supply=False is set explicitly for belt-and-suspenders clarity.
+    # =========================================================================
+    print("\nApplying SR-SEED1: flagging non-supply-room items...")
+    _non_supply_names = [
+        # AED / LUCAS — equipment checks, not station stock
+        "AED Battery", "AED Pads Adult", "AED Pads Pediatric",
+        "AED Date of Last Charge",
+        "LUCAS Device", "LUCAS Date of Last Charge", "LUCAS Device Ready Check",
+        # Drug bags and their contents — controlled substance management, not supply room
+        "ALS Drug Bag (stocked)", "ALS Drug Use Sheets",
+        "BLS Drug Bag (stocked)", "BLS Drug Use Sheets",
+        "PT Personal Item Lock-Up",
+        "Morphine", "Fentanyl", "Midazolam", "Diazepam",
+        "Intranasal Naloxone", "Albuterol Inhalation", "Low Dose Aspirin",
+        "Epinephrine IM", "Adenosine", "Amiodarone", "Atropine", "Dopamine",
+        "Sodium Bicarbonate", "Dextrose 50%", "Nitroglycerin SL",
+        "Syringes BLS", "Needles BLS", "Alcohol Preps BLS",
+    ]
+    _flagged = 0
+    for _name in _non_supply_names:
+        _item = db.query(Item).filter(Item.name == _name).first()
+        if _item and _item.station_supply:
+            _item.station_supply = False
+            _flagged += 1
+    if _flagged:
+        print(f"  Flagged {_flagged} items as station_supply=False")
+    db.flush()
+
+    # =========================================================================
     # Commit and report
     # =========================================================================
     db.commit()

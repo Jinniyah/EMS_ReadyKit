@@ -1,62 +1,50 @@
 /**
  * modules/supply-room/index.jsx
- * Supply Room & Restocking module.
+ * Station supply inventory module.
  *
- * Navigation model: vertical nav cards (one per section) → full-screen
- * section view with ← Back, matching the admin module's card pattern.
- * No horizontal tab bar — bad tap targets for tired users on phones.
+ * Landing: 2 large action cards (View Supplies, Count Supplies) +
+ *          secondary text links (Receive New Stock, Transfer History).
  *
- * Sections:
- *   Stock Levels    — view all items and quantities (SUPPLY-F1)
- *   Restock Vehicle — move stock from supply room to a unit (SUPPLY-F2)
- *   Receive Stock   — add new stock, manual or CSV upload (SUPPLY-F3)
- *   History         — transfer log (SUPPLY-F4)
+ * SR-F2: Replaced 4-section layout with 2-card layout.
+ * SR-F6: Removed Restock Vehicle section and import.
  */
 import React, { useEffect, useState } from 'react'
 import { supplyApi } from './api/supplyApi.js'
 import { useAuth } from '../../shared/hooks/useAuth.jsx'
-import StockSummaryView    from './components/StockSummaryView.jsx'
-import RestockVehiclePanel from './components/RestockVehiclePanel.jsx'
-import ReceiveStockPanel   from './components/ReceiveStockPanel.jsx'
-import TransferHistory     from './components/TransferHistory.jsx'
+import SupplyCatalogView from './components/SupplyCatalogView.jsx'
+import ReceiveStockPanel  from './components/ReceiveStockPanel.jsx'
+import TransferHistory    from './components/TransferHistory.jsx'
 import './supply-room.css'
 
-const SECTIONS = [
+const PRIMARY_SECTIONS = [
   {
-    key:   'STOCK',
+    key:   'VIEW',
     icon:  '📦',
-    label: 'Stock Levels',
-    hint:  'Check current inventory — quantities, lots, and low-stock alerts',
+    label: 'View Supplies',
+    hint:  'Check what\'s on hand and correct any counts',
   },
   {
-    key:   'RESTOCK',
-    icon:  '🚑',
-    label: 'Restock a Vehicle',
-    hint:  'Move supplies from the supply room to a unit',
-  },
-  {
-    key:   'RECEIVE',
-    icon:  '📥',
-    label: 'Receive New Stock',
-    hint:  'Log incoming shipments by hand or CSV upload',
-  },
-  {
-    key:   'HISTORY',
-    icon:  '📋',
-    label: 'Transfer History',
-    hint:  'View all inbound and outbound transfers',
+    key:   'COUNT',
+    icon:  '✅',
+    label: 'Count Supplies',
+    hint:  'Walk through each shelf and record what you find',
   },
 ]
 
-export default function SupplyRoomScreen({ station, onBack }) {
+const SECONDARY_SECTIONS = [
+  { key: 'RECEIVE', label: 'Receive New Stock' },
+  { key: 'HISTORY', label: 'Transfer History' },
+]
+
+export default function SupplyRoomScreen({ station, onBack, onCountSupplies }) {
   const { getToken } = useAuth()
   const [activeSection, setActiveSection] = useState(null)
   const [supplyRoom, setSupplyRoom]       = useState(null)
   const [roomLoading, setRoomLoading]     = useState(true)
   const [roomError, setRoomError]         = useState(null)
-  const [stockItems, setStockItems]       = useState([])
-  const [stockLoading, setStockLoading]   = useState(false)
-  const [stockError, setStockError]       = useState(null)
+  const [catalogItems, setCatalogItems]   = useState([])
+  const [catalogLoading, setCatalogLoading] = useState(false)
+  const [catalogError, setCatalogError]   = useState(null)
 
   useEffect(() => {
     if (!station?.station_id) return
@@ -67,21 +55,31 @@ export default function SupplyRoomScreen({ station, onBack }) {
   }, [station, getToken])
 
   useEffect(() => {
-    if (!supplyRoom?.location_id) return
-    loadStock()
+    if (!station?.station_id || !supplyRoom) return
+    loadCatalog()
   }, [supplyRoom])
 
-  function loadStock() {
-    setStockLoading(true)
-    setStockError(null)
-    supplyApi.getStockSummary(supplyRoom.location_id, getToken)
-      .then(items => { setStockItems(items); setStockLoading(false) })
-      .catch(e    => { setStockError(e.message); setStockLoading(false) })
+  function loadCatalog() {
+    setCatalogLoading(true)
+    setCatalogError(null)
+    supplyApi.getCatalog(station.station_id, getToken)
+      .then(items => { setCatalogItems(items); setCatalogLoading(false) })
+      .catch(e    => { setCatalogError(e.message); setCatalogLoading(false) })
   }
 
-  const lowCount    = stockItems.filter(i => i.status === 'LOW' || i.status === 'OUT').length
-  const activeData  = SECTIONS.find(s => s.key === activeSection)
+  const lowCount = catalogItems.filter(i =>
+    i.par_min != null && i.on_hand < i.par_min
+  ).length
+  const sectionLabel = SECONDARY_SECTIONS.find(s => s.key === activeSection)?.label ?? null
   const onHeaderBack = activeSection ? () => setActiveSection(null) : onBack
+
+  function handlePrimaryCard(key) {
+    if (key === 'COUNT') {
+      onCountSupplies?.(supplyRoom.location_id)
+    } else {
+      setActiveSection(key)
+    }
+  }
 
   return (
     <div className="sr-screen">
@@ -92,13 +90,13 @@ export default function SupplyRoomScreen({ station, onBack }) {
           className="sr-back-btn"
           onClick={onHeaderBack}
           type="button"
-          aria-label={activeSection ? 'Back to Supply Room menu' : 'Back to Home'}
+          aria-label={activeSection ? 'Back to Station Supplies menu' : 'Back to Home'}
         >
           {activeSection ? '← Back' : '← Home'}
         </button>
         <div className="sr-header__text">
           <h1 className="sr-header__title">
-            {activeSection ? activeData.label : 'Supply Room'}
+            {sectionLabel ?? (activeSection === 'VIEW' ? 'View Supplies' : 'Station Supplies')}
           </h1>
           {station && !activeSection && (
             <p className="sr-header__station">{station.name}</p>
@@ -120,19 +118,19 @@ export default function SupplyRoomScreen({ station, onBack }) {
         </div>
       )}
 
-      {/* ── Landing: nav cards ─────────────────────────────────────────────── */}
+      {/* ── Landing: 2 primary cards + secondary text links ─────────────────── */}
       {supplyRoom && !activeSection && (
         <div className="sr-body">
           <div className="sr-nav-cards">
-            {SECTIONS.map(s => {
-              const badge = s.key === 'STOCK' && lowCount > 0
+            {PRIMARY_SECTIONS.map(s => {
+              const badge = s.key === 'VIEW' && lowCount > 0
                 ? `${lowCount} item${lowCount !== 1 ? 's' : ''} low or out of stock`
                 : null
               return (
                 <button
                   key={s.key}
                   className="sr-nav-card"
-                  onClick={() => setActiveSection(s.key)}
+                  onClick={() => handlePrimaryCard(s.key)}
                   type="button"
                 >
                   <span className="sr-nav-card__icon" aria-hidden="true">{s.icon}</span>
@@ -148,31 +146,41 @@ export default function SupplyRoomScreen({ station, onBack }) {
               )
             })}
           </div>
+
+          <div className="sr-secondary-links">
+            {SECONDARY_SECTIONS.map((s, idx) => (
+              <React.Fragment key={s.key}>
+                {idx > 0 && <span className="sr-secondary-link__sep" aria-hidden="true">·</span>}
+                <button
+                  className="sr-secondary-link"
+                  onClick={() => setActiveSection(s.key)}
+                  type="button"
+                >
+                  {s.label}
+                </button>
+              </React.Fragment>
+            ))}
+          </div>
         </div>
       )}
 
       {/* ── Active section — full screen ────────────────────────────────────── */}
       {supplyRoom && activeSection && (
         <div className="sr-section">
-          {activeSection === 'STOCK' && (
-            <StockSummaryView
-              items={stockItems}
-              loading={stockLoading}
-              error={stockError}
-              onRefresh={loadStock}
-            />
-          )}
-          {activeSection === 'RESTOCK' && (
-            <RestockVehiclePanel
-              station={station}
-              supplyRoomLocationId={supplyRoom.location_id}
-              onDone={() => { setActiveSection(null); loadStock() }}
+          {activeSection === 'VIEW' && (
+            <SupplyCatalogView
+              stationId={station?.station_id}
+              locationId={supplyRoom.location_id}
+              items={catalogItems}
+              loading={catalogLoading}
+              error={catalogError}
+              onRefresh={loadCatalog}
             />
           )}
           {activeSection === 'RECEIVE' && (
             <ReceiveStockPanel
               locationId={supplyRoom.location_id}
-              onStockAdded={loadStock}
+              onStockAdded={loadCatalog}
             />
           )}
           {activeSection === 'HISTORY' && (

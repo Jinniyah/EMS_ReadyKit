@@ -3,7 +3,7 @@
  * API calls for the Supply Room & Restocking module.
  */
 
-import { apiGet, apiPost, apiUpload } from '../../../shared/api/client.js'
+import { apiGet, apiPost, apiPatch, apiPut, apiUpload } from '../../../shared/api/client.js'
 
 const BASE = '/api/v1'
 
@@ -52,4 +52,16 @@ export const supplyApi = {
   /** All inventory locations for a station — used to resolve vehicle location_id */
   getStationLocations: (stationId, getToken) =>
     apiGet(`${BASE}/inventory/locations?station_id=${stationId}`, getToken),
+
+  /** SR-B1: Full supply catalog with on-hand counts for a station */
+  getCatalog: (stationId, getToken) =>
+    apiGet(`${BASE}/inventory/supply-catalog?station_id=${stationId}`, getToken),
+
+  /** SR-B2: Correct on-hand count for one supply item */
+  patchCount: (itemId, payload, getToken) =>
+    apiPatch(`${BASE}/inventory/supply-catalog/items/${itemId}/count`, payload, getToken),
+
+  /** SR-F7: Correct expiry date (and/or lot number) on a stock lot */
+  putLot: (lotId, payload, getToken) =>
+    apiPut(`${BASE}/inventory/lots/${lotId}`, payload, getToken),
 }

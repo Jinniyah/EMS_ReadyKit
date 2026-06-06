@@ -37,8 +37,8 @@ from ems_readykit.core.audit import write_audit_event
 from ems_readykit.core.auth import ROLE_ADMINISTRATOR, CurrentUser
 from ems_readykit.core.database import get_db
 from ems_readykit.models.compartment import Compartment
-from ems_readykit.models.inventory_location import InventoryLocation
-from ems_readykit.models.item import Item
+from ems_readykit.models.inventory_location import InventoryLocation, LocationType
+from ems_readykit.models.item import Item, ItemCheckType
 from ems_readykit.models.par_level import ParLevel
 from ems_readykit.models.stock_lot import StockLot
 from ems_readykit.models.stock_transfer import StockTransfer
@@ -53,8 +53,9 @@ from ems_readykit.schemas.compartment import CompartmentCreate, CompartmentRead
 from ems_readykit.schemas.inventory_location import InventoryLocationRead, InventoryLocationCreate
 from ems_readykit.schemas.par_level import ParLevelCreate, ParLevelRead
 from ems_readykit.schemas.stock_lot import StockLotCreate, StockLotRead, StockLotUpdate
+from ems_readykit.schemas.supply_catalog import SupplyCatalogItem, SupplyCatalogCountPatch
 from ems_readykit.schemas.stock_transfer import (
-    CsvReceiveResult, StockItemSummary, StockTransferRead, TransferRequest,
+    CsvReceiveResult, StockItemSummary, StockTransferRead,
 )
 
 logger = logging.getLogger(__name__)
@@ -143,7 +144,6 @@ def create_location(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> InventoryLocation:
-    from ems_readykit.models.inventory_location import LocationType
     if payload.location_type in (LocationType.VEHICLE, LocationType.STATION_SUPPLY_ROOM):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -697,118 +697,12 @@ def get_stock_summary(
     return result
 
 
-# ── SUPPLY-B1: Transfer stock ─────────────────────────────────────────────────
-
-@router.post(
-    "/transfer",
-    response_model=StockTransferRead,
-    status_code=status.HTTP_201_CREATED,
-    summary="Transfer stock between locations (SUPPLY-B1)",
-)
-def transfer_stock(
-    payload: TransferRequest,
-    db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
-) -> StockTransferRead:
-    """
-    Moves `quantity` units of an item from one location to another.
-    Deducts FIFO (earliest-expiring lot first) at the source.
-    Creates a new lot at the destination with the source lot's expiry/lot number.
-    Records a StockTransfer for history.
-
-    Requires Supervisor+ and membership at both station(s).
-    """
-    from_loc = _get_location_or_404(payload.from_location_id, db)
-    to_loc   = _get_location_or_404(payload.to_location_id, db)
-    require_station_membership(from_loc.station_id, current_user, db)
-    if from_loc.station_id != to_loc.station_id:
-        require_station_membership(to_loc.station_id, current_user, db)
-
-    item = db.query(Item).filter(Item.item_id == payload.item_id).first()
-    if not item:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Item {payload.item_id} not found.")
-
-    # FIFO: pull from earliest-expiring lots with remaining quantity
-    source_lots = (
-        db.query(StockLot)
-        .filter(
-            StockLot.location_id == payload.from_location_id,
-            StockLot.item_id     == payload.item_id,
-            StockLot.quantity    >  0,
-        )
-        .order_by(StockLot.expiration_date.asc().nulls_last())
-        .all()
-    )
-    total_available = sum(l.quantity for l in source_lots)
-    if total_available < payload.quantity:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            f"Insufficient stock: {total_available} available, {payload.quantity} requested.",
-        )
-
-    remaining  = payload.quantity
-    first_lot  = source_lots[0] if source_lots else None
-    for lot in source_lots:
-        if remaining <= 0:
-            break
-        deduct       = min(lot.quantity, remaining)
-        lot.quantity -= deduct
-        remaining    -= deduct
-
-    # Create lot at destination
-    dest_lot = StockLot(
-        item_id         = payload.item_id,
-        location_id     = payload.to_location_id,
-        quantity        = payload.quantity,
-        lot_number      = first_lot.lot_number      if first_lot else None,
-        expiration_date = first_lot.expiration_date if first_lot else None,
-    )
-    db.add(dest_lot)
-
-    # Record transfer
-    transfer = StockTransfer(
-        from_location_id    = payload.from_location_id,
-        to_location_id      = payload.to_location_id,
-        item_id             = payload.item_id,
-        quantity            = payload.quantity,
-        transferred_by      = current_user.email,
-        notes               = payload.notes,
-        lot_number          = first_lot.lot_number      if first_lot else None,
-        lot_expiration_date = first_lot.expiration_date if first_lot else None,
-    )
-    db.add(transfer)
-    db.commit()
-    db.refresh(transfer)
-
-    logger.info(
-        "Stock transferred: transfer_id=%s item_id=%s qty=%s from=%s to=%s",
-        transfer.transfer_id, payload.item_id, payload.quantity,
-        payload.from_location_id, payload.to_location_id,
-        extra={
-            "action":      "STOCK_TRANSFERRED",
-            "entity_type": "stock_transfer",
-            "entity_id":   str(transfer.transfer_id),
-        },
-    )
-
-    return StockTransferRead(
-        transfer_id          = transfer.transfer_id,
-        from_location_id     = transfer.from_location_id,
-        to_location_id       = transfer.to_location_id,
-        from_location_label  = from_loc.label,
-        to_location_label    = to_loc.label,
-        item_id              = transfer.item_id,
-        item_name            = item.name,
-        quantity             = transfer.quantity,
-        transferred_by       = transfer.transferred_by,
-        notes                = transfer.notes,
-        lot_number           = transfer.lot_number,
-        lot_expiration_date  = transfer.lot_expiration_date,
-        transferred_at       = transfer.created_at,
-    )
-
-
 # ── Transfer history ──────────────────────────────────────────────────────────
+# SR-B5: POST /inventory/transfer (restock-vehicle action) removed.
+# Supply room stock is now decremented automatically when a vehicle check is
+# submitted with quantity_found > last check's quantity_found (SR-B4).
+# The stock_transfers table and transfer history endpoint are retained for
+# the audit trail of transfers that occurred before this change.
 
 @router.get(
     "/locations/{location_id}/transfers",
@@ -1049,4 +943,202 @@ async def receive_stock_csv(
         rows_skipped  = len(errors),
         errors        = errors,
         lots_created  = lots_created,
+    )
+
+
+# ── SR-B1: Station supply catalog ─────────────────────────────────────────────
+
+@router.get(
+    "/supply-catalog",
+    response_model=List[SupplyCatalogItem],
+    summary="Station supply catalog with on-hand counts (SR-B1)",
+)
+def get_supply_catalog(
+    station_id: int = Query(..., gt=0, description="Station to retrieve supply catalog for"),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
+) -> List[SupplyCatalogItem]:
+    """
+    Returns all station-supply items (station_supply=True, check_type != FUNCTIONAL)
+    with their on-hand quantity at the station's supply room. Items with zero on-hand
+    are included so responders can see what should be stocked.
+    """
+    require_station_membership(station_id, current_user, db)
+
+    supply_room = db.query(InventoryLocation).filter(
+        InventoryLocation.station_id    == station_id,
+        InventoryLocation.location_type == LocationType.STATION_SUPPLY_ROOM,
+    ).first()
+    if not supply_room:
+        return []
+
+    items = (
+        db.query(Item)
+        .filter(
+            Item.station_supply == True,
+            Item.check_type     != ItemCheckType.FUNCTIONAL,
+            Item.active         == True,
+        )
+        .order_by(Item.name.asc())
+        .all()
+    )
+    if not items:
+        return []
+
+    item_ids = [i.item_id for i in items]
+
+    # Lots at supply room, FIFO order
+    lots = (
+        db.query(StockLot)
+        .filter(
+            StockLot.location_id == supply_room.location_id,
+            StockLot.item_id.in_(item_ids),
+            StockLot.quantity    >  0,
+        )
+        .order_by(StockLot.expiration_date.asc().nulls_last())
+        .all()
+    )
+    lots_by_item: Dict[int, List[StockLot]] = {}
+    for lot in lots:
+        lots_by_item.setdefault(lot.item_id, []).append(lot)
+
+    # Par levels at supply room — lowest min_quantity wins if multiple compartments
+    par_levels = (
+        db.query(ParLevel)
+        .filter(
+            ParLevel.location_id == supply_room.location_id,
+            ParLevel.item_id.in_(item_ids),
+            ParLevel.active      == True,
+        )
+        .all()
+    )
+    par_min_by_item: Dict[int, int] = {}
+    for par in par_levels:
+        existing = par_min_by_item.get(par.item_id)
+        if existing is None or par.min_quantity < existing:
+            par_min_by_item[par.item_id] = par.min_quantity
+
+    return [
+        SupplyCatalogItem(
+            item_id        = item.item_id,
+            item_name      = item.name,
+            unit_of_measure= item.unit_of_measure,
+            check_type     = item.check_type.value,
+            on_hand        = sum(l.quantity for l in lots_by_item.get(item.item_id, [])),
+            par_min        = par_min_by_item.get(item.item_id),
+            lots           = lots_by_item.get(item.item_id, []),
+        )
+        for item in items
+    ]
+
+
+# ── SR-B2: Correct supply room on-hand count ──────────────────────────────────
+
+@router.patch(
+    "/supply-catalog/items/{item_id}/count",
+    response_model=SupplyCatalogItem,
+    summary="Correct on-hand count for a supply-room item (SR-B2)",
+)
+def patch_supply_catalog_count(
+    item_id: int,
+    payload: SupplyCatalogCountPatch,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
+) -> SupplyCatalogItem:
+    """
+    Sets the absolute on-hand count for an item in a supply room.
+    Deducts FIFO (oldest lot first) for decreases.
+    Creates an adjustment lot (no lot number, no expiry) for increases.
+    """
+    location = _get_location_or_404(payload.location_id, db)
+    if location.location_type != LocationType.STATION_SUPPLY_ROOM:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="location_id must reference a STATION_SUPPLY_ROOM.",
+        )
+    require_station_membership(location.station_id, current_user, db)
+
+    item = db.query(Item).filter(Item.item_id == item_id, Item.active == True).first()
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Item {item_id} not found.",
+        )
+
+    current_lots = (
+        db.query(StockLot)
+        .filter(
+            StockLot.location_id == payload.location_id,
+            StockLot.item_id     == item_id,
+            StockLot.quantity    >  0,
+        )
+        .order_by(StockLot.expiration_date.asc().nulls_last())
+        .all()
+    )
+    old_qty = sum(l.quantity for l in current_lots)
+    new_qty = payload.quantity
+
+    if new_qty < old_qty:
+        to_deduct = old_qty - new_qty
+        for lot in current_lots:
+            if to_deduct <= 0:
+                break
+            take          = min(lot.quantity, to_deduct)
+            lot.quantity -= take
+            to_deduct    -= take
+    elif new_qty > old_qty:
+        db.add(StockLot(
+            item_id         = item_id,
+            location_id     = payload.location_id,
+            quantity        = new_qty - old_qty,
+            lot_number      = None,
+            expiration_date = None,
+        ))
+
+    db.flush()
+
+    write_audit_event(
+        db=db,
+        actor=current_user.email,
+        action="SUPPLY_COUNT_CORRECTED",
+        entity_type="item",
+        entity_id=str(item_id),
+        metadata={
+            "location_id": payload.location_id,
+            "old_quantity": old_qty,
+            "new_quantity": new_qty,
+            "comment":      payload.comment,
+        },
+    )
+    db.commit()
+
+    updated_lots = (
+        db.query(StockLot)
+        .filter(
+            StockLot.location_id == payload.location_id,
+            StockLot.item_id     == item_id,
+            StockLot.quantity    >  0,
+        )
+        .order_by(StockLot.expiration_date.asc().nulls_last())
+        .all()
+    )
+    par_levels = (
+        db.query(ParLevel)
+        .filter(
+            ParLevel.location_id == payload.location_id,
+            ParLevel.item_id     == item_id,
+            ParLevel.active      == True,
+        )
+        .all()
+    )
+    par_min = min((p.min_quantity for p in par_levels), default=None)
+
+    return SupplyCatalogItem(
+        item_id         = item.item_id,
+        item_name       = item.name,
+        unit_of_measure = item.unit_of_measure,
+        check_type      = item.check_type.value,
+        on_hand         = sum(l.quantity for l in updated_lots),
+        par_min         = par_min,
+        lots            = updated_lots,
     )

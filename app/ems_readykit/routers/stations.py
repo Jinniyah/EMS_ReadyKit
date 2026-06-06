@@ -27,6 +27,8 @@ from ems_readykit.core.auth import (
 )
 from ems_readykit.core.database import get_db
 from ems_readykit.models.inventory_location import InventoryLocation, LocationType
+from ems_readykit.models.item import Item
+from ems_readykit.models.par_level import ParLevel
 from ems_readykit.models.station import Station
 from ems_readykit.models.station_member import StationMember
 from ems_readykit.models.stock_lot import StockLot
@@ -320,6 +322,97 @@ def get_expiring_soon(
         ))
 
     return list(groups.values())
+
+
+# ── GET /stations/{station_id}/supply-alerts — SR-B3 ─────────────────────────
+
+class _SupplyAlertItem(BaseModel):
+    item_name: str
+    on_hand:   int
+    par_min:   int
+    unit:      str
+
+
+@router.get(
+    "/{station_id}/supply-alerts",
+    response_model=List[_SupplyAlertItem],
+    summary="Items below par in the station supply room (SR-B3)",
+    dependencies=[Depends(require_role(*SUPERVISOR_PLUS))],
+)
+def get_supply_alerts(
+    station_id: int,
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
+    db: Session = Depends(get_db),
+) -> List[_SupplyAlertItem]:
+    """
+    Returns items in the station supply room where on-hand < par minimum.
+    Returns an empty list if the station has no supply room or nothing is low.
+    """
+    _get_station_or_404(station_id, db)
+    require_station_membership(station_id, current_user, db)
+
+    supply_room = db.query(InventoryLocation).filter(
+        InventoryLocation.station_id    == station_id,
+        InventoryLocation.location_type == LocationType.STATION_SUPPLY_ROOM,
+    ).first()
+    if not supply_room:
+        return []
+
+    # Par minimums per item at supply room
+    par_levels = (
+        db.query(ParLevel)
+        .filter(
+            ParLevel.location_id == supply_room.location_id,
+            ParLevel.active      == True,
+        )
+        .all()
+    )
+    if not par_levels:
+        return []
+
+    # Lowest par_min per item (item may span multiple compartments)
+    par_min_by_item: dict[int, int] = {}
+    for par in par_levels:
+        existing = par_min_by_item.get(par.item_id)
+        if existing is None or par.min_quantity < existing:
+            par_min_by_item[par.item_id] = par.min_quantity
+
+    item_ids = list(par_min_by_item.keys())
+
+    # On-hand totals per item at supply room
+    lots = (
+        db.query(StockLot)
+        .filter(
+            StockLot.location_id == supply_room.location_id,
+            StockLot.item_id.in_(item_ids),
+            StockLot.quantity    >  0,
+        )
+        .all()
+    )
+    on_hand_by_item: dict[int, int] = {}
+    for lot in lots:
+        on_hand_by_item[lot.item_id] = on_hand_by_item.get(lot.item_id, 0) + lot.quantity
+
+    # Items
+    items = {
+        i.item_id: i
+        for i in db.query(Item).filter(Item.item_id.in_(item_ids)).all()
+    }
+
+    alerts = []
+    for item_id, par_min in par_min_by_item.items():
+        on_hand = on_hand_by_item.get(item_id, 0)
+        if on_hand < par_min:
+            item = items.get(item_id)
+            alerts.append(_SupplyAlertItem(
+                item_name = item.name if item else str(item_id),
+                on_hand   = on_hand,
+                par_min   = par_min,
+                unit      = item.unit_of_measure if item else "each",
+            ))
+
+    alerts.sort(key=lambda a: a.item_name)
+    return alerts
 
 
 # ── GET /stations/{station_id} ─────────────────────────────────────────────────

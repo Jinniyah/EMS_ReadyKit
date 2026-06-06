@@ -119,6 +119,9 @@ export const supervisorApi = {
   getExpiringSoon: (stationId, getToken, days = 30) =>
     apiGet(`${BASE}/stations/${stationId}/expiring-soon?days=${days}`, getToken).catch(() => []),
 
+  getSupplyAlerts: (stationId, getToken) =>
+    apiGet(`${BASE}/stations/${stationId}/supply-alerts`, getToken).catch(() => []),
+
   getCheckDetail: (checkId, getToken) =>
     checkHistoryApi.getCheckDetail(checkId, getToken),
 

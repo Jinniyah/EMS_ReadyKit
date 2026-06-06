@@ -141,6 +141,11 @@ class Item(TimestampMixin, Base):
 
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
+    # True = appears in station supply catalog (SR-B1). False for equipment items
+    # that are managed separately (AED, LUCAS, medications, drug bags).
+    # FUNCTIONAL items are also excluded from SR-B1 by query regardless of this flag.
+    station_supply: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
     # ── AI identification fields (migration 0009) ─────────────────────────────
     # These columns are dormant until the AI image recognition module is built.
     # They are nullable and have zero impact on existing workflows.

@@ -35,7 +35,7 @@ from ems_readykit.models.check_line_item import CheckLineItem, LineItemStatus
 from ems_readykit.models.compartment import Compartment
 from ems_readykit.models.controlled_substance_check import ControlledSubstanceCheck
 from ems_readykit.models.daily_inventory_check import DailyInventoryCheck, CheckStatus
-from ems_readykit.models.inventory_location import InventoryLocation
+from ems_readykit.models.inventory_location import InventoryLocation, LocationType
 from ems_readykit.models.item import Item
 from ems_readykit.models.station import Station
 from ems_readykit.models.stock_lot import StockLot
@@ -137,6 +137,103 @@ def _compute_check_status(line_items: List[CheckLineItem]) -> CheckStatus:
     if statuses & restock_statuses:
         return CheckStatus.NEEDS_RESTOCK
     return CheckStatus.PASS
+
+
+# ── SR-B4: Supply room auto-decrement helper ──────────────────────────────────
+
+def _auto_decrement_supply_room(
+    db: Session,
+    station_id: int,
+    vehicle_id: int,
+    check_id: int,
+    line_items: List[CheckLineItem],
+    items_map: Dict[int, Item],
+) -> None:
+    """
+    SR-B4: Best-effort deduction from the station supply room when a vehicle check
+    shows items were topped off (quantity_found > previous check's quantity_found).
+    Depletion is FIFO. Never raises — insufficient stock depletes to zero and logs a warning.
+    Called after the current check is flushed but before audit/commit.
+    """
+    supply_room = db.query(InventoryLocation).filter(
+        InventoryLocation.station_id    == station_id,
+        InventoryLocation.location_type == LocationType.STATION_SUPPLY_ROOM,
+    ).first()
+    if not supply_room:
+        return
+
+    prev_check = (
+        db.query(DailyInventoryCheck)
+        .filter(
+            DailyInventoryCheck.vehicle_id  == vehicle_id,
+            DailyInventoryCheck.deleted_at.is_(None),
+            DailyInventoryCheck.check_id    != check_id,
+        )
+        .order_by(
+            DailyInventoryCheck.check_date.desc(),
+            DailyInventoryCheck.created_at.desc(),
+        )
+        .first()
+    )
+    if not prev_check:
+        return  # first check — no baseline to compare against
+
+    last_qty: Dict[tuple, Optional[int]] = {
+        (li.item_id, li.compartment_id): li.quantity_found
+        for li in prev_check.line_items
+    }
+
+    item_decrements: Dict[int, int] = {}
+    for li in line_items:
+        item = items_map.get(li.item_id)
+        if not item:
+            continue
+        ct = item.check_type.value if hasattr(item.check_type, "value") else str(item.check_type)
+        if ct != "SUPPLY":
+            continue
+        if li.quantity_found is None:
+            continue
+        prev = last_qty.get((li.item_id, li.compartment_id))
+        if prev is None:
+            continue
+        topped_off = li.quantity_found - prev
+        if topped_off <= 0:
+            continue
+        item_decrements[li.item_id] = item_decrements.get(li.item_id, 0) + topped_off
+
+    for item_id, decrement in item_decrements.items():
+        supply_lots = (
+            db.query(StockLot)
+            .filter(
+                StockLot.location_id == supply_room.location_id,
+                StockLot.item_id     == item_id,
+                StockLot.quantity    >  0,
+            )
+            .order_by(StockLot.expiration_date.asc().nulls_last())
+            .all()
+        )
+        available = sum(l.quantity for l in supply_lots)
+        if available == 0:
+            logger.warning(
+                "SR-B4 auto-decrement: no supply room stock for item %s (station %s)",
+                item_id, station_id,
+            )
+            continue
+        if available < decrement:
+            logger.warning(
+                "SR-B4 auto-decrement: item %s needs %s but only %s available "
+                "(station %s) — depleting to zero",
+                item_id, decrement, available, station_id,
+            )
+        remaining = min(decrement, available)
+        for lot in supply_lots:
+            if remaining <= 0:
+                break
+            take          = min(lot.quantity, remaining)
+            lot.quantity -= take
+            remaining    -= take
+
+    db.flush()
 
 
 # ── Daily Inventory Checks ────────────────────────────────────────────────────
@@ -276,6 +373,17 @@ def create_daily_check(
     )
     db.add(check)
     db.flush()
+
+    # SR-B4: auto-decrement supply room for vehicle checks (best-effort, never blocks)
+    if payload.vehicle_id:
+        _auto_decrement_supply_room(
+            db           = db,
+            station_id   = payload.station_id,
+            vehicle_id   = payload.vehicle_id,
+            check_id     = check.check_id,
+            line_items   = line_item_objects,
+            items_map    = items_map,
+        )
 
     expired_count = sum(1 for li in line_item_objects if li.status == LineItemStatus.EXPIRED)
     missing_count = sum(1 for li in line_item_objects if li.status == LineItemStatus.MISSING)

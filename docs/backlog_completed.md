@@ -317,3 +317,25 @@ CH-F7/F8 backend + frontend logic: Deleted records screen (CSS deferred to Sessi
 | BUG | `patch_item_status` used wrong `write_audit_event` kwargs (performed_by/detail → actor/metadata) — 500 on mark/clear damaged resolved | 2026-06-06 |
 | DOCS | Session handoff files retired; backlog.md is single source of truth; 3 architectural decisions added to CLAUDE.md | 2026-06-06 |
 | DOCS | Backlog cleaned — all ✅ Done items moved to backlog_completed.md; 164 → 106 open items | 2026-06-06 |
+
+---
+
+## Session K — Supply Room Redesign (2026-06-06)
+250 backend tests passing.
+
+| # | Item | Completed |
+|---|------|-----------|
+| SR-M1 | Migration 0017: `station_supply` BOOL NOT NULL DEFAULT TRUE on `items` table (Alembic batch mode) | 2026-06-06 |
+| SR-SEED1 | Set `station_supply=False` for 29 items (AED, LUCAS, drugs, date checks) in seed.py | 2026-06-06 |
+| SR-B1 | `GET /inventory/supply-catalog?station_id=` — supply catalog with on-hand counts; Responder+; 10 tests | 2026-06-06 |
+| SR-B2 | `PATCH /inventory/supply-catalog/items/{id}/count` — FIFO lot adjustment; audit event; best-effort; 10 tests | 2026-06-06 |
+| SR-B3 | `GET /stations/{id}/supply-alerts` — items below par min; Supervisor+; 4 tests | 2026-06-06 |
+| SR-B4 | `_auto_decrement_supply_room` wired into `create_daily_check`; best-effort; never blocks submit; 2 tests | 2026-06-06 |
+| SR-B5 | `POST /inventory/transfer` removed from inventory.py; `TransferRequest` schema removed | 2026-06-06 |
+| SR-F1 | "Station Supplies" home screen card — Responder+ visible (removed supervisor gate); renamed from "Supply Room" | 2026-06-06 |
+| SR-F2 | Supply room landing redesigned: 2 large nav cards (View Supplies, Count Supplies) + secondary text links | 2026-06-06 |
+| SR-F3 | `SupplyCatalogView.jsx` — SR-B1 data, on-hand/par display, inline count correction (Supervisor+ only) | 2026-06-06 |
+| SR-F4 | `Step1Vehicle.jsx` — auto-advance for supply room checks (`draft._supplyRoom=true`), skips vehicle selection | 2026-06-06 |
+| SR-F5 | `SupplyLowStockPanel.jsx` on supervisor dashboard — calls SR-B3; red if out, amber if low; hidden if nothing low | 2026-06-06 |
+| SR-F6 | `RestockVehiclePanel` removed from supply room routing; vehicle CSS classes removed from supply-room.css | 2026-06-06 |
+| SR-F7 | Inline lot expiry editor in `SupplyCatalogView` — uses `PUT /inventory/lots/{id}` (B-E8); Supervisor+ only | 2026-06-06 |

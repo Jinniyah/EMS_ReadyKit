@@ -52,6 +52,22 @@ export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
 
   const today = todayIso()
 
+  // SR-F4: Supply room checks skip vehicle selection entirely — auto-advance on mount.
+  useEffect(() => {
+    if (draft?._supplyRoom && draft.location_id) {
+      onSelect({
+        stationId:      draft.station_id ?? preselectedStation?.station_id,
+        vehicleId:      null,
+        locationId:     draft.location_id,
+        checkDate:      today,
+        secondCrew:     '',
+        vehicle:        null,
+        selectionLabel: 'Station Supply Room',
+        locationType:   'STATION_SUPPLY_ROOM',
+      })
+    }
+  }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+
   const [selection, setSelection] = useState(() => {
     // Restore from draft if resuming
     if (draft?.vehicle_id) return { type: 'vehicle', vehicleId: draft.vehicle_id, vehicle: null }
@@ -147,6 +163,9 @@ export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
       })
     }
   }
+
+  // SR-F4: Render nothing while auto-advance fires for supply room checks.
+  if (draft?._supplyRoom) return <Spinner label="Preparing supply room check…" />
 
   if (!station) {
     return (

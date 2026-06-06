@@ -1,5 +1,5 @@
 # EMS ReadyKit — Codebase Index
-# Last updated: 2026-06-06 (Session J: CH-F7/F8 CSS, F-UX3 jump button, B-E8 PUT /lots/{id})
+# Last updated: 2026-06-06 (Session K: Supply Room Redesign — SR-M1 migration 0017, SR-B1–B5, SR-F1–F7)
 # PURPOSE: Load this file at the start of every session to orient quickly.
 # After reading this, load only the sections relevant to the current task.
 # Full project state → docs/project_index.md | Open work → docs/backlog.md
@@ -56,7 +56,7 @@ All routes are prefixed `/api/v1/`. Router registration order in main.py matters
 | `checks.py` | 20 KB | `/checks/daily` | All + membership | Check wizard: create, draft save, line-item updates, submit; `GET /daily/last-readings` returns last quantity_found + readings per item for vehicle/location |
 | `check_history.py` | 7 KB | `/checks/daily` | All / Supervisor+ | Read-only history; soft-delete; acknowledgement; `my-history` accepts optional `station_id` filter |
 | `repair_requests.py` | 9 KB | `/vehicles/{id}/repair-requests` | All roles | File, update, resolve repair requests |
-| `inventory.py` | 26 KB | `/inventory` | All + membership | Locations, compartments, par levels, lots, stock summary, transfer, CSV receive. `PUT /inventory/lots/{id}` (Supervisor+) corrects expiry/lot number. Uses `HTTP_422_UNPROCESSABLE_CONTENT` (starlette deprecation fixed) |
+| `inventory.py` | 28 KB | `/inventory` | All + membership | Locations, compartments, par levels, lots, stock summary, CSV receive. `GET /supply-catalog?station_id=` (SR-B1). `PATCH /supply-catalog/items/{id}/count` (SR-B2). `PUT /lots/{id}` (Supervisor+). Transfer endpoint removed (SR-B5). |
 | `items.py` | 3 KB | `/items` | All | Item catalog search and detail |
 | `admin.py` | 29 KB | `/admin` | Admin (most) / Supervisor+ | Stations, vehicles, items, par levels, CSV import, members |
 | `audit.py` | 2 KB | `/audit` | Supervisor+ | Paginated audit event log |
@@ -86,7 +86,7 @@ from ems_readykit.routers.deps import (
 | `compartment.py` | `Compartment` | sort_order, location_description |
 | `par_level.py` | `ParLevel` | item ↔ compartment; min/max quantity; active flag (0010); priority_check + priority_question (0015) |
 | `stock_lot.py` | `StockLot` | lot_number, expiration_date, quantity |
-| `item.py` | `Item` | ItemCheckType enum: SUPPLY, MEASUREMENT, FUNCTIONAL, DATE_RECORD, DOCUMENT |
+| `item.py` | `Item` | ItemCheckType enum: SUPPLY, MEASUREMENT, FUNCTIONAL, DATE_RECORD, DOCUMENT; `station_supply` bool (migration 0017) |
 | `daily_inventory_check.py` | `DailyInventoryCheck` | status computed server-side; started_by/completed_by; vehicle_id nullable + location_id (0013) for portable checks |
 | `check_line_item.py` | `CheckLineItem` | quantity_found/needed; measurement_value; functional_pass; LineItemStatus |
 | `controlled_substance_check.py` | `ControlledSubstanceCheck` | dual-signature; ALS vehicles only |
@@ -134,7 +134,7 @@ AuditEvent     (immutable log)
 | File | Size | Coverage |
 |------|------|----------|
 | `test_routers.py` | 67 KB | Main router integration tests (bulk of 217 tests) |
-| `test_supply_room.py` | 8 KB | Supply room: SUPPLY-B1/B2/B3, transfer, history, CSV |
+| `test_supply_room.py` | 12 KB | Supply room: SR-B1/B2/B3/B4 (10+4+2+1 tests), transfer history; SR-B5 transfer removed |
 | `test_repair_requests.py` | 17 KB | Repair request lifecycle |
 | `test_station_membership.py` | 15 KB | RBAC + station membership enforcement |
 | `test_check_history.py` | 15 KB | Check history, soft-delete, acknowledgement |
@@ -142,7 +142,7 @@ AuditEvent     (immutable log)
 | `test_models.py` | 7 KB | Model-level unit tests |
 | `conftest.py` | 4 KB | Shared fixtures: in-memory SQLite, test client, user factories |
 
-Run tests: `cd app && pytest` (uses SQLite in-memory; no external services needed) — **237 tests passing**
+Run tests: `cd app && pytest` (uses SQLite in-memory; no external services needed) — **250 tests passing**
 
 **Test isolation note:** Route handlers that call `db.commit()` release the active SQLAlchemy savepoint. SQLite's in-memory engine does not fully undo released savepoints on outer transaction rollback. Any fixture creating a row with a UNIQUE constraint must use **get-or-create semantics** (see `test_item` and `vehicle_location` fixtures in `test_supply_room.py` for the pattern).
 
@@ -170,11 +170,13 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 ### supervisor/  (Compliance dashboard)
 | File | Size | Purpose |
 |------|------|---------|
-| `index.jsx` | 7 KB | Dashboard entry, tab routing |
+| `index.jsx` | 7 KB | Dashboard entry; loads supply alerts (SR-B3) for SupplyLowStockPanel |
 | `components/ComplianceCalendar.jsx` | 15 KB | Calendar view of check compliance |
-| `components/CheckDetailPanel.jsx` | 9 KB | Drill-down check detail — read-only + comments only (no acknowledge, no "I Fixed This") |
+| `components/CheckDetailPanel.jsx` | 9 KB | Drill-down check detail — read-only + comments only |
 | `components/VehicleComplianceCard.jsx` | 7 KB | Per-vehicle compliance summary card |
 | `components/PortableComplianceCard.jsx` | — | Per-portable-location compliance summary card |
+| `components/ExpiringItemsPanel.jsx` | — | SUP-F3: expandable expiring lots panel |
+| `components/SupplyLowStockPanel.jsx` | — | SR-F5: expandable supply low-stock panel; red if out, amber if below par |
 
 ### admin/  (Station administration)
 | File | Size | Purpose |
@@ -190,16 +192,17 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 | `components/CompartmentParLevels.jsx` | — | Par level assignment — vehicle-centric (per-compartment item list with add/edit/remove) |
 | `components/CsvImport.jsx` | 8 KB | Bulk item import with template download |
 
-### supply-room/  (Supply Room & Restocking — Session G)
+### supply-room/  (Station Supplies — redesigned Session K)
 | File | Size | Purpose |
 |------|------|---------|
-| `index.jsx` | 5 KB | Nav-card landing (4 large cards) → full-screen section views; no horizontal tab bar |
-| `supply-room.css` | — | All supply-room CSS using design tokens; mirrors admin.css patterns |
-| `api/supplyApi.js` | 2 KB | API calls: supply-room, stock-summary, transfer, CSV, station locations |
-| `components/StockSummaryView.jsx` | 6 KB | SUPPLY-F1: color-coded stock list with lot drill-down |
-| `components/RestockVehiclePanel.jsx` | 9 KB | SUPPLY-F2: vehicle selector → par comparison → transfer. Resolves vehicle location_id via `getStationLocations` (VehicleRead does not include location_id) |
-| `components/ReceiveStockPanel.jsx` | 8 KB | SUPPLY-F3: manual add + CSV bulk upload |
-| `components/TransferHistory.jsx` | 4 KB | SUPPLY-F4: inbound/outbound transfer log |
+| `index.jsx` | 5 KB | Landing: 2 large cards (View Supplies, Count Supplies) + secondary text links. `onCountSupplies` prop launches wizard with supply room location. |
+| `supply-room.css` | — | All supply-room CSS using design tokens. RestockVehicle styles removed (SR-F6). |
+| `api/supplyApi.js` | 3 KB | API: supply-room, catalog (SR-B1), patchCount (SR-B2), putLot (SR-F7), CSV, station locations |
+| `components/SupplyCatalogView.jsx` | — | SR-F3: catalog from SR-B1; "On hand / Par" color-coded; inline count correction (Supervisor+); lot expiry editor (SR-F7) |
+| `components/StockSummaryView.jsx` | 6 KB | Legacy stock summary view — superseded by SupplyCatalogView for View Supplies |
+| `components/RestockVehiclePanel.jsx` | 9 KB | Retired — no longer imported or routed. Kept for historical reference. |
+| `components/ReceiveStockPanel.jsx` | 8 KB | Manual add + CSV bulk upload |
+| `components/TransferHistory.jsx` | 4 KB | Inbound/outbound transfer log |
 
 **Key architectural note — vehicle location_id:** `VehicleRead` does not expose `location_id`. To get a vehicle's inventory location ID, call `GET /inventory/locations?station_id=` and match on `vehicle_id + location_type === 'VEHICLE'`. This is the same pattern used by the check wizard.
 
@@ -259,19 +262,15 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 
 ## Migrations (app/alembic/versions/)
 
-15 migrations applied (0001–0015, plus 0003a branch). Run automatically at startup via `startup.sh`.
+17 migrations applied (0001–0017, plus 0003a branch). Run automatically at startup via `startup.sh`.
 To add a new migration: `cd app && alembic revision --autogenerate -m "description"`
 
 Key recent migrations:
-- **0007** — check acknowledgement fields + soft-delete on `daily_inventory_checks`
-- **0008** — `station_members` table
-- **0009** — AI identification foundation fields on `items` (dormant nullable columns)
-- **0010** — `active` flag on `par_levels` (soft-deactivate; index on active)
-- **0011** — `primary_color` on `stations`; `vehicle_color` on `vehicles` (CSS hex, nullable)
-- **0012** — `call_sign` on `stations` (VARCHAR 20, nullable)
-- **0013** — `vehicle_id` nullable on `daily_inventory_checks`; adds `location_id` FK for portable checks; index on (location_id, check_date)
-- **0014** — `stock_transfers` table; backfills 4 default compartments (Cab 1–2, Shelf 1–2) for any supply room with zero compartments
-- **0015** — `priority_check` (bool nullable) + `priority_question` (VARCHAR 150) on `par_levels`; `requires_full_check` (bool, default false) on `compartments`
+- **0013** — `vehicle_id` nullable on `daily_inventory_checks`; adds `location_id` FK for portable checks
+- **0014** — `stock_transfers` table; backfills 4 default compartments for any supply room with zero compartments
+- **0015** — `priority_check` + `priority_question` on `par_levels`; `requires_full_check` on `compartments`
+- **0016** — `is_damaged` (bool) on `check_line_items`; batch mode
+- **0017** — `station_supply` (bool NOT NULL DEFAULT TRUE) on `items`; batch mode; SR-M1
 
 ---
 
@@ -305,9 +304,10 @@ Key recent migrations:
 
 | Session | Focus | Key Items |
 |---------|-------|-----------|
-| **G** | Supply Room & Restocking | ✅ Complete — all tests passing |
-| **Pre-H** | Code Cleanup + Security | ✅ Complete — all 13 items done |
-| **H** | Workflow Acceleration + Check Wizard Redesign | ✅ Complete — RX-F1/F2/F7/F8/F9, SEED-GAP1, RX-M1 migration 0015 |
-| **I** | Reading confirmations, bug fixes, station scoping | ✅ Complete — reading UI, vehicle on-hand fix, No Change fixes, station bleed fix |
-| **I continued** | After-Call Reset + Retirement + Settings + AI Groundwork | RX-F6/RX-B1, RET-M1-M3/B1-B4/F1-F5, SUP-F2, F-5G3, AI-B1/F1, RX-F3/F4/F5 |
-| **J** | UAT Dress Rehearsal + Operational Launch Setup | LAUNCH-OPS1-OPS9, UAT-2-11, F-5C2, I-3 |
+| **G** | Supply Room & Restocking | ✅ Complete |
+| **Pre-H** | Code Cleanup + Security | ✅ Complete |
+| **H** | Security + Deployment + RX-F7/F1/F2/F8/F9 | ✅ Complete |
+| **I** | Reading confirmations, vehicle on-hand fix, No Change bugs | ✅ Complete |
+| **J** | UX Polish, CH-F7/F8 CSS, B-E8, DMG-F1 | ✅ Complete |
+| **K** | Supply Room Redesign (SR-M1/SEED1/B1–B5/F1–F7) | ✅ Complete — 250 tests passing |
+| **L** | Priority Admin UI + Deferred UX | RX-B2, RX-F12, RX-F3/F4/F5, RX-F9b, F-UX10 |

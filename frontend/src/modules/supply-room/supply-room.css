@@ -133,6 +133,44 @@
   color: #92400e;
 }
 
+/* ── Secondary text links (below primary nav cards) ─────────────────────────── */
+
+.sr-secondary-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) 0;
+  flex-wrap: wrap;
+}
+
+.sr-secondary-link {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  text-decoration: underline;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-sm) var(--space-md);
+  min-height: 60px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.sr-secondary-link:hover,
+.sr-secondary-link:focus-visible {
+  color: var(--color-text);
+  outline: 3px solid var(--color-brand);
+  border-radius: var(--radius-sm);
+  outline-offset: 2px;
+}
+
+.sr-secondary-link__sep {
+  color: var(--color-text-muted);
+  user-select: none;
+  font-size: var(--font-size-sm);
+}
+
 /* ── Section content (full-screen when active) ─────────────────────────────── */
 
 .sr-section {
@@ -140,84 +178,6 @@
   overflow-y: auto;
   padding-bottom: 80px;
 }
-
-/* ── Restock vehicle panel ─────────────────────────────────────────────────── */
-
-.sr-panel {
-  padding: var(--space-md);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-
-.sr-panel__heading {
-  font-size: var(--font-size-h2);
-  font-weight: 700;
-  color: var(--color-text);
-  margin: 0;
-}
-
-.sr-panel__subtext {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  margin: 0;
-}
-
-/* Vehicle selection cards — same shape as sr-nav-card, color dot instead of emoji */
-
-.sr-vehicle-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.sr-vehicle-card {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  width: 100%;
-  min-height: 72px;
-  padding: var(--space-md) var(--space-lg);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  cursor: pointer;
-  text-align: left;
-  transition: box-shadow var(--transition), background var(--transition);
-}
-
-.sr-vehicle-card:hover,
-.sr-vehicle-card:focus-visible {
-  background: var(--color-surface-raised);
-  box-shadow: var(--shadow-md);
-  outline: 3px solid var(--color-brand);
-  outline-offset: 2px;
-}
-
-.sr-vehicle-card__dot {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 2px solid rgba(0, 0, 0, 0.12);
-  flex-shrink: 0;
-}
-
-.sr-vehicle-card__info  { flex: 1; display: flex; flex-direction: column; gap: 3px; }
-.sr-vehicle-card__number { font-size: var(--font-size-md); font-weight: 700; color: var(--color-text); }
-
-.sr-vehicle-card__type {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: 1px 8px;
-  width: fit-content;
-}
-
-.sr-vehicle-card__arrow { font-size: 24px; color: var(--color-text-muted); flex-shrink: 0; }
 
 /* Empty / all-good states */
 
@@ -414,6 +374,234 @@
 .sr-transfer-error-item {
   font-size: var(--font-size-sm);
   color: var(--color-status-fail);
+}
+
+/* ── Supply catalog view (SR-F3) ─────────────────────────────────────────────── */
+
+.sr-catalog {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: var(--space-md);
+}
+
+.sr-catalog-item {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.sr-catalog-item--out  { border-left: 4px solid var(--color-status-fail); }
+.sr-catalog-item--low  { border-left: 4px solid var(--color-status-warn); }
+.sr-catalog-item--ok   { border-left: 4px solid var(--color-status-pass); }
+.sr-catalog-item + .sr-catalog-item { margin-top: var(--space-sm); }
+
+.sr-catalog-item__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  min-height: 60px;
+  padding: var(--space-md) var(--space-lg);
+  background: none;
+  border: none;
+  text-align: left;
+}
+
+.sr-catalog-item__header:focus-visible {
+  outline: 3px solid var(--color-brand);
+  outline-offset: -2px;
+}
+
+.sr-catalog-item__name {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text);
+  flex: 1;
+}
+
+.sr-catalog-item__qty-block {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.sr-catalog-item__qty {
+  font-size: var(--font-size-h2);
+  font-weight: 700;
+}
+
+.sr-catalog-item__qty--out  { color: var(--color-status-fail); }
+.sr-catalog-item__qty--low  { color: var(--color-status-warn, #92400e); }
+.sr-catalog-item__qty--ok   { color: var(--color-status-pass); }
+
+.sr-catalog-item__par {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.sr-catalog-item__edit-hint {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-left: var(--space-xs);
+}
+
+/* Inline count correction editor */
+
+.sr-catalog-item__editor {
+  padding: var(--space-md) var(--space-lg) var(--space-lg);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.sr-catalog-item__editor-label {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.sr-catalog-item__editor-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.sr-catalog-item__editor-input {
+  width: 120px;
+  padding: var(--space-sm) var(--space-md);
+  border: 2px solid var(--color-brand);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-h2);
+  font-weight: 700;
+  text-align: center;
+  color: var(--color-text);
+  background: var(--color-surface);
+  min-height: 60px;
+}
+
+.sr-catalog-item__editor-unit {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.sr-catalog-item__editor-comment {
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  background: var(--color-surface);
+  min-height: 60px;
+  font-family: inherit;
+}
+
+.sr-catalog-item__editor-comment:focus {
+  outline: 3px solid var(--color-brand);
+  outline-offset: 1px;
+  border-color: var(--color-brand);
+}
+
+.sr-catalog-item__editor-error {
+  font-size: var(--font-size-sm);
+  color: var(--color-status-fail);
+  font-weight: 600;
+}
+
+.sr-catalog-item__editor-actions {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: flex-end;
+}
+
+/* ── Lot list and expiry editor (SR-F7) ──────────────────────────────────────── */
+
+.sr-lot-list {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sr-lot-list__heading {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-bottom: var(--space-xs);
+}
+
+.sr-lot-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0;
+  border-top: 1px solid var(--color-border-light);
+  flex-wrap: wrap;
+}
+
+.sr-lot-row:first-of-type { border-top: none; }
+
+.sr-lot-row__info {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: baseline;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.sr-lot-row__qty    { font-size: var(--font-size-sm); font-weight: 700; color: var(--color-text); }
+.sr-lot-row__num    { font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+.sr-lot-row__expiry { font-size: var(--font-size-sm); color: var(--color-text-muted); }
+
+.sr-lot-row__edit-btn {
+  font-size: var(--font-size-xs);
+  color: var(--color-brand);
+  text-decoration: underline;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-xs) 0;
+  min-height: 60px;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.sr-lot-row__edit-btn:hover,
+.sr-lot-row__edit-btn:focus-visible {
+  color: var(--color-text);
+  outline: 3px solid var(--color-brand);
+  border-radius: var(--radius-sm);
+  outline-offset: 2px;
+}
+
+.sr-lot-row__expiry-editor {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding-top: var(--space-xs);
+}
+
+.sr-lot-row__date-input {
+  padding: var(--space-sm) var(--space-md);
+  border: 2px solid var(--color-brand);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  color: var(--color-text);
+  background: var(--color-surface);
+  min-height: 60px;
+  font-family: inherit;
 }
 
 /* ── Receive Stock Panel (.rsp-*) ────────────────────────────────────────────── */

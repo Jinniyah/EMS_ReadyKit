@@ -264,11 +264,19 @@ export default function HomePage() {
 
   if (activeModule === 'supply-room') {
     return (
-      <ErrorBoundary moduleName="Supply Room">
+      <ErrorBoundary moduleName="Station Supplies">
         <Suspense fallback={<Spinner label="Loading…" />}>
           <SupplyRoomScreen
             station={selectedStation}
             onBack={() => setActiveModule(null)}
+            onCountSupplies={(locationId) => {
+              setActiveModule(null)
+              setActiveWizard({
+                _supplyRoom: true,
+                location_id: locationId,
+                station_id:  selectedStation?.station_id,
+              })
+            }}
           />
         </Suspense>
       </ErrorBoundary>
@@ -457,26 +465,24 @@ export default function HomePage() {
             </ErrorBoundary>
           )}
 
-          {canAccess(user, 'supervisor') && !isCrewMode && (
-            <ErrorBoundary moduleName="Supply Room Card">
-              <div className="module-card">
-                <div className="module-card__icon" aria-hidden="true">🏪</div>
-                <div className="module-card__content">
-                  <div className="module-card__title">Supply Room</div>
-                  <div className="module-card__description">Stock levels, restock vehicles, receive shipments</div>
-                </div>
-                <button
-                  className="btn btn--primary"
-                  style={colors ? { background: colors.primary } : {}}
-                  onClick={() => setActiveModule('supply-room')}
-                  disabled={!selectedStation}
-                  type="button"
-                >
-                  Open
-                </button>
+          <ErrorBoundary moduleName="Station Supplies Card">
+            <div className="module-card">
+              <div className="module-card__icon" aria-hidden="true">🏪</div>
+              <div className="module-card__content">
+                <div className="module-card__title">Station Supplies</div>
+                <div className="module-card__description">Check stock levels, count shelves, receive shipments</div>
               </div>
-            </ErrorBoundary>
-          )}
+              <button
+                className="btn btn--primary"
+                style={colors ? { background: colors.primary } : {}}
+                onClick={() => setActiveModule('supply-room')}
+                disabled={!selectedStation}
+                type="button"
+              >
+                Open
+              </button>
+            </div>
+          </ErrorBoundary>
 
           <ErrorBoundary moduleName="Help Card">
             <div className="module-card module-card--disabled">

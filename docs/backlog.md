@@ -1,9 +1,9 @@
 # EMS ReadyKit — Active Backlog
-# v1.62 | Updated: 2026-06-06 | Current: Session K
+# v1.63 | Updated: 2026-06-06 | Current: Session L
 # Completed items -> backlog_completed.md
 # Priority: Critical / High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
-# ✅ Sessions A–J complete — see backlog_completed.md
+# ✅ Sessions A–K complete — see backlog_completed.md
 
 ---
 
@@ -294,39 +294,6 @@
 
 ---
 
-## 21. Supply Room Redesign (Session K)
-## Rationale: Supply room = location counted like a vehicle. Same wizard, same
-## compartment model (cabinets/shelves). Stock depletes automatically during
-## reconciliation. Goal: catch critical shortages, not precise inventory.
-## Everything reuses existing code — ItemCatalog.jsx, check wizard, FIFO lot logic.
-
-### Backend
-| # | Item | Pri | Status | Notes | Est |
-|---|------|-----|--------|-------|-----|
-| SR-M1 | Migration 0017: add `station_supply` bool to `items` | High | 📋 | Not null, default true. FUNCTIONAL items auto-excluded in queries regardless of flag. Alembic batch mode required. | ~20 min |
-| SR-B1 | `GET /inventory/supply-catalog?station_id=` | High | 📋 | Items where `station_supply = true` AND `check_type != FUNCTIONAL`, with on-hand quantity from stock lots. Responder+ role. Sorted by item name. | ~30 min |
-| SR-B2 | `PATCH /inventory/supply-catalog/items/{id}/count` | High | 📋 | Responder+ role. Body: `{location_id, quantity, comment?}`. FIFO lot adjustment. Writes audit event: actor from JWT, old_qty, new_qty, optional comment. | ~30 min |
-| SR-B3 | `GET /stations/{id}/supply-alerts` | High | 📋 | Items where on-hand < par level minimum. Response: `[{item_name, on_hand, par_min, unit}]`. Supervisor+ role. | ~30 min |
-| SR-B4 | Wire auto-decrement to reconciliation step | High | 📋 | In checks.py reconciliation submit: when responder tops off an item, call FIFO lot decrement against station supply room. Decrement = quantity_found - last_quantity_found. Best-effort — decrement to zero if insufficient, log warning audit event, never block check submit. | ~45 min |
-| SR-B5 | Remove restock-vehicle transfer action | Medium | 📋 | Remove the "restock vehicle" action path. Keep `stock_transfers` table and Transfer History endpoint. Add rationale comment in inventory.py. | ~15 min |
-
-### Seed update
-| # | Item | Pri | Status | Notes | Est |
-|---|------|-----|--------|-------|-----|
-| SR-SEED1 | Set `station_supply = False` for non-stockable items | High | 📋 | AED Battery, AED Pads, AED Date check, LUCAS Device, LUCAS Date of Last Charge, LUCAS Device Ready Check, drug bag contents. FUNCTIONAL items already auto-excluded by SR-B1 query. Use upsert pattern. | ~20 min |
-
-### Frontend
-| # | Item | Pri | Status | Notes | Est |
-|---|------|-----|--------|-------|-----|
-| SR-F1 | Home screen — "Station Supplies" nav card | High | 📋 | Responder+ visible. Below Check the Truck / Log Items Used. Same visual weight as Check History. 60px tap target. | ~20 min |
-| SR-F2 | Station Supplies module landing — 2-card layout | High | 📋 | Replace 4-card landing with 2 large nav cards: **"View Supplies"** and **"Count Supplies"**. Transfer History demoted to small text link. | ~20 min |
-| SR-F3 | View Supplies — reused ItemCatalog + inline count correction | High | 📋 | Reuse `ItemCatalog.jsx` with SR-B1 data source. Add on-hand quantity: "On hand: 4 / Par: 10" — amber if below par, red if zero. Tap item → inline count correction (number input + optional comment). Save immediately, no confirmation modal. Count correction: Supervisor+ only. View: Responder+. | ~60 min |
-| SR-F4 | Count Supplies — supply room check wizard | Medium | 📋 | Verify wizard routes correctly to STATION_SUPPLY_ROOM location. Compartments = shelves/cabinets already seeded. No Change works identically. NOT on compliance calendar. Appears in Check History. Mostly a routing wire-up. | ~30 min |
-| SR-F5 | Supply room low-stock inline alert on supervisor dashboard | High | 📋 | No tap required. Calls SR-B3 on dashboard load. Renders below SUP-F3. Format: "⚠ Station Supplies — Low Stock" + item list "• Tourniquets — 4 on hand, 10 needed". Red if zero, amber if below par. Hidden if nothing low. Large text, high contrast. | ~45 min |
-| SR-F6 | Remove Restock Vehicle panel from supply room module | Medium | 📋 | Remove from module routing and landing card. Keep file (rename/retire). Update supply-room.css if styles are specific to the panel. | ~15 min |
-| SR-F7 | Edit lot expiry date in View Supplies (Supervisor+) | Medium | 📋 | Tap stock lot → inline expiry date editor. Saves via `PUT /inventory/lots/{id}` (B-E8 — built Session J). Plain English label: "Correct expiry date". 60px tap target. | ~30 min |
-
----
 
 ## 22. User Acceptance Testing
 | # | Item | Pri | Status | Notes |
@@ -380,11 +347,9 @@
 | Infrastructure / Security | 2 | 1 | 3 |
 | Equipment & Station Admin | 3 | 0 | 3 |
 | Station Membership Frontend | 5 | 0 | 5 |
-| Supply Room Redesign (Session K) | 14 | 0 | 14 |
 | User Acceptance Testing | 9 | 2 | 11 |
-| **Total open** | **101** | **5** | **106** |
+| **Total open** | **87** | **5** | **92** |
 
-*Completed items — Sessions A–J — are in backlog_completed.md.*
+*Completed items — Sessions A–K — are in backlog_completed.md.*
 *v1.62 — 2026-06-06: Backlog cleaned. All ✅ Done items moved to backlog_completed.md.*
-*  Resolved Q answers folded into item notes. Duplicate/superseded items removed.*
-*  Open items: 106 (down from 164). Sessions A–J complete.*
+*v1.63 — 2026-06-06: Session K complete. Supply Room Redesign (14 items) moved to completed.*
