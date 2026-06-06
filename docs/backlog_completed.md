@@ -3,6 +3,16 @@
 
 ---
 
+## Session K (post-close) — Production Fixes + Supply Room Setup
+| # | Item | Completed |
+|---|------|-----------|
+| FIX-1 | Migration 0018 fix — added `CURRENT_TIMESTAMP` for `created_at`/`updated_at` in raw SQL INSERTs; `TimestampMixin` uses Python-side `default=` only, not `server_default` | 2026-06-06 |
+| FIX-2 | `POST /stations/{id}/supply-room` — create supply room on demand (get-or-create + Shelf 1–4); Supervisor+; fixes stations created via admin UI that never ran seed.py | 2026-06-06 |
+| FIX-3 | Supply room screen — 404 detected as `roomMissing` state; shows "Set Up Supply Room" button instead of crashing; calls FIX-2 then loads normal UI | 2026-06-06 |
+| FIX-4 | `app/initial_stock.csv` — 10 seed stock items (quantities, lot numbers, expiry dates) ready to upload via Receive New Stock → CSV | 2026-06-06 |
+
+---
+
 ## Backend — Tests
 | # | Item | Completed |
 |---|------|-----------|

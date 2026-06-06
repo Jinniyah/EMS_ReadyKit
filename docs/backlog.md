@@ -1,9 +1,9 @@
 # EMS ReadyKit — Active Backlog
-# v1.63 | Updated: 2026-06-06 | Current: Session L
+# v1.64 | Updated: 2026-06-06 | Current: Session L
 # Completed items -> backlog_completed.md
 # Priority: Critical / High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
-# ✅ Sessions A–K complete — see backlog_completed.md
+# ✅ Sessions A–K (+ K post-close fixes) complete — see backlog_completed.md
 
 ---
 
@@ -28,22 +28,6 @@
 ---
 
 ## UPCOMING SESSIONS
-##
-## Session K — Supply Room Redesign (~7 hrs)
-##   SR-M1        Migration 0017: station_supply bool on items        ~20 min
-##   SR-SEED1     Flag station_supply=False for AED/LUCAS/drug items  ~20 min
-##   SR-B1        GET /inventory/supply-catalog?station_id=           ~30 min
-##   SR-B2        PATCH /inventory/supply-catalog/items/{id}/count    ~30 min
-##   SR-B3        GET /stations/{id}/supply-alerts                    ~30 min
-##   SR-B4        Wire auto-decrement to reconciliation step          ~45 min
-##   SR-B5        Remove/deprecate restock-vehicle transfer endpoint  ~15 min
-##   SR-F1        Home screen — "Station Supplies" nav card           ~20 min
-##   SR-F2        Station Supplies module landing (2-card layout)     ~20 min
-##   SR-F3        View Supplies — reused ItemCatalog + count form     ~60 min
-##   SR-F4        Count Supplies — supply room check wizard           ~30 min
-##   SR-F5        Supply room low-stock inline alert on dashboard     ~45 min
-##   SR-F6        Remove Restock Vehicle panel from supply room       ~15 min
-##   SR-F7        Edit lot expiry date in View Supplies (Sup+)       ~30 min
 ##
 ## Session L — Priority Admin UI + Deferred UX (~4 hrs)
 ##   RX-B2        PATCH /admin/par-levels/{id} priority fields        ~20 min
@@ -353,3 +337,4 @@
 *Completed items — Sessions A–K — are in backlog_completed.md.*
 *v1.62 — 2026-06-06: Backlog cleaned. All ✅ Done items moved to backlog_completed.md.*
 *v1.63 — 2026-06-06: Session K complete. Supply Room Redesign (14 items) moved to completed.*
+*v1.64 — 2026-06-06: Session K post-close. Migration 0018 fix + supply room setup endpoint + graceful 404 handling + initial_stock.csv.*

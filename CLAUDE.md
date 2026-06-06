@@ -1,6 +1,6 @@
 # CLAUDE.md — AI Development Rules for EMS ReadyKit
 # Last updated: 2026-06-06
-# Updated: Session K — Supply Room Redesign complete; 3 architectural decisions added
+# Updated: Session K post-close — migration 0018 fix; supply room setup endpoint + frontend setup state
 # Load this file at the start of every session alongside CODEBASE_INDEX.md.
 
 ---
@@ -224,6 +224,7 @@ No handoff files. At the end of every session:
 | Supply room wizard | Pass `{ _supplyRoom: true, location_id, station_id }` as `activeWizard` to launch wizard for supply room. `Step1Vehicle` detects `draft._supplyRoom` and auto-calls `onSelect` with the supply room location, skipping vehicle selection entirely. |
 | `station_supply` flag | `Item.station_supply = False` excludes item from supply catalog (SR-B1). Set in seed.py for AED, LUCAS, drug items. FUNCTIONAL items are also excluded by SR-B1 query regardless of flag. |
 | Auto-decrement supply room | `_auto_decrement_supply_room` fires in `create_daily_check` only when `payload.vehicle_id` is set — supply room checks (vehicle_id=None) do NOT trigger auto-decrement. Best-effort: depletes to zero, never blocks submission. |
+| Supply room creation | `POST /stations/{id}/supply-room` is get-or-create (Supervisor+). Frontend detects 404 from `getSupplyRoom` via `e.status === 404`, shows setup state. `TimestampMixin` uses Python-side `default=` only — raw SQL INSERTs must include `CURRENT_TIMESTAMP` for `created_at`/`updated_at`. |
 
 ---
 

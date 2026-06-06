@@ -1,5 +1,5 @@
 # EMS ReadyKit — Codebase Index
-# Last updated: 2026-06-06 (Session K: Supply Room Redesign — SR-M1 migration 0017, SR-B1–B5, SR-F1–F7)
+# Last updated: 2026-06-06 (Session K post-close: migration 0018 fix, POST /stations/{id}/supply-room, supply room setup state)
 # PURPOSE: Load this file at the start of every session to orient quickly.
 # After reading this, load only the sections relevant to the current task.
 # Full project state → docs/project_index.md | Open work → docs/backlog.md
@@ -18,8 +18,9 @@ EMS_ReadyKit/
 │   │   ├── schemas/            # Pydantic request/response schemas
 │   │   └── main.py             # App factory, middleware, router registration
 │   ├── alembic/                # DB migrations (versions/ subdirectory)
-│   ├── tests/                  # pytest suite (231 tests passing)
+│   ├── tests/                  # pytest suite (250 tests passing)
 │   ├── seed.py                 # Dev seed data
+│   ├── initial_stock.csv       # 10 seed stock items — upload via Receive New Stock → CSV
 │   └── pyproject.toml          # Dependencies + pytest config
 ├── frontend/                   # React 18 + Vite PWA
 │   └── src/
@@ -50,7 +51,7 @@ All routes are prefixed `/api/v1/`. Router registration order in main.py matters
 | File | Size | Route Prefix | Roles | Purpose |
 |------|------|-------------|-------|---------|
 | `deps.py` | 5 KB | — | — | Shared: `get_current_user`, `require_role`, `get_vehicle_or_404`, `require_station_membership`, role constants |
-| `stations.py` | 8 KB | `/stations` | All / Admin | CRUD; GET /my for current user's stations |
+| `stations.py` | 9 KB | `/stations` | All / Admin | CRUD; GET /my; GET supply-room (404 if missing); POST supply-room (get-or-create + Shelf 1–4) |
 | `station_members.py` | 8 KB | `/stations/{id}/members` | Supervisor+ | Membership management |
 | `vehicles.py` | 6 KB | `/vehicles` | All + membership | Vehicle CRUD; OOS/RTS status toggle |
 | `checks.py` | 20 KB | `/checks/daily` | All + membership | Check wizard: create, draft save, line-item updates, submit; `GET /daily/last-readings` returns last quantity_found + readings per item for vehicle/location |
@@ -195,9 +196,9 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 ### supply-room/  (Station Supplies — redesigned Session K)
 | File | Size | Purpose |
 |------|------|---------|
-| `index.jsx` | 5 KB | Landing: 2 large cards (View Supplies, Count Supplies) + secondary text links. `onCountSupplies` prop launches wizard with supply room location. |
-| `supply-room.css` | — | All supply-room CSS using design tokens. RestockVehicle styles removed (SR-F6). |
-| `api/supplyApi.js` | 3 KB | API: supply-room, catalog (SR-B1), patchCount (SR-B2), putLot (SR-F7), CSV, station locations |
+| `index.jsx` | 6 KB | Landing: 2 large cards (View Supplies, Count Supplies) + secondary text links. Detects 404 → shows setup state with "Set Up Supply Room" button (calls POST supply-room). |
+| `supply-room.css` | — | All supply-room CSS using design tokens. RestockVehicle styles removed (SR-F6). `.sr-setup` setup-state styles added. |
+| `api/supplyApi.js` | 3 KB | API: getSupplyRoom, createSupplyRoom (POST), catalog (SR-B1), patchCount (SR-B2), putLot (SR-F7), CSV, station locations |
 | `components/SupplyCatalogView.jsx` | — | SR-F3: catalog from SR-B1; "On hand / Par" color-coded; inline count correction (Supervisor+); lot expiry editor (SR-F7) |
 | `components/StockSummaryView.jsx` | 6 KB | Legacy stock summary view — superseded by SupplyCatalogView for View Supplies |
 | `components/RestockVehiclePanel.jsx` | 9 KB | Retired — no longer imported or routed. Kept for historical reference. |
@@ -262,7 +263,7 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 
 ## Migrations (app/alembic/versions/)
 
-17 migrations applied (0001–0017, plus 0003a branch). Run automatically at startup via `startup.sh`.
+18 migrations applied (0001–0018, plus 0003a branch). Run automatically at startup via `startup.sh`.
 To add a new migration: `cd app && alembic revision --autogenerate -m "description"`
 
 Key recent migrations:
@@ -271,6 +272,7 @@ Key recent migrations:
 - **0015** — `priority_check` + `priority_question` on `par_levels`; `requires_full_check` on `compartments`
 - **0016** — `is_damaged` (bool) on `check_line_items`; batch mode
 - **0017** — `station_supply` (bool NOT NULL DEFAULT TRUE) on `items`; batch mode; SR-M1
+- **0018** — backfills `STATION_SUPPLY_ROOM` location + Shelf 1–4 compartments for active stations that lack one
 
 ---
 
