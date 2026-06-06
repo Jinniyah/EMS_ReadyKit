@@ -125,7 +125,7 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Deploy zip to App Service
-        uses: azure/webapps-deploy@v3
+        uses: azure/webapps-deploy@v4
         with:
           app-name: ${{ env.APP_NAME }}
           package: /tmp/deploy.zip

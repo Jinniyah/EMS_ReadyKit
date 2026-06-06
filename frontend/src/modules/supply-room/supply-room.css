@@ -84,6 +84,38 @@
   font-weight: 600;
 }
 
+/* ── Supply room not-set-up state ──────────────────────────────────────────── */
+
+.sr-setup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-xl) var(--space-md);
+  text-align: center;
+  gap: var(--space-md);
+}
+.sr-setup__icon { font-size: 3rem; margin: 0; }
+.sr-setup__title {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+.sr-setup__body {
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
+  margin: 0;
+  max-width: 36ch;
+  line-height: 1.5;
+}
+.sr-setup__error {
+  color: var(--color-status-fail);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  margin: 0;
+}
+.sr-setup__btn { min-width: 240px; }
+
 /* ── Nav cards — mirrors .admin-nav-card exactly ───────────────────────────── */
 
 .sr-nav-cards {

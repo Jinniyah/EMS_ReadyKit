@@ -26,6 +26,7 @@ from ems_readykit.core.auth import (
     CurrentUser,
 )
 from ems_readykit.core.database import get_db
+from ems_readykit.models.compartment import Compartment
 from ems_readykit.models.inventory_location import InventoryLocation, LocationType
 from ems_readykit.models.item import Item
 from ems_readykit.models.par_level import ParLevel
@@ -248,6 +249,72 @@ def get_supply_room(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Station {station_id} does not have a supply room configured.",
         )
+    return location
+
+
+# ── POST /stations/{station_id}/supply-room — create supply room ─────────────
+
+@router.post(
+    "/{station_id}/supply-room",
+    response_model=InventoryLocationRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create supply room for a station (get-or-create)",
+)
+def create_supply_room(
+    station_id: int,
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
+    db: Session = Depends(get_db),
+) -> InventoryLocation:
+    """
+    Creates the STATION_SUPPLY_ROOM inventory location for this station if it
+    does not already exist, along with 4 default shelf compartments.
+    Returns the existing location unchanged if one already exists.
+    """
+    _get_station_or_404(station_id, db)
+    require_station_membership(station_id, current_user, db)
+
+    location = (
+        db.query(InventoryLocation)
+        .filter(
+            InventoryLocation.station_id    == station_id,
+            InventoryLocation.location_type == LocationType.STATION_SUPPLY_ROOM,
+        )
+        .first()
+    )
+    if location:
+        return location
+
+    location = InventoryLocation(
+        station_id    = station_id,
+        vehicle_id    = None,
+        location_type = LocationType.STATION_SUPPLY_ROOM,
+        label         = "Station Supply Room",
+    )
+    db.add(location)
+    db.flush()
+
+    has_compartments = (
+        db.query(Compartment)
+        .filter(Compartment.location_id == location.location_id)
+        .count()
+    ) > 0
+
+    if not has_compartments:
+        for sort_order, name in enumerate(["Shelf 1", "Shelf 2", "Shelf 3", "Shelf 4"], start=1):
+            db.add(Compartment(
+                location_id = location.location_id,
+                name        = name,
+                sort_order  = sort_order,
+                active      = True,
+            ))
+
+    db.commit()
+    db.refresh(location)
+
+    logger.info(
+        "Supply room created for station %s by %s",
+        station_id, current_user.email,
+    )
     return location
 
 

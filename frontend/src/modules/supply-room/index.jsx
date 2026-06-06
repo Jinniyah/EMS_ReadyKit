@@ -38,21 +38,47 @@ const SECONDARY_SECTIONS = [
 
 export default function SupplyRoomScreen({ station, onBack, onCountSupplies }) {
   const { getToken } = useAuth()
-  const [activeSection, setActiveSection] = useState(null)
-  const [supplyRoom, setSupplyRoom]       = useState(null)
-  const [roomLoading, setRoomLoading]     = useState(true)
-  const [roomError, setRoomError]         = useState(null)
-  const [catalogItems, setCatalogItems]   = useState([])
+  const [activeSection, setActiveSection]   = useState(null)
+  const [supplyRoom, setSupplyRoom]         = useState(null)
+  const [roomLoading, setRoomLoading]       = useState(true)
+  const [roomError, setRoomError]           = useState(null)
+  const [roomMissing, setRoomMissing]       = useState(false)
+  const [creating, setCreating]             = useState(false)
+  const [createError, setCreateError]       = useState(null)
+  const [catalogItems, setCatalogItems]     = useState([])
   const [catalogLoading, setCatalogLoading] = useState(false)
-  const [catalogError, setCatalogError]   = useState(null)
+  const [catalogError, setCatalogError]     = useState(null)
 
   useEffect(() => {
     if (!station?.station_id) return
     setRoomLoading(true)
+    setRoomMissing(false)
+    setRoomError(null)
     supplyApi.getSupplyRoom(station.station_id, getToken)
       .then(loc => { setSupplyRoom(loc); setRoomLoading(false) })
-      .catch(e  => { setRoomError(e.message); setRoomLoading(false) })
+      .catch(e  => {
+        if (e.status === 404) {
+          setRoomMissing(true)
+        } else {
+          setRoomError(e.message)
+        }
+        setRoomLoading(false)
+      })
   }, [station, getToken])
+
+  async function handleSetupSupplyRoom() {
+    setCreating(true)
+    setCreateError(null)
+    try {
+      const loc = await supplyApi.createSupplyRoom(station.station_id, getToken)
+      setSupplyRoom(loc)
+      setRoomMissing(false)
+    } catch (e) {
+      setCreateError(e.message)
+    } finally {
+      setCreating(false)
+    }
+  }
 
   useEffect(() => {
     if (!station?.station_id || !supplyRoom) return
@@ -109,12 +135,34 @@ export default function SupplyRoomScreen({ station, onBack, onCountSupplies }) {
         )}
       </div>
 
-      {/* ── Loading / error for room itself ────────────────────────────────── */}
+      {/* ── Loading / error / not-set-up states ─────────────────────────────── */}
       {roomLoading && <div className="sr-center">Loading supply room…</div>}
       {roomError && (
         <div className="sr-error">
           <strong>Could not load supply room</strong>
           <p style={{ margin: '4px 0 0' }}>{roomError}</p>
+        </div>
+      )}
+      {roomMissing && !roomLoading && (
+        <div className="sr-setup">
+          <p className="sr-setup__icon" aria-hidden="true">📦</p>
+          <h2 className="sr-setup__title">Supply room not set up yet</h2>
+          <p className="sr-setup__body">
+            This station does not have a supply room configured.
+            Tap the button below to create one, then use
+            <strong> Receive New Stock</strong> to load your initial inventory.
+          </p>
+          {createError && (
+            <p className="sr-setup__error" role="alert">{createError}</p>
+          )}
+          <button
+            className="btn btn--primary btn--large sr-setup__btn"
+            onClick={handleSetupSupplyRoom}
+            disabled={creating}
+            type="button"
+          >
+            {creating ? 'Setting up…' : 'Set Up Supply Room'}
+          </button>
         </div>
       )}
 

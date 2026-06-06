@@ -12,6 +12,10 @@ export const supplyApi = {
   getSupplyRoom: (stationId, getToken) =>
     apiGet(`${BASE}/stations/${stationId}/supply-room`, getToken),
 
+  /** Create the supply room for a station (get-or-create, Supervisor+) */
+  createSupplyRoom: (stationId, getToken) =>
+    apiPost(`${BASE}/stations/${stationId}/supply-room`, {}, getToken),
+
   /** Aggregate stock summary for a location (items, quantities, par status) */
   getStockSummary: (locationId, getToken) =>
     apiGet(`${BASE}/inventory/locations/${locationId}/stock-summary`, getToken),
