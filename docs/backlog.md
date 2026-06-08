@@ -1,9 +1,9 @@
 # EMS ReadyKit — Active Backlog
-# v1.64 | Updated: 2026-06-06 | Current: Session L
+# v1.67 | Updated: 2026-06-08 | Current: Session M
 # Completed items -> backlog_completed.md
 # Priority: Critical / High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
-# ✅ Sessions A–K (+ K post-close fixes) complete — see backlog_completed.md
+# ✅ Sessions A–L complete — see backlog_completed.md
 
 ---
 
@@ -22,21 +22,12 @@
 ##   ✓ Priority items configured in admin for Unit 712 (AED, LUCAS, O2, Truck Ops)
 ##   ✓ UAT executed against live Azure deployment with real Unit 712 inventory
 ##   ✓ Physical stock count entered for Unit 712 (not seed quantities — actual counts)
-##   ✓ All tests passing (237+ tests green)
+##   ✓ All tests passing (349 tests green — Session L post-close)
 ##   ✓ Code cleanup complete (dead files deleted, CSS consolidated)
 
 ---
 
 ## UPCOMING SESSIONS
-##
-## Session L — Priority Admin UI + Deferred UX (~4 hrs)
-##   RX-B2        PATCH /admin/par-levels/{id} priority fields        ~20 min
-##   RX-F12       Priority toggle + question in par level edit form   ~45 min
-##   RX-F3        Collapse Step 1 for single-station users            ~30 min
-##   RX-F4        Simplify Step 5 for clean PASS                     ~30 min
-##   RX-F5        Restock list persists on SubmittedScreen            ~30 min
-##   RX-F9b       Priority item "last confirmed" display              ~30 min
-##   F-UX10       Scroll-to-card on return from compartment           ~30 min
 ##
 ## Session M — After-Call Reset (~3 hrs)
 ##   RX-B1        POST /checks/usage                                  ~45 min
@@ -136,7 +127,7 @@
 |---|------|-------|--------|-------|
 | LAUNCH-OPS1 | Configure priority items for Unit 712 in production admin | EMS chief | 📋 | After RX-F12 ships: Admin → Vehicles → Unit 712 → Par Levels. Mark AED Battery, LUCAS Device Ready Check, O2 PSI items as priority. Set custom question text. |
 | LAUNCH-OPS2 | Enter actual physical stock count for Unit 712 | EMS chief | 📋 | Seed has par levels (targets) not actual counts. Do physical count before UAT. |
-| LAUNCH-OPS3 | Enter actual stock count for Unit 712 Jump Bag and Unit 710 Jump Bag | EMS chief | 📋 | Same as LAUNCH-OPS2 for both jump bags. |
+| LAUNCH-OPS3 | Enter actual stock count for Unit 712 Jump Bag | EMS chief | 📋 | Unit 710 Jump Bag removed from seed until Unit 710 ambulance is configured. |
 | LAUNCH-OPS4 | Add all EMS team members in admin | EMS chief | 📋 | ~10 team members need Azure AD login + station member assignment with correct role. |
 | LAUNCH-OPS5 | Chief full walkthrough — shift-start check on Unit 712 | EMS chief | 📋 | Complete check in production. Every compartment. Priority items. Truck Operations. Submit. Verify compliance dashboard reflects it. |
 | LAUNCH-OPS6 | Volunteer walkthrough — Earl or equivalent | Volunteer | 📋 | One less tech-comfortable volunteer runs a complete check cold. Observe without helping. Questions = UX issues. |
@@ -338,3 +329,6 @@
 *v1.62 — 2026-06-06: Backlog cleaned. All ✅ Done items moved to backlog_completed.md.*
 *v1.63 — 2026-06-06: Session K complete. Supply Room Redesign (14 items) moved to completed.*
 *v1.64 — 2026-06-06: Session K post-close. Migration 0018 fix + supply room setup endpoint + graceful 404 handling + initial_stock.csv.*
+*v1.65 — 2026-06-08: Session L complete. Automated test suite: 3 persona files + priority items suite. 304 tests passing. See backlog_completed.md for TEST-* items.*
+*v1.66 — 2026-06-08: Seed fix — removed orphan Unit 710 Jump Bag from Newberg Township. Unit 710 has no ambulance seeded; its jump bag was appearing as an orphan in the check wizard Step 1 picker. Unit 712 Jump Bag remains. LAUNCH-OPS3 updated when Unit 710 ambulance is eventually seeded.*
+*v1.67 — 2026-06-08: Session L post-close. Safety + seed integrity tests: test_seed_integrity.py (32 tests against seeded dev DB via seeded_db fixture), test_safety_checks.py (13 tests + 1 xfail documenting requires_full_check enforcement gap). Total: 349 passed, 1 xfailed.*

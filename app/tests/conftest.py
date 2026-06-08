@@ -23,6 +23,8 @@ Auth fixtures:
 
 from __future__ import annotations
 
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
@@ -121,3 +123,47 @@ def auth_supervisor():
 def auth_responder():
     """Authorization headers for a Responder — submit checks and read own vehicle."""
     return {"Authorization": "Bearer test-responder"}
+
+
+# ── Seeded dev DB fixture ───────────────────────────────────────────────────────────────────
+
+# Path to the seeded dev database. Resolved relative to the app/ directory.
+_DEV_DB_PATH = os.path.join(os.path.dirname(__file__), "..", "ems_readykit_dev.db")
+_DEV_DB_URL  = f"sqlite:///{os.path.abspath(_DEV_DB_PATH)}"
+
+
+@pytest.fixture(scope="session")
+def seeded_engine():
+    """
+    Session-scoped engine connected to the seeded dev database (ems_readykit_dev.db).
+    Used exclusively by test_seed_integrity.py to verify that seed.py produced
+    the correct operational data. Read-only by convention — tests must not write.
+
+    If the dev DB does not exist, all seed integrity tests are skipped with a
+    clear message rather than failing with a cryptic SQLAlchemy error.
+    """
+    dev_db = os.path.abspath(_DEV_DB_PATH)
+    if not os.path.exists(dev_db):
+        pytest.skip(
+            f"Dev database not found at {dev_db}. "
+            "Run: cd app && alembic upgrade head && python seed.py",
+            allow_module_level=True,
+        )
+    eng = create_engine(
+        _DEV_DB_URL,
+        connect_args={"check_same_thread": False},
+    )
+    yield eng
+    eng.dispose()
+
+
+@pytest.fixture(scope="function")
+def seeded_db(seeded_engine):
+    """
+    Read-only session against the seeded dev database.
+    No transaction rollback — tests must only query, never write.
+    """
+    SessionFactory = sessionmaker(bind=seeded_engine, autocommit=False, autoflush=False)
+    session = SessionFactory()
+    yield session
+    session.close()

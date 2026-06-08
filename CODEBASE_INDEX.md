@@ -1,5 +1,5 @@
 # EMS ReadyKit — Codebase Index
-# Last updated: 2026-06-06 (Session K post-close: migration 0018 fix, POST /stations/{id}/supply-room, supply room setup state)
+# Last updated: 2026-06-08 (Session L post-close: automated test suite, seed integrity, safety checks)
 # PURPOSE: Load this file at the start of every session to orient quickly.
 # After reading this, load only the sections relevant to the current task.
 # Full project state → docs/project_index.md | Open work → docs/backlog.md
@@ -18,8 +18,8 @@ EMS_ReadyKit/
 │   │   ├── schemas/            # Pydantic request/response schemas
 │   │   └── main.py             # App factory, middleware, router registration
 │   ├── alembic/                # DB migrations (versions/ subdirectory)
-│   ├── tests/                  # pytest suite (250 tests passing)
-│   ├── seed.py                 # Dev seed data
+│   ├── tests/                  # pytest suite (349 tests, 1 xfailed)
+│   ├── seed.py                 # Dev seed data (Newberg 712 BLS + 712 Jump Bag; Marcellus 540 ALS; TEST station)
 │   ├── initial_stock.csv       # 10 seed stock items — upload via Receive New Stock → CSV
 │   └── pyproject.toml          # Dependencies + pytest config
 ├── frontend/                   # React 18 + Vite PWA
@@ -29,9 +29,9 @@ EMS_ReadyKit/
 │       ├── shared/             # Cross-module: api, components, hooks, utils
 │       └── App.jsx             # Router, auth guard, top-level layout
 ├── docs/                       # All project documentation
-│   ├── backlog.md              # ALL open work items (sessions G–J planned)
+│   ├── backlog.md              # ALL open work items — single source of truth
 │   ├── project_index.md        # Technical reference, API structure, stack
-│   ├── backlog_completed.md    # Completed items (Sessions A–F)
+│   ├── backlog_completed.md    # Completed items (Sessions A–L)
 │   ├── uat_test_cases.md       # UAT test cases
 │   └── adr/                   # Architecture Decision Records (ADR-001–005)
 ├── iac/                        # Terraform (Azure infra)
@@ -54,12 +54,12 @@ All routes are prefixed `/api/v1/`. Router registration order in main.py matters
 | `stations.py` | 9 KB | `/stations` | All / Admin | CRUD; GET /my; GET supply-room (404 if missing); POST supply-room (get-or-create + Shelf 1–4) |
 | `station_members.py` | 8 KB | `/stations/{id}/members` | Supervisor+ | Membership management |
 | `vehicles.py` | 6 KB | `/vehicles` | All + membership | Vehicle CRUD; OOS/RTS status toggle |
-| `checks.py` | 20 KB | `/checks/daily` | All + membership | Check wizard: create, draft save, line-item updates, submit; `GET /daily/last-readings` returns last quantity_found + readings per item for vehicle/location |
-| `check_history.py` | 7 KB | `/checks/daily` | All / Supervisor+ | Read-only history; soft-delete; acknowledgement; `my-history` accepts optional `station_id` filter |
-| `repair_requests.py` | 9 KB | `/vehicles/{id}/repair-requests` | All roles | File, update, resolve repair requests |
-| `inventory.py` | 28 KB | `/inventory` | All + membership | Locations, compartments, par levels, lots, stock summary, CSV receive. `GET /supply-catalog?station_id=` (SR-B1). `PATCH /supply-catalog/items/{id}/count` (SR-B2). `PUT /lots/{id}` (Supervisor+). Transfer endpoint removed (SR-B5). |
-| `items.py` | 3 KB | `/items` | All | Item catalog search and detail |
-| `admin.py` | 29 KB | `/admin` | Admin (most) / Supervisor+ | Stations, vehicles, items, par levels, CSV import, members |
+| `checks.py` | 20 KB | `/checks/daily` | All + membership | Check wizard: create with embedded line_items; `_compute_line_item_status`; `_auto_decrement_supply_room` (SR-B4); `GET /daily/last-readings` returns last quantity_found + readings per item for vehicle/location |
+| `check_history.py` | 7 KB | `/checks/daily` | All / Supervisor+ | Read-only history; soft-delete; acknowledgement; hard-delete (Admin only); `my-history` accepts optional `station_id` filter |
+| `repair_requests.py` | 9 KB | `/vehicles/{id}/repair-requests` | All roles | File, update, resolve repair requests; `resolution_notes` required on RESOLVED |
+| `inventory.py` | 28 KB | `/inventory` | All + membership | Locations, compartments, par levels, lots, stock summary, CSV receive. `GET /supply-catalog?station_id=` (SR-B1). `PATCH /supply-catalog/items/{id}/count` (SR-B2). `PUT /lots/{id}` (SR-F7). `PATCH /inventory/items/{id}/status` marks/clears damaged — uses `actor=`/`metadata=` kwargs on write_audit_event. |
+| `items.py` | 3 KB | `/items` | Supervisor+ (create/edit) / All (read) | Item catalog; `POST /items` is SUPERVISOR_PLUS (not admin-only); deactivation is ADMIN_ONLY via admin router |
+| `admin.py` | 29 KB | `/admin` | Admin (most) / Supervisor+ | Stations (Admin only), vehicles, items, par levels, CSV import. `PATCH /admin/par-levels/{id}` requires `min_quantity` + `max_quantity` + optional `priority_check`/`priority_question`. Item deactivation: `PATCH /admin/items/{id}/deactivate` is ADMIN_ONLY. |
 | `audit.py` | 2 KB | `/audit` | Supervisor+ | Paginated audit event log |
 
 ### Key shared patterns (deps.py)
@@ -84,33 +84,33 @@ from ems_readykit.routers.deps import (
 | `station.py` | `Station` | primary_color (0011), call_sign (0012) |
 | `vehicle.py` | `Vehicle` | vehicle_color (0011); status ACTIVE/OOS |
 | `inventory_location.py` | `InventoryLocation` | LocationType: VEHICLE, JUMP_BAG, STATION_SUPPLY_ROOM |
-| `compartment.py` | `Compartment` | sort_order, location_description |
-| `par_level.py` | `ParLevel` | item ↔ compartment; min/max quantity; active flag (0010); priority_check + priority_question (0015) |
+| `compartment.py` | `Compartment` | sort_order, location_descriptor, `requires_full_check` (bool, migration 0015) — when True, No Change is blocked for that compartment (Truck Operations uses this) |
+| `par_level.py` | `ParLevel` | item ↔ compartment; min/max quantity; active flag (0010); `priority_check` + `priority_question` (0015); `is_damaged` (bool) |
 | `stock_lot.py` | `StockLot` | lot_number, expiration_date, quantity |
-| `item.py` | `Item` | ItemCheckType enum: SUPPLY, MEASUREMENT, FUNCTIONAL, DATE_RECORD, DOCUMENT; `station_supply` bool (migration 0017) |
-| `daily_inventory_check.py` | `DailyInventoryCheck` | status computed server-side; started_by/completed_by; vehicle_id nullable + location_id (0013) for portable checks |
-| `check_line_item.py` | `CheckLineItem` | quantity_found/needed; measurement_value; functional_pass; LineItemStatus |
+| `item.py` | `Item` | ItemCheckType enum: SUPPLY, MEASUREMENT, FUNCTIONAL, DATE_RECORD, DOCUMENT; `station_supply` bool (migration 0017, default True); `measurement_minimum`/`measurement_maximum`; `recurrence_days` |
+| `daily_inventory_check.py` | `DailyInventoryCheck` | CheckStatus: PASS/NEEDS_RESTOCK/FAIL; status computed server-side; vehicle_id nullable + location_id (0013) for portable checks; soft-delete fields (deleted_at/by/reason, force_deleted) |
+| `check_line_item.py` | `CheckLineItem` | LineItemStatus: OK/SHORT/LOW/MISSING/EXPIRED/FAIL/OVERDUE; quantity_found/needed; measurement_value; functional_pass; date_value |
 | `controlled_substance_check.py` | `ControlledSubstanceCheck` | dual-signature; ALS vehicles only |
-| `repair_request.py` | `RepairRequest` | OPEN → IN_PROGRESS → RESOLVED; corrective_action prefix sentinel |
+| `repair_request.py` | `RepairRequest` | OPEN → IN_PROGRESS → RESOLVED; `resolution_notes` required on resolve |
 | `station_member.py` | `StationMember` | user_id = email (JWT preferred_username) |
-| `audit_event.py` | `AuditEvent` | Immutable; write via `core/audit.py` |
-| `stock_transfer.py` | `StockTransfer` | Transfer record: from/to location, item, qty, FIFO lot snapshot; from_location_id nullable (null = external receipt) |
+| `audit_event.py` | `AuditEvent` | Immutable; write via `core/audit.py::write_audit_event(actor=, metadata=)` |
+| `stock_lot.py` | `StockLot` | Transfer record: from/to location, item, qty, FIFO lot snapshot |
 
 ### Domain model hierarchy
 ```
 Station
  └── Vehicle (ALS / BLS / QRV)
       ├── InventoryLocation (VEHICLE — auto-created)
-      │    └── Compartment
-      │         ├── ParLevel  (item → min/max qty; active flag)
+      │    └── Compartment (requires_full_check on Truck Operations)
+      │         ├── ParLevel  (item → min/max qty; priority_check; is_damaged)
       │         └── StockLot  (lot# + expiry + qty)
-      └── DailyInventoryCheck (vehicle_id nullable since 0013)
-           ├── CheckLineItem  (per-item result)
+      └── DailyInventoryCheck
+           ├── CheckLineItem  (per-item result; LineItemStatus)
            ├── ControlledSubstanceCheck
            └── RepairRequest (OPEN→IN_PROGRESS→RESOLVED)
 
 InventoryLocation (JUMP_BAG / STATION_SUPPLY_ROOM — station-scoped)
- └── DailyInventoryCheck (via location_id — portable location checks, 0013)
+ └── DailyInventoryCheck (via location_id — portable location checks)
 
 StationMember  (user ↔ station)
 AuditEvent     (immutable log)
@@ -123,29 +123,41 @@ AuditEvent     (immutable log)
 | File | Purpose |
 |------|---------|
 | `config.py` | `get_settings()` — env vars, feature flags, is_production, is_sqlite |
-| `auth.py` | `resolve_current_user()`, `CurrentUser`, role constants, Azure AD JWT RS256 validation |
+| `auth.py` | `resolve_current_user()`, `CurrentUser`, role constants, Azure AD JWT RS256 validation; test tokens: `Bearer test-{role}` → `test-{role}@ems.local` |
 | `database.py` | `get_db()` FastAPI dependency; engine + session factory |
-| `audit.py` | `write_audit_event()` — use this everywhere, not inline AuditEvent() |
+| `audit.py` | `write_audit_event(actor=, metadata=)` — always use this, never inline AuditEvent() |
 | `logging.py` | `configure_logging()`, `set_request_id()` |
 
 ---
 
 ## Backend — Tests (app/tests/)
 
-| File | Size | Coverage |
-|------|------|----------|
-| `test_routers.py` | 67 KB | Main router integration tests (bulk of 217 tests) |
-| `test_supply_room.py` | 12 KB | Supply room: SR-B1/B2/B3/B4 (10+4+2+1 tests), transfer history; SR-B5 transfer removed |
-| `test_repair_requests.py` | 17 KB | Repair request lifecycle |
-| `test_station_membership.py` | 15 KB | RBAC + station membership enforcement |
-| `test_check_history.py` | 15 KB | Check history, soft-delete, acknowledgement |
-| `test_admin_items.py` | 12 KB | Admin item management, par levels, CSV |
-| `test_models.py` | 7 KB | Model-level unit tests |
-| `conftest.py` | 4 KB | Shared fixtures: in-memory SQLite, test client, user factories |
+| File | Size | Coverage | DB Fixture |
+|------|------|----------|------------|
+| `conftest.py` | 5 KB | Fixtures: in-memory SQLite (`db`), seeded dev DB (`seeded_db`), test client, auth headers | — |
+| `test_routers.py` | 67 KB | Main router integration tests | `db` |
+| `test_supply_room.py` | 12 KB | Supply room SR-B1/B2/B3/B4 | `db` |
+| `test_repair_requests.py` | 17 KB | Repair request lifecycle | `db` |
+| `test_station_membership.py` | 15 KB | RBAC + station membership enforcement | `db` |
+| `test_check_history.py` | 15 KB | Check history, soft-delete, acknowledgement | `db` |
+| `test_admin_items.py` | 12 KB | Admin item management, par levels, CSV | `db` |
+| `test_models.py` | 7 KB | Model-level unit tests | `db` |
+| `test_priority_items.py` | — | AED + LUCAS all check types; legal immutability; FAIL preservation; priority flag DB persistence | `db` |
+| `test_persona_responder.py` | — | Jamie (Responder): all 5 check types; FAIL+comment+continue; multiple checks/day; role boundary | `db` |
+| `test_persona_supervisor.py` | — | Earl (Supervisor): check history; damaged item regression (write_audit_event kwargs); repair requests; station today view | `db` |
+| `test_persona_admin.py` | — | Jennifer (Admin): supply room decrement; FUNCTIONAL items excluded; role alias regression; admin-only deactivation boundary | `db` |
+| `test_safety_checks.py` | — | O2 PSI below minimum → LOW; date recurrence overdue → OVERDUE; requires_full_check enforcement (xfail — not yet in router) | `db` |
+| `test_seed_integrity.py` | — | Verifies seeded dev DB: Unit 712, PC 8, AED/LUCAS items, O2 PSI minimums, Truck Operations, jump bags | `seeded_db` |
 
-Run tests: `cd app && pytest` (uses SQLite in-memory; no external services needed) — **250 tests passing**
+**Run:** `cd app; pytest` — **349 tests passing, 1 xfailed** (requires_full_check enforcement — SEED-GAP2)
 
-**Test isolation note:** Route handlers that call `db.commit()` release the active SQLAlchemy savepoint. SQLite's in-memory engine does not fully undo released savepoints on outer transaction rollback. Any fixture creating a row with a UNIQUE constraint must use **get-or-create semantics** (see `test_item` and `vehicle_location` fixtures in `test_supply_room.py` for the pattern).
+**Two DB fixtures — do not mix:**
+- `db` — in-memory SQLite, empty, rolls back after each test. Use for all API/logic tests.
+- `seeded_db` — read-only connection to `ems_readykit_dev.db`. Use ONLY in `test_seed_integrity.py`. Skips if dev DB absent. Never write to it.
+
+**Test isolation note:** Route handlers that call `db.commit()` release the active SQLAlchemy savepoint. Any fixture creating a row with a UNIQUE constraint must use get-or-create semantics. See `test_item` and `vehicle_location` fixtures in `test_supply_room.py`.
+
+**Known xfail:** `test_safety_checks.py::TestRequiresFullCheck::test_requires_full_check_true_blocks_no_change` — documents that the router does not yet enforce `requires_full_check=True` on Truck Operations compartment. Must be fixed before launch (SEED-GAP2).
 
 ---
 
@@ -157,15 +169,15 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 | File | Size | Purpose |
 |------|------|---------|
 | `index.jsx` | 15 KB | Wizard orchestration, step routing, draft state |
-| `components/Step1Vehicle.jsx` | 14 KB | Vehicle selection + CS check toggle |
-| `components/Step2Compartments.jsx` | 14 KB | Priority items section (inline confirm) + compartment list with reading confirmations (MEASUREMENT/FUNCTIONAL/DATE_RECORD with last values), No Change / Modify / stock preview. Short count based on last check quantity_found, not stock lots. |
+| `components/Step1Vehicle.jsx` | 14 KB | Vehicle/location selection + CS check toggle; detects `draft._supplyRoom` for supply room wizard path |
+| `components/Step2Compartments.jsx` | 14 KB | Priority items section (inline confirm) + compartment list with reading confirmations; No Change / Modify / stock preview. Short count based on last check quantity_found. |
 | `components/Step3Items.jsx` | 7 KB | Item counting per compartment |
 | `components/ItemRow.jsx` | 16 KB | Per-item row — all check types (supply/measurement/functional/date) |
 | `components/Step4Reconcile.jsx` | 13 KB | Flagged items review |
 | `components/Step4Review.jsx` | 7 KB | Final summary before submit |
 | `components/Step5Submit.jsx` | 9 KB | Submission + CS check dual-sign |
 | `components/SubmittedScreen.jsx` | 6 KB | Post-submit confirmation |
-| `components/DraftBanner.jsx` | 5 KB | Resume-draft prompt on load |
+| `components/DraftBanner.jsx` | 5 KB | Resume-draft prompt on load; last-known station cached in localStorage |
 | `components/WizardProgress.jsx` | 3 KB | Top progress bar |
 
 ### supervisor/  (Compliance dashboard)
@@ -179,7 +191,7 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 | `components/ExpiringItemsPanel.jsx` | — | SUP-F3: expandable expiring lots panel |
 | `components/SupplyLowStockPanel.jsx` | — | SR-F5: expandable supply low-stock panel; red if out, amber if below par |
 
-### admin/  (Station administration)
+### admin/  (Station administration — Option B layout: station header + 3 nav cards)
 | File | Size | Purpose |
 |------|------|---------|
 | `index.jsx` | 21 KB | Admin hub: 3 nav cards → Members / Items / Vehicles screens |
@@ -187,25 +199,22 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 | `components/MemberList.jsx` | 3 KB | Active members list |
 | `components/AddMemberForm.jsx` | 4 KB | Add/invite member form |
 | `components/VehiclesScreen.jsx` | 25 KB | Vehicle + compartment CRUD, par assignment entry |
-| `components/ItemCatalog.jsx` | 9 KB | Item search + list |
+| `components/ItemCatalog.jsx` | 9 KB | Item search + list (also reused as View Supplies interface in supply room) |
 | `components/ItemForm.jsx` | 16 KB | Add/edit item form |
-| `components/ItemAssignments.jsx` | 18 KB | Par level assignment — item-centric (vehicle→compartment cascade) |
-| `components/CompartmentParLevels.jsx` | — | Par level assignment — vehicle-centric (per-compartment item list with add/edit/remove) |
+| `components/ItemAssignments.jsx` | 18 KB | Par level assignment — item-centric |
+| `components/CompartmentParLevels.jsx` | — | Par level assignment — vehicle-centric (per-compartment item list) |
 | `components/CsvImport.jsx` | 8 KB | Bulk item import with template download |
 
 ### supply-room/  (Station Supplies — redesigned Session K)
 | File | Size | Purpose |
 |------|------|---------|
-| `index.jsx` | 6 KB | Landing: 2 large cards (View Supplies, Count Supplies) + secondary text links. Detects 404 → shows setup state with "Set Up Supply Room" button (calls POST supply-room). |
-| `supply-room.css` | — | All supply-room CSS using design tokens. RestockVehicle styles removed (SR-F6). `.sr-setup` setup-state styles added. |
-| `api/supplyApi.js` | 3 KB | API: getSupplyRoom, createSupplyRoom (POST), catalog (SR-B1), patchCount (SR-B2), putLot (SR-F7), CSV, station locations |
+| `index.jsx` | 6 KB | Landing: 2 large cards (View Supplies, Count Supplies). Detects 404 → setup state with "Set Up Supply Room" button (calls POST supply-room). |
+| `supply-room.css` | — | All supply-room CSS using design tokens |
+| `api/supplyApi.js` | 3 KB | getSupplyRoom, createSupplyRoom (POST), catalog (SR-B1), patchCount (SR-B2), putLot (SR-F7), CSV, station locations |
 | `components/SupplyCatalogView.jsx` | — | SR-F3: catalog from SR-B1; "On hand / Par" color-coded; inline count correction (Supervisor+); lot expiry editor (SR-F7) |
-| `components/StockSummaryView.jsx` | 6 KB | Legacy stock summary view — superseded by SupplyCatalogView for View Supplies |
-| `components/RestockVehiclePanel.jsx` | 9 KB | Retired — no longer imported or routed. Kept for historical reference. |
 | `components/ReceiveStockPanel.jsx` | 8 KB | Manual add + CSV bulk upload |
 | `components/TransferHistory.jsx` | 4 KB | Inbound/outbound transfer log |
-
-**Key architectural note — vehicle location_id:** `VehicleRead` does not expose `location_id`. To get a vehicle's inventory location ID, call `GET /inventory/locations?station_id=` and match on `vehicle_id + location_type === 'VEHICLE'`. This is the same pattern used by the check wizard.
+| `components/RestockVehiclePanel.jsx` | 9 KB | Retired — no longer imported or routed. Kept for historical reference. |
 
 ### vehicles/  (V&E Status)
 | File | Size | Purpose |
@@ -230,7 +239,7 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 |------|---------|
 | `client.js` | Axios instance; base URL from VITE_API_BASE_URL; auth token injector |
 | `authConfig.js` | MSAL config: tenant ID, client ID, scopes |
-| `stationsApi.js` | Shared `getMyStations` — imported by checkApi + adminApi (deduplication) |
+| `stationsApi.js` | Shared `getMyStations` — imported by checkApi + adminApi |
 
 ### hooks/
 | File | Purpose |
@@ -243,15 +252,21 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 ### components/
 | File | Purpose |
 |------|---------|
-| `UserPill.jsx` | Auth'd user display + role badge (top-right of every screen) |
+| `UserPill.jsx` | Auth'd user display + role badge |
 | `ItemSearchCombobox.jsx` | Typeahead search with 150ms debounce, keyboard nav, text highlighting |
 | `LastCheckBanner.jsx` | Last check status banner for home screen |
-| `ColorPickerWidget.jsx` | Station/vehicle color picker (shared across admin screens) |
+| `ColorPickerWidget.jsx` | Station/vehicle color picker |
 | `ErrorBoundary.jsx` | Top-level error boundary |
 | `Modal.jsx` | Reusable modal dialog |
-| `DevBanner.jsx` | Dev/staging environment indicator |
+| `DevBanner.jsx` | Dev/staging environment indicator (reads VITE_API_BASE_URL) |
 | `StatusBadge.jsx` | Check/repair status badge |
 | `Spinner.jsx` | Loading indicator |
+
+### utils/
+| File | Purpose |
+|------|---------|
+| `roleGuard.js` | `canAccess(user, requiredRole)` — includes 'admin' alias for 'Administrator' (Session J regression fixed) |
+| `statusCalc.js` | `deriveDraftItemStatus()` — frontend mirror of `_compute_line_item_status` in checks.py. Must stay in sync. |
 
 ### pages/
 | File | Purpose |
@@ -266,13 +281,36 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 18 migrations applied (0001–0018, plus 0003a branch). Run automatically at startup via `startup.sh`.
 To add a new migration: `cd app && alembic revision --autogenerate -m "description"`
 
-Key recent migrations:
-- **0013** — `vehicle_id` nullable on `daily_inventory_checks`; adds `location_id` FK for portable checks
-- **0014** — `stock_transfers` table; backfills 4 default compartments for any supply room with zero compartments
-- **0015** — `priority_check` + `priority_question` on `par_levels`; `requires_full_check` on `compartments`
-- **0016** — `is_damaged` (bool) on `check_line_items`; batch mode
-- **0017** — `station_supply` (bool NOT NULL DEFAULT TRUE) on `items`; batch mode; SR-M1
-- **0018** — backfills `STATION_SUPPLY_ROOM` location + Shelf 1–4 compartments for active stations that lack one
+| Migration | Description |
+|-----------|-------------|
+| 0001–0009 | Initial schema, stations, vehicles, checks, audit, items (ai_tags, alternate_names, barcode) |
+| 0010 | `active` flag on par_levels |
+| 0011 | `primary_color` on stations; `vehicle_color` on vehicles |
+| 0012 | `call_sign` on stations |
+| 0013 | `vehicle_id` nullable on daily_inventory_checks; `location_id` FK for portable checks |
+| 0014 | `stock_transfers` table; backfills 4 default compartments for supply rooms with zero |
+| 0015 | `priority_check` + `priority_question` on par_levels; `requires_full_check` on compartments |
+| 0016 | `is_damaged` (bool) on check_line_items; batch mode |
+| 0017 | `station_supply` (bool NOT NULL DEFAULT TRUE) on items; batch mode; SR-M1 |
+| 0018 | Backfills STATION_SUPPLY_ROOM location + Shelf 1–4 compartments for active stations lacking one |
+
+---
+
+## Seed Data (app/seed.py)
+
+Idempotent — safe to re-run. Reseed sequence: `Remove-Item ems_readykit_dev.db; alembic upgrade head; python seed.py`
+
+| Station | Vehicles / Locations | Notes |
+|---------|---------------------|-------|
+| Newberg Township Station 1 | Unit 712 (BLS) + Unit 712 Jump Bag | 26+ compartments on 712; PC 8 has all AED/LUCAS items |
+| Marcellus Township Station 1 | Unit 540 (ALS) | ALS drug cabinet (PC 9 ALS) |
+| ⚠ TEST STATION | Unit TEST (QRV) | 2 compartments, 7 items, all check types; dev only |
+
+**Unit 710 Jump Bag:** removed from seed (v1.66) — Unit 710 has no ambulance yet. Add when Unit 710 ambulance is configured.
+
+**Priority items seeded:** AED Battery (`priority_check=True`, `priority_question="AED shows READY?"`). LUCAS Device Ready Check has priority_check but no question set yet (LAUNCH-OPS1).
+
+**Non-supply items** (`station_supply=False`): AED/LUCAS items, all medications and drug bags. These are excluded from the supply catalog by SR-B1 and station_supply flag.
 
 ---
 
@@ -280,10 +318,11 @@ Key recent migrations:
 
 | Resource | Value |
 |----------|-------|
-| Backend (Azure App Service) | https://app-ems-readykit-dev.azurewebsites.net |
+| Backend (Azure App Service B1) | https://app-ems-readykit-dev.azurewebsites.net |
 | Frontend (Azure Static Web Apps) | https://lively-bush-0ed75ca10.7.azurestaticapps.net |
 | API docs (non-prod only) | https://app-ems-readykit-dev.azurewebsites.net/docs |
 | CI/CD trigger | Push to `main` → GitHub Actions |
+| Terraform | `iac/Terraform/` — delete delete-lock before apply |
 
 ---
 
@@ -291,25 +330,27 @@ Key recent migrations:
 
 | File | Issue |
 |------|-------|
-| `app/ems_readykit_dev.db` | Should not be committed; add to .gitignore, run `git rm --cached` |
-| `deploy.zip` | Build artifact in repo root; should be in .gitignore |
-| `app/tests/test_routers.py` | 67 KB — candidate for splitting by domain area |
-| `frontend/src/modules/admin/index.jsx` | 21 KB — candidate for sub-screen extraction |
-| `frontend/src/modules/admin/components/VehiclesScreen.jsx` | 25 KB — candidate for splitting |
-| `frontend/src/modules/check-wizard/components/ItemRow.jsx` | 16 KB — complex, touch carefully |
-| `frontend/staticwebapp.config.json` | NEW — CSP, HSTS, X-Frame-Options, SWA routing fallback (SEC-PRE1) |
-| `frontend/.eslintrc.cjs` | NEW — ESLint 8 config (eslint:recommended + react-hooks) |
+| `app/ems_readykit_dev.db` | Should not be committed; `git rm --cached app/ems_readykit_dev.db` |
+| `deploy.zip` | Build artifact in repo root; add to .gitignore + `git rm --cached deploy.zip` |
+| `app/tests/test_routers.py` | 67 KB — split by domain when it next needs major additions |
+| `frontend/src/modules/admin/components/VehiclesScreen.jsx` | 25 KB — extract sub-components when next modified |
+| CSS patch files | `module-card-fix.css`, `submitted-screen-patch.css`, `wizard-station.css`, `wizard.css` in src root — consolidate into module CSS files |
+| `frontend/src/styles/wizard.css` | Should be in `modules/check-wizard/` — move when next modified |
+| `Step3Items.jsx` `_damagedOverrides` comment | Abandoned approach — remove on next touch |
 
 ---
 
-## Next Sessions (from backlog.md)
+## Next Session
 
 | Session | Focus | Key Items |
 |---------|-------|-----------|
-| **G** | Supply Room & Restocking | ✅ Complete |
-| **Pre-H** | Code Cleanup + Security | ✅ Complete |
-| **H** | Security + Deployment + RX-F7/F1/F2/F8/F9 | ✅ Complete |
-| **I** | Reading confirmations, vehicle on-hand fix, No Change bugs | ✅ Complete |
-| **J** | UX Polish, CH-F7/F8 CSS, B-E8, DMG-F1 | ✅ Complete |
-| **K** | Supply Room Redesign (SR-M1/SEED1/B1–B5/F1–F7) | ✅ Complete — 250 tests passing |
-| **L** | Priority Admin UI + Deferred UX | RX-B2, RX-F12, RX-F3/F4/F5, RX-F9b, F-UX10 |
+| **M** | After-Call Reset | RX-B1 (`POST /checks/usage`), RX-F6 (After-Call Reset flow) |
+| **N** | Retirement + Settings | RET-M1-M3 migrations, RET-B1-B6 endpoints, RET-F1-F5 UI, S-F1/F3/F6-F8 settings |
+| **O** | UAT Dress Rehearsal + Launch | LAUNCH-OPS1-9, UAT-2-11 |
+
+**Pre-launch blockers not yet resolved:**
+- SEED-GAP2: `requires_full_check` enforcement in router (xfailed test documents this)
+- RX-F12: Priority toggle UI in admin par level form
+- RX-F10: Responder-facing language replacement (jargon → plain English)
+- RX-F11: First-run tutorial (3 screens, shown once)
+- SUP-F1: Open repair count on compliance dashboard

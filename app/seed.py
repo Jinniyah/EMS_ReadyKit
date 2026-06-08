@@ -3,12 +3,15 @@ seed.py
 Seed data for EMS ReadyKit development database.
 
 Stations seeded:
-    1. Newberg Township Station 1 — Ambulance 712 (BLS) + Unit 712 Jump Bag + Unit 710 Jump Bag
+    1. Newberg Township Station 1 — Ambulance 712 (BLS) + Unit 712 Jump Bag
     2. Marcellus Township Station 1 — Ambulance 540 (ALS)
     3. ⚠ TEST STATION — Dev Only (Unit TEST QRV — 2 compartments, 7 items, all check types)
 
 Jump bags are one-per-ambulance, named "Unit NNN Jump Bag" so they sort
 alphabetically alongside their parent unit in Step 1 of the check wizard.
+
+Note: Unit 710 jump bag was removed from Newberg seed — Unit 710 has no ambulance
+seeded yet and its jump bag appeared as an orphan in the check wizard.
 
 The item catalog is SHARED across all stations. The same item (e.g. "Adult BVM")
 appears in both trucks — but each truck has its own compartments and its own
@@ -934,24 +937,16 @@ def seed(db: Session) -> None:
     if created_712:
         print("  Created Unit 712 Jump Bag location")
 
-    jb_710, created_710 = get_or_create_jump_bag_location(
-        db, station_id=newberg.station_id, label="Unit 710 Jump Bag"
-    )
-    if created_710:
-        print("  Created Unit 710 Jump Bag location")
-
     print("  Building Unit 712 ambulance inventory...")
     build_ambulance_inventory(db, loc712, is_als=False)
     print("  Building Unit 712 Jump Bag inventory...")
     build_jump_bag(db, jb_712)
-    print("  Building Unit 710 Jump Bag inventory...")
-    build_jump_bag(db, jb_710)
 
     newberg_comp_count = db.query(Compartment).filter(
-        Compartment.location_id.in_([loc712.location_id, jb_712.location_id, jb_710.location_id])
+        Compartment.location_id.in_([loc712.location_id, jb_712.location_id])
     ).count()
     newberg_par_count = db.query(ParLevel).filter(
-        ParLevel.location_id.in_([loc712.location_id, jb_712.location_id, jb_710.location_id])
+        ParLevel.location_id.in_([loc712.location_id, jb_712.location_id])
     ).count()
 
     # =========================================================================
@@ -1211,7 +1206,6 @@ def seed(db: Session) -> None:
   Newberg Township Station 1:
     Unit 712 BLS:         location_id={loc712.location_id}
     Unit 712 Jump Bag:    location_id={jb_712.location_id}
-    Unit 710 Jump Bag:    location_id={jb_710.location_id}
     Compartments (all):   {newberg_comp_count}
     Par levels (all):     {newberg_par_count}
     Station ID:           {newberg.station_id}

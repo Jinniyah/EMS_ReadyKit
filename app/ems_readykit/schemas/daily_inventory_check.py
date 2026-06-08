@@ -49,7 +49,12 @@ class DailyInventoryCheckBase(BaseModel):
     vehicle_id:   Optional[int] = Field(default=None, gt=0)
     location_id:  Optional[int] = Field(default=None, gt=0)
     station_id:   int           = Field(..., gt=0)
-    check_date:   str           = Field(..., examples=["2026-05-23"])
+    check_date:   Optional[str] = Field(
+        default=None,
+        examples=["2026-05-23"],
+        description="Accepted for backward compatibility but ignored server-side. "
+                    "check_date is derived from the timestamp field.",
+    )
     performed_by: Optional[str] = Field(default=None, max_length=100)
     timestamp:    datetime
     notes:        Optional[str] = Field(default=None, max_length=500)
@@ -62,8 +67,8 @@ class DailyInventoryCheckBase(BaseModel):
 
     @field_validator("check_date")
     @classmethod
-    def validate_check_date_format(cls, v: str) -> str:
-        if not _DATE_PATTERN.match(v):
+    def validate_check_date_format(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and not _DATE_PATTERN.match(v):
             raise ValueError("check_date must be in YYYY-MM-DD format.")
         return v
 

@@ -1,6 +1,6 @@
 # CLAUDE.md — AI Development Rules for EMS ReadyKit
-# Last updated: 2026-06-06
-# Updated: Session K post-close — migration 0018 fix; supply room setup endpoint + frontend setup state
+# Last updated: 2026-06-08
+# Updated: Session L post-close — 349 tests; seed integrity + safety check test files; seeded_db fixture
 # Load this file at the start of every session alongside CODEBASE_INDEX.md.
 
 ---
@@ -113,10 +113,23 @@ status values from the client. Business rules:
 ### Tests
 - Test DB: SQLite in-memory (conftest.py); no external services needed
 - Run: `cd app; pytest`
-- Test count target: all tests green before any commit
-- When adding a new endpoint, add tests to the appropriate test file
-- `test_routers.py` is 67 KB — prefer adding to the domain-specific file
-  (`test_repair_requests.py`, `test_check_history.py`, etc.) when one exists
+- Test count: **349 tests** (Session L post-close baseline) — all must be green before any commit
+- **Persona test files** (Session L, do not delete):
+  - `tests/test_priority_items.py` — AED + LUCAS; runs first; legal audit trail assertions
+  - `tests/test_persona_responder.py` — Jamie (tired responder); all 5 check types; FAIL + comment flow
+  - `tests/test_persona_supervisor.py` — Earl (non-tech supervisor); damaged item regression; repair requests
+  - `tests/test_persona_admin.py` — Jennifer (admin); supply room decrement; role alias regression
+  - `tests/test_safety_checks.py` — O2 PSI below minimum; date recurrence overdue; requires_full_check (xfail until SEED-GAP2 implemented)
+  - `tests/test_seed_integrity.py` — verifies seeded dev DB is correct; uses `seeded_db` fixture (not `db`)
+- **Two DB fixtures** — do not mix them:
+  - `db` — in-memory SQLite, starts empty, rolls back after each test; use for all API/logic tests
+  - `seeded_db` — read-only connection to `ems_readykit_dev.db`; use ONLY in `test_seed_integrity.py`;
+    skips automatically if dev DB does not exist; never write to it in tests
+- `test_routers.py` is 67 KB — prefer adding to domain-specific files when one exists
+- **TestClient.delete() body** — Starlette TestClient does not support `json=` or `content=` on DELETE;
+  use `client.request("DELETE", url, content=json.dumps(body), headers={..."Content-Type": "application/json"})` instead
+- **write_audit_event kwargs** — always `actor=` and `metadata=`; never `performed_by=` or `detail=` (Session J bug)
+- When adding a new endpoint, add tests to the appropriate persona or domain test file
 
 ---
 
