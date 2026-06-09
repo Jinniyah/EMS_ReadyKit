@@ -604,7 +604,7 @@ class TestCheckEndpoints:
         }, headers=auth_admin)
         assert response.status_code == 201
         assert response.json()["status"] == "PASS"
-        assert response.json()["performed_by"] == "Test Administrator"
+        assert response.json()["performed_by"] == "test-administrator@ems.local"
 
     def test_create_daily_check_invalid_date_format_returns_422(self, client, auth_admin):
         sid, vid = self._make_station_and_vehicle(client, auth_admin)
@@ -669,10 +669,13 @@ class TestStationDateRangeChecks:
 
     def test_date_range_returns_checks_in_window(self, client, auth_admin):
         sid, vid = self._make_sv(client, auth_admin)
-        # Submit two checks on different dates within the window
-        client.post("/api/v1/checks/daily", json={"vehicle_id": vid, "station_id": sid, "check_date": "2026-05-01", "timestamp": _utcnow()}, headers=auth_admin)
-        client.post("/api/v1/checks/daily", json={"vehicle_id": vid, "station_id": sid, "check_date": "2026-05-10", "timestamp": _utcnow()}, headers=auth_admin)
-        client.post("/api/v1/checks/daily", json={"vehicle_id": vid, "station_id": sid, "check_date": "2026-06-01", "timestamp": _utcnow()}, headers=auth_admin)
+        # Timestamps must land on the intended dates (server derives check_date from timestamp)
+        ts_may01  = datetime(2026, 5,  1, 12, 0, 0, tzinfo=timezone.utc).isoformat()
+        ts_may10  = datetime(2026, 5, 10, 12, 0, 0, tzinfo=timezone.utc).isoformat()
+        ts_june01 = datetime(2026, 6,  1, 12, 0, 0, tzinfo=timezone.utc).isoformat()
+        client.post("/api/v1/checks/daily", json={"vehicle_id": vid, "station_id": sid, "check_date": "2026-05-01", "timestamp": ts_may01}, headers=auth_admin)
+        client.post("/api/v1/checks/daily", json={"vehicle_id": vid, "station_id": sid, "check_date": "2026-05-10", "timestamp": ts_may10}, headers=auth_admin)
+        client.post("/api/v1/checks/daily", json={"vehicle_id": vid, "station_id": sid, "check_date": "2026-06-01", "timestamp": ts_june01}, headers=auth_admin)
         response = client.get(f"/api/v1/checks/daily/station/{sid}?from=2026-05-01&to=2026-05-31", headers=auth_admin)
         assert response.status_code == 200
         dates = [c["check_date"] for c in response.json()]
@@ -914,7 +917,7 @@ class TestRBAC:
             "vehicle_id": vid, "station_id": sid, "check_date": "2026-08-01", "timestamp": _utcnow(),
         }, headers=auth_responder)
         assert response.status_code == 201
-        assert response.json()["performed_by"] == "Test Responder"
+        assert response.json()["performed_by"] == "test-responder@ems.local"
 
     def test_responder_cannot_view_daily_check_detail_returns_403(self, client, db, auth_admin, auth_responder):
         """Session C: responder needs membership to submit, then gets 403 on detail (Supervisor+ only)."""

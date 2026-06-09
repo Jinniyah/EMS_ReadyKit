@@ -68,7 +68,7 @@ def _check(
     vehicle_id: int,
     station_id: int,
     *,
-    performed_by: str = "Test Responder",
+    performed_by: str = "test-responder@ems.local",
     check_date: str = "2026-05-23",
     check_status: CheckStatus = CheckStatus.FAIL,
 ) -> DailyInventoryCheck:
@@ -100,8 +100,8 @@ class TestMyCheckHistory:
     def test_returns_own_checks(self, client, db, auth_responder):
         s = _station(db)
         v = _vehicle(db, s.station_id)
-        _check(db, v.vehicle_id, s.station_id, performed_by="Test Responder")
-        _check(db, v.vehicle_id, s.station_id, performed_by="Test Responder")
+        _check(db, v.vehicle_id, s.station_id, performed_by="test-responder@ems.local")
+        _check(db, v.vehicle_id, s.station_id, performed_by="test-responder@ems.local")
 
         resp = client.get("/api/v1/checks/daily/my-history", headers=auth_responder)
         assert resp.status_code == 200
@@ -119,7 +119,7 @@ class TestMyCheckHistory:
     def test_excludes_soft_deleted(self, client, db, auth_responder, auth_supervisor):
         s = _station(db)
         v = _vehicle(db, s.station_id)
-        c = _check(db, v.vehicle_id, s.station_id, performed_by="Test Responder")
+        c = _check(db, v.vehicle_id, s.station_id, performed_by="test-responder@ems.local")
 
         _delete_with_body(
             client,
@@ -135,8 +135,8 @@ class TestMyCheckHistory:
     def test_date_filter_from(self, client, db, auth_responder):
         s = _station(db)
         v = _vehicle(db, s.station_id)
-        _check(db, v.vehicle_id, s.station_id, performed_by="Test Responder", check_date="2026-05-01")
-        _check(db, v.vehicle_id, s.station_id, performed_by="Test Responder", check_date="2026-05-23")
+        _check(db, v.vehicle_id, s.station_id, performed_by="test-responder@ems.local", check_date="2026-05-01")
+        _check(db, v.vehicle_id, s.station_id, performed_by="test-responder@ems.local", check_date="2026-05-23")
 
         resp = client.get(
             "/api/v1/checks/daily/my-history?from=2026-05-20",
@@ -156,7 +156,7 @@ class TestCheckDetail:
     def test_responder_can_see_own_check(self, client, db, auth_responder):
         s = _station(db)
         v = _vehicle(db, s.station_id)
-        c = _check(db, v.vehicle_id, s.station_id, performed_by="Test Responder")
+        c = _check(db, v.vehicle_id, s.station_id, performed_by="test-responder@ems.local")
 
         resp = client.get(f"/api/v1/checks/daily/{c.check_id}/detail", headers=auth_responder)
         assert resp.status_code == 200
@@ -250,7 +250,7 @@ class TestAcknowledgeCheck:
     def test_responder_can_add_note_to_own_check(self, client, db, auth_responder):
         s = _station(db)
         v = _vehicle(db, s.station_id)
-        c = _check(db, v.vehicle_id, s.station_id, performed_by="Test Responder")
+        c = _check(db, v.vehicle_id, s.station_id, performed_by="test-responder@ems.local")
 
         resp = client.patch(
             f"/api/v1/checks/daily/{c.check_id}/acknowledge",

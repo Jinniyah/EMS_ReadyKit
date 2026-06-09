@@ -19,7 +19,7 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -31,7 +31,7 @@ from ems_readykit.core.auth import (
     CurrentUser,
 )
 from ems_readykit.core.database import get_db
-from ems_readykit.main import limiter
+from ems_readykit.core.limiter import limiter, DAILY_CHECK_RATE_LIMIT
 from ems_readykit.models.check_line_item import CheckLineItem, LineItemStatus
 from ems_readykit.models.compartment import Compartment
 from ems_readykit.models.controlled_substance_check import ControlledSubstanceCheck
@@ -245,8 +245,8 @@ def _auto_decrement_supply_room(
     status_code=status.HTTP_201_CREATED,
     summary="Submit a daily inventory check",
 )
-@limiter.limit("30/minute")  # per-IP: generous for real use, blocks scripted floods
-def create_daily_check(
+@limiter.limit(DAILY_CHECK_RATE_LIMIT)  # per-IP: 30/min prod, unlimited in test env
+async def create_daily_check(
     request: Request,
     payload: DailyInventoryCheckCreate,
     db: Session = Depends(get_db),

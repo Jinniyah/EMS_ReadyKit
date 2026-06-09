@@ -25,6 +25,10 @@ from __future__ import annotations
 
 import os
 
+# Must be set BEFORE importing ems_readykit.main — the rate limiter singleton
+# reads this at module load time and configures a very high limit for tests.
+os.environ.setdefault("TESTING", "true")
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event

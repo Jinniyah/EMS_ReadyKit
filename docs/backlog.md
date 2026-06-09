@@ -1,5 +1,5 @@
 # EMS ReadyKit — Active Backlog
-# v1.67 | Updated: 2026-06-08 | Current: Session M
+# v1.68 | Updated: 2026-06-09 | Current: Session L post-close (rate limiting fix in progress)
 # Completed items -> backlog_completed.md
 # Priority: Critical / High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
@@ -50,6 +50,10 @@
 |---|------|-----|--------|-------|
 | I-3 | `HTTPSRedirectMiddleware` in `main.py` | Low | 📋 | Azure App Service enforces HTTPS at platform level. Application-layer enforcement is defence-in-depth. Three lines in main.py. |
 | SEC-OPS1 | Scheduled monthly dependency audit workflow | Low | 📋 | `.github/workflows/dependency-audit.yml` — runs pip-audit + npm audit on first of each month, opens GitHub issue on findings above moderate. |
+| **RATE-FIX** | **Fix test suite after rate limiting implementation** | **Critical** | **🔄 In progress** | **60 tests failing. Root cause 1: rate limiter firing in tests — `TESTING=true` env var set in conftest.py but may run after `core/limiter.py` is already loaded. Fix: add `env = ["TESTING=true"]` under `[tool.pytest.ini_options]` in `pyproject.toml` — guarantees env var set before any module loads. Root cause 2: `my-history` performed_by mismatch — check_history.py fix already applied (uses `current_user.email or current_user.name`). Files changed: `core/limiter.py` (new), `main.py`, `routers/checks.py` (Request import, @limiter.limit, async def, check_date server-derived, performed_by=email), `schemas/daily_inventory_check.py` (check_date Optional), `routers/check_history.py` (email comparisons), `tests/conftest.py` (TESTING=true). Must reach 349 passed, 1 xfailed before Session M.** |
+| RATE-CI | Add `ruff check ems_readykit/` step to `test-backend` job in `deploy.yml` | Medium | 📋 | After RATE-FIX green. One pip install ruff + ruff check step after pytest. |
+| RATE-MIG | Migration 0019 — `(station_id, check_date)` composite index on `daily_inventory_checks` | Medium | 📋 | After RATE-FIX green. Index name `ix_check_station_date`. Also add to `DailyInventoryCheck.__table_args__`. |
+| RATE-DOCS | Update CLAUDE.md with rate limiting patterns | Medium | 📋 | After RATE-FIX green. Add: check_date server-derived; performed_by uses email; limiter in core/limiter.py (not main.py); TESTING=true disables limits in tests. |
 
 ---
 
@@ -246,6 +250,11 @@
 | I-1 | Azure Firewall | Medium | 📋 | Before scaling to second service |
 | I-2 | Re-add route table | Medium | ⛔ | |
 | I-5 | Document Azure AD token lifetime | Low | 📋 | |
+| PERF-1 | Batch N+1 in `_auto_decrement_supply_room` | Low | 📋 | One query for all items instead of one per item. Not urgent at 5 calls/week. |
+| PERF-2 | `(station_id, check_date)` composite index on `daily_inventory_checks` | Medium | 📋 | Migration 0019. Compliance calendar queries filter on station_id + check_date. |
+| TECH-1 | `pytest-cov` coverage reporting | Low | 📋 | One-line addition to pyproject.toml. Enables accurate coverage badge. |
+| TECH-2 | React Query for frontend data management | Low | 📋 | Post-launch refactor. Eliminates manual useEffect+useState pattern; adds background refetch, request deduplication, cache invalidation. |
+| TECH-3 | Offline submission queue (F-UX9) | Low | 📋 | IndexedDB queue retries on reconnect. Critical for basement/low-signal scenarios. |
 
 ---
 
@@ -332,3 +341,4 @@
 *v1.65 — 2026-06-08: Session L complete. Automated test suite: 3 persona files + priority items suite. 304 tests passing. See backlog_completed.md for TEST-* items.*
 *v1.66 — 2026-06-08: Seed fix — removed orphan Unit 710 Jump Bag from Newberg Township. Unit 710 has no ambulance seeded; its jump bag was appearing as an orphan in the check wizard Step 1 picker. Unit 712 Jump Bag remains. LAUNCH-OPS3 updated when Unit 710 ambulance is eventually seeded.*
 *v1.67 — 2026-06-08: Session L post-close. Safety + seed integrity tests: test_seed_integrity.py (32 tests against seeded dev DB via seeded_db fixture), test_safety_checks.py (13 tests + 1 xfail documenting requires_full_check enforcement gap). Total: 349 passed, 1 xfailed.*
+*v1.68 — 2026-06-09: Security/performance improvements partially implemented. Completed: slowapi rate limiting wired (core/limiter.py, main.py), check_date server-derived from timestamp, performed_by uses email, check_history.py ownership checks updated. In progress: test suite broken (60 failures) due to rate limiter firing in tests + conftest/limiter interaction. Continuing in new chat. New backlog items added: PERF-1, PERF-2, TECH-1, TECH-2, TECH-3.*

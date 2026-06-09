@@ -26,11 +26,11 @@ import time
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 from ems_readykit.core.config import get_settings
+from ems_readykit.core.limiter import limiter
 from ems_readykit.core.logging import configure_logging, set_request_id
 from ems_readykit.routers import audit, checks, inventory, items, stations, vehicles
 from ems_readykit.routers import admin, check_history, repair_requests, station_members
@@ -44,15 +44,8 @@ API_PREFIX = "/api/v1"
 
 _LOG_EXCLUDED_PATHS = {"/health", "/docs", "/redoc", "/openapi.json", "/favicon.ico"}
 
-# ── Rate limiter (OWASP A04) ───────────────────────────────────────────────────
-# Uses the client IP address as the key. Limits are intentionally generous
-# for legitimate EMS use (one small team, ~5 calls/week) while protecting
-# against scripted abuse and accidental retry storms.
-#
-# Global default: 200 requests / minute per IP.
-# Sensitive write endpoints (POST /checks/daily) apply a tighter per-route limit.
-# The limiter is attached to the app state so route decorators can reference it.
-limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
+# Rate limiter imported from core/limiter.py to avoid circular imports.
+# See ems_readykit/core/limiter.py for configuration and usage notes.
 
 
 def create_app() -> FastAPI:
