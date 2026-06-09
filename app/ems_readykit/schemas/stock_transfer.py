@@ -8,10 +8,9 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from ems_readykit.schemas.stock_lot import StockLotRead
-
 
 # ── Transfer request / response ───────────────────────────────────────────────
 

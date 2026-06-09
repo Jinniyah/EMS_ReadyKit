@@ -28,15 +28,16 @@ import enum
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Boolean, DateTime, Enum as SAEnum, ForeignKey, Index, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ems_readykit.core.database import Base
 from ems_readykit.models.base import TimestampMixin
 
 if TYPE_CHECKING:
-    from ems_readykit.models.vehicle import Vehicle
     from ems_readykit.models.check_line_item import CheckLineItem
+    from ems_readykit.models.vehicle import Vehicle
 
 
 class CheckStatus(str, enum.Enum):

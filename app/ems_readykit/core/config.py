@@ -133,7 +133,7 @@ def resolve_database_url(settings: Settings) -> str:
             extra={"key_vault_uri": settings.key_vault_uri},
         )
         return secret.value
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logging.getLogger(__name__).warning(
             "Could not retrieve secret from Key Vault (%s). "
             "Falling back to DATABASE_URL env var.",

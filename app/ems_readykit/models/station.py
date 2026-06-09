@@ -8,17 +8,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import String, Boolean
+from sqlalchemy import Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ems_readykit.core.database import Base
 from ems_readykit.models.base import TimestampMixin
 
 if TYPE_CHECKING:
-    from ems_readykit.models.vehicle import Vehicle
     from ems_readykit.models.inventory_location import InventoryLocation
     from ems_readykit.models.repair_request import RepairRequest
     from ems_readykit.models.station_member import StationMember
+    from ems_readykit.models.vehicle import Vehicle
 
 
 class Station(TimestampMixin, Base):

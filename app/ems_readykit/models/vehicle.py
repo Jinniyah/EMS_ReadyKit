@@ -18,11 +18,11 @@ from ems_readykit.core.database import Base
 from ems_readykit.models.base import TimestampMixin
 
 if TYPE_CHECKING:
-    from ems_readykit.models.station import Station
-    from ems_readykit.models.inventory_location import InventoryLocation
-    from ems_readykit.models.daily_inventory_check import DailyInventoryCheck
     from ems_readykit.models.controlled_substance_check import ControlledSubstanceCheck
+    from ems_readykit.models.daily_inventory_check import DailyInventoryCheck
+    from ems_readykit.models.inventory_location import InventoryLocation
     from ems_readykit.models.repair_request import RepairRequest
+    from ems_readykit.models.station import Station
 
 
 class VehicleType(str, enum.Enum):

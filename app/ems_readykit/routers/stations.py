@@ -21,10 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from ems_readykit.core.auth import (
-    ROLE_ADMINISTRATOR,
-    CurrentUser,
-)
+from ems_readykit.core.auth import CurrentUser
 from ems_readykit.core.database import get_db
 from ems_readykit.models.compartment import Compartment
 from ems_readykit.models.inventory_location import InventoryLocation, LocationType
@@ -34,8 +31,8 @@ from ems_readykit.models.station import Station
 from ems_readykit.models.station_member import StationMember
 from ems_readykit.models.stock_lot import StockLot
 from ems_readykit.routers.deps import (
-    ALL_ROLES,
     ADMIN_ONLY,
+    ALL_ROLES,
     SUPERVISOR_PLUS,
     require_role,
     require_station_membership,
@@ -90,7 +87,7 @@ def list_my_stations(
         db.query(StationMember)
         .filter(
             StationMember.user_id == current_user.email,
-            StationMember.active  == True,
+            StationMember.active,
         )
         .all()
     )
@@ -101,7 +98,7 @@ def list_my_stations(
         db.query(Station)
         .filter(
             Station.station_id.in_(station_ids),
-            Station.active == True,
+            Station.active,
         )
         .order_by(Station.name)
         .all()
@@ -202,7 +199,7 @@ def list_station_locations(
     current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
     db: Session = Depends(get_db),
 ) -> List[InventoryLocation]:
-    station = _get_station_or_404(station_id, db)
+    _get_station_or_404(station_id, db)
     require_station_membership(station_id, current_user, db)
     return (
         db.query(InventoryLocation)
@@ -430,7 +427,7 @@ def get_supply_alerts(
         db.query(ParLevel)
         .filter(
             ParLevel.location_id == supply_room.location_id,
-            ParLevel.active      == True,
+            ParLevel.active,
         )
         .all()
     )

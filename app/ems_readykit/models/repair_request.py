@@ -26,8 +26,8 @@ from ems_readykit.core.database import Base
 from ems_readykit.models.base import TimestampMixin
 
 if TYPE_CHECKING:
-    from ems_readykit.models.vehicle import Vehicle
     from ems_readykit.models.station import Station
+    from ems_readykit.models.vehicle import Vehicle
 
 
 class RepairSeverity(str, enum.Enum):

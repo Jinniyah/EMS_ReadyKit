@@ -20,6 +20,9 @@ ignore = [
     "E501",   # line too long — handled by formatter, not linter
     "B008",   # do not perform function calls in default arguments
               # (FastAPI's Depends() pattern triggers this legitimately)
+    "B904",   # raise-without-from-inside-except — FastAPI routers raise HTTPException
+              # inside except blocks as error translation, not exception chaining;
+              # adding 'from err' would expose internal DB/validation details to clients.
 ]
 
 [tool.ruff.lint.isort]

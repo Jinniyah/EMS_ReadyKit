@@ -10,7 +10,8 @@ import enum
 from datetime import date
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, Date, Enum as SAEnum, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Date, Float, ForeignKey, Integer, String
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -18,8 +19,8 @@ from ems_readykit.core.database import Base
 from ems_readykit.models.base import TimestampMixin
 
 if TYPE_CHECKING:
-    from ems_readykit.models.daily_inventory_check import DailyInventoryCheck
     from ems_readykit.models.compartment import Compartment
+    from ems_readykit.models.daily_inventory_check import DailyInventoryCheck
     from ems_readykit.models.item import Item
     from ems_readykit.models.stock_lot import StockLot
 

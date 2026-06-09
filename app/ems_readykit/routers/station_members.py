@@ -15,20 +15,18 @@ from sqlalchemy.orm import Session
 
 from ems_readykit.core.auth import (
     ROLE_ADMINISTRATOR,
-    ROLE_RESPONDER,
-    ROLE_SUPERVISOR,
     CurrentUser,
 )
 from ems_readykit.core.database import get_db
 from ems_readykit.models.station import Station
 from ems_readykit.models.station_member import StationMember
-from ems_readykit.routers.deps import ALL_ROLES, ADMIN_ONLY, SUPERVISOR_PLUS, require_role
+from ems_readykit.routers.deps import ALL_ROLES, SUPERVISOR_PLUS, require_role
 from ems_readykit.schemas.station import StationRead
 from ems_readykit.schemas.station_member import (
+    VALID_ROLES,
     StationMemberCreate,
     StationMemberRead,
     StationMemberUpdate,
-    VALID_ROLES,
 )
 
 router = APIRouter(prefix="/stations", tags=["station-members"])
@@ -50,7 +48,7 @@ def _get_active_member_or_404(station_id: int, user_id: str, db: Session) -> Sta
     member = db.query(StationMember).filter(
         StationMember.station_id == station_id,
         StationMember.user_id    == user_id,
-        StationMember.active     == True,
+        StationMember.active,
     ).first()
     if not member:
         raise HTTPException(
@@ -92,7 +90,7 @@ def list_my_stations(
         db.query(StationMember)
         .filter(
             StationMember.user_id == current_user.email,
-            StationMember.active  == True,
+            StationMember.active,
         )
         .all()
     )
@@ -102,7 +100,7 @@ def list_my_stations(
     station_ids = [m.station_id for m in members]
     return (
         db.query(Station)
-        .filter(Station.station_id.in_(station_ids), Station.active == True)
+        .filter(Station.station_id.in_(station_ids), Station.active)
         .order_by(Station.name)
         .all()
     )
@@ -124,7 +122,7 @@ def list_station_members(
     _get_station_or_404(station_id, db)
     query = db.query(StationMember).filter(StationMember.station_id == station_id)
     if not include_inactive:
-        query = query.filter(StationMember.active == True)
+        query = query.filter(StationMember.active)
     return query.order_by(StationMember.role, StationMember.user_id).all()
 
 

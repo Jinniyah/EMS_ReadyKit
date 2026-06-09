@@ -28,8 +28,8 @@ from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
-from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -43,20 +43,22 @@ from ems_readykit.models.par_level import ParLevel
 from ems_readykit.models.stock_lot import StockLot
 from ems_readykit.models.stock_transfer import StockTransfer
 from ems_readykit.routers.deps import (
-    ALL_ROLES,
     ADMIN_ONLY,
+    ALL_ROLES,
     SUPERVISOR_PLUS,
     require_role,
     require_station_membership,
 )
 from ems_readykit.schemas.compartment import CompartmentCreate, CompartmentRead
-from ems_readykit.schemas.inventory_location import InventoryLocationRead, InventoryLocationCreate
+from ems_readykit.schemas.inventory_location import InventoryLocationCreate, InventoryLocationRead
 from ems_readykit.schemas.par_level import ParLevelCreate, ParLevelRead
 from ems_readykit.schemas.stock_lot import StockLotCreate, StockLotRead, StockLotUpdate
-from ems_readykit.schemas.supply_catalog import SupplyCatalogItem, SupplyCatalogCountPatch
 from ems_readykit.schemas.stock_transfer import (
-    CsvReceiveResult, StockItemSummary, StockTransferRead,
+    CsvReceiveResult,
+    StockItemSummary,
+    StockTransferRead,
 )
+from ems_readykit.schemas.supply_catalog import SupplyCatalogCountPatch, SupplyCatalogItem
 
 logger = logging.getLogger(__name__)
 
@@ -638,7 +640,7 @@ def get_stock_summary(
     # Fetch par levels (any active par at this location, across compartments)
     pars = (
         db.query(ParLevel)
-        .filter(ParLevel.location_id == location_id, ParLevel.active == True)
+        .filter(ParLevel.location_id == location_id, ParLevel.active)
         .all()
     )
     # Lowest min_quantity for the item across all compartments
@@ -664,7 +666,7 @@ def get_stock_summary(
         if not item:
             continue
 
-        total_qty = sum(l.quantity for l in item_lots)
+        total_qty = sum(lot.quantity for lot in item_lots)
         par       = par_by_item.get(item_id)
 
         if par:
@@ -686,10 +688,10 @@ def get_stock_summary(
             "par_max":          par.max_quantity if par else None,
             "status":           status_val,
             "is_any_expiring":  any(
-                l.expiration_date and l.expiration_date <= warn_date and not l.is_expired
-                for l in item_lots
+                lot.expiration_date and lot.expiration_date <= warn_date and not lot.is_expired
+                for lot in item_lots
             ),
-            "is_any_expired":   any(l.is_expired for l in item_lots),
+            "is_any_expired":   any(lot.is_expired for lot in item_lots),
             "lots":             item_lots,
         })
 
@@ -744,7 +746,7 @@ def list_location_transfers(
         loc_ids.add(t.to_location_id)
         item_ids.add(t.item_id)
 
-    locs  = {l.location_id: l for l in db.query(InventoryLocation).filter(InventoryLocation.location_id.in_(loc_ids)).all()}
+    locs  = {loc.location_id: loc for loc in db.query(InventoryLocation).filter(InventoryLocation.location_id.in_(loc_ids)).all()}
     items = {i.item_id: i     for i in db.query(Item).filter(Item.item_id.in_(item_ids)).all()}
 
     return [
@@ -875,7 +877,7 @@ async def receive_stock_csv(
     row_num    = 1
 
     # Case-insensitive item name → item map
-    all_items  = db.query(Item).filter(Item.active == True).all()
+    all_items  = db.query(Item).filter(Item.active).all()
     item_map   = {i.name.lower(): i for i in all_items}
 
     for row in reader:
@@ -975,9 +977,9 @@ def get_supply_catalog(
     items = (
         db.query(Item)
         .filter(
-            Item.station_supply == True,
+            Item.station_supply,
             Item.check_type     != ItemCheckType.FUNCTIONAL,
-            Item.active         == True,
+            Item.active,
         )
         .order_by(Item.name.asc())
         .all()
@@ -1008,7 +1010,7 @@ def get_supply_catalog(
         .filter(
             ParLevel.location_id == supply_room.location_id,
             ParLevel.item_id.in_(item_ids),
-            ParLevel.active      == True,
+            ParLevel.active,
         )
         .all()
     )
@@ -1024,7 +1026,7 @@ def get_supply_catalog(
             item_name      = item.name,
             unit_of_measure= item.unit_of_measure,
             check_type     = item.check_type.value,
-            on_hand        = sum(l.quantity for l in lots_by_item.get(item.item_id, [])),
+            on_hand        = sum(lot.quantity for lot in lots_by_item.get(item.item_id, [])),
             par_min        = par_min_by_item.get(item.item_id),
             lots           = lots_by_item.get(item.item_id, []),
         )
@@ -1058,7 +1060,7 @@ def patch_supply_catalog_count(
         )
     require_station_membership(location.station_id, current_user, db)
 
-    item = db.query(Item).filter(Item.item_id == item_id, Item.active == True).first()
+    item = db.query(Item).filter(Item.item_id == item_id, Item.active).first()
     if not item:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -1075,7 +1077,7 @@ def patch_supply_catalog_count(
         .order_by(StockLot.expiration_date.asc().nulls_last())
         .all()
     )
-    old_qty = sum(l.quantity for l in current_lots)
+    old_qty = sum(lot.quantity for lot in current_lots)
     new_qty = payload.quantity
 
     if new_qty < old_qty:
@@ -1127,7 +1129,7 @@ def patch_supply_catalog_count(
         .filter(
             ParLevel.location_id == payload.location_id,
             ParLevel.item_id     == item_id,
-            ParLevel.active      == True,
+            ParLevel.active,
         )
         .all()
     )
@@ -1138,7 +1140,7 @@ def patch_supply_catalog_count(
         item_name       = item.name,
         unit_of_measure = item.unit_of_measure,
         check_type      = item.check_type.value,
-        on_hand         = sum(l.quantity for l in updated_lots),
+        on_hand         = sum(lot.quantity for lot in updated_lots),
         par_min         = par_min,
         lots            = updated_lots,
     )

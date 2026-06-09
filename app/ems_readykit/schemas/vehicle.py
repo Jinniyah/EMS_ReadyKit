@@ -25,7 +25,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ems_readykit.models.vehicle import VehicleType
 
-
 # ── Hex color validator (shared with station schema) ─────────────────────────
 
 def _validate_hex_color(v: Optional[str]) -> Optional[str]:

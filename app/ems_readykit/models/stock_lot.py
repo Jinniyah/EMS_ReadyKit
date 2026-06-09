@@ -17,9 +17,9 @@ from ems_readykit.core.database import Base
 from ems_readykit.models.base import TimestampMixin
 
 if TYPE_CHECKING:
-    from ems_readykit.models.item import Item
-    from ems_readykit.models.inventory_location import InventoryLocation
     from ems_readykit.models.check_line_item import CheckLineItem
+    from ems_readykit.models.inventory_location import InventoryLocation
+    from ems_readykit.models.item import Item
 
 
 class StockLot(TimestampMixin, Base):

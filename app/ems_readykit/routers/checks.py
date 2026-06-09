@@ -14,28 +14,22 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel
-
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ems_readykit.core.audit import write_audit_event
-from ems_readykit.core.auth import (
-    ROLE_ADMINISTRATOR,
-    ROLE_RESPONDER,
-    ROLE_SUPERVISOR,
-    CurrentUser,
-)
+from ems_readykit.core.auth import CurrentUser
 from ems_readykit.core.database import get_db
-from ems_readykit.core.limiter import limiter, DAILY_CHECK_RATE_LIMIT
+from ems_readykit.core.limiter import DAILY_CHECK_RATE_LIMIT, limiter
 from ems_readykit.models.check_line_item import CheckLineItem, LineItemStatus
 from ems_readykit.models.compartment import Compartment
 from ems_readykit.models.controlled_substance_check import ControlledSubstanceCheck
-from ems_readykit.models.daily_inventory_check import DailyInventoryCheck, CheckStatus
+from ems_readykit.models.daily_inventory_check import CheckStatus, DailyInventoryCheck
 from ems_readykit.models.inventory_location import InventoryLocation, LocationType
 from ems_readykit.models.item import Item
 from ems_readykit.models.station import Station
@@ -213,7 +207,7 @@ def _auto_decrement_supply_room(
             .order_by(StockLot.expiration_date.asc().nulls_last())
             .all()
         )
-        available = sum(l.quantity for l in supply_lots)
+        available = sum(lot.quantity for lot in supply_lots)
         if available == 0:
             logger.warning(
                 "SR-B4 auto-decrement: no supply room stock for item %s (station %s)",

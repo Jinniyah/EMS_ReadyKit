@@ -38,11 +38,11 @@ def _build_engine():
     # pool_size and max_overflow are not valid for SQLite's StaticPool and
     # will raise a TypeError at startup.  Only pass them for real DBAPI-backed
     # engines (PostgreSQL, etc.).
-    engine_kwargs: dict = dict(
-        connect_args=connect_args,
-        pool_pre_ping=True,
-        echo=not settings.is_production,   # SQL query logging in dev only
-    )
+    engine_kwargs: dict = {
+        "connect_args": connect_args,
+        "pool_pre_ping": True,
+        "echo": not settings.is_production,   # SQL query logging in dev only
+    }
     if not settings.is_sqlite:
         engine_kwargs["pool_size"] = 5
         engine_kwargs["max_overflow"] = 10

@@ -33,18 +33,19 @@ from __future__ import annotations
 import enum
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Enum as SAEnum, ForeignKey, String
+from sqlalchemy import Enum as SAEnum
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ems_readykit.core.database import Base
 from ems_readykit.models.base import TimestampMixin
 
 if TYPE_CHECKING:
-    from ems_readykit.models.station import Station
-    from ems_readykit.models.vehicle import Vehicle
-    from ems_readykit.models.stock_lot import StockLot
-    from ems_readykit.models.par_level import ParLevel
     from ems_readykit.models.compartment import Compartment
+    from ems_readykit.models.par_level import ParLevel
+    from ems_readykit.models.station import Station
+    from ems_readykit.models.stock_lot import StockLot
+    from ems_readykit.models.vehicle import Vehicle
 
 
 class LocationType(str, enum.Enum):

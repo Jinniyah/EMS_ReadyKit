@@ -3,7 +3,7 @@
  * canAccess() for all three roles including the 'admin' alias regression
  * (Session J bug — canAccess(user, 'admin') silently returned false before fix).
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 
 // Mock useAuth.jsx so the constants are available without loading MSAL.
 vi.mock('../hooks/useAuth.jsx', () => ({

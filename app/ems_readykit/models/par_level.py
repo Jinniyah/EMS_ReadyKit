@@ -13,17 +13,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, UniqueConstraint
 import sqlalchemy as sa
+from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ems_readykit.core.database import Base
 from ems_readykit.models.base import TimestampMixin
 
 if TYPE_CHECKING:
-    from ems_readykit.models.item import Item
-    from ems_readykit.models.inventory_location import InventoryLocation
     from ems_readykit.models.compartment import Compartment
+    from ems_readykit.models.inventory_location import InventoryLocation
+    from ems_readykit.models.item import Item
 
 
 class ParLevel(TimestampMixin, Base):

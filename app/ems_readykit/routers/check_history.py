@@ -20,13 +20,12 @@ from sqlalchemy.orm import Session
 from ems_readykit.core.audit import write_audit_event
 from ems_readykit.core.auth import (
     ROLE_ADMINISTRATOR,
-    ROLE_RESPONDER,
     ROLE_SUPERVISOR,
     CurrentUser,
 )
 from ems_readykit.core.database import get_db
-from ems_readykit.models.daily_inventory_check import DailyInventoryCheck, CheckStatus
-from ems_readykit.routers.deps import ALL_ROLES, ADMIN_ONLY, SUPERVISOR_PLUS, require_role
+from ems_readykit.models.daily_inventory_check import DailyInventoryCheck
+from ems_readykit.routers.deps import ADMIN_ONLY, ALL_ROLES, SUPERVISOR_PLUS, require_role
 from ems_readykit.schemas.daily_inventory_check import (
     AcknowledgeRequest,
     DailyInventoryCheckRead,

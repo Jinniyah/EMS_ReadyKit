@@ -71,16 +71,17 @@ from __future__ import annotations
 import enum
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Boolean, Enum as SAEnum, String
+from sqlalchemy import Boolean, String
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ems_readykit.core.database import Base
 from ems_readykit.models.base import TimestampMixin
 
 if TYPE_CHECKING:
-    from ems_readykit.models.stock_lot import StockLot
-    from ems_readykit.models.par_level import ParLevel
     from ems_readykit.models.check_line_item import CheckLineItem
+    from ems_readykit.models.par_level import ParLevel
+    from ems_readykit.models.stock_lot import StockLot
 
 
 class ItemCategory(str, enum.Enum):

@@ -56,7 +56,7 @@ def _station_ids_for_user(current_user: CurrentUser, db: Session) -> Optional[Li
         return None
     members = db.query(StationMember).filter(
         StationMember.user_id == current_user.email,
-        StationMember.active  == True,
+        StationMember.active,
     ).all()
     return [m.station_id for m in members]
 

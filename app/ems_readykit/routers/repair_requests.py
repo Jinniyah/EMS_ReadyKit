@@ -19,11 +19,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from ems_readykit.core.audit import write_audit_event
-from ems_readykit.core.auth import (
-    ROLE_ADMINISTRATOR,
-    ROLE_RESPONDER,
-    ROLE_SUPERVISOR,
-)
 from ems_readykit.core.database import get_db
 from ems_readykit.models.repair_request import RepairRequest, RepairSeverity, RepairStatus
 from ems_readykit.routers.deps import ALL_ROLES, SUPERVISOR_PLUS, get_vehicle_or_404, require_role
@@ -68,7 +63,7 @@ def update_vehicle_status(
     payload: VehicleUpdate,
     db: Session = Depends(get_db),
     current_user=Depends(require_role(*SUPERVISOR_PLUS)),
-) -> "Vehicle":
+) -> VehicleRead:
     vehicle = get_vehicle_or_404(vehicle_id, db)
 
     if not payload.active and not payload.inactive_reason:

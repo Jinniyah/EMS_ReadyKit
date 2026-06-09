@@ -15,4 +15,4 @@ Authentication and RBAC middleware will be added in Phase 3.
 
 from ems_readykit.routers import audit, checks, inventory, items, stations, vehicles
 
-__all__ = ["stations", "vehicles", "items", "inventory", "checks", "audit"]
+__all__ = ["audit", "checks", "inventory", "items", "stations", "vehicles"]

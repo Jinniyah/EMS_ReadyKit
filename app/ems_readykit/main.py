@@ -32,8 +32,18 @@ from slowapi.errors import RateLimitExceeded
 from ems_readykit.core.config import get_settings
 from ems_readykit.core.limiter import limiter
 from ems_readykit.core.logging import configure_logging, set_request_id
-from ems_readykit.routers import audit, checks, inventory, items, stations, vehicles
-from ems_readykit.routers import admin, check_history, repair_requests, station_members
+from ems_readykit.routers import (
+    admin,
+    audit,
+    check_history,
+    checks,
+    inventory,
+    items,
+    repair_requests,
+    station_members,
+    stations,
+    vehicles,
+)
 
 configure_logging()
 logger = logging.getLogger(__name__)

@@ -48,21 +48,24 @@ from sqlalchemy.orm import Session
 
 from ems_readykit.core.auth import ROLE_ADMINISTRATOR, CurrentUser
 from ems_readykit.core.database import get_db
-from ems_readykit.models.item import Item, ItemCategory, ItemCheckType
-from ems_readykit.models.inventory_location import InventoryLocation
-from ems_readykit.models.par_level import ParLevel
 from ems_readykit.models.compartment import Compartment
+from ems_readykit.models.inventory_location import InventoryLocation
+from ems_readykit.models.item import Item, ItemCategory, ItemCheckType
+from ems_readykit.models.par_level import ParLevel
 from ems_readykit.models.station import Station
 from ems_readykit.models.station_member import StationMember
 from ems_readykit.models.vehicle import Vehicle
 from ems_readykit.routers.deps import ADMIN_ONLY, SUPERVISOR_PLUS, require_role
+from ems_readykit.schemas.compartment import CompartmentRead
 from ems_readykit.schemas.item import ItemCreate, ItemRead
 from ems_readykit.schemas.par_level import (
-    AssignItemRequest, ParLevelAssignment, UpdateParLevelRequest
+    AssignItemRequest,
+    ParLevelAssignment,
+    UpdateParLevelRequest,
 )
-from ems_readykit.schemas.compartment import CompartmentRead
 from ems_readykit.schemas.station import StationCreate, StationRead
-from ems_readykit.schemas.vehicle import VehicleColorUpdate, VehicleDetailsUpdate, VehicleRead as VehicleReadSchema
+from ems_readykit.schemas.vehicle import VehicleColorUpdate, VehicleDetailsUpdate
+from ems_readykit.schemas.vehicle import VehicleRead as VehicleReadSchema
 
 logger = logging.getLogger(__name__)
 
@@ -176,9 +179,12 @@ def list_items(
         db.query(Item, func.coalesce(count_sq.c.cnt, 0).label("assignment_count"))
         .outerjoin(count_sq, Item.item_id == count_sq.c.item_id)
     )
-    if category   is not None: q = q.filter(Item.category   == category)
-    if check_type is not None: q = q.filter(Item.check_type == check_type)
-    if active     is not None: q = q.filter(Item.active     == active)
+    if category   is not None:
+        q = q.filter(Item.category   == category)
+    if check_type is not None:
+        q = q.filter(Item.check_type == check_type)
+    if active     is not None:
+        q = q.filter(Item.active     == active)
     rows = q.order_by(Item.category, Item.name).all()
     result = []
     for item, cnt in rows:
@@ -306,24 +312,32 @@ async def import_items_csv(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Missing required columns: {', '.join(sorted(missing))}.")
 
-    created = 0; skipped = 0; errors: List[Dict[str, Any]] = []
+    created = 0
+    skipped = 0
+    errors: List[Dict[str, Any]] = []
     for row_num, row in enumerate(reader, start=2):
         if row_num - 1 > MAX_IMPORT_ROWS:
-            errors.append({"row": row_num, "name": "", "error": f"Row limit of {MAX_IMPORT_ROWS} reached."}); break
+            errors.append({"row": row_num, "name": "", "error": f"Row limit of {MAX_IMPORT_ROWS} reached."})
+            break
         name = (row.get("name") or "").strip()
         if not name:
-            errors.append({"row": row_num, "name": "", "error": "name is required"}); continue
+            errors.append({"row": row_num, "name": "", "error": "name is required"})
+            continue
         if db.query(Item).filter(Item.name == name).first():
-            skipped += 1; continue
+            skipped += 1
+            continue
         category_raw = (row.get("category") or "").strip()
         if category_raw not in VALID_CATEGORIES:
-            errors.append({"row": row_num, "name": name, "error": f"category must be one of: {', '.join(sorted(VALID_CATEGORIES))}"}); continue
+            errors.append({"row": row_num, "name": name, "error": f"category must be one of: {', '.join(sorted(VALID_CATEGORIES))}"})
+            continue
         check_type_raw = (row.get("check_type") or "SUPPLY").strip() or "SUPPLY"
         if check_type_raw not in VALID_CHECK_TYPES:
-            errors.append({"row": row_num, "name": name, "error": f"check_type must be one of: {', '.join(sorted(VALID_CHECK_TYPES))}"}); continue
+            errors.append({"row": row_num, "name": name, "error": f"check_type must be one of: {', '.join(sorted(VALID_CHECK_TYPES))}"})
+            continue
         unit = (row.get("unit_of_measure") or "").strip()
         if not unit:
-            errors.append({"row": row_num, "name": name, "error": "unit_of_measure is required"}); continue
+            errors.append({"row": row_num, "name": name, "error": "unit_of_measure is required"})
+            continue
         row_errors: List[str] = []
         meas_min   = _parse_optional_float(row.get("measurement_minimum", ""), "measurement_minimum", row_num, row_errors)
         meas_max   = _parse_optional_float(row.get("measurement_maximum", ""), "measurement_maximum", row_num, row_errors)
@@ -335,11 +349,13 @@ async def import_items_csv(
         if meas_min is not None and meas_max is not None and meas_max < meas_min:
             row_errors.append("measurement_maximum must be >= measurement_minimum")
         if row_errors:
-            for e in row_errors: errors.append({"row": row_num, "name": name, "error": e})
+            for e in row_errors:
+                errors.append({"row": row_num, "name": name, "error": e})
             continue
         barcode = (row.get("barcode") or "").strip() or None
         if barcode and db.query(Item).filter(Item.barcode == barcode).first():
-            errors.append({"row": row_num, "name": name, "error": f"Barcode '{barcode}' is already assigned to another item"}); continue
+            errors.append({"row": row_num, "name": name, "error": f"Barcode '{barcode}' is already assigned to another item"})
+            continue
         db.add(Item(
             name=name, category=category_raw, check_type=check_type_raw, unit_of_measure=unit,
             controlled_substance=_parse_bool(row.get("controlled_substance", "")),
@@ -393,14 +409,23 @@ def create_item(payload: ItemCreate, db: Session = Depends(get_db),
 def update_item(item_id: int, payload: ItemCreate, db: Session = Depends(get_db),
     _: None = Depends(require_role(*SUPERVISOR_PLUS))) -> Item:
     item = _get_item_or_404(item_id, db)
-    if payload.name != item.name: _conflict_on_name(payload.name, db, exclude_id=item_id)
-    if payload.barcode and payload.barcode != item.barcode: _conflict_on_barcode(payload.barcode, db, exclude_id=item_id)
-    item.name=payload.name; item.category=payload.category; item.check_type=payload.check_type
-    item.controlled_substance=payload.controlled_substance; item.unit_of_measure=payload.unit_of_measure
-    item.measurement_minimum=payload.measurement_minimum; item.measurement_maximum=payload.measurement_maximum
-    item.recurrence_days=payload.recurrence_days; item.active=payload.active
-    item.ai_tags=payload.ai_tags; item.alternate_names=payload.alternate_names
-    item.reference_image_url=payload.reference_image_url; item.barcode=payload.barcode
+    if payload.name != item.name:
+        _conflict_on_name(payload.name, db, exclude_id=item_id)
+    if payload.barcode and payload.barcode != item.barcode:
+        _conflict_on_barcode(payload.barcode, db, exclude_id=item_id)
+    item.name = payload.name
+    item.category = payload.category
+    item.check_type = payload.check_type
+    item.controlled_substance = payload.controlled_substance
+    item.unit_of_measure = payload.unit_of_measure
+    item.measurement_minimum = payload.measurement_minimum
+    item.measurement_maximum = payload.measurement_maximum
+    item.recurrence_days = payload.recurrence_days
+    item.active = payload.active
+    item.ai_tags = payload.ai_tags
+    item.alternate_names = payload.alternate_names
+    item.reference_image_url = payload.reference_image_url
+    item.barcode = payload.barcode
     try:
         db.commit()
     except IntegrityError:
@@ -422,7 +447,8 @@ def deactivate_item(item_id: int, db: Session = Depends(get_db),
     if not item.active:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Item '{item.name}' is already inactive.")
     item.active = False
-    db.commit(); db.refresh(item)
+    db.commit()
+    db.refresh(item)
     logger.info("Item deactivated: item_id=%s", item.item_id,
         extra={"action": "ITEM_DEACTIVATED", "entity_type": "item", "entity_id": str(item.item_id)})
     return item
@@ -494,7 +520,7 @@ def assign_item_to_compartment(
     existing = db.query(ParLevel).filter(
         ParLevel.item_id == item_id,
         ParLevel.compartment_id == payload.compartment_id,
-        ParLevel.active == True,
+        ParLevel.active,
     ).first()
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
@@ -539,7 +565,8 @@ def update_par_level(
         par.priority_check = payload.priority_check
     if 'priority_question' in fields:
         par.priority_question = payload.priority_question or None
-    db.commit(); db.refresh(par)
+    db.commit()
+    db.refresh(par)
     logger.info("Par level updated: par_id=%s min=%s max=%s", par.par_id, par.min_quantity, par.max_quantity,
         extra={"action": "PAR_UPDATED", "entity_type": "par_level", "entity_id": str(par.par_id)})
     return _enrich_par(par, db)
@@ -601,7 +628,7 @@ def list_vehicle_compartments(
             detail=f"No inventory location found for vehicle {vehicle_id}.")
     return (
         db.query(Compartment)
-        .filter(Compartment.location_id == location.location_id, Compartment.active == True)
+        .filter(Compartment.location_id == location.location_id, Compartment.active)
         .order_by(Compartment.sort_order, Compartment.name)
         .all()
     )
@@ -655,7 +682,8 @@ def update_vehicle_color(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Vehicle {vehicle_id} not found.")
     vehicle.vehicle_color = payload.vehicle_color
-    db.commit(); db.refresh(vehicle)
+    db.commit()
+    db.refresh(vehicle)
     logger.info("Vehicle color updated: vehicle_id=%s color=%r", vehicle_id, payload.vehicle_color,
         extra={"action": "VEHICLE_COLOR_UPDATED", "entity_type": "vehicle", "entity_id": str(vehicle_id)})
     return vehicle
@@ -690,7 +718,8 @@ def update_vehicle_details(
                 detail=f"Vehicle number '{new_number}' is already in use at this station.")
     vehicle.vehicle_number = new_number
     vehicle.vehicle_type   = payload.vehicle_type
-    db.commit(); db.refresh(vehicle)
+    db.commit()
+    db.refresh(vehicle)
     logger.info("Vehicle details updated: vehicle_id=%s number=%r type=%r",
         vehicle_id, vehicle.vehicle_number, vehicle.vehicle_type.value,
         extra={"action": "VEHICLE_DETAILS_UPDATED", "entity_type": "vehicle", "entity_id": str(vehicle_id)})
@@ -746,7 +775,8 @@ def create_station(
     db.add(member)
 
     # Auto-create the station supply room with 4 default compartments.
-    from ems_readykit.models.inventory_location import InventoryLocation as IL, LocationType
+    from ems_readykit.models.inventory_location import InventoryLocation as IL
+    from ems_readykit.models.inventory_location import LocationType
     supply_room = IL(
         location_type = LocationType.STATION_SUPPLY_ROOM,
         station_id    = station.station_id,

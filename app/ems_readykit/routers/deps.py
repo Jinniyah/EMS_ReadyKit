@@ -35,13 +35,13 @@ from ems_readykit.core.auth import (
 from ems_readykit.core.database import get_db
 
 __all__ = [
-    "get_db",
-    "get_current_user",
-    "require_role",
+    "ADMIN_ONLY",
     "ALL_ROLES",
     "SUPERVISOR_PLUS",
-    "ADMIN_ONLY",
+    "get_current_user",
+    "get_db",
     "get_vehicle_or_404",
+    "require_role",
     "require_station_membership",
 ]
 
@@ -135,7 +135,7 @@ def require_station_membership(
     member = db.query(StationMember).filter(
         StationMember.station_id == station_id,
         StationMember.user_id    == current_user.email,
-        StationMember.active     == True,
+        StationMember.active,
     ).first()
 
     if not member:
