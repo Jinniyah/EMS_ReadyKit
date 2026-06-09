@@ -1,5 +1,5 @@
 # EMS ReadyKit — Codebase Index
-# Last updated: 2026-06-08 (Session L post-close: automated test suite, seed integrity, safety checks)
+# Last updated: 2026-06-09 (Post-session L: rate limiting, ruff CI, migration 0019)
 # PURPOSE: Load this file at the start of every session to orient quickly.
 # After reading this, load only the sections relevant to the current task.
 # Full project state → docs/project_index.md | Open work → docs/backlog.md
@@ -127,6 +127,7 @@ AuditEvent     (immutable log)
 | `database.py` | `get_db()` FastAPI dependency; engine + session factory |
 | `audit.py` | `write_audit_event(actor=, metadata=)` — always use this, never inline AuditEvent() |
 | `logging.py` | `configure_logging()`, `set_request_id()` |
+| `limiter.py` | `slowapi` Limiter singleton; `DAILY_CHECK_RATE_LIMIT` constant. `TESTING=true` (set by conftest.py) switches to 99999/min so tests never exhaust the counter. |
 
 ---
 
@@ -232,6 +233,33 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 
 ---
 
+## Frontend — Tests (frontend/src/)
+
+Vitest + React Testing Library. Run: `cd frontend && npm test` — **180 tests passing**.
+
+| File | Tests | Coverage |
+|------|-------|----------|
+| `shared/utils/__tests__/statusCalc.test.js` | 40 | Status calc pure functions |
+| `shared/utils/__tests__/dateHelpers.test.js` | 24 | Date formatting/clamping |
+| `shared/utils/__tests__/roleGuard.test.js` | 14 | `canAccess()` all roles + 'admin' alias (Session J regression) |
+| `shared/hooks/__tests__/useDraft.test.js` | 3 | `draftKey()` uniqueness |
+| `shared/components/__tests__/StatusBadge.test.jsx` | 16 | Check + item level badges |
+| `modules/check-wizard/__tests__/WizardProgress.test.jsx` | 11 | Step labels, active/done, progress bar |
+| `modules/check-wizard/__tests__/DraftBanner.test.jsx` | 10 | Hidden/shown, single/multi draft, resume |
+| `modules/check-wizard/__tests__/ItemRow.test.jsx` | 15 | All 5 check types, confirmed state, damaged badge |
+| `modules/check-wizard/__tests__/Step1Vehicle.test.jsx` | 8 | Vehicle list, supply room auto-advance, OOS |
+| `modules/supervisor/__tests__/SupplyLowStockPanel.test.jsx` | 11 | Hidden, amber/red alerts, expand/collapse |
+| `modules/vehicles/__tests__/VehicleCard.test.jsx` | 8 | OOS badge, repair count, RTS/OOS role-gating |
+| `modules/admin/__tests__/ItemCatalog.test.jsx` | 11 | Item list, search, Add button role-gating |
+| `modules/check-history/__tests__/CheckHistory.test.jsx` | 9 | My Checks, All Checks tab (Supervisor+), Deleted tab |
+
+**Mock infrastructure:**
+- `src/shared/hooks/__mocks__/useAuth.jsx` — configurable useAuth with Jamie/Earl/Jennifer personas
+- `__mocks__/@azure/msal-react.js` — MSAL React stubs
+- `__mocks__/@azure/msal-browser.js` — MSAL browser stubs
+
+---
+
 ## Frontend — Shared (frontend/src/shared/)
 
 ### api/
@@ -278,7 +306,7 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 
 ## Migrations (app/alembic/versions/)
 
-18 migrations applied (0001–0018, plus 0003a branch). Run automatically at startup via `startup.sh`.
+19 migrations applied (0001–0019, plus 0003a branch). Run automatically at startup via `startup.sh`.
 To add a new migration: `cd app && alembic revision --autogenerate -m "description"`
 
 | Migration | Description |
@@ -293,6 +321,7 @@ To add a new migration: `cd app && alembic revision --autogenerate -m "descripti
 | 0016 | `is_damaged` (bool) on check_line_items; batch mode |
 | 0017 | `station_supply` (bool NOT NULL DEFAULT TRUE) on items; batch mode; SR-M1 |
 | 0018 | Backfills STATION_SUPPLY_ROOM location + Shelf 1–4 compartments for active stations lacking one |
+| 0019 | `ix_check_station_date` composite index on `daily_inventory_checks(station_id, check_date)` |
 
 ---
 
@@ -344,13 +373,15 @@ Idempotent — safe to re-run. Reseed sequence: `Remove-Item ems_readykit_dev.db
 
 | Session | Focus | Key Items |
 |---------|-------|-----------|
-| **M** | After-Call Reset | RX-B1 (`POST /checks/usage`), RX-F6 (After-Call Reset flow) |
-| **N** | Retirement + Settings | RET-M1-M3 migrations, RET-B1-B6 endpoints, RET-F1-F5 UI, S-F1/F3/F6-F8 settings |
-| **O** | UAT Dress Rehearsal + Launch | LAUNCH-OPS1-9, UAT-2-11 |
+| **M** | UX Redesign + Pre-launch Fixes | SEED-GAP2 (requires_full_check), RX-B2/F12 (priority toggle), RX-F3/F4/F5 (wizard), RX-F10 (language), SUP-F1/F2, DMG-F3 |
+| **N** | After-Call Reset + Tutorial | RX-B1 (`POST /checks/usage`), RX-F6 (After-Call Reset flow), RX-F11 (first-run tutorial) |
+| **O** | Dashboard + Station Admin | SUP-F3, B-M10, CH-B7/B8, ADMIN-B14/F7, ACC-F1-F5 |
+| **P** | Retirement + Settings | RET-M1-M3 migrations, RET-B1-B6 endpoints, RET-F1-F5 UI, S-F1/F3/F6-F8 settings |
+| **Q** | UAT Dress Rehearsal + Launch | LAUNCH-OPS1-9, UAT-2-11 |
 
-**Pre-launch blockers not yet resolved:**
-- SEED-GAP2: `requires_full_check` enforcement in router (xfailed test documents this)
-- RX-F12: Priority toggle UI in admin par level form
-- RX-F10: Responder-facing language replacement (jargon → plain English)
-- RX-F11: First-run tutorial (3 screens, shown once)
-- SUP-F1: Open repair count on compliance dashboard
+**Pre-launch blockers not yet resolved (all in Session M or N):**
+- SEED-GAP2: `requires_full_check` enforcement in router — Session M (xfailed test documents gap)
+- RX-F12: Priority toggle UI in admin par level form — Session M
+- RX-F10: Responder-facing language replacement — Session M
+- SUP-F1: Open repair count on compliance dashboard — Session M
+- RX-F11: First-run tutorial (3 screens, shown once) — Session N

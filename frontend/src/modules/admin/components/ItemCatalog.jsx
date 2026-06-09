@@ -46,7 +46,8 @@ const CATEGORIES = ['All', 'Medication', 'Consumable', 'Equipment', 'Document']
 
 export default function ItemCatalog({ stationId }) {
   const { user, getToken } = useAuth()
-  const isAdmin = canAccess(user, 'administrator')
+  const isAdmin          = canAccess(user, 'administrator')
+  const isSupervisorPlus = canAccess(user, 'supervisor')
 
   const [showInactive, setShowInactive]     = useState(false)
   const [editingItem, setEditingItem]       = useState(null)
@@ -126,13 +127,15 @@ export default function ItemCatalog({ stationId }) {
             <span className="item-catalog__count"> ({items.length})</span>
           )}
         </h2>
-        <button
-          className="btn btn--primary btn--sm"
-          onClick={() => setEditingItem('new')}
-          type="button"
-        >
-          + Add item
-        </button>
+        {isSupervisorPlus && (
+          <button
+            className="btn btn--primary btn--sm"
+            onClick={() => setEditingItem('new')}
+            type="button"
+          >
+            + Add item
+          </button>
+        )}
       </div>
 
       {/* CSV import */}

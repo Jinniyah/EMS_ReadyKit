@@ -240,8 +240,9 @@ export default function Step2Compartments({
                                  : damagedCount > 0         ? 'Has damaged items'
                                  : ''
 
-          // Reading items: MEASUREMENT/FUNCTIONAL/DATE_RECORD, not flagged as priority
-          const readingPars = compPars.filter(pl =>
+          // Reading items: MEASUREMENT/FUNCTIONAL/DATE_RECORD, not flagged as priority,
+          // and not in a requires_full_check compartment (those items show in Step 3 only).
+          const readingPars = comp.requires_full_check ? [] : compPars.filter(pl =>
             READING_TYPES.has(itemMap[pl.item_id]?.check_type) && !pl.priority_check
           )
           const confirmedReadingIds = new Set(

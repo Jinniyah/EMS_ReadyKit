@@ -126,7 +126,7 @@
 
 .priority-card__question { flex: 1; font-size: var(--font-size-md); font-weight: 600; color: var(--color-text); }
 .priority-card__chevron  { color: var(--color-text-muted); flex-shrink: 0; }
-.priority-card__body     { padding: 0 var(--space-sm) var(--space-sm); }
+.priority-card__body     { padding: var(--space-sm) var(--space-sm) var(--space-sm); }
 
 /* Compartment list */
 .compartment-list { display: flex; flex-direction: column; gap: var(--space-sm); }

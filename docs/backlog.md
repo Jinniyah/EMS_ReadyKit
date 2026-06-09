@@ -1,5 +1,5 @@
 # EMS ReadyKit — Active Backlog
-# v1.68 | Updated: 2026-06-09 | Current: Session L post-close (rate limiting fix in progress)
+# v1.70 | Updated: 2026-06-09 | Current: Post-session L complete + frontend test suite
 # Completed items -> backlog_completed.md
 # Priority: Critical / High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
@@ -29,17 +29,41 @@
 
 ## UPCOMING SESSIONS
 ##
-## Session M — After-Call Reset (~3 hrs)
+## Session M — UX Redesign + Pre-launch Fixes (~5 hrs)
+##   SEED-GAP2    requires_full_check enforcement in router (clears xfail)  ~30 min
+##   RX-B2        PATCH /admin/par-levels/{id} priority_check/question      ~20 min
+##   RX-F12       Priority toggle + question in par level edit form (Admin)  ~45 min
+##   RX-F3        Collapse Step 1 for single-station users                   ~30 min
+##   RX-F4        Simplify Step 5 for clean PASS checks                      ~30 min
+##   RX-F5        Restock list persists on SubmittedScreen                   ~20 min
+##   RX-F9b       Priority "last confirmed" display                          ~30 min
+##   RX-F10       Responder-facing language + error message replacement      ~60 min
+##   SUP-F1        Open repair count on compliance dashboard                 ~20 min
+##   SUP-F2        Repair count drill-down to V&E Status                     ~15 min
+##   DMG-F3        Damaged item badge in supply room View Supplies           ~20 min
+##
+## Session N — After-Call Reset + Tutorial (~4 hrs)
 ##   RX-B1        POST /checks/usage                                  ~45 min
 ##   RX-F6        After-Call Reset flow — recents + search            ~90 min
+##   RX-F11       First-run tutorial — 3 screens on first login       ~60 min
 ##
-## Session N — Retirement + Settings (~4 hrs)
+## Session O — Dashboard + Station Admin (~4 hrs)
+##   SUP-F3       Expiring items alert on compliance dashboard        ~45 min
+##   B-M10        Migration: allow_check_modification on stations     ~20 min
+##   CH-B7/B8     Station settings GET/PATCH endpoints                ~30 min
+##   ADMIN-B14    PATCH /admin/locations/{id} (label rename)          ~20 min
+##   ADMIN-F7     Portable location list view (Jump Bags) in Admin    ~45 min
+##   ACC-F1-F5    Station membership frontend                         ~60 min
+##
+## Session P — Retirement + Settings (~4 hrs)
 ##   RET-M1-M3    Migrations: retired_at/by/reason                    ~30 min
 ##   RET-B1-B6    Retire vehicle/location/station endpoints           ~60 min
 ##   RET-F1-F5    Retire actions in UI                                ~60 min
-##   S-F1/F3/F6/F7/F8  Settings module                               ~90 min
+##   S-F1/F3/F6/F7/F8  Settings module                                ~90 min
+##   I-3          HTTPSRedirectMiddleware (3 lines)                   ~10 min
+##   SEC-OPS1     Monthly dependency audit workflow                   ~20 min
 ##
-## Session O — UAT Dress Rehearsal + Launch
+## Session Q — UAT Dress Rehearsal + Launch
 ##   LAUNCH-OPS1–9  Operational checklist
 ##   UAT-2–11       Execute all test cases
 
@@ -48,12 +72,8 @@
 ## 0. Security
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| I-3 | `HTTPSRedirectMiddleware` in `main.py` | Low | 📋 | Azure App Service enforces HTTPS at platform level. Application-layer enforcement is defence-in-depth. Three lines in main.py. |
-| SEC-OPS1 | Scheduled monthly dependency audit workflow | Low | 📋 | `.github/workflows/dependency-audit.yml` — runs pip-audit + npm audit on first of each month, opens GitHub issue on findings above moderate. |
-| **RATE-FIX** | **Fix test suite after rate limiting implementation** | **Critical** | **🔄 In progress** | **60 tests failing. Root cause 1: rate limiter firing in tests — `TESTING=true` env var set in conftest.py but may run after `core/limiter.py` is already loaded. Fix: add `env = ["TESTING=true"]` under `[tool.pytest.ini_options]` in `pyproject.toml` — guarantees env var set before any module loads. Root cause 2: `my-history` performed_by mismatch — check_history.py fix already applied (uses `current_user.email or current_user.name`). Files changed: `core/limiter.py` (new), `main.py`, `routers/checks.py` (Request import, @limiter.limit, async def, check_date server-derived, performed_by=email), `schemas/daily_inventory_check.py` (check_date Optional), `routers/check_history.py` (email comparisons), `tests/conftest.py` (TESTING=true). Must reach 349 passed, 1 xfailed before Session M.** |
-| RATE-CI | Add `ruff check ems_readykit/` step to `test-backend` job in `deploy.yml` | Medium | 📋 | After RATE-FIX green. One pip install ruff + ruff check step after pytest. |
-| RATE-MIG | Migration 0019 — `(station_id, check_date)` composite index on `daily_inventory_checks` | Medium | 📋 | After RATE-FIX green. Index name `ix_check_station_date`. Also add to `DailyInventoryCheck.__table_args__`. |
-| RATE-DOCS | Update CLAUDE.md with rate limiting patterns | Medium | 📋 | After RATE-FIX green. Add: check_date server-derived; performed_by uses email; limiter in core/limiter.py (not main.py); TESTING=true disables limits in tests. |
+| I-3 | `HTTPSRedirectMiddleware` in `main.py` | Low | 📋 | Azure App Service enforces HTTPS at platform level. Application-layer enforcement is defence-in-depth. Three lines in main.py. Session P. |
+| SEC-OPS1 | Scheduled monthly dependency audit workflow | Low | 📋 | `.github/workflows/dependency-audit.yml` — runs pip-audit + npm audit on first of each month, opens GitHub issue on findings above moderate. Session P. |
 
 ---
 
@@ -62,48 +82,48 @@
 ### Interaction redesign
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| RX-F3 | Collapse Step 1 for single-station users | High | 📋 | Single-station: vehicle picker + "Continue" only. Date and second crew collapse into a disclosure — "Change date or add crew member". Open by default only if date != today or draft has second crew. |
-| RX-F4 | Simplify Step 5 for clean PASS checks | High | 📋 | PASS: status badge + single "Submit — Unit 712" button. No compartment re-review, no repair toggle, no notes field, no confirmation modal. Repair toggle and notes appear only on NEEDS_RESTOCK or FAIL. |
-| RX-F5 | Restock list persists on SubmittedScreen | High | 📋 | On NEEDS_RESTOCK: "View restock list" button on SubmittedScreen opens read-only reconcile summary. Currently the list disappears after submission. |
+| RX-F3 | Collapse Step 1 for single-station users | High | 📋 | Session M. Single-station: vehicle picker + "Continue" only. Date and second crew collapse into a disclosure — "Change date or add crew member". Open by default only if date != today or draft has second crew. |
+| RX-F4 | Simplify Step 5 for clean PASS checks | High | 📋 | Session M. PASS: status badge + single "Submit — Unit 712" button. No compartment re-review, no repair toggle, no notes field, no confirmation modal. Repair toggle and notes appear only on NEEDS_RESTOCK or FAIL. |
+| RX-F5 | Restock list persists on SubmittedScreen | High | 📋 | Session M. On NEEDS_RESTOCK: "View restock list" button on SubmittedScreen opens read-only reconcile summary. Currently the list disappears after submission. |
 
 ### Priority items
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| RX-F9b | Priority item "last confirmed" display | Medium | 📋 | "Last confirmed ready: [date] · [N] days ago" below each priority item. Pulls from most recent PASS line item for that item on that vehicle. Amber if > threshold days (7 amber / 14 red — Q-15 resolved). |
-| RX-B2 | `PATCH /admin/par-levels/{id}` — accept priority_check + priority_question | High | 📋 | Verify or extend: endpoint must accept `priority_check` (bool) and `priority_question` (VARCHAR 150). Migration 0015 added these columns. Admin+ only. Uses `write_audit_event()`. ~20 min |
-| RX-F12 | Priority toggle + question in par level edit form (Admin) | High | 📋 | In `CompartmentParLevels.jsx`: add **"Show as priority at start of check"** toggle and conditional **"Custom check question"** text field (max 150 chars, appears when toggle is on). Save via RX-B2. Gap from SEED-GAP3 — DB columns exist since migration 0015, UI was never built. ~45 min |
+| RX-F9b | Priority item "last confirmed" display | Medium | 📋 | Session M. "Last confirmed ready: [date] · [N] days ago" below each priority item. Pulls from most recent PASS line item for that item on that vehicle. Amber if > threshold days (7 amber / 14 red — Q-15 resolved). |
+| RX-B2 | `PATCH /admin/par-levels/{id}` — accept priority_check + priority_question | High | 📋 | Session M. Verify or extend: endpoint must accept `priority_check` (bool) and `priority_question` (VARCHAR 150). Migration 0015 added these columns. Admin+ only. Uses `write_audit_event()`. ~20 min |
+| RX-F12 | Priority toggle + question in par level edit form (Admin) | High | 📋 | Session M. In `CompartmentParLevels.jsx`: add **"Show as priority at start of check"** toggle and conditional **"Custom check question"** text field (max 150 chars, appears when toggle is on). Save via RX-B2. Gap from SEED-GAP3 — DB columns exist since migration 0015, UI was never built. ~45 min |
 
 ### After-Call Reset
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| RX-F6 | After-Call Reset flow — recents + search | Critical | 📋 | Home screen "Log Items Used." Auto-selects truck if only one. Shows last 8-10 items by frequency + search. +/− controls per item. "Done" commits. Target: ≤3 taps for 2-3 item case. |
-| RX-B1 | `POST /checks/usage` — lightweight usage record | Critical | 📋 | Uses DailyInventoryCheck (Q-11 resolved — reuse existing model). Auto-decrements stock lots FIFO (Q-12 resolved). Accepts: vehicle_id, station_id, timestamp, [{item_id, compartment_id, quantity_used}]. |
+| RX-F6 | After-Call Reset flow — recents + search | Critical | 📋 | Session N. Home screen "Log Items Used." Auto-selects truck if only one. Shows last 8-10 items by frequency + search. +/− controls per item. "Done" commits. Target: ≤3 taps for 2-3 item case. |
+| RX-B1 | `POST /checks/usage` — lightweight usage record | Critical | 📋 | Session N. Uses DailyInventoryCheck (Q-11 resolved — reuse existing model). Auto-decrements stock lots FIFO (Q-12 resolved). Accepts: vehicle_id, station_id, timestamp, [{item_id, compartment_id, quantity_used}]. |
 
 ### Responder language + error messages
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| RX-F10 | Responder-facing language + error message replacement | Critical | 📋 | Display strings only. Jargon replacements: "Par level" → "Stock: N / N", "Reconcile" → "Restock list", "Functional check" → custom question text, "Date record" → "Expiration date", "NEEDS_RESTOCK" → "Restock needed", "FAIL" → "Problem found", "Measurement" → "Reading", "Repair request" → "Report a problem". Error replacements: 401 → "Your session expired. Sign out and sign back in.", 403 → "You don't have permission to do that. Ask your supervisor if something seems wrong." No HTTP codes or server terminology visible to responders ever. |
+| RX-F10 | Responder-facing language + error message replacement | Critical | 📋 | Session M. Display strings only. Jargon replacements: "Par level" → "Stock: N / N", "Reconcile" → "Restock list", "Functional check" → custom question text, "Date record" → "Expiration date", "NEEDS_RESTOCK" → "Restock needed", "FAIL" → "Problem found", "Measurement" → "Reading", "Repair request" → "Report a problem". Error replacements: 401 → "Your session expired. Sign out and sign back in.", 403 → "You don't have permission to do that. Ask your supervisor if something seems wrong." No HTTP codes or server terminology visible to responders ever. |
 
 ### First-run tutorial
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| RX-F11 | First-run tutorial — 3 screens on first login | Critical | 📋 | Shown exactly once. localStorage flag `ems_tutorial_complete`. Three screens: (1) Home — Check the Truck vs Log Items Used. (2) Check flow — No Change vs Modify vs priority items. (3) After-call — Log Items Used. Each: large text, one illustration, "Got it" button. Skip on screen 1 only. 60px tap targets throughout. |
+| RX-F11 | First-run tutorial — 3 screens on first login | Critical | 📋 | Session N. Shown exactly once. localStorage flag `ems_tutorial_complete`. Three screens: (1) Home — Check the Truck vs Log Items Used. (2) Check flow — No Change vs Modify vs priority items. (3) After-call — Log Items Used. Each: large text, one illustration, "Got it" button. Skip on screen 1 only. 60px tap targets throughout. |
 
 ---
 
 ## 2. Damaged Item Status
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| DMG-F3 | Damaged item visibility in supply room | Medium | 📋 | View Supplies shows damaged items with ⚠ badge. Damaged items excluded from restock suggestions — repair first. |
+| DMG-F3 | Damaged item visibility in supply room | Medium | 📋 | Session M. View Supplies shows damaged items with ⚠ badge. Damaged items excluded from restock suggestions — repair first. |
 
 ---
 
 ## 3. Supervisor Dashboard Enhancements
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| SUP-F1 | Open repair count on compliance dashboard | Critical | 📋 | "N open repair requests" count line. Tap navigates to V&E Status. Hidden if zero. No new API call. |
-| SUP-F2 | Repair count drill-down to V&E Status | High | 📋 | Tap navigates to V&E Status filtered to open/in-progress. Uses existing onNavigateToVehicles prop. |
-| SUP-F3 | Expiring items alert on compliance dashboard | High | 📋 | Query stock_lots expiring within 30 days. Show count in dashboard header. Tap opens list grouped by vehicle: item name, lot number, expiry date, compartment. Amber at 30 days, red at 7 days. No new migration — expiration_date already on StockLot. |
+| SUP-F1 | Open repair count on compliance dashboard | Critical | 📋 | Session M. "N open repair requests" count line. Tap navigates to V&E Status. Hidden if zero. No new API call. |
+| SUP-F2 | Repair count drill-down to V&E Status | High | 📋 | Session M. Tap navigates to V&E Status filtered to open/in-progress. Uses existing onNavigateToVehicles prop. |
+| SUP-F3 | Expiring items alert on compliance dashboard | High | 📋 | Session O. Query stock_lots expiring within 30 days. Show count in dashboard header. Tap opens list grouped by vehicle: item name, lot number, expiry date, compartment. Amber at 30 days, red at 7 days. No new migration — expiration_date already on StockLot. |
 
 ---
 
@@ -120,7 +140,7 @@
 ## 5. Seed Data Gaps — Unit 712
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| SEED-GAP2 | Truck Operations — requires_full_check=True | High | 📋 | Q-16 resolved: compartment-level flag. All Truck Operations FUNCTIONAL items require physical verification — No Change must be blocked. Set `requires_full_check=True` on Truck Operations compartment in seed.py. |
+| SEED-GAP2 | Truck Operations — requires_full_check=True enforcement | High | 📋 | Session M. Implement enforcement in router (clears xfail in test_safety_checks.py). Also set `requires_full_check=True` on Truck Operations compartment in seed.py. Q-16 resolved: compartment-level flag. |
 | SEED-GAP4 | O2 PSI items — priority consideration | Medium | 📋 | "On-Board O2 PSI" (DS EC 1) and "Stretcher O2 PSI" — both min 500 PSI. Chief decides whether to mark priority. Stretcher O2 likely priority. |
 | SEED-GAP5 | Jump bag O2 PSI priority consideration | Low | 📋 | "Jump Bag O2 PSI" MEASUREMENT item. Same priority decision as SEED-GAP4. |
 
@@ -153,33 +173,33 @@
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
 | B-M6 | Alter `par_levels`: add `active`, `deactivated_at`, `deactivation_reason` | Medium | 📋 | |
-| B-M10 | Alter `stations`: add `allow_check_modification` (default True — Q-7 resolved) | High | 📋 | |
-| RET-M1 | Alter `vehicles`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 | |
-| RET-M2 | Alter `locations`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 | |
-| RET-M3 | Alter `stations`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 | |
+| B-M10 | Alter `stations`: add `allow_check_modification` (default True — Q-7 resolved) | High | 📋 | Session O. |
+| RET-M1 | Alter `vehicles`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 | Session P. |
+| RET-M2 | Alter `locations`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 | Session P. |
+| RET-M3 | Alter `stations`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 | Session P. |
 
 ---
 
 ## 9. Backend — Check History Endpoints
 | # | Endpoint | Description | Pri | Status | Notes |
 |---|----------|-------------|-----|--------|-------|
-| CH-B4 | `DELETE /checks/daily/{id}/force` | Force hard-delete | High | 📋 | Admin only |
-| CH-B5 | `GET /checks/daily/deleted?station_id=` | List soft-deleted checks | Medium | 📋 | Supervisor+ |
-| CH-B6 | `PATCH /checks/daily/{id}/restore` | Restore soft-deleted (Q-8: all roles) | Low | 📋 | |
-| CH-B7 | `PATCH /stations/{id}/settings` | Update station settings | High | 📋 | Admin only |
-| CH-B8 | `GET /stations/{id}/settings` | Read station settings | High | 📋 | Supervisor+ |
+| CH-B4 | `DELETE /checks/daily/{id}/force` | Force hard-delete | High | 📋 | Admin only. Post-launch. |
+| CH-B5 | `GET /checks/daily/deleted?station_id=` | List soft-deleted checks | Medium | 📋 | Supervisor+. Post-launch. |
+| CH-B6 | `PATCH /checks/daily/{id}/restore` | Restore soft-deleted (Q-8: all roles) | Low | 📋 | Post-launch. |
+| CH-B7 | `PATCH /stations/{id}/settings` | Update station settings | High | 📋 | Admin only. Session O. |
+| CH-B8 | `GET /stations/{id}/settings` | Read station settings | High | 📋 | Supervisor+. Session O. |
 
 ---
 
 ## 10. Backend — Retirement Endpoints
 | # | Endpoint | Pri | Status |
 |---|----------|-----|--------|
-| RET-B1 | `PATCH /vehicles/{id}/retire` | High | 📋 |
-| RET-B2 | `PATCH /locations/{id}/retire` | High | 📋 |
-| RET-B3 | `PATCH /stations/{id}/retire` | High | 📋 |
-| RET-B4 | `GET /admin/retired?type=&station_id=` | Medium | 📋 |
-| RET-B5 | `PATCH /inventory/lots/{id}/retire` | High | 📋 |
-| RET-B6 | `GET /inventory/lots/retired?location_id=` | Medium | 📋 |
+| RET-B1 | `PATCH /vehicles/{id}/retire` | High | 📋 | Session P. |
+| RET-B2 | `PATCH /locations/{id}/retire` | High | 📋 | Session P. |
+| RET-B3 | `PATCH /stations/{id}/retire` | High | 📋 | Session P. |
+| RET-B4 | `GET /admin/retired?type=&station_id=` | Medium | 📋 | Session P. |
+| RET-B5 | `PATCH /inventory/lots/{id}/retire` | High | 📋 | Session P. |
+| RET-B6 | `GET /inventory/lots/retired?location_id=` | Medium | 📋 | Session P. |
 
 ---
 
@@ -225,22 +245,22 @@
 ## 16. Frontend — Settings Module
 | # | Item | Pri | Status | Needs |
 |---|------|-----|--------|-------|
-| S-F1 | Settings nav entry | High | 📋 | Session N |
-| S-F3 | Allow check modification toggle (default True) | High | 📋 | B-M10 |
-| S-F6 | Station management | High | 📋 | RET-B3/B4 |
-| S-F7 | Vehicle management | High | 📋 | RET-B1/B2 |
-| S-F8 | Par level management | Medium | 📋 | B-E9 |
+| S-F1 | Settings nav entry | High | 📋 | Session P. |
+| S-F3 | Allow check modification toggle (default True) | High | 📋 | Session P. Needs B-M10. |
+| S-F6 | Station management | High | 📋 | Session P. Needs RET-B3/B4. |
+| S-F7 | Vehicle management | High | 📋 | Session P. Needs RET-B1/B2. |
+| S-F8 | Par level management | Medium | 📋 | Session P. Needs B-E9. |
 
 ---
 
 ## 17. Frontend — Retirement Actions
 | # | Item | Pri | Status | Needs |
 |---|------|-----|--------|-------|
-| RET-F1 | Retire vehicle | High | 📋 | RET-B1 |
-| RET-F2 | Retire jump bag / portable location | High | 📋 | RET-B2 |
-| RET-F3 | Retire inventory lot | High | 📋 | RET-B5 |
-| RET-F4 | Retire station | High | 📋 | RET-B3 |
-| RET-F5 | Retired objects list | Medium | 📋 | RET-B4 |
+| RET-F1 | Retire vehicle | High | 📋 | Session P. Needs RET-B1. |
+| RET-F2 | Retire jump bag / portable location | High | 📋 | Session P. Needs RET-B2. |
+| RET-F3 | Retire inventory lot | High | 📋 | Session P. Needs RET-B5. |
+| RET-F4 | Retire station | High | 📋 | Session P. Needs RET-B3. |
+| RET-F5 | Retired objects list | Medium | 📋 | Session P. Needs RET-B4. |
 
 ---
 
@@ -251,7 +271,6 @@
 | I-2 | Re-add route table | Medium | ⛔ | |
 | I-5 | Document Azure AD token lifetime | Low | 📋 | |
 | PERF-1 | Batch N+1 in `_auto_decrement_supply_room` | Low | 📋 | One query for all items instead of one per item. Not urgent at 5 calls/week. |
-| PERF-2 | `(station_id, check_date)` composite index on `daily_inventory_checks` | Medium | 📋 | Migration 0019. Compliance calendar queries filter on station_id + check_date. |
 | TECH-1 | `pytest-cov` coverage reporting | Low | 📋 | One-line addition to pyproject.toml. Enables accurate coverage badge. |
 | TECH-2 | React Query for frontend data management | Low | 📋 | Post-launch refactor. Eliminates manual useEffect+useState pattern; adds background refetch, request deduplication, cache invalidation. |
 | TECH-3 | Offline submission queue (F-UX9) | Low | 📋 | IndexedDB queue retries on reconnect. Critical for basement/low-signal scenarios. |
@@ -261,20 +280,20 @@
 ## 19. Equipment & Station Administration
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| ADMIN-B14 | `PATCH /admin/locations/{id}` | High | 📋 | Label rename for portable locations |
-| ADMIN-F7 | Portable location list view (Jump Bags) | High | 📋 | Session N |
-| ADMIN-F10 | Member list search | Low | 📋 | Post-launch |
+| ADMIN-B14 | `PATCH /admin/locations/{id}` | High | 📋 | Session O. Label rename for portable locations. |
+| ADMIN-F7 | Portable location list view (Jump Bags) | High | 📋 | Session O. |
+| ADMIN-F10 | Member list search | Low | 📋 | Post-launch. |
 
 ---
 
 ## 20. Station Membership & Access Control
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| ACC-F1 | Station picker uses `GET /stations/my` | High | 📋 | |
-| ACC-F2 | Member list view | High | 📋 | |
-| ACC-F3 | Add member form | High | 📋 | |
-| ACC-F4 | Remove member confirmation | High | 📋 | |
-| ACC-F5 | "Pending assignment" screen | High | 📋 | |
+| ACC-F1 | Station picker uses `GET /stations/my` | High | 📋 | Session O. |
+| ACC-F2 | Member list view | High | 📋 | Session O. |
+| ACC-F3 | Add member form | High | 📋 | Session O. |
+| ACC-F4 | Remove member confirmation | High | 📋 | Session O. |
+| ACC-F5 | "Pending assignment" screen | High | 📋 | Session O. |
 
 ---
 
@@ -328,11 +347,11 @@
 | Frontend — Check History | 1 | 1 | 2 |
 | Frontend — Settings | 5 | 0 | 5 |
 | Frontend — Retirement Actions | 5 | 0 | 5 |
-| Infrastructure / Security | 2 | 1 | 3 |
+| Infrastructure / Security | 1 | 1 | 2 |
 | Equipment & Station Admin | 3 | 0 | 3 |
 | Station Membership Frontend | 5 | 0 | 5 |
 | User Acceptance Testing | 9 | 2 | 11 |
-| **Total open** | **87** | **5** | **92** |
+| **Total open** | **85** | **5** | **90** |
 
 *Completed items — Sessions A–K — are in backlog_completed.md.*
 *v1.62 — 2026-06-06: Backlog cleaned. All ✅ Done items moved to backlog_completed.md.*
@@ -342,3 +361,5 @@
 *v1.66 — 2026-06-08: Seed fix — removed orphan Unit 710 Jump Bag from Newberg Township. Unit 710 has no ambulance seeded; its jump bag was appearing as an orphan in the check wizard Step 1 picker. Unit 712 Jump Bag remains. LAUNCH-OPS3 updated when Unit 710 ambulance is eventually seeded.*
 *v1.67 — 2026-06-08: Session L post-close. Safety + seed integrity tests: test_seed_integrity.py (32 tests against seeded dev DB via seeded_db fixture), test_safety_checks.py (13 tests + 1 xfail documenting requires_full_check enforcement gap). Total: 349 passed, 1 xfailed.*
 *v1.68 — 2026-06-09: Security/performance improvements partially implemented. Completed: slowapi rate limiting wired (core/limiter.py, main.py), check_date server-derived from timestamp, performed_by uses email, check_history.py ownership checks updated. In progress: test suite broken (60 failures) due to rate limiter firing in tests + conftest/limiter interaction. Continuing in new chat. New backlog items added: PERF-1, PERF-2, TECH-1, TECH-2, TECH-3.*
+*v1.69 — 2026-06-09: Post-session L complete. Tests green (349 passed, 1 xfailed). RATE-FIX done; RATE-CI (ruff in CI), RATE-MIG/PERF-2 (migration 0019 + model), RATE-DOCS (CLAUDE.md) all implemented and moved to completed. Session plan expanded: M–Q now covers all pre-launch items with session labels.*
+*v1.70 — 2026-06-09: Frontend test suite complete. Vitest + React Testing Library: 10 component test files + MSAL mocks. Covers check wizard, supervisor dashboard, vehicles, admin, check history, and all shared utilities. Role-gating regression (Session J canAccess 'admin' alias) now has automated coverage. No backend changes.*

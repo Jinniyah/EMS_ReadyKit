@@ -50,6 +50,7 @@ class DailyInventoryCheck(TimestampMixin, Base):
     __table_args__ = (
         Index("ix_check_vehicle_date",   "vehicle_id",  "check_date"),
         Index("ix_check_location_date",  "location_id", "check_date"),
+        Index("ix_check_station_date",   "station_id",  "check_date"),
     )
 
     check_id:    Mapped[int]           = mapped_column(primary_key=True, autoincrement=True)

@@ -74,6 +74,15 @@ def get_or_create_item(
 ) -> Item:
     item = db.query(Item).filter(Item.name == name).first()
     if item:
+        # Update mutable fields on re-seed so existing DBs pick up changes
+        # (e.g. LUCAS Device SUPPLY→FUNCTIONAL, AED Pads gaining recurrence_days).
+        item.check_type       = check_type
+        item.recurrence_days  = recurrence_days
+        item.unit_of_measure  = unit_of_measure
+        if measurement_minimum is not None:
+            item.measurement_minimum = measurement_minimum
+        if measurement_maximum is not None:
+            item.measurement_maximum = measurement_maximum
         return item
     item = Item(
         name=name, category=category, check_type=check_type,
@@ -128,6 +137,7 @@ def make_compartment(
     ).first()
     if comp:
         comp.requires_full_check = requires_full_check
+        comp.restriction_note    = restriction_note  # update on re-seed (e.g. removal)
         return comp
     comp = Compartment(
         location_id=location.location_id, name=name, sort_order=sort_order,
@@ -138,6 +148,47 @@ def make_compartment(
     db.add(comp)
     db.flush()
     return comp
+
+
+def purge_stale_par_levels(db: Session, loc: InventoryLocation) -> None:
+    """
+    Remove par levels and empty compartments that were retired in this seed version.
+
+    Retired items (reason):
+      - "Stretcher O2 Tank w/ Regulator" SUPPLY  — replaced by PSI reading only
+      - "On-Board O2 Tank w/ Regulator 15LPM" SUPPLY — duplicate; PSI item is canonical
+      - Compartment "Passenger Side EC 1"   — empty on Unit 712, not used
+    """
+    stale_item_names = [
+        "Stretcher O2 Tank w/ Regulator",
+        "On-Board O2 Tank w/ Regulator 15LPM",
+    ]
+    purged_pars = 0
+    for item_name in stale_item_names:
+        item = db.query(Item).filter(Item.name == item_name).first()
+        if not item:
+            continue
+        deleted = db.query(ParLevel).filter(
+            ParLevel.location_id == loc.location_id,
+            ParLevel.item_id     == item.item_id,
+        ).delete(synchronize_session=False)
+        if deleted:
+            purged_pars += deleted
+            print(f"    Purged stale par level: '{item_name}' from location {loc.location_id}")
+
+    # Remove Passenger Side EC 1 compartment (empty — not used on Unit 712)
+    ps_ec1 = db.query(Compartment).filter(
+        Compartment.location_id == loc.location_id,
+        Compartment.name        == "Passenger Side EC 1",
+    ).first()
+    if ps_ec1:
+        db.query(ParLevel).filter(
+            ParLevel.compartment_id == ps_ec1.compartment_id
+        ).delete(synchronize_session=False)
+        db.delete(ps_ec1)
+        print(f"    Removed empty compartment 'Passenger Side EC 1' from location {loc.location_id}")
+
+    db.flush()
 
 
 def purge_wrong_drug_cabinets(db: Session, loc: InventoryLocation, is_als: bool) -> None:
@@ -359,19 +410,27 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
                                         check_type=ItemCheckType.DATE_RECORD,
                                         unit_of_measure="N/A", recurrence_days=90),
             location=loc, compartment=pc8, min_qty=1)
+    # AED Pads — DATE_RECORD capturing the expiry date printed on the package.
+    # recurrence_days=730 (~2 years) drives an OVERDUE alert when the recorded
+    # expiry date is in the past or within the threshold. Same/Different buttons
+    # appear on the compartment card once a date has been recorded previously.
     add_par(db, item=get_or_create_item(db, name="AED Pads Adult",
                                         category=ItemCategory.CONSUMABLE,
                                         check_type=ItemCheckType.DATE_RECORD,
-                                        unit_of_measure="N/A"),
+                                        unit_of_measure="N/A", recurrence_days=730),
             location=loc, compartment=pc8, min_qty=1)
     add_par(db, item=get_or_create_item(db, name="AED Pads Pediatric",
                                         category=ItemCategory.CONSUMABLE,
                                         check_type=ItemCheckType.DATE_RECORD,
-                                        unit_of_measure="N/A"),
+                                        unit_of_measure="N/A", recurrence_days=730),
             location=loc, compartment=pc8, min_qty=1)
+    # LUCAS Device — FUNCTIONAL Pass/Fail, shown as a priority item at check start.
     add_par(db, item=get_or_create_item(db, name="LUCAS Device",
-                                        category=ItemCategory.EQUIPMENT),
-            location=loc, compartment=pc8, min_qty=1)
+                                        category=ItemCategory.EQUIPMENT,
+                                        check_type=ItemCheckType.FUNCTIONAL,
+                                        unit_of_measure="N/A"),
+            location=loc, compartment=pc8, min_qty=1,
+            priority_check=True, priority_question="LUCAS shows READY?")
     add_par(db, item=get_or_create_item(db, name="LUCAS Date of Last Charge",
                                         category=ItemCategory.EQUIPMENT,
                                         check_type=ItemCheckType.DATE_RECORD,
@@ -382,6 +441,8 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
                                         check_type=ItemCheckType.FUNCTIONAL, unit_of_measure="N/A"),
             location=loc, compartment=pc8, min_qty=1)
 
+    # Purge retired par levels and empty compartments from prior seed versions.
+    purge_stale_par_levels(db, loc)
     purge_wrong_drug_cabinets(db, loc, is_als)
 
     if is_als:
@@ -551,9 +612,9 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
 
     stretcher = make_compartment(db, location=loc, name="Stretcher", sort_order=26,
                                  location_descriptor="Patient stretcher / cot")
-    add_par(db, item=get_or_create_item(db, name="Stretcher O2 Tank w/ Regulator",
-                                        category=ItemCategory.EQUIPMENT),
-            location=loc, compartment=stretcher, min_qty=1)
+    # Stretcher O2 — PSI reading only; the regulator is confirmed by taking the reading.
+    # The old SUPPLY item "Stretcher O2 Tank w/ Regulator" is intentionally removed here;
+    # existing par levels for it are purged below in purge_stale_par_levels().
     add_par(db, item=get_or_create_item(db, name="Stretcher O2 PSI",
                                         category=ItemCategory.EQUIPMENT,
                                         check_type=ItemCheckType.MEASUREMENT,
@@ -571,9 +632,8 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
                  "Peds Traction Splint", "Broom"]:
         add_par(db, item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
                 location=loc, compartment=ds_ec1, min_qty=1)
-    add_par(db, item=get_or_create_item(db, name="On-Board O2 Tank w/ Regulator 15LPM",
-                                        category=ItemCategory.EQUIPMENT),
-            location=loc, compartment=ds_ec1, min_qty=1)
+    # On-Board O2 — PSI reading only; duplicate SUPPLY item removed.
+    # "On-Board O2 Tank w/ Regulator 15LPM" par level is purged in purge_stale_par_levels().
     add_par(db, item=get_or_create_item(db, name="On-Board O2 PSI",
                                         category=ItemCategory.EQUIPMENT,
                                         check_type=ItemCheckType.MEASUREMENT,
@@ -596,8 +656,8 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
         add_par(db, item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
                 location=loc, compartment=ds_ec3, min_qty=1)
 
-    make_compartment(db, location=loc, name="Passenger Side EC 1", sort_order=33,
-                     location_descriptor="Exterior, passenger side, forward bay")
+    # Passenger Side EC 1 is empty — not used on Unit 712. Compartment is not
+    # created; existing rows are purged in purge_stale_par_levels() below.
 
     ps_ec2 = make_compartment(db, location=loc, name="Passenger Side EC 2", sort_order=34,
                               location_descriptor="Exterior, passenger side, middle bay")
@@ -636,10 +696,13 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
                                             category=ItemCategory.CONSUMABLE),
                 location=loc, compartment=truck_ops, min_qty=1)
 
+    # Under Hood — restriction note removed (not enforced). requires_full_check=True
+    # suppresses inline reading rows on the outer card; items appear in Step 3 only.
     under_hood = make_compartment(
         db, location=loc, name="Under Hood", sort_order=99,
         location_descriptor="Engine compartment",
-        restriction_note="Approved personnel only — mechanical authorization required",
+        restriction_note=None,
+        requires_full_check=True,
     )
     for name in ["Hoses", "Belts", "Oil Level", "Steering/Brakes",
                  "Radiator", "Windshield", "Battery"]:

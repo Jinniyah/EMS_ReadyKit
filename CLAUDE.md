@@ -97,6 +97,24 @@ operation that touches station-scoped data. Administrators bypass automatically.
 `performed_by` must always be bound from the JWT server-side (`current_user.email`
 or `current_user.oid`). Never trust a client-supplied user identity field.
 
+### Rate limiting
+Rate limiter lives in `core/limiter.py` (not `main.py` — avoids circular import).
+Import the singleton in route handlers:
+```python
+from ems_readykit.core.limiter import limiter, DAILY_CHECK_RATE_LIMIT
+
+@router.post("/daily")
+@limiter.limit(DAILY_CHECK_RATE_LIMIT)
+async def create_daily_check(request: Request, ...):
+    ...
+```
+- `TESTING=true` (set by `conftest.py` before `main.py` loads) makes the limiter
+  use a very high limit — it never fires during the test suite.
+- `check_date` is always server-derived from the `timestamp` field — never
+  accepted from the client directly.
+- `performed_by` always uses `current_user.email or current_user.name` — never
+  a client-supplied value.
+
 ### Status computation
 Check and line-item status are **computed server-side only**. Never accept
 status values from the client. Business rules:
@@ -225,6 +243,7 @@ No handoff files. At the end of every session:
 | Audit writes | Always via `core/audit.py::write_audit_event()` |
 | Role constants | Always from `deps.py` — never re-declare locally |
 | Station scoping | Always call `require_station_membership()` |
+| Rate limiter | Lives in `core/limiter.py`; `TESTING=true` disables it in tests; `check_date` server-derived; `performed_by` = email |
 | Draft key | Includes `started_at` — supports multi-draft |
 | StationMember.user_id | Email (preferred_username), not OID — see station_members.py |
 | Supply room | Uses `LocationType.STATION_SUPPLY_ROOM` — not a fake vehicle |

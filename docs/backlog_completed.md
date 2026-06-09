@@ -1,7 +1,39 @@
 # EMS ReadyKit — Completed Items
-# Last updated: 2026-06-08 (Session L post-close)
+# Last updated: 2026-06-09 (Frontend test suite — Vitest + React Testing Library)
 # Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L
 # Active backlog -> docs/backlog.md
+
+---
+
+## Post-Session L — Frontend Test Suite (2026-06-09)
+Vitest + React Testing Library component tests. 10 new test files. No backend changes. Backend remains at 349 passed, 1 xfailed.
+
+| # | Item | Completed |
+|---|------|-----------|
+| FE-TEST-INFRA | `__mocks__/@azure/msal-react.js` + `msal-browser.js` — root-level auto-mocks for MSAL; `MsalProvider`, `useMsal`, `useIsAuthenticated`, `PublicClientApplication`, `InteractionRequiredAuthError` | 2026-06-09 |
+| FE-TEST-AUTH | `src/shared/hooks/__mocks__/useAuth.jsx` — manual mock with Jamie (Responder), Earl (Supervisor), Jennifer (Administrator) personas; mirrors `Bearer test-{role}` backend token pattern | 2026-06-09 |
+| FE-TEST-1 | `roleGuard.test.js` — `canAccess()` all three roles; Session J regression: `canAccess(admin, 'admin')` alias returns true | 2026-06-09 |
+| FE-TEST-2 | `DraftBanner.test.jsx` — hidden when no draft; station label; Resume calls onResume; Discard opens confirmation; multi-draft picker | 2026-06-09 |
+| FE-TEST-3 | `WizardProgress.test.jsx` — step labels; aria-current active step; completed steps show ✓; progress bar aria-valuenow | 2026-06-09 |
+| FE-TEST-4 | `Step1Vehicle.test.jsx` — vehicle list renders; OOS vehicles excluded; Continue disabled until selection; supply room auto-advance calls onSelect with STATION_SUPPLY_ROOM params | 2026-06-09 |
+| FE-TEST-5 | `ItemRow.test.jsx` — all five check types (SUPPLY counter, MEASUREMENT number input, FUNCTIONAL pass/fail radios, DATE_RECORD date + Today button, DOCUMENT counter); confirmed/locked state; damaged badge show/hide; onMarkDamaged callback | 2026-06-09 |
+| FE-TEST-6 | `SupplyLowStockPanel.test.jsx` — hidden when empty/null; amber vs red styling; expand/collapse; aria-expanded; out-of-stock count display | 2026-06-09 |
+| FE-TEST-7 | `VehicleCard.test.jsx` — OOS badge; open repair count; RTS/OOS toggle visible to Supervisor, hidden from Responder; Report an Issue visible to all roles | 2026-06-09 |
+| FE-TEST-8 | `ItemCatalog.test.jsx` — item list renders; search filters; add button visible to Supervisor+, hidden from Responder | 2026-06-09 |
+| FE-TEST-9 | `StatusBadge.test.jsx` — correct label/severity for PASS, NEEDS_RESTOCK, FAIL; all LineItemStatus values | 2026-06-09 |
+| FE-TEST-10 | `CheckHistory.test.jsx` — Responder sees only My Checks, no tabs; Supervisor sees All Checks + Deleted tabs; All Checks active by default for Supervisor; station name in header | 2026-06-09 |
+
+---
+
+## Post-Session L — Rate Limiting + CI Lint + Performance Index (2026-06-09)
+349 tests passing, 1 xfailed. Rate limiting wired end-to-end; ruff in CI; migration 0019 deployed.
+
+| # | Item | Completed |
+|---|------|-----------|
+| RATE-FIX | slowapi rate limiter wired: `core/limiter.py` singleton, `main.py` middleware, `POST /checks/daily` decorated; `check_date` server-derived from `timestamp`; `performed_by` uses `current_user.email`; `check_history.py` ownership checks updated; `TESTING=true` in `conftest.py` disables limiter in tests | 2026-06-09 |
+| RATE-CI | `ruff check ems_readykit/` step added to `test-backend` job in `deploy.yml` (runs before pytest) | 2026-06-09 |
+| RATE-MIG / PERF-2 | Migration 0019 — `ix_check_station_date` composite index on `daily_inventory_checks(station_id, check_date)`; model `__table_args__` updated | 2026-06-09 |
+| RATE-DOCS | CLAUDE.md updated with rate limiting patterns: limiter location, TESTING flag, check_date server-derived, performed_by email; added to Key Architectural Decisions table | 2026-06-09 |
 
 ---
 

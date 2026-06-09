@@ -45,6 +45,10 @@ jobs:
         working-directory: ${{ env.APP_DIR }}
         run: pip install pip-audit && pip-audit -r requirements.txt
 
+      - name: Lint (ruff)
+        working-directory: ${{ env.APP_DIR }}
+        run: pip install ruff && ruff check ems_readykit/
+
       - name: Run pytest
         working-directory: ${{ env.APP_DIR }}
         run: pytest tests/ -v --tb=short

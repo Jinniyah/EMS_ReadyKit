@@ -78,7 +78,7 @@ describe('lineItemStatus', () => {
 
   it('FAIL returns fail severity', () => {
     expect(lineItemStatus('FAIL').severity).toBe('fail')
-    expect(lineItemStatus('FAIL').label).toBe('Failed')
+    expect(lineItemStatus('FAIL').label).toBe('Problem found')
   })
 
   it('OVERDUE returns fail severity', () => {
