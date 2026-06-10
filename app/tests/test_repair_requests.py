@@ -15,10 +15,8 @@ Covers:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
 from typing import Optional
 
-import pytest
 from sqlalchemy.orm import Session
 
 from ems_readykit.models import (
@@ -29,7 +27,6 @@ from ems_readykit.models import (
     Vehicle,
     VehicleType,
 )
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 

@@ -34,10 +34,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
+import ems_readykit.models  # noqa: F401 — ensure all tables are registered
 from ems_readykit.core.database import Base, get_db
 from ems_readykit.main import app
-import ems_readykit.models  # noqa: F401 — ensure all tables are registered
-
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
 

@@ -17,9 +17,7 @@ from __future__ import annotations
 import json as _json
 import uuid
 from datetime import date, datetime, timedelta, timezone
-from typing import List, Optional
 
-import pytest
 from sqlalchemy.orm import Session
 
 from ems_readykit.models import (
@@ -35,7 +33,6 @@ from ems_readykit.models import (
 )
 from ems_readykit.models.par_level import ParLevel
 from ems_readykit.models.station_member import StationMember
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -126,7 +123,7 @@ def _setup(db: Session):
     return station, vehicle, location, comp, items
 
 
-def _line_item_for(item: Item, comp: Compartment, *, fail: bool = False, notes: str = None) -> dict:
+def _line_item_for(item: Item, comp: Compartment, *, fail: bool = False, notes: str | None = None) -> dict:
     """Build a line item dict for the given item with sensible defaults."""
     base = {
         "compartment_id": comp.compartment_id,

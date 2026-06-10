@@ -46,7 +46,6 @@ from ems_readykit.models import (
 from ems_readykit.models.par_level import ParLevel
 from ems_readykit.models.station_member import StationMember
 
-
 # ---------------------------------------------------------------------------
 # Helpers (mirrors pattern from test_routers.py)
 # ---------------------------------------------------------------------------
@@ -128,7 +127,7 @@ def _item(db: Session, *, name: str, check_type: ItemCheckType,
 
 
 def _par(db: Session, *, item: Item, location: InventoryLocation,
-         comp: Compartment, priority: bool = False, question: str = None):
+         comp: Compartment, priority: bool = False, question: str | None = None):
     db.add(ParLevel(
         item_id=item.item_id,
         location_id=location.location_id,
@@ -451,7 +450,7 @@ class TestPriorityFlags:
 
     def test_priority_flag_readable_from_par_level_api(self, client, db, auth_admin):
         """priority_check=True on a par level must be readable from the API."""
-        station, vehicle, location, comp = _setup(db)
+        _station, _vehicle, location, comp = _setup(db)
         aed = _item(db, name=f"AED Priority {_uid()}", check_type=ItemCheckType.FUNCTIONAL)
         _par(db, item=aed, location=location, comp=comp,
              priority=True, question="AED powered on and ready for use?")
@@ -481,7 +480,7 @@ class TestPriorityFlags:
         RX-B2: PATCH /admin/par-levels/{id} should accept priority fields.
         xfail until endpoint is implemented.
         """
-        station, vehicle, location, comp = _setup(db)
+        _station, _vehicle, location, comp = _setup(db)
         item = _item(db, name=f"Priority Patch {_uid()}", check_type=ItemCheckType.FUNCTIONAL)
         _par(db, item=item, location=location, comp=comp)
 

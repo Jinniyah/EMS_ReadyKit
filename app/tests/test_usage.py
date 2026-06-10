@@ -25,7 +25,6 @@ from ems_readykit.models.station_member import StationMember
 from ems_readykit.models.stock_lot import StockLot
 from ems_readykit.models.vehicle import Vehicle, VehicleType
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 @pytest.fixture

@@ -7,10 +7,11 @@ Prints:
   - Whether the color/call_sign columns exist on stations and vehicles
 """
 import sys
+
 sys.path.insert(0, ".")
 
-import sqlite3
 import os
+import sqlite3
 
 db_path = "ems_readykit_dev.db"
 

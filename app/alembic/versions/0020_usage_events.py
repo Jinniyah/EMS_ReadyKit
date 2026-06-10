@@ -11,9 +11,9 @@ Stock lot FIFO decrement happens at submission time; these tables
 record what was logged for history and frequency queries.
 """
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "0020"
 down_revision = "0019"

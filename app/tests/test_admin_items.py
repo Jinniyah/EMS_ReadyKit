@@ -13,7 +13,6 @@ Coverage:
 """
 from __future__ import annotations
 
-import pytest
 from datetime import datetime, timezone
 
 BASE = "/api/v1/admin/items"

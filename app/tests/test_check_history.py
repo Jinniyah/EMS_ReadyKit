@@ -21,7 +21,6 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-import pytest
 from sqlalchemy.orm import Session
 
 from ems_readykit.models import (
@@ -31,8 +30,7 @@ from ems_readykit.models import (
     Vehicle,
     VehicleType,
 )
-from ems_readykit.models.daily_inventory_check import DailyInventoryCheck, CheckStatus
-
+from ems_readykit.models.daily_inventory_check import CheckStatus, DailyInventoryCheck
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 

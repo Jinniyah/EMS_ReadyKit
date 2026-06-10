@@ -17,9 +17,11 @@ Safe to run multiple times — all inserts are idempotent.
 from __future__ import annotations
 
 import sys
+
 sys.path.insert(0, ".")
 
 from sqlalchemy.orm import Session
+
 from ems_readykit.core.database import SessionLocal
 from ems_readykit.models.station import Station
 from ems_readykit.models.station_member import StationMember
@@ -33,7 +35,7 @@ ASSIGNED_BY = "fix_orphaned_stations.py"
 
 
 def fix(db: Session) -> None:
-    stations = db.query(Station).filter(Station.active == True).all()
+    stations = db.query(Station).filter(Station.active).all()
     print(f"Found {len(stations)} active station(s).\n")
 
     for station in stations:

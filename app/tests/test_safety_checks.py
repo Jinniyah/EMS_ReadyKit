@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime, timedelta, timezone
-from typing import Optional
 
 import pytest
 from sqlalchemy.orm import Session
@@ -46,7 +45,6 @@ from ems_readykit.models.check_line_item import LineItemStatus
 from ems_readykit.models.daily_inventory_check import CheckStatus
 from ems_readykit.models.par_level import ParLevel
 from ems_readykit.models.station_member import StationMember
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -245,7 +243,7 @@ class TestO2PSIBelowMinimum:
         )
         # LOW maps to NEEDS_RESTOCK at the check level — not PASS
         assert body["status"] != CheckStatus.PASS.value, (
-            f"Check with LOW O2 PSI returned overall status=PASS. "
+            "Check with LOW O2 PSI returned overall status=PASS. "
             "A LOW reading must not result in a passing check."
         )
 
@@ -473,7 +471,7 @@ class TestRequiresFullCheck:
         self, client, db, auth_responder
     ):
         """Baseline: a normal compartment accepts a check with no line items."""
-        station, vehicle, location, comp = _setup(db)
+        station, vehicle, _location, comp = _setup(db)
         # comp has requires_full_check=False by default from _setup()
         assert comp.requires_full_check is False
 

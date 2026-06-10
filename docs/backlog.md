@@ -251,7 +251,15 @@
 
 ---
 
-## 18. Infrastructure / Security
+## 18. Frontend — Tests
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| FE-TEST-11 | `UsageItemPicker.test.jsx` — item picker | High | 📋 | Catalog renders; search filters by `item_name`; +/- controls update quantity; selected items highlighted; "Used most often" section shown when frequentItems provided; "Common items" + history note shown when no history. |
+| FE-TEST-12 | `UsageLogScreen.test.jsx` — full flow | High | 📋 | Vehicle picker shown for multi-vehicle stations; auto-skipped for single vehicle; item step renders picker; Done submits correct payload; "Nothing used" calls onBack; submit error displayed. |
+
+---
+
+## 19. Infrastructure / Security
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
 | I-1 | Azure Firewall | Medium | 📋 | Before scaling to second service |

@@ -27,7 +27,6 @@ What is verified:
 
 from __future__ import annotations
 
-import pytest
 from sqlalchemy.orm import Session
 
 from ems_readykit.models import (
@@ -41,7 +40,6 @@ from ems_readykit.models import (
     VehicleType,
 )
 from ems_readykit.models.par_level import ParLevel
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -195,7 +193,7 @@ class TestJumpBagIntegrity:
         assert jb is not None
         comp_count = seeded_db.query(Compartment).filter(
             Compartment.location_id == jb.location_id,
-            Compartment.active == True,
+            Compartment.active,
         ).count()
         assert comp_count >= 4, (
             f"Unit 712 Jump Bag only has {comp_count} compartment(s) -- expected at least 4"

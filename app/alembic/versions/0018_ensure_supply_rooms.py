@@ -9,9 +9,9 @@ STATION_SUPPLY_ROOM inventory location or compartments created for them.
 This migration backfills both so all stations have a usable supply room.
 """
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "0018"
 down_revision = "0017"

@@ -7,15 +7,16 @@ so that secrets are never stored in version-controlled config files.
 
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import create_engine, pool
+
+import ems_readykit.models  # noqa: F401 — registers all ORM models with Base.metadata
+from alembic import context
 
 # ── Import application config and all models ──────────────────────────────────
 # Models must be imported before Base.metadata is passed to Alembic,
 # otherwise the autogenerate will produce empty migrations.
 from ems_readykit.core.config import get_settings, resolve_database_url
 from ems_readykit.core.database import Base
-import ems_readykit.models  # noqa: F401 — registers all ORM models with Base.metadata
 
 # ── Alembic Config object (provides .ini file values) ─────────────────────────
 config = context.config

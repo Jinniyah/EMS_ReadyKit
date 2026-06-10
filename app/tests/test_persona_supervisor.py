@@ -20,9 +20,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime, timezone
-from typing import Optional
 
-import pytest
 from sqlalchemy.orm import Session
 
 from ems_readykit.models import (
@@ -38,7 +36,6 @@ from ems_readykit.models import (
 )
 from ems_readykit.models.par_level import ParLevel
 from ems_readykit.models.station_member import StationMember
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -188,7 +185,7 @@ class TestSupervisorDamagedItems:
 
     def test_mark_item_damaged_returns_200_not_500(self, client, db, auth_supervisor):
         """Mark damaged must return 200. A 500 means the audit event kwargs bug is back."""
-        station, vehicle, location, comp, item = _setup(db)
+        _station, _vehicle, _location, comp, item = _setup(db)
 
         r = client.patch(
             f"/api/v1/inventory/items/{item.item_id}/status",
@@ -206,7 +203,7 @@ class TestSupervisorDamagedItems:
 
     def test_clear_damaged_returns_200_not_500(self, client, db, auth_supervisor):
         """Clear damaged must return 200. 500 = same bug as above."""
-        station, vehicle, location, comp, item = _setup(db)
+        _station, _vehicle, _location, comp, item = _setup(db)
 
         # Mark first
         client.patch(
@@ -230,7 +227,7 @@ class TestSupervisorDamagedItems:
 
     def test_mark_damaged_sets_is_damaged_true(self, client, db, auth_supervisor):
         """After marking damaged, the par level is_damaged field must be True."""
-        station, vehicle, location, comp, item = _setup(db)
+        _station, _vehicle, location, comp, item = _setup(db)
 
         client.patch(
             f"/api/v1/inventory/items/{item.item_id}/status",
@@ -263,7 +260,7 @@ class TestSupervisorRepairRequests:
 
     def test_supervisor_can_file_repair_request(self, client, db, auth_supervisor):
         """Earl must be able to file a repair request on a vehicle item."""
-        station, vehicle, location, comp, item = _setup(db)
+        _station, vehicle, _location, comp, item = _setup(db)
 
         r = client.post(
             f"/api/v1/vehicles/{vehicle.vehicle_id}/repair-requests",
@@ -280,7 +277,7 @@ class TestSupervisorRepairRequests:
 
     def test_supervisor_can_resolve_repair_request(self, client, db, auth_supervisor):
         """Earl must be able to mark a repair request resolved."""
-        station, vehicle, location, comp, item = _setup(db)
+        _station, vehicle, _location, comp, item = _setup(db)
 
         create_r = client.post(
             f"/api/v1/vehicles/{vehicle.vehicle_id}/repair-requests",

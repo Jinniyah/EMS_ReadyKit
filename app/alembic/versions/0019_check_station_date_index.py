@@ -11,7 +11,6 @@ Index name: ix_check_station_date (mirrors ix_check_vehicle_date pattern).
 
 from alembic import op
 
-
 revision = "0019"
 down_revision = "0018"
 branch_labels = None

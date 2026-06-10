@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
@@ -38,7 +38,6 @@ from ems_readykit.models.stock_lot import StockLot
 from ems_readykit.models.usage_event import UsageEvent, UsageEventItem
 from ems_readykit.routers.deps import (
     ALL_ROLES,
-    SUPERVISOR_PLUS,
     require_role,
     require_station_membership,
 )

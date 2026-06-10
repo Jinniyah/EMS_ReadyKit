@@ -41,20 +41,25 @@ if os.environ.get("APP_ENV", "").lower() == "production":
 logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 logging.getLogger("sqlalchemy.pool").setLevel(logging.WARNING)
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session  # noqa: E402
 
 sys.path.insert(0, ".")
 
-from ems_readykit.core.database import SessionLocal
-from ems_readykit.models import (
-    Station, Vehicle, VehicleType,
-    InventoryLocation, LocationType,
+from ems_readykit.core.database import SessionLocal  # noqa: E402
+from ems_readykit.models import (  # noqa: E402
     Compartment,
-    Item, ItemCategory, ItemCheckType,
+    InventoryLocation,
+    Item,
+    ItemCategory,
+    ItemCheckType,
+    LocationType,
     ParLevel,
+    Station,
     StationMember,
+    Vehicle,
+    VehicleType,
 )
-from ems_readykit.models.stock_lot import StockLot
+from ems_readykit.models.stock_lot import StockLot  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -1288,7 +1293,7 @@ def seed(db: Session) -> None:
   Test walkthrough (< 5 min):
     Step 1 — Select "⚠ TEST STATION" → "Unit TEST ⚠ Dev Only"
     Step 2 — Two compartments shown
-    Step 3a — Compartment 1: tap through each check type (Supply ×3,
+    Step 3a — Compartment 1: tap through each check type (Supply x3,
               PSI reading ≥500, Pass for battery, pick today's date, doc present)
     Step 3b — Compartment 2: count [TEST] Short Supply to anything < 5 (yellow),
               tap Fail for [TEST] Broken Equipment (red)

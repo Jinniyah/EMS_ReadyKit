@@ -11,17 +11,16 @@ Safe to run multiple times — checks for existing records before inserting.
 """
 from __future__ import annotations
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ems_readykit.core.database import SessionLocal
-from ems_readykit.models.vehicle import Vehicle, VehicleType
-from ems_readykit.models.inventory_location import InventoryLocation, LocationType
 from ems_readykit.models.compartment import Compartment
+from ems_readykit.models.inventory_location import InventoryLocation, LocationType
 from ems_readykit.models.station import Station
-
+from ems_readykit.models.vehicle import Vehicle, VehicleType
 
 VEHICLE_NUMBER = "TEST-2"
 VEHICLE_TYPE   = VehicleType.QRV
@@ -106,7 +105,7 @@ def main() -> None:
 
         db.commit()
         print(f"\nDone. {created} compartment(s) created.")
-        print(f"Vehicle TEST-2 is ready for par level assignment testing.")
+        print("Vehicle TEST-2 is ready for par level assignment testing.")
 
     except Exception as e:
         db.rollback()

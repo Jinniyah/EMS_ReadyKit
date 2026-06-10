@@ -19,7 +19,6 @@ from __future__ import annotations
 import json as _json
 import uuid
 from datetime import date, datetime, timezone
-from typing import Optional
 
 import pytest
 from sqlalchemy.orm import Session
@@ -38,7 +37,6 @@ from ems_readykit.models import (
 from ems_readykit.models.par_level import ParLevel
 from ems_readykit.models.station_member import StationMember
 from ems_readykit.models.stock_lot import StockLot
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -178,7 +176,7 @@ class TestAdminSupersetOfSupervisor:
         assert r2.status_code == 200
 
     def test_admin_can_mark_item_damaged(self, client, db, auth_admin):
-        station, vehicle, location, _, comp, item = _setup(db)
+        _station, _vehicle, _location, _, comp, item = _setup(db)
 
         r = client.patch(
             f"/api/v1/inventory/items/{item.item_id}/status",
@@ -190,7 +188,7 @@ class TestAdminSupersetOfSupervisor:
         )
 
     def test_admin_can_file_repair_request(self, client, db, auth_admin):
-        station, vehicle, location, _, comp, item = _setup(db)
+        _station, vehicle, _location, _, comp, item = _setup(db)
 
         r = client.post(
             f"/api/v1/vehicles/{vehicle.vehicle_id}/repair-requests",
@@ -257,7 +255,9 @@ class TestAdminOnlyCapabilities:
         """Admin sees all stations - cross-station visibility."""
         s1 = Station(name=f"Cross-A-{_uid()}", address="1 A St", region="Test")
         s2 = Station(name=f"Cross-B-{_uid()}", address="1 B St", region="Test")
-        db.add(s1); db.add(s2); db.flush()
+        db.add(s1)
+        db.add(s2)
+        db.flush()
 
         r = client.get("/api/v1/stations", headers=auth_admin)
         assert r.status_code == 200
@@ -267,7 +267,7 @@ class TestAdminOnlyCapabilities:
 
     def test_admin_can_soft_delete_check(self, client, db, auth_responder, auth_admin):
         """Admin can soft-delete a check (Supervisor+ capability)."""
-        station, vehicle, _, _, comp, item = _setup(db)
+        station, vehicle, _, _, _comp, _item = _setup(db)
 
         r = client.post("/api/v1/checks/daily", json={
             "vehicle_id": vehicle.vehicle_id,
@@ -287,7 +287,7 @@ class TestAdminOnlyCapabilities:
 
     def test_admin_can_hard_delete_soft_deleted_check(self, client, db, auth_responder, auth_admin):
         """Admin can permanently delete a check that was already soft-deleted."""
-        station, vehicle, _, _, comp, item = _setup(db)
+        station, vehicle, _, _, _comp, _item = _setup(db)
 
         r = client.post("/api/v1/checks/daily", json={
             "vehicle_id": vehicle.vehicle_id,
@@ -318,7 +318,7 @@ class TestAdminOnlyCapabilities:
         The _enrich_par response helper may not include priority fields in the response
         (known gap) but the DB values must be persisted correctly.
         """
-        station, vehicle, location, _, comp, item = _setup(db)
+        _station, _vehicle, location, _, _comp, _item = _setup(db)
 
         r = client.get(
             f"/api/v1/inventory/locations/{location.location_id}/par-levels",
@@ -434,7 +434,7 @@ class TestSupplyRoomDecrement:
         Check 1: vehicle has 2 of 4 par. (Baseline - no previous check to compare.)
         Check 2: vehicle has 4 of 4 par. (Topped off by 2 -> decrement supply room by 2.)
         """
-        station, vehicle, location, supply_room, comp, item = _setup(db)
+        station, vehicle, _location, _supply_room, comp, item = _setup(db)
 
         # Get initial on-hand
         catalog_r = client.get(
@@ -511,7 +511,7 @@ class TestSupplyRoomDecrement:
         FUNCTIONAL items with station_supply=False must not appear in supply catalog.
         These are equipment checks, not consumable supplies.
         """
-        station, vehicle, location, supply_room, comp, _ = _setup(db)
+        station, _vehicle, _location, supply_room, _comp, _ = _setup(db)
 
         functional = Item(
             name=f"FUNCTIONAL-Excluded-{_uid()}",
@@ -554,7 +554,7 @@ class TestSupplyRoomDecrement:
         Supply-room-only checks (vehicle_id=None) must NOT trigger auto-decrement.
         Per CLAUDE.md: '_auto_decrement_supply_room fires only when payload.vehicle_id is set'.
         """
-        station, vehicle, location, supply_room, comp, item = _setup(db)
+        station, _vehicle, _location, supply_room, _comp, item = _setup(db)
 
         catalog_r = client.get(
             f"/api/v1/inventory/supply-catalog?station_id={station.station_id}",

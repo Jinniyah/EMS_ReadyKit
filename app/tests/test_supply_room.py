@@ -13,7 +13,7 @@ Covers:
 from __future__ import annotations
 
 import io
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
@@ -25,8 +25,6 @@ from ems_readykit.models.station import Station
 from ems_readykit.models.station_member import StationMember
 from ems_readykit.models.stock_lot import StockLot
 from ems_readykit.models.vehicle import Vehicle, VehicleType
-from datetime import datetime, timezone
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -409,7 +407,7 @@ def test_check_auto_decrements_supply_room(client, db, station, supply_room, sup
 
     db.expire_all()
     total = sum(
-        l.quantity for l in db.query(StockLot).filter(
+        lot.quantity for lot in db.query(StockLot).filter(
             StockLot.location_id == supply_room.location_id,
             StockLot.item_id     == test_item.item_id,
         ).all()
@@ -441,7 +439,7 @@ def test_check_auto_decrement_best_effort(client, db, station, supply_room, supp
 
     db.expire_all()
     total = sum(
-        l.quantity for l in db.query(StockLot).filter(
+        lot.quantity for lot in db.query(StockLot).filter(
             StockLot.location_id == supply_room.location_id,
             StockLot.item_id     == test_item.item_id,
         ).all()
