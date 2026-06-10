@@ -26,25 +26,29 @@ if TYPE_CHECKING:
 
 
 class VehicleType(str, enum.Enum):
-    ALS = "ALS"   # Advanced Life Support ambulance — controlled substances apply
-    BLS = "BLS"   # Basic Life Support ambulance
-    QRV = "QRV"   # Quick Response Vehicle / fire truck
+    ALS = "ALS"  # Advanced Life Support ambulance — controlled substances apply
+    BLS = "BLS"  # Basic Life Support ambulance
+    QRV = "QRV"  # Quick Response Vehicle / fire truck
 
 
 class Vehicle(TimestampMixin, Base):
     __tablename__ = "vehicles"
 
-    vehicle_id:     Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    station_id:     Mapped[int] = mapped_column(ForeignKey("stations.station_id"), nullable=False)
+    vehicle_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    station_id: Mapped[int] = mapped_column(
+        ForeignKey("stations.station_id"), nullable=False
+    )
     vehicle_number: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
-    vehicle_type:   Mapped[VehicleType] = mapped_column(
+    vehicle_type: Mapped[VehicleType] = mapped_column(
         SAEnum(VehicleType, native_enum=False), nullable=False
     )
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Set when active is flipped to False — explains why and when.
-    inactive_reason: Mapped[Optional[str]]      = mapped_column(String(200), nullable=True)
-    inactive_since:  Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    inactive_reason: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    inactive_since: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     # NEW-M1: per-vehicle color for compliance calendar rows.
     # Null = inherit station.primary_color in the frontend.

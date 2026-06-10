@@ -25,7 +25,12 @@ from ems_readykit.core.auth import (
 )
 from ems_readykit.core.database import get_db
 from ems_readykit.models.daily_inventory_check import DailyInventoryCheck
-from ems_readykit.routers.deps import ADMIN_ONLY, ALL_ROLES, SUPERVISOR_PLUS, require_role
+from ems_readykit.routers.deps import (
+    ADMIN_ONLY,
+    ALL_ROLES,
+    SUPERVISOR_PLUS,
+    require_role,
+)
 from ems_readykit.schemas.daily_inventory_check import (
     AcknowledgeRequest,
     DailyInventoryCheckRead,
@@ -37,8 +42,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["check-history"])
 
 
-def _get_check_or_404(check_id: int, db: Session, *, include_deleted: bool = False) -> DailyInventoryCheck:
-    query = db.query(DailyInventoryCheck).filter(DailyInventoryCheck.check_id == check_id)
+def _get_check_or_404(
+    check_id: int, db: Session, *, include_deleted: bool = False
+) -> DailyInventoryCheck:
+    query = db.query(DailyInventoryCheck).filter(
+        DailyInventoryCheck.check_id == check_id
+    )
     if not include_deleted:
         query = query.filter(DailyInventoryCheck.deleted_at.is_(None))
     check = query.first()
@@ -52,13 +61,16 @@ def _get_check_or_404(check_id: int, db: Session, *, include_deleted: bool = Fal
 
 # ── CH-B1: Responder's own check history ─────────────────────────────────────
 
+
 @router.get(
     "/checks/daily/my-history",
     response_model=List[DailyInventoryCheckRead],
     summary="My submitted checks",
 )
 def my_check_history(
-    station_id: Optional[int] = Query(default=None, gt=0, description="Scope to a specific station"),
+    station_id: Optional[int] = Query(
+        default=None, gt=0, description="Scope to a specific station"
+    ),
     from_date: Optional[str] = Query(
         default=None,
         alias="from",
@@ -73,12 +85,9 @@ def my_check_history(
     current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
 ) -> List[DailyInventoryCheck]:
     performed_by_identity = current_user.email or current_user.name
-    query = (
-        db.query(DailyInventoryCheck)
-        .filter(
-            DailyInventoryCheck.performed_by == performed_by_identity,
-            DailyInventoryCheck.deleted_at.is_(None),
-        )
+    query = db.query(DailyInventoryCheck).filter(
+        DailyInventoryCheck.performed_by == performed_by_identity,
+        DailyInventoryCheck.deleted_at.is_(None),
     )
     if station_id is not None:
         query = query.filter(DailyInventoryCheck.station_id == station_id)
@@ -91,6 +100,7 @@ def my_check_history(
 
 
 # ── CH-B2: Full check detail with RBAC scoping ───────────────────────────────
+
 
 @router.get(
     "/checks/daily/{check_id}/detail",
@@ -116,6 +126,7 @@ def get_check_detail(
 
 # ── B-E2: Acknowledge a FAIL check ───────────────────────────────────────────
 
+
 @router.patch(
     "/checks/daily/{check_id}/acknowledge",
     response_model=DailyInventoryCheckRead,
@@ -138,8 +149,8 @@ def acknowledge_check(
             )
 
     now = datetime.now(timezone.utc)
-    check.reviewed_by       = current_user.user_id
-    check.reviewed_at       = now
+    check.reviewed_by = current_user.user_id
+    check.reviewed_at = now
     check.corrective_action = payload.corrective_action
     db.add(check)
     db.flush()
@@ -153,7 +164,7 @@ def acknowledge_check(
         station_id=check.station_id,
         vehicle_id=check.vehicle_id,
         metadata={
-            "check_status":      check.status.value,
+            "check_status": check.status.value,
             "corrective_action": payload.corrective_action,
         },
         severity="INFO",
@@ -162,13 +173,15 @@ def acknowledge_check(
     db.refresh(check)
     logger.info(
         "Check %s acknowledged by %s",
-        check_id, current_user.user_id,
+        check_id,
+        current_user.user_id,
         extra={"check_id": check_id, "actor": current_user.user_id},
     )
     return check
 
 
 # ── CH-B3: Soft-delete a check ────────────────────────────────────────────────
+
 
 @router.delete(
     "/checks/daily/{check_id}",
@@ -190,8 +203,8 @@ def soft_delete_check(
         )
 
     now = datetime.now(timezone.utc)
-    check.deleted_at      = now
-    check.deleted_by      = current_user.user_id
+    check.deleted_at = now
+    check.deleted_by = current_user.user_id
     check.deletion_reason = payload.deletion_reason
     db.add(check)
     db.flush()
@@ -206,8 +219,8 @@ def soft_delete_check(
         vehicle_id=check.vehicle_id,
         metadata={
             "deletion_reason": payload.deletion_reason,
-            "check_date":      check.check_date,
-            "check_status":    check.status.value,
+            "check_date": check.check_date,
+            "check_status": check.status.value,
         },
         severity="WARNING",
     )
@@ -215,13 +228,16 @@ def soft_delete_check(
     db.refresh(check)
     logger.warning(
         "Check %s soft-deleted by %s — reason: %s",
-        check_id, current_user.user_id, payload.deletion_reason,
+        check_id,
+        current_user.user_id,
+        payload.deletion_reason,
         extra={"check_id": check_id, "actor": current_user.user_id},
     )
     return check
 
 
 # ── CH-F7: GET deleted checks for a station ─────────────────────────────────
+
 
 @router.get(
     "/checks/daily/deleted",
@@ -245,6 +261,7 @@ def list_deleted_checks(
 
 
 # ── CH-F8: DELETE /checks/daily/{id}/force — permanent hard-delete ────────────
+
 
 @router.delete(
     "/checks/daily/{check_id}/force",
@@ -273,8 +290,8 @@ def force_delete_check(
         vehicle_id=check.vehicle_id,
         metadata={
             "deletion_reason": check.deletion_reason,
-            "check_date":      check.check_date,
-            "check_status":    check.status.value,
+            "check_date": check.check_date,
+            "check_status": check.status.value,
         },
         severity="CRITICAL",
     )
@@ -283,6 +300,7 @@ def force_delete_check(
     db.commit()
     logger.warning(
         "Check %s permanently deleted by %s",
-        check_id, current_user.user_id,
+        check_id,
+        current_user.user_id,
         extra={"check_id": check_id, "actor": current_user.user_id},
     )

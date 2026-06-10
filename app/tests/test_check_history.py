@@ -34,12 +34,15 @@ from ems_readykit.models.daily_inventory_check import CheckStatus, DailyInventor
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+
 def _uid() -> str:
     return uuid.uuid4().hex[:8]
 
 
 def _station(db: Session, *, name: Optional[str] = None) -> Station:
-    s = Station(name=name or f"Station-{_uid()}", address="1 Main St", region="Downriver")
+    s = Station(
+        name=name or f"Station-{_uid()}", address="1 Main St", region="Downriver"
+    )
     db.add(s)
     db.flush()
     return s
@@ -47,7 +50,9 @@ def _station(db: Session, *, name: Optional[str] = None) -> Station:
 
 def _vehicle(db: Session, station_id: int) -> Vehicle:
     number = f"AMB-{_uid()}"
-    v = Vehicle(station_id=station_id, vehicle_number=number, vehicle_type=VehicleType.ALS)
+    v = Vehicle(
+        station_id=station_id, vehicle_number=number, vehicle_type=VehicleType.ALS
+    )
     db.add(v)
     db.flush()
     loc = InventoryLocation(
@@ -94,6 +99,7 @@ def _delete_with_body(client, url: str, body: dict, headers: dict):
 
 # ── CH-B1: My check history ────────────────────────────────────────────────────
 
+
 class TestMyCheckHistory:
     def test_returns_own_checks(self, client, db, auth_responder):
         s = _station(db)
@@ -117,7 +123,9 @@ class TestMyCheckHistory:
     def test_excludes_soft_deleted(self, client, db, auth_responder, auth_supervisor):
         s = _station(db)
         v = _vehicle(db, s.station_id)
-        c = _check(db, v.vehicle_id, s.station_id, performed_by="test-responder@ems.local")
+        c = _check(
+            db, v.vehicle_id, s.station_id, performed_by="test-responder@ems.local"
+        )
 
         _delete_with_body(
             client,
@@ -133,8 +141,20 @@ class TestMyCheckHistory:
     def test_date_filter_from(self, client, db, auth_responder):
         s = _station(db)
         v = _vehicle(db, s.station_id)
-        _check(db, v.vehicle_id, s.station_id, performed_by="test-responder@ems.local", check_date="2026-05-01")
-        _check(db, v.vehicle_id, s.station_id, performed_by="test-responder@ems.local", check_date="2026-05-23")
+        _check(
+            db,
+            v.vehicle_id,
+            s.station_id,
+            performed_by="test-responder@ems.local",
+            check_date="2026-05-01",
+        )
+        _check(
+            db,
+            v.vehicle_id,
+            s.station_id,
+            performed_by="test-responder@ems.local",
+            check_date="2026-05-23",
+        )
 
         resp = client.get(
             "/api/v1/checks/daily/my-history?from=2026-05-20",
@@ -150,13 +170,18 @@ class TestMyCheckHistory:
 
 # ── CH-B2: Check detail with RBAC scoping ─────────────────────────────────────
 
+
 class TestCheckDetail:
     def test_responder_can_see_own_check(self, client, db, auth_responder):
         s = _station(db)
         v = _vehicle(db, s.station_id)
-        c = _check(db, v.vehicle_id, s.station_id, performed_by="test-responder@ems.local")
+        c = _check(
+            db, v.vehicle_id, s.station_id, performed_by="test-responder@ems.local"
+        )
 
-        resp = client.get(f"/api/v1/checks/daily/{c.check_id}/detail", headers=auth_responder)
+        resp = client.get(
+            f"/api/v1/checks/daily/{c.check_id}/detail", headers=auth_responder
+        )
         assert resp.status_code == 200
         assert resp.json()["check_id"] == c.check_id
 
@@ -165,7 +190,9 @@ class TestCheckDetail:
         v = _vehicle(db, s.station_id)
         c = _check(db, v.vehicle_id, s.station_id, performed_by="Someone Else")
 
-        resp = client.get(f"/api/v1/checks/daily/{c.check_id}/detail", headers=auth_responder)
+        resp = client.get(
+            f"/api/v1/checks/daily/{c.check_id}/detail", headers=auth_responder
+        )
         assert resp.status_code == 403
 
     def test_supervisor_can_see_any_check(self, client, db, auth_supervisor):
@@ -173,7 +200,9 @@ class TestCheckDetail:
         v = _vehicle(db, s.station_id)
         c = _check(db, v.vehicle_id, s.station_id, performed_by="Someone Else")
 
-        resp = client.get(f"/api/v1/checks/daily/{c.check_id}/detail", headers=auth_supervisor)
+        resp = client.get(
+            f"/api/v1/checks/daily/{c.check_id}/detail", headers=auth_supervisor
+        )
         assert resp.status_code == 200
 
     def test_soft_deleted_check_returns_404(self, client, db, auth_supervisor):
@@ -188,7 +217,9 @@ class TestCheckDetail:
             auth_supervisor,
         )
 
-        resp = client.get(f"/api/v1/checks/daily/{c.check_id}/detail", headers=auth_supervisor)
+        resp = client.get(
+            f"/api/v1/checks/daily/{c.check_id}/detail", headers=auth_supervisor
+        )
         assert resp.status_code == 404
 
     def test_nonexistent_check_returns_404(self, client, auth_supervisor):
@@ -197,6 +228,7 @@ class TestCheckDetail:
 
 
 # ── B-E2: Acknowledge check ────────────────────────────────────────────────────
+
 
 class TestAcknowledgeCheck:
     def test_supervisor_can_acknowledge(self, client, db, auth_supervisor):
@@ -211,7 +243,9 @@ class TestAcknowledgeCheck:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["corrective_action"] == "Restocked all missing items from supply room."
+        assert (
+            data["corrective_action"] == "Restocked all missing items from supply room."
+        )
         assert data["reviewed_by"] is not None
         assert data["reviewed_at"] is not None
 
@@ -227,11 +261,16 @@ class TestAcknowledgeCheck:
         )
         resp = client.patch(
             f"/api/v1/checks/daily/{c.check_id}/acknowledge",
-            json={"corrective_action": "Updated corrective action after further review."},
+            json={
+                "corrective_action": "Updated corrective action after further review."
+            },
             headers=auth_supervisor,
         )
         assert resp.status_code == 200
-        assert resp.json()["corrective_action"] == "Updated corrective action after further review."
+        assert (
+            resp.json()["corrective_action"]
+            == "Updated corrective action after further review."
+        )
 
     def test_corrective_action_too_short_returns_422(self, client, db, auth_supervisor):
         s = _station(db)
@@ -248,7 +287,9 @@ class TestAcknowledgeCheck:
     def test_responder_can_add_note_to_own_check(self, client, db, auth_responder):
         s = _station(db)
         v = _vehicle(db, s.station_id)
-        c = _check(db, v.vehicle_id, s.station_id, performed_by="test-responder@ems.local")
+        c = _check(
+            db, v.vehicle_id, s.station_id, performed_by="test-responder@ems.local"
+        )
 
         resp = client.patch(
             f"/api/v1/checks/daily/{c.check_id}/acknowledge",
@@ -256,9 +297,14 @@ class TestAcknowledgeCheck:
             headers=auth_responder,
         )
         assert resp.status_code == 200
-        assert resp.json()["corrective_action"] == "Flagged to supervisor on next shift handover."
+        assert (
+            resp.json()["corrective_action"]
+            == "Flagged to supervisor on next shift handover."
+        )
 
-    def test_responder_cannot_add_note_to_others_check(self, client, db, auth_responder):
+    def test_responder_cannot_add_note_to_others_check(
+        self, client, db, auth_responder
+    ):
         s = _station(db)
         v = _vehicle(db, s.station_id)
         c = _check(db, v.vehicle_id, s.station_id, performed_by="Someone Else")
@@ -272,22 +318,28 @@ class TestAcknowledgeCheck:
 
     def test_acknowledge_writes_audit_event(self, client, db, auth_supervisor):
         from ems_readykit.models.audit_event import AuditEvent
+
         s = _station(db)
         v = _vehicle(db, s.station_id)
         c = _check(db, v.vehicle_id, s.station_id, check_status=CheckStatus.FAIL)
 
         client.patch(
             f"/api/v1/checks/daily/{c.check_id}/acknowledge",
-            json={"corrective_action": "All shortages restocked and verified by supervisor."},
+            json={
+                "corrective_action": "All shortages restocked and verified by supervisor."
+            },
             headers=auth_supervisor,
         )
-        audit = db.query(AuditEvent).filter(
-            AuditEvent.action == "CHECK_ACKNOWLEDGED"
-        ).first()
+        audit = (
+            db.query(AuditEvent)
+            .filter(AuditEvent.action == "CHECK_ACKNOWLEDGED")
+            .first()
+        )
         assert audit is not None
 
 
 # ── CH-B3: Soft-delete ─────────────────────────────────────────────────────────
+
 
 class TestSoftDeleteCheck:
     def test_supervisor_can_soft_delete(self, client, db, auth_supervisor):
@@ -305,7 +357,10 @@ class TestSoftDeleteCheck:
         data = resp.json()
         assert data["deleted_at"] is not None
         assert data["deleted_by"] is not None
-        assert data["deletion_reason"] == "Duplicate check submitted in error by responder."
+        assert (
+            data["deletion_reason"]
+            == "Duplicate check submitted in error by responder."
+        )
 
     def test_deletion_reason_too_short_returns_422(self, client, db, auth_supervisor):
         s = _station(db)
@@ -354,6 +409,7 @@ class TestSoftDeleteCheck:
 
     def test_soft_delete_writes_audit_event(self, client, db, auth_supervisor):
         from ems_readykit.models.audit_event import AuditEvent
+
         s = _station(db)
         v = _vehicle(db, s.station_id)
         c = _check(db, v.vehicle_id, s.station_id)
@@ -364,9 +420,11 @@ class TestSoftDeleteCheck:
             {"deletion_reason": "Check submitted for wrong vehicle by accident."},
             auth_supervisor,
         )
-        audit = db.query(AuditEvent).filter(
-            AuditEvent.action == "CHECK_SOFT_DELETED"
-        ).first()
+        audit = (
+            db.query(AuditEvent)
+            .filter(AuditEvent.action == "CHECK_SOFT_DELETED")
+            .first()
+        )
         assert audit is not None
         assert audit.severity == "WARNING"
 

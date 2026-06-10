@@ -41,46 +41,60 @@ if TYPE_CHECKING:
 
 
 class CheckStatus(str, enum.Enum):
-    PASS          = "PASS"
+    PASS = "PASS"
     NEEDS_RESTOCK = "NEEDS_RESTOCK"
-    FAIL          = "FAIL"
+    FAIL = "FAIL"
 
 
 class DailyInventoryCheck(TimestampMixin, Base):
     __tablename__ = "daily_inventory_checks"
     __table_args__ = (
-        Index("ix_check_vehicle_date",   "vehicle_id",  "check_date"),
-        Index("ix_check_location_date",  "location_id", "check_date"),
-        Index("ix_check_station_date",   "station_id",  "check_date"),
+        Index("ix_check_vehicle_date", "vehicle_id", "check_date"),
+        Index("ix_check_location_date", "location_id", "check_date"),
+        Index("ix_check_station_date", "station_id", "check_date"),
     )
 
-    check_id:    Mapped[int]           = mapped_column(primary_key=True, autoincrement=True)
-    vehicle_id:  Mapped[Optional[int]] = mapped_column(ForeignKey("vehicles.vehicle_id"),              nullable=True)
-    location_id: Mapped[Optional[int]] = mapped_column(ForeignKey("inventory_locations.location_id"),  nullable=True)
-    station_id:  Mapped[int]           = mapped_column(ForeignKey("stations.station_id"),              nullable=False)
+    check_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    vehicle_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("vehicles.vehicle_id"), nullable=True
+    )
+    location_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("inventory_locations.location_id"), nullable=True
+    )
+    station_id: Mapped[int] = mapped_column(
+        ForeignKey("stations.station_id"), nullable=False
+    )
     check_date: Mapped[str] = mapped_column(String(10), nullable=False)
     performed_by: Mapped[str] = mapped_column(String(100), nullable=False)
-    timestamp:  Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    status:     Mapped[CheckStatus] = mapped_column(
-        SAEnum(CheckStatus, native_enum=False), nullable=False, default=CheckStatus.PASS,
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[CheckStatus] = mapped_column(
+        SAEnum(CheckStatus, native_enum=False),
+        nullable=False,
+        default=CheckStatus.PASS,
     )
     notes: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
     # ── Acknowledgement (B-M7) ────────────────────────────────────────────────
-    reviewed_by:       Mapped[Optional[str]]      = mapped_column(String(100), nullable=True)
-    reviewed_at:       Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    corrective_action: Mapped[Optional[str]]      = mapped_column(String(500), nullable=True)
+    reviewed_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    corrective_action: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
     # ── Soft delete (B-M9) ────────────────────────────────────────────────────
-    deleted_at:      Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    deleted_by:      Mapped[Optional[str]]      = mapped_column(String(100), nullable=True)
-    deletion_reason: Mapped[Optional[str]]      = mapped_column(String(300), nullable=True)
-    force_deleted:   Mapped[bool]               = mapped_column(Boolean, nullable=False, default=False)
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    deleted_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    deletion_reason: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
+    force_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # ── Relationships ─────────────────────────────────────────────────────────
     vehicle: Mapped["Vehicle"] = relationship("Vehicle", back_populates="daily_checks")
     line_items: Mapped[List["CheckLineItem"]] = relationship(
-        "CheckLineItem", back_populates="check", cascade="all, delete-orphan",
+        "CheckLineItem",
+        back_populates="check",
+        cascade="all, delete-orphan",
         lazy="selectin",
     )
 

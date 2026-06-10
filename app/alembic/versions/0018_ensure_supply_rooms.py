@@ -23,7 +23,8 @@ def upgrade():
     conn = op.get_bind()
 
     # Create STATION_SUPPLY_ROOM location for every active station that lacks one
-    conn.execute(sa.text("""
+    conn.execute(
+        sa.text("""
         INSERT INTO inventory_locations (station_id, vehicle_id, location_type, label, created_at, updated_at)
         SELECT s.station_id, NULL, 'STATION_SUPPLY_ROOM', 'Station Supply Room',
                CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
@@ -34,7 +35,9 @@ def upgrade():
               WHERE il.station_id = s.station_id
                 AND il.location_type = 'STATION_SUPPLY_ROOM'
           )
-    """), {"active": True})
+    """),
+        {"active": True},
+    )
 
     # Find supply rooms that have no compartments (newly created + any pre-existing gaps)
     result = conn.execute(sa.text("""
@@ -49,11 +52,16 @@ def upgrade():
 
     # Create 4 default shelf compartments for each supply room without compartments
     for location_id in empty_supply_rooms:
-        for sort_order, name in enumerate(["Shelf 1", "Shelf 2", "Shelf 3", "Shelf 4"], start=1):
-            conn.execute(sa.text("""
+        for sort_order, name in enumerate(
+            ["Shelf 1", "Shelf 2", "Shelf 3", "Shelf 4"], start=1
+        ):
+            conn.execute(
+                sa.text("""
                 INSERT INTO compartments (location_id, name, sort_order, created_at, updated_at)
                 VALUES (:location_id, :name, :sort_order, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            """), {"location_id": location_id, "name": name, "sort_order": sort_order})
+            """),
+                {"location_id": location_id, "name": name, "sort_order": sort_order},
+            )
 
 
 def downgrade():

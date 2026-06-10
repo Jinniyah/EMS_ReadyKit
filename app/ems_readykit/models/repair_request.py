@@ -32,26 +32,32 @@ if TYPE_CHECKING:
 
 class RepairSeverity(str, enum.Enum):
     ROUTINE = "ROUTINE"
-    URGENT  = "URGENT"
+    URGENT = "URGENT"
 
 
 class RepairStatus(str, enum.Enum):
-    OPEN        = "OPEN"
+    OPEN = "OPEN"
     IN_PROGRESS = "IN_PROGRESS"
-    RESOLVED    = "RESOLVED"
+    RESOLVED = "RESOLVED"
 
 
 class RepairRequest(TimestampMixin, Base):
     __tablename__ = "repair_requests"
 
-    repair_id:   Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    vehicle_id:  Mapped[int] = mapped_column(ForeignKey("vehicles.vehicle_id"), nullable=False)
-    station_id:  Mapped[int] = mapped_column(ForeignKey("stations.station_id"), nullable=False)
+    repair_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    vehicle_id: Mapped[int] = mapped_column(
+        ForeignKey("vehicles.vehicle_id"), nullable=False
+    )
+    station_id: Mapped[int] = mapped_column(
+        ForeignKey("stations.station_id"), nullable=False
+    )
 
-    reported_by: Mapped[str]      = mapped_column(String(100), nullable=False)
-    reported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    reported_by: Mapped[str] = mapped_column(String(100), nullable=False)
+    reported_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
 
-    severity:    Mapped[RepairSeverity] = mapped_column(
+    severity: Mapped[RepairSeverity] = mapped_column(
         String(10), nullable=False, default=RepairSeverity.ROUTINE
     )
     description: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -60,13 +66,19 @@ class RepairRequest(TimestampMixin, Base):
         String(20), nullable=False, default=RepairStatus.OPEN
     )
 
-    resolved_by:       Mapped[Optional[str]]      = mapped_column(String(100), nullable=True)
-    resolved_at:       Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    resolution_notes:  Mapped[Optional[str]]      = mapped_column(String(500), nullable=True)
+    resolved_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    resolution_notes: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
     # ── Relationships ─────────────────────────────────────────────────────────
-    vehicle: Mapped["Vehicle"] = relationship("Vehicle", back_populates="repair_requests")
-    station: Mapped["Station"] = relationship("Station", back_populates="repair_requests")
+    vehicle: Mapped["Vehicle"] = relationship(
+        "Vehicle", back_populates="repair_requests"
+    )
+    station: Mapped["Station"] = relationship(
+        "Station", back_populates="repair_requests"
+    )
 
     def __repr__(self) -> str:
         return (

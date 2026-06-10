@@ -118,6 +118,24 @@ export const adminApi = {
   getVehicleLocation: (stationId, getToken) =>
     apiGet(`/api/v1/inventory/locations?station_id=${stationId}`, getToken),
 
+  // ── Portable locations (Jump Bags / ADMIN-F7) ─────────────────────────────
+
+  /** List all inventory locations for a station (filter JUMP_BAG on client). */
+  getStationLocations: (stationId, getToken) =>
+    apiGet(`/api/v1/inventory/locations?station_id=${stationId}`, getToken),
+
+  /** Create a new JUMP_BAG portable location. */
+  createPortableLocation: (payload, getToken) =>
+    apiPost('/api/v1/inventory/locations', payload, getToken),
+
+  /** Rename an inventory location label (SS-B1, Admin only). */
+  renameLocation: (locationId, label, getToken) =>
+    apiPatch(`${ADMIN}/locations/${locationId}`, { label }, getToken),
+
+  /** List compartments for any inventory location (portable or vehicle). */
+  getLocationCompartments: (locationId, getToken) =>
+    apiGet(`/api/v1/inventory/locations/${locationId}/compartments`, getToken),
+
   // ── CSV import ────────────────────────────────────────────────────────────
 
   importItemsCsv: (formData, getToken) =>

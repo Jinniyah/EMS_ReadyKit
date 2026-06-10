@@ -13,7 +13,11 @@ from ems_readykit.models.daily_inventory_check import CheckStatus, DailyInventor
 from ems_readykit.models.inventory_location import InventoryLocation, LocationType
 from ems_readykit.models.item import Item, ItemCategory, ItemCheckType
 from ems_readykit.models.par_level import ParLevel
-from ems_readykit.models.repair_request import RepairRequest, RepairSeverity, RepairStatus
+from ems_readykit.models.repair_request import (
+    RepairRequest,
+    RepairSeverity,
+    RepairStatus,
+)
 from ems_readykit.models.station import Station
 from ems_readykit.models.station_member import StationMember
 from ems_readykit.models.stock_lot import StockLot

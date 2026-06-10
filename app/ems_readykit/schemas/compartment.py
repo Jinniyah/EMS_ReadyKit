@@ -69,8 +69,11 @@ class CompartmentBase(BaseModel):
         max_length=100,
         description="Physical compartment label matching the inventory form",
         examples=[
-            "PC 1 (Airway)", "Drug Bag", "Driver Side EC 1",
-            "Main Pocket — Flap Left", "Truck Operations"
+            "PC 1 (Airway)",
+            "Drug Bag",
+            "Driver Side EC 1",
+            "Main Pocket — Flap Left",
+            "Truck Operations",
         ],
     )
     location_descriptor: Optional[str] = Field(
@@ -128,11 +131,13 @@ class CompartmentBase(BaseModel):
 
 class CompartmentCreate(CompartmentBase):
     """Request body for POST /inventory/locations/{id}/compartments."""
+
     location_id: int = Field(..., gt=0, description="Parent inventory location ID")
 
 
 class CompartmentRead(CompartmentBase):
     """Response model for compartment endpoints."""
+
     model_config = ConfigDict(from_attributes=True)
 
     compartment_id: int

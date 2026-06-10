@@ -34,6 +34,7 @@ router = APIRouter(prefix="/stations", tags=["station-members"])
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+
 def _get_station_or_404(station_id: int, db: Session) -> Station:
     station = db.query(Station).filter(Station.station_id == station_id).first()
     if not station:
@@ -44,12 +45,18 @@ def _get_station_or_404(station_id: int, db: Session) -> Station:
     return station
 
 
-def _get_active_member_or_404(station_id: int, user_id: str, db: Session) -> StationMember:
-    member = db.query(StationMember).filter(
-        StationMember.station_id == station_id,
-        StationMember.user_id    == user_id,
-        StationMember.active,
-    ).first()
+def _get_active_member_or_404(
+    station_id: int, user_id: str, db: Session
+) -> StationMember:
+    member = (
+        db.query(StationMember)
+        .filter(
+            StationMember.station_id == station_id,
+            StationMember.user_id == user_id,
+            StationMember.active,
+        )
+        .first()
+    )
     if not member:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -67,7 +74,9 @@ def _enforce_role_assignment_permission(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Invalid role '{target_role}'. Must be one of: {sorted(VALID_ROLES)}",
         )
-    if target_role == ROLE_ADMINISTRATOR and not assigning_user.has_role(ROLE_ADMINISTRATOR):
+    if target_role == ROLE_ADMINISTRATOR and not assigning_user.has_role(
+        ROLE_ADMINISTRATOR
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only Administrators can assign the Administrator role.",
@@ -75,6 +84,7 @@ def _enforce_role_assignment_permission(
 
 
 # ── GET /stations/my ──────────────────────────────────────────────────────────
+
 
 @router.get(
     "/my",
@@ -108,6 +118,7 @@ def list_my_stations(
 
 # ── GET /stations/{id}/members ────────────────────────────────────────────────
 
+
 @router.get(
     "/{station_id}/members",
     response_model=List[StationMemberRead],
@@ -128,6 +139,7 @@ def list_station_members(
 
 # ── POST /stations/{id}/members ───────────────────────────────────────────────
 
+
 @router.post(
     "/{station_id}/members",
     response_model=StationMemberRead,
@@ -143,10 +155,14 @@ def add_station_member(
     _get_station_or_404(station_id, db)
     _enforce_role_assignment_permission(current_user, payload.role)
 
-    existing = db.query(StationMember).filter(
-        StationMember.station_id == station_id,
-        StationMember.user_id    == payload.user_id,
-    ).first()
+    existing = (
+        db.query(StationMember)
+        .filter(
+            StationMember.station_id == station_id,
+            StationMember.user_id == payload.user_id,
+        )
+        .first()
+    )
 
     if existing:
         if existing.active:
@@ -154,10 +170,10 @@ def add_station_member(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"User '{payload.user_id}' is already an active member of station {station_id}.",
             )
-        existing.active         = True
-        existing.role           = payload.role
+        existing.active = True
+        existing.role = payload.role
         existing.preferred_name = payload.preferred_name
-        existing.assigned_by    = current_user.email
+        existing.assigned_by = current_user.email
         db.commit()
         db.refresh(existing)
         return existing
@@ -177,6 +193,7 @@ def add_station_member(
 
 
 # ── PATCH /stations/{id}/members/{user_id} ────────────────────────────────────
+
 
 @router.patch(
     "/{station_id}/members/{user_id}",
@@ -206,6 +223,7 @@ def update_station_member(
 
 
 # ── DELETE /stations/{id}/members/{user_id} ───────────────────────────────────
+
 
 @router.delete(
     "/{station_id}/members/{user_id}",

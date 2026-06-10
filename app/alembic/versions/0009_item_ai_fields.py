@@ -31,6 +31,7 @@ Design notes:
   - barcode has a unique index; two items cannot share the same barcode.
   - No application-layer changes are required for existing workflows.
 """
+
 from __future__ import annotations
 
 from typing import Sequence, Union
@@ -50,22 +51,26 @@ def upgrade() -> None:
     dialect = bind.dialect.name
 
     if dialect == "sqlite":
-        op.add_column("items", sa.Column("ai_tags",             sa.String(500), nullable=True))
-        op.add_column("items", sa.Column("alternate_names",     sa.String(500), nullable=True))
-        op.add_column("items", sa.Column("reference_image_url", sa.String(500), nullable=True))
-        op.add_column("items", sa.Column("barcode",             sa.String(100), nullable=True))
+        op.add_column("items", sa.Column("ai_tags", sa.String(500), nullable=True))
+        op.add_column(
+            "items", sa.Column("alternate_names", sa.String(500), nullable=True)
+        )
+        op.add_column(
+            "items", sa.Column("reference_image_url", sa.String(500), nullable=True)
+        )
+        op.add_column("items", sa.Column("barcode", sa.String(100), nullable=True))
         op.create_index("ix_items_barcode", "items", ["barcode"], unique=True)
     else:
         # PostgreSQL — idempotent IF NOT EXISTS guards
         for col, coltype in [
-            ("ai_tags",             "VARCHAR(500)"),
-            ("alternate_names",     "VARCHAR(500)"),
+            ("ai_tags", "VARCHAR(500)"),
+            ("alternate_names", "VARCHAR(500)"),
             ("reference_image_url", "VARCHAR(500)"),
-            ("barcode",             "VARCHAR(100)"),
+            ("barcode", "VARCHAR(100)"),
         ]:
-            bind.execute(sa.text(
-                f"ALTER TABLE items ADD COLUMN IF NOT EXISTS {col} {coltype}"
-            ))
+            bind.execute(
+                sa.text(f"ALTER TABLE items ADD COLUMN IF NOT EXISTS {col} {coltype}")
+            )
         bind.execute(sa.text("""
             CREATE UNIQUE INDEX IF NOT EXISTS ix_items_barcode
             ON items (barcode) WHERE barcode IS NOT NULL

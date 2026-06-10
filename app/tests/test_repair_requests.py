@@ -30,12 +30,15 @@ from ems_readykit.models import (
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+
 def _uid() -> str:
     return uuid.uuid4().hex[:8]
 
 
 def _station(db: Session, *, name: Optional[str] = None) -> Station:
-    s = Station(name=name or f"Station-{_uid()}", address="1 Main St", region="Downriver")
+    s = Station(
+        name=name or f"Station-{_uid()}", address="1 Main St", region="Downriver"
+    )
     db.add(s)
     db.flush()
     return s
@@ -43,7 +46,9 @@ def _station(db: Session, *, name: Optional[str] = None) -> Station:
 
 def _vehicle(db: Session, station_id: int, *, number: Optional[str] = None) -> Vehicle:
     number = number or f"AMB-{_uid()}"
-    v = Vehicle(station_id=station_id, vehicle_number=number, vehicle_type=VehicleType.ALS)
+    v = Vehicle(
+        station_id=station_id, vehicle_number=number, vehicle_type=VehicleType.ALS
+    )
     db.add(v)
     db.flush()
     loc = InventoryLocation(
@@ -59,13 +64,17 @@ def _vehicle(db: Session, station_id: int, *, number: Optional[str] = None) -> V
 
 # ── File a repair request (POST) ───────────────────────────────────────────────
 
+
 class TestFileRepairRequest:
     def test_responder_can_file_routine(self, client, db, auth_responder):
         s = _station(db)
         v = _vehicle(db, s.station_id)
         resp = client.post(
             f"/api/v1/vehicles/{v.vehicle_id}/repair-requests",
-            json={"severity": "ROUTINE", "description": "Rear cabinet door latch is broken."},
+            json={
+                "severity": "ROUTINE",
+                "description": "Rear cabinet door latch is broken.",
+            },
             headers=auth_responder,
         )
         assert resp.status_code == 201
@@ -80,7 +89,10 @@ class TestFileRepairRequest:
         v = _vehicle(db, s.station_id)
         resp = client.post(
             f"/api/v1/vehicles/{v.vehicle_id}/repair-requests",
-            json={"severity": "URGENT", "description": "Brakes are grinding badly — unsafe to operate."},
+            json={
+                "severity": "URGENT",
+                "description": "Brakes are grinding badly — unsafe to operate.",
+            },
             headers=auth_supervisor,
         )
         assert resp.status_code == 201
@@ -96,7 +108,10 @@ class TestFileRepairRequest:
         )
         audit = (
             db.query(AuditEvent)
-            .filter(AuditEvent.action == "REPAIR_REQUEST_FILED", AuditEvent.severity == "HIGH")
+            .filter(
+                AuditEvent.action == "REPAIR_REQUEST_FILED",
+                AuditEvent.severity == "HIGH",
+            )
             .first()
         )
         assert audit is not None
@@ -106,12 +121,18 @@ class TestFileRepairRequest:
         v = _vehicle(db, s.station_id)
         client.post(
             f"/api/v1/vehicles/{v.vehicle_id}/repair-requests",
-            json={"severity": "ROUTINE", "description": "Overhead light is flickering."},
+            json={
+                "severity": "ROUTINE",
+                "description": "Overhead light is flickering.",
+            },
             headers=auth_responder,
         )
         audit = (
             db.query(AuditEvent)
-            .filter(AuditEvent.action == "REPAIR_REQUEST_FILED", AuditEvent.severity == "INFO")
+            .filter(
+                AuditEvent.action == "REPAIR_REQUEST_FILED",
+                AuditEvent.severity == "INFO",
+            )
             .first()
         )
         assert audit is not None
@@ -145,6 +166,7 @@ class TestFileRepairRequest:
 
 
 # ── List repair requests (GET) ─────────────────────────────────────────────────
+
 
 class TestListRepairRequests:
     def test_supervisor_can_list(self, client, db, auth_supervisor, auth_responder):
@@ -210,8 +232,11 @@ class TestListRepairRequests:
 
 # ── Update repair request status (PATCH) ──────────────────────────────────────
 
+
 class TestUpdateRepairRequest:
-    def test_supervisor_can_advance_to_in_progress(self, client, db, auth_supervisor, auth_responder):
+    def test_supervisor_can_advance_to_in_progress(
+        self, client, db, auth_supervisor, auth_responder
+    ):
         s = _station(db)
         v = _vehicle(db, s.station_id)
         create_resp = client.post(
@@ -229,7 +254,9 @@ class TestUpdateRepairRequest:
         assert resp.status_code == 200
         assert resp.json()["status"] == "IN_PROGRESS"
 
-    def test_resolve_requires_resolution_notes(self, client, db, auth_supervisor, auth_responder):
+    def test_resolve_requires_resolution_notes(
+        self, client, db, auth_supervisor, auth_responder
+    ):
         s = _station(db)
         v = _vehicle(db, s.station_id)
         create_resp = client.post(
@@ -246,7 +273,9 @@ class TestUpdateRepairRequest:
         )
         assert resp.status_code == 422
 
-    def test_resolve_with_notes_succeeds(self, client, db, auth_supervisor, auth_responder):
+    def test_resolve_with_notes_succeeds(
+        self, client, db, auth_supervisor, auth_responder
+    ):
         s = _station(db)
         v = _vehicle(db, s.station_id)
         create_resp = client.post(
@@ -258,7 +287,10 @@ class TestUpdateRepairRequest:
 
         resp = client.patch(
             f"/api/v1/vehicles/{v.vehicle_id}/repair-requests/{repair_id}",
-            json={"status": "RESOLVED", "resolution_notes": "Replaced both wiper blades."},
+            json={
+                "status": "RESOLVED",
+                "resolution_notes": "Replaced both wiper blades.",
+            },
             headers=auth_supervisor,
         )
         assert resp.status_code == 200
@@ -268,7 +300,9 @@ class TestUpdateRepairRequest:
         assert data["resolved_at"] is not None
         assert data["resolution_notes"] == "Replaced both wiper blades."
 
-    def test_cannot_update_resolved_request(self, client, db, auth_supervisor, auth_responder):
+    def test_cannot_update_resolved_request(
+        self, client, db, auth_supervisor, auth_responder
+    ):
         s = _station(db)
         v = _vehicle(db, s.station_id)
         create_resp = client.post(
@@ -280,7 +314,10 @@ class TestUpdateRepairRequest:
 
         client.patch(
             f"/api/v1/vehicles/{v.vehicle_id}/repair-requests/{repair_id}",
-            json={"status": "RESOLVED", "resolution_notes": "Bracket replaced and tested."},
+            json={
+                "status": "RESOLVED",
+                "resolution_notes": "Bracket replaced and tested.",
+            },
             headers=auth_supervisor,
         )
         resp = client.patch(
@@ -303,7 +340,10 @@ class TestUpdateRepairRequest:
 
         resp = client.patch(
             f"/api/v1/vehicles/{v.vehicle_id}/repair-requests/{repair_id}",
-            json={"status": "RESOLVED", "resolution_notes": "Replaced the light switch."},
+            json={
+                "status": "RESOLVED",
+                "resolution_notes": "Replaced the light switch.",
+            },
             headers=auth_responder,
         )
         assert resp.status_code == 403
@@ -327,7 +367,9 @@ class TestUpdateRepairRequest:
         assert resp.status_code == 200
         assert resp.json()["status"] == "IN_PROGRESS"
 
-    def test_responder_can_mark_in_progress_with_optional_note(self, client, db, auth_responder):
+    def test_responder_can_mark_in_progress_with_optional_note(
+        self, client, db, auth_responder
+    ):
         """IN_PROGRESS transition stores an optional note without requiring it."""
         s = _station(db)
         v = _vehicle(db, s.station_id)
@@ -341,7 +383,10 @@ class TestUpdateRepairRequest:
         # With note
         resp = client.patch(
             f"/api/v1/vehicles/{v.vehicle_id}/repair-requests/{repair_id}",
-            json={"status": "IN_PROGRESS", "resolution_notes": "Ordered replacement bulb."},
+            json={
+                "status": "IN_PROGRESS",
+                "resolution_notes": "Ordered replacement bulb.",
+            },
             headers=auth_responder,
         )
         assert resp.status_code == 200
@@ -349,7 +394,9 @@ class TestUpdateRepairRequest:
         assert data["status"] == "IN_PROGRESS"
         assert data["resolution_notes"] == "Ordered replacement bulb."
 
-    def test_responder_can_mark_in_progress_without_note(self, client, db, auth_responder):
+    def test_responder_can_mark_in_progress_without_note(
+        self, client, db, auth_responder
+    ):
         """IN_PROGRESS transition succeeds when no note is provided."""
         s = _station(db)
         v = _vehicle(db, s.station_id)
@@ -372,13 +419,17 @@ class TestUpdateRepairRequest:
 
 # ── Mark vehicle inactive / active (PATCH /vehicles/{id}) ─────────────────────
 
+
 class TestVehicleInactiveStatus:
     def test_supervisor_can_deactivate_vehicle(self, client, db, auth_supervisor):
         s = _station(db)
         v = _vehicle(db, s.station_id)
         resp = client.patch(
             f"/api/v1/vehicles/{v.vehicle_id}",
-            json={"active": False, "inactive_reason": "Transmission failure — awaiting repair."},
+            json={
+                "active": False,
+                "inactive_reason": "Transmission failure — awaiting repair.",
+            },
             headers=auth_supervisor,
         )
         assert resp.status_code == 200
@@ -421,7 +472,10 @@ class TestVehicleInactiveStatus:
         v = _vehicle(db, s.station_id)
         resp = client.patch(
             f"/api/v1/vehicles/{v.vehicle_id}",
-            json={"active": False, "inactive_reason": "Responder trying to deactivate."},
+            json={
+                "active": False,
+                "inactive_reason": "Responder trying to deactivate.",
+            },
             headers=auth_responder,
         )
         assert resp.status_code == 403

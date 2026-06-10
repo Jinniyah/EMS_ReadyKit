@@ -39,8 +39,10 @@ from slowapi.util import get_remote_address
 # Disable rate limiting in test environments so the suite does not exhaust
 # the counter. TESTING=true is set by conftest.py; APP_ENV=test is an
 # alternative. Any other value uses production limits.
-_is_testing = os.environ.get("TESTING", "").lower() == "true" \
+_is_testing = (
+    os.environ.get("TESTING", "").lower() == "true"
     or os.environ.get("APP_ENV", "").lower() == "test"
+)
 
 _default_limits = ["99999/minute"] if _is_testing else ["200/minute"]
 

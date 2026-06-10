@@ -68,8 +68,8 @@ def create_app() -> FastAPI:
         )
 
     # ── SEC-2: Disable OpenAPI docs in production (OWASP A05) ─────────────────
-    _docs_url    = None if settings.is_production else "/docs"
-    _redoc_url   = None if settings.is_production else "/redoc"
+    _docs_url = None if settings.is_production else "/docs"
+    _redoc_url = None if settings.is_production else "/redoc"
     _openapi_url = None if settings.is_production else "/openapi.json"
 
     app = FastAPI(
@@ -117,12 +117,12 @@ def create_app() -> FastAPI:
                 path,
                 response.status_code,
                 extra={
-                    "request_id":  request_id,
-                    "method":      request.method,
-                    "path":        path,
+                    "request_id": request_id,
+                    "method": request.method,
+                    "path": path,
                     "status_code": response.status_code,
                     "duration_ms": duration_ms,
-                    "client_ip":   request.client.host if request.client else None,
+                    "client_ip": request.client.host if request.client else None,
                 },
             )
         response.headers["X-Request-ID"] = request_id
@@ -149,16 +149,16 @@ def create_app() -> FastAPI:
     #   2. check_history BEFORE checks — /checks/daily/my-history must resolve
     #      before /checks/daily/{check_id}.
     app.include_router(station_members.router, prefix=API_PREFIX)
-    app.include_router(stations.router,        prefix=API_PREFIX)
-    app.include_router(vehicles.router,        prefix=API_PREFIX)
+    app.include_router(stations.router, prefix=API_PREFIX)
+    app.include_router(vehicles.router, prefix=API_PREFIX)
     app.include_router(repair_requests.router, prefix=API_PREFIX)
-    app.include_router(check_history.router,   prefix=API_PREFIX)
-    app.include_router(usage.router,           prefix=API_PREFIX)
-    app.include_router(checks.router,          prefix=API_PREFIX)
-    app.include_router(items.router,           prefix=API_PREFIX)
-    app.include_router(inventory.router,       prefix=API_PREFIX)
-    app.include_router(admin.router,           prefix=API_PREFIX)
-    app.include_router(audit.router,           prefix=API_PREFIX)
+    app.include_router(check_history.router, prefix=API_PREFIX)
+    app.include_router(usage.router, prefix=API_PREFIX)
+    app.include_router(checks.router, prefix=API_PREFIX)
+    app.include_router(items.router, prefix=API_PREFIX)
+    app.include_router(inventory.router, prefix=API_PREFIX)
+    app.include_router(admin.router, prefix=API_PREFIX)
+    app.include_router(audit.router, prefix=API_PREFIX)
 
     @app.get("/health", tags=["system"])
     def health():
@@ -167,11 +167,11 @@ def create_app() -> FastAPI:
     logger.info(
         "EMS ReadyKit application created",
         extra={
-            "env":             settings.app_env,
-            "db_is_sqlite":    settings.is_sqlite,
-            "auth_tenant_id":  settings.azure_ad_tenant_id or "NOT SET",
-            "auth_client_id":  settings.azure_ad_client_id or "NOT SET",
-            "auth_audience":   settings.azure_ad_audience  or "NOT SET",
+            "env": settings.app_env,
+            "db_is_sqlite": settings.is_sqlite,
+            "auth_tenant_id": settings.azure_ad_tenant_id or "NOT SET",
+            "auth_client_id": settings.azure_ad_client_id or "NOT SET",
+            "auth_audience": settings.azure_ad_audience or "NOT SET",
         },
     )
 

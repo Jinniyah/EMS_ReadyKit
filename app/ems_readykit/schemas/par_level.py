@@ -17,7 +17,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class ParLevelBase(BaseModel):
     item_id: int = Field(..., gt=0, description="Item this par level applies to")
-    location_id: int = Field(..., gt=0, description="Inventory location (vehicle or supply room)")
+    location_id: int = Field(
+        ..., gt=0, description="Inventory location (vehicle or supply room)"
+    )
     compartment_id: Optional[int] = Field(
         default=None,
         gt=0,
@@ -27,9 +29,15 @@ class ParLevelBase(BaseModel):
             "When null, applies to the whole location."
         ),
     )
-    min_quantity: int = Field(..., gt=0, description="Minimum acceptable quantity (Need on form)")
-    max_quantity: int = Field(..., gt=0, description="Maximum stocking quantity (Restock to)")
-    active: bool = Field(default=True, description="Inactive par levels excluded from check wizard")
+    min_quantity: int = Field(
+        ..., gt=0, description="Minimum acceptable quantity (Need on form)"
+    )
+    max_quantity: int = Field(
+        ..., gt=0, description="Maximum stocking quantity (Restock to)"
+    )
+    active: bool = Field(
+        default=True, description="Inactive par levels excluded from check wizard"
+    )
     priority_check: Optional[bool] = Field(
         default=False,
         description="When True, item is pulled above the compartment list in Step 2 for immediate confirmation",
@@ -56,6 +64,7 @@ class ParLevelBase(BaseModel):
 
 class ParLevelCreate(ParLevelBase):
     """Request body for POST /inventory/par-levels."""
+
     pass
 
 
@@ -72,15 +81,26 @@ class ParLevelRead(ParLevelBase):
 class AssignItemRequest(BaseModel):
     """
     Request body for POST /admin/items/{id}/assign.
-    Frontend supplies vehicle_id + compartment_id; backend derives location_id.
+    Supply exactly one of vehicle_id or location_id; backend derives the
+    InventoryLocation from whichever is provided.
     """
-    vehicle_id:     int = Field(..., gt=0)
+
+    vehicle_id: Optional[int] = Field(default=None, gt=0)
+    location_id: Optional[int] = Field(
+        default=None,
+        gt=0,
+        description="Direct location ID — used for supply room / portable locations instead of vehicle_id",
+    )
     compartment_id: int = Field(..., gt=0)
-    min_quantity:   int = Field(..., gt=0, description="Minimum required quantity")
-    max_quantity:   int = Field(..., gt=0, description="Restock-to quantity")
+    min_quantity: int = Field(..., gt=0, description="Minimum required quantity")
+    max_quantity: int = Field(..., gt=0, description="Restock-to quantity")
 
     @model_validator(mode="after")
-    def validate_min_max(self) -> "AssignItemRequest":
+    def validate_assign_request(self) -> "AssignItemRequest":
+        if self.vehicle_id is None and self.location_id is None:
+            raise ValueError("Provide either vehicle_id or location_id.")
+        if self.vehicle_id is not None and self.location_id is not None:
+            raise ValueError("Provide only one of vehicle_id or location_id, not both.")
         if self.max_quantity < self.min_quantity:
             raise ValueError(
                 f"max_quantity ({self.max_quantity}) must be >= "
@@ -94,37 +114,39 @@ class ParLevelAssignment(BaseModel):
     Enriched par level read — includes vehicle and compartment names
     for the item assignments panel in the admin UI.
     """
+
     model_config = ConfigDict(from_attributes=True)
 
-    par_id:          int
-    item_id:         int
-    location_id:     int
-    compartment_id:  Optional[int]
-    min_quantity:      int
-    max_quantity:      int
-    active:            bool
-    priority_check:    Optional[bool] = False
-    priority_question: Optional[str]  = None
-    is_damaged:        bool = False
-    created_at:        datetime
-    updated_at:        datetime
+    par_id: int
+    item_id: int
+    location_id: int
+    compartment_id: Optional[int]
+    min_quantity: int
+    max_quantity: int
+    active: bool
+    priority_check: Optional[bool] = False
+    priority_question: Optional[str] = None
+    is_damaged: bool = False
+    created_at: datetime
+    updated_at: datetime
     # Enriched fields — joined server-side
-    vehicle_id:       Optional[int]  = None
-    vehicle_number:   Optional[str]  = None
-    vehicle_type:     Optional[str]  = None
-    location_label:   Optional[str]  = None
-    compartment_name: Optional[str]  = None
+    vehicle_id: Optional[int] = None
+    vehicle_number: Optional[str] = None
+    vehicle_type: Optional[str] = None
+    location_label: Optional[str] = None
+    compartment_name: Optional[str] = None
     # Populated by the compartment-centric endpoint only
-    item_name:        Optional[str]  = None
-    item_check_type:  Optional[str]  = None
+    item_name: Optional[str] = None
+    item_check_type: Optional[str] = None
 
 
 class UpdateParLevelRequest(BaseModel):
     """Request body for PATCH /admin/par-levels/{id}."""
-    min_quantity:      int = Field(..., gt=0)
-    max_quantity:      int = Field(..., gt=0)
-    priority_check:    Optional[bool] = Field(default=None)
-    priority_question: Optional[str]  = Field(default=None, max_length=150)
+
+    min_quantity: int = Field(..., gt=0)
+    max_quantity: int = Field(..., gt=0)
+    priority_check: Optional[bool] = Field(default=None)
+    priority_question: Optional[str] = Field(default=None, max_length=150)
 
     @model_validator(mode="after")
     def validate_min_max(self) -> "UpdateParLevelRequest":

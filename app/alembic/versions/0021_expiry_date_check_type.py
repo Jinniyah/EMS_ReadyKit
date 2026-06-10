@@ -15,7 +15,6 @@ when today > date_value.
 
 from alembic import op
 
-
 revision = "0021"
 down_revision = "0020"
 branch_labels = None

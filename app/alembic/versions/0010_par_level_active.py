@@ -18,6 +18,7 @@ Design notes:
   - Hard-delete is never used — retains the assignment history for audit.
   - Defaults TRUE — all existing par levels remain active after migration.
 """
+
 from __future__ import annotations
 
 from typing import Sequence, Union
@@ -43,12 +44,16 @@ def upgrade() -> None:
         )
         op.create_index("ix_par_levels_active", "par_levels", ["active"])
     else:
-        bind.execute(sa.text(
-            "ALTER TABLE par_levels ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE"
-        ))
-        bind.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS ix_par_levels_active ON par_levels (active)"
-        ))
+        bind.execute(
+            sa.text(
+                "ALTER TABLE par_levels ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE"
+            )
+        )
+        bind.execute(
+            sa.text(
+                "CREATE INDEX IF NOT EXISTS ix_par_levels_active ON par_levels (active)"
+            )
+        )
 
 
 def downgrade() -> None:

@@ -29,7 +29,11 @@ def _validate_hex_color(v: Optional[str]) -> Optional[str]:
     """Accept None or a valid 7-char CSS hex color (#rrggbb)."""
     if v is None:
         return v
-    if len(v) != 7 or v[0] != '#' or not all(c in '0123456789abcdefABCDEF' for c in v[1:]):
+    if (
+        len(v) != 7
+        or v[0] != "#"
+        or not all(c in "0123456789abcdefABCDEF" for c in v[1:])
+    ):
         raise ValueError("color must be a 7-character hex string, e.g. '#1a3a5c'")
     return v.lower()
 
@@ -92,6 +96,7 @@ class StationBase(BaseModel):
 
 class StationCreate(StationBase):
     """Request body for POST /stations and POST /admin/stations."""
+
     pass
 
 
@@ -103,6 +108,21 @@ class StationRead(StationBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-    station_id:    int
-    created_at:    datetime
-    updated_at:    datetime
+    station_id: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class StationSettingsRead(BaseModel):
+    """Response model for GET /stations/{id}/settings (CH-B8)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    station_id: int
+    allow_check_modification: bool
+
+
+class StationSettingsPatch(BaseModel):
+    """Request body for PATCH /stations/{id}/settings (CH-B7)."""
+
+    allow_check_modification: bool

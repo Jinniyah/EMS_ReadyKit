@@ -14,15 +14,15 @@ from ems_readykit.models.check_line_item import LineItemStatus
 
 
 class CheckLineItemBase(BaseModel):
-    compartment_id:    int           = Field(..., gt=0)
-    item_id:           int           = Field(..., gt=0)
-    lot_id:            Optional[int] = Field(default=None, gt=0)
-    quantity_needed:   int           = Field(default=0, ge=0)
-    quantity_found:    int           = Field(default=0, ge=0)
+    compartment_id: int = Field(..., gt=0)
+    item_id: int = Field(..., gt=0)
+    lot_id: Optional[int] = Field(default=None, gt=0)
+    quantity_needed: int = Field(default=0, ge=0)
+    quantity_found: int = Field(default=0, ge=0)
     measurement_value: Optional[float] = Field(default=None)
-    functional_pass:   Optional[bool]  = Field(default=None)
-    date_value:        Optional[date]  = Field(default=None)
-    notes:             Optional[str]   = Field(default=None, max_length=300)
+    functional_pass: Optional[bool] = Field(default=None)
+    date_value: Optional[date] = Field(default=None)
+    notes: Optional[str] = Field(default=None, max_length=300)
 
 
 class CheckLineItemCreate(CheckLineItemBase):
@@ -32,17 +32,19 @@ class CheckLineItemCreate(CheckLineItemBase):
 class CheckLineItemRead(CheckLineItemBase):
     model_config = ConfigDict(from_attributes=True)
 
-    line_item_id:    int
-    check_id:        int
-    status:          LineItemStatus
-    lot_number:      Optional[str]  = None
+    line_item_id: int
+    check_id: int
+    status: LineItemStatus
+    lot_number: Optional[str] = None
     expiration_date: Optional[date] = None
 
     # Derived from the Item relationship — tells the frontend how to display this row
-    item_name:  Optional[str] = Field(default=None, description="Human-readable item name")
+    item_name: Optional[str] = Field(
+        default=None, description="Human-readable item name"
+    )
     check_type: Optional[str] = Field(
         default=None,
-        description="SUPPLY | MEASUREMENT | FUNCTIONAL | DATE_RECORD | DOCUMENT"
+        description="SUPPLY | MEASUREMENT | FUNCTIONAL | DATE_RECORD | DOCUMENT",
     )
 
     created_at: datetime

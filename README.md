@@ -1,7 +1,7 @@
 # EMS ReadyKit
 
 [![CI/CD — Test, Build, Deploy](https://github.com/Jinniyah/EMS_ReadyKit/actions/workflows/deploy.yml/badge.svg)](https://github.com/Jinniyah/EMS_ReadyKit/actions/workflows/deploy.yml)
-[![Tests — 349 passing](https://img.shields.io/badge/tests-349%20passing-brightgreen?logo=pytest&logoColor=white)](app/tests/)
+[![Tests — 368 passing](https://img.shields.io/badge/tests-368%20passing-brightgreen?logo=pytest&logoColor=white)](app/tests/)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-3110/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.136-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev)
@@ -75,7 +75,7 @@ ready — before every shift goes out the door.
 | Data integrity | SQLAlchemy 2.0, Alembic migrations (18 applied), DB-level constraints |
 | Audit trail | First-class audit events with actor, entity, severity, and metadata |
 | Security | OWASP Top 10 reviewed; 0 known CVEs (pip-audit in CI); security headers; production hardening |
-| Testing | 349 automated tests — persona-based (Jamie/Earl/Jennifer), safety-critical (O₂ PSI, AED dates), seed integrity, RBAC, business rules |
+| Testing | 368 automated tests — persona-based (Jamie/Earl/Jennifer), safety-critical (O₂ PSI, AED dates), seed integrity, RBAC, business rules |
 | CI/CD | GitHub Actions: pip-audit → pytest → build on Linux → deploy → health check |
 | Observability | Log Analytics, structured logging, diagnostic settings |
 | Cost discipline | B1 App Service; short log retention; budget alerts |
@@ -112,7 +112,7 @@ ready — before every shift goes out the door.
                            │ Private connection
 ┌──────────────────────────▼──────────────────────────────────┐
 │  Azure Database for PostgreSQL Flexible Server              │
-│  18 Alembic migrations — run automatically on startup       │
+│  22 Alembic migrations — run automatically on startup       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -176,7 +176,7 @@ API explorer: http://localhost:8000/docs
 ```powershell
 cd app
 
-# Full suite (363 tests, ~7 seconds)
+# Full suite (368 tests, ~7 seconds)
 pytest tests/ -q
 
 # Verbose with short tracebacks
@@ -207,7 +207,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details on both fixtures.
 Deployment is fully automated via GitHub Actions on every push to `main`:
 
 1. `pip-audit` — 0 known CVEs required to proceed
-2. `pytest` — all 363 tests must pass
+2. `pytest` — all 368 tests must pass
 3. Build zip on Linux (forward-slash paths — required for Azure Oryx)
 4. Deploy API to Azure App Service
 5. Build and deploy frontend to Azure Static Web Apps

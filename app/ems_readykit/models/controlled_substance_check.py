@@ -23,7 +23,9 @@ class ControlledSubstanceCheck(TimestampMixin, Base):
     __tablename__ = "controlled_substance_checks"
 
     cs_check_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    vehicle_id: Mapped[int] = mapped_column(ForeignKey("vehicles.vehicle_id"), nullable=False)
+    vehicle_id: Mapped[int] = mapped_column(
+        ForeignKey("vehicles.vehicle_id"), nullable=False
+    )
 
     primary_signer: Mapped[str] = mapped_column(String(100), nullable=False)
     secondary_signer: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -31,7 +33,9 @@ class ControlledSubstanceCheck(TimestampMixin, Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     # True if any count discrepancy was noted
-    discrepancy_flag: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    discrepancy_flag: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
     notes: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
 
     # Relationships

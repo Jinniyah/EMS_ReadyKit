@@ -731,4 +731,11 @@
   font-weight: 600;
 }
 
+/* ── Shelf grouping (SS-F2) ──────────────────────────────────────────────── */
+.sr-catalog-shelf { margin-bottom: var(--space-md); }
+.sr-catalog-shelf__heading { font-size: var(--font-size-sm); font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; padding: var(--space-xs) 0; margin-bottom: var(--space-xs); }
+
+/* ── Damaged badge (DMG-F3) ──────────────────────────────────────────────── */
+.sr-catalog-item__damaged { color: var(--color-damaged); font-size: var(--font-size-sm); font-weight: 700; }
+
 

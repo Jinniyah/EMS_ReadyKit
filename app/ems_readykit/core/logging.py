@@ -95,6 +95,7 @@ def set_request_id(request_id: Optional[str] = None) -> str:
 
 # ── Custom JSON formatter with guaranteed field names ─────────────────────────
 
+
 class _EmsJsonFormatter(jsonlogger.JsonFormatter):
     """
     Extends JsonFormatter to:
@@ -113,8 +114,8 @@ class _EmsJsonFormatter(jsonlogger.JsonFormatter):
 
         # Normalise field names to our schema
         log_record["timestamp"] = log_record.pop("asctime", "")
-        log_record["logger"]    = log_record.pop("name", record.name)
-        log_record["level"]     = log_record.pop("levelname", record.levelname)
+        log_record["logger"] = log_record.pop("name", record.name)
+        log_record["level"] = log_record.pop("levelname", record.levelname)
 
         # Inject correlation ID — always present, even if empty
         log_record["request_id"] = get_request_id()
@@ -125,6 +126,7 @@ class _EmsJsonFormatter(jsonlogger.JsonFormatter):
 
 
 # ── Logging configuration ─────────────────────────────────────────────────────
+
 
 def configure_logging() -> None:
     """
@@ -148,7 +150,7 @@ def configure_logging() -> None:
         formatter = _EmsJsonFormatter(
             fmt="%(asctime)s %(name)s %(levelname)s %(message)s",
             datefmt="%Y-%m-%dT%H:%M:%S",
-            rename_fields={},           # handled in add_fields
+            rename_fields={},  # handled in add_fields
         )
     else:
         formatter = logging.Formatter(

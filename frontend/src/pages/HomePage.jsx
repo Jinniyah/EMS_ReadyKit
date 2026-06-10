@@ -33,6 +33,7 @@ const SupervisorDashboard  = lazy(() => import('../modules/supervisor/index.jsx'
 const AdminScreen          = lazy(() => import('../modules/admin/index.jsx'))
 const SupplyRoomScreen     = lazy(() => import('../modules/supply-room/index.jsx'))
 const UsageLogScreen       = lazy(() => import('../modules/usage-log/index.jsx'))
+const SettingsScreen       = lazy(() => import('../modules/settings/index.jsx'))
 
 const STATION_STORAGE_KEY = 'ems_selected_station_id'  // store ID only, not full object
 
@@ -249,6 +250,19 @@ export default function HomePage() {
     )
   }
 
+  if (activeModule === 'settings') {
+    return (
+      <ErrorBoundary moduleName="Settings">
+        <Suspense fallback={<Spinner label="Loading…" />}>
+          <SettingsScreen
+            station={selectedStation}
+            onBack={() => setActiveModule(null)}
+          />
+        </Suspense>
+      </ErrorBoundary>
+    )
+  }
+
   if (activeModule === 'supervisor') {
     return (
       <ErrorBoundary moduleName="Supervisor Dashboard">
@@ -454,6 +468,27 @@ export default function HomePage() {
                   className="btn btn--primary"
                   style={colors ? { background: colors.primary } : {}}
                   onClick={() => setActiveModule('admin')}
+                  type="button"
+                >
+                  Open
+                </button>
+              </div>
+            </ErrorBoundary>
+          )}
+
+          {canAccess(user, 'supervisor') && !isCrewMode && (
+            <ErrorBoundary moduleName="Settings Card">
+              <div className="module-card">
+                <div className="module-card__icon" aria-hidden="true">⚙️</div>
+                <div className="module-card__content">
+                  <div className="module-card__title">Settings</div>
+                  <div className="module-card__description">Station configuration and preferences</div>
+                </div>
+                <button
+                  className="btn btn--primary"
+                  style={colors ? { background: colors.primary } : {}}
+                  onClick={() => setActiveModule('settings')}
+                  disabled={!selectedStation}
                   type="button"
                 >
                   Open

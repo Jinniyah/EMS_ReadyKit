@@ -20,8 +20,17 @@ from sqlalchemy.orm import Session
 
 from ems_readykit.core.audit import write_audit_event
 from ems_readykit.core.database import get_db
-from ems_readykit.models.repair_request import RepairRequest, RepairSeverity, RepairStatus
-from ems_readykit.routers.deps import ALL_ROLES, SUPERVISOR_PLUS, get_vehicle_or_404, require_role
+from ems_readykit.models.repair_request import (
+    RepairRequest,
+    RepairSeverity,
+    RepairStatus,
+)
+from ems_readykit.routers.deps import (
+    ALL_ROLES,
+    SUPERVISOR_PLUS,
+    get_vehicle_or_404,
+    require_role,
+)
 from ems_readykit.schemas.repair_request import (
     RepairRequestCreate,
     RepairRequestOut,
@@ -38,7 +47,7 @@ def _get_repair_or_404(repair_id: int, vehicle_id: int, db: Session) -> RepairRe
     repair = (
         db.query(RepairRequest)
         .filter(
-            RepairRequest.repair_id  == repair_id,
+            RepairRequest.repair_id == repair_id,
             RepairRequest.vehicle_id == vehicle_id,
         )
         .first()
@@ -52,6 +61,7 @@ def _get_repair_or_404(repair_id: int, vehicle_id: int, db: Session) -> RepairRe
 
 
 # ── B-E1: Mark vehicle active / inactive ─────────────────────────────────────
+
 
 @router.patch(
     "/vehicles/{vehicle_id}",
@@ -75,10 +85,10 @@ def update_vehicle_status(
     vehicle.active = payload.active
     if payload.active:
         vehicle.inactive_reason = None
-        vehicle.inactive_since  = None
+        vehicle.inactive_since = None
     else:
         vehicle.inactive_reason = payload.inactive_reason
-        vehicle.inactive_since  = datetime.now(timezone.utc)
+        vehicle.inactive_since = datetime.now(timezone.utc)
 
     db.add(vehicle)
     db.flush()
@@ -92,7 +102,7 @@ def update_vehicle_status(
         station_id=vehicle.station_id,
         vehicle_id=vehicle_id,
         metadata={
-            "active":          payload.active,
+            "active": payload.active,
             "inactive_reason": payload.inactive_reason,
         },
         severity="INFO",
@@ -101,13 +111,16 @@ def update_vehicle_status(
     db.refresh(vehicle)
     logger.info(
         "Vehicle %s status changed to active=%s by %s",
-        vehicle_id, payload.active, current_user.user_id,
+        vehicle_id,
+        payload.active,
+        current_user.user_id,
         extra={"vehicle_id": vehicle_id, "actor": current_user.user_id},
     )
     return vehicle
 
 
 # ── B-E4: File a repair request ───────────────────────────────────────────────
+
 
 @router.post(
     "/vehicles/{vehicle_id}/repair-requests",
@@ -147,7 +160,7 @@ def create_repair_request(
         station_id=vehicle.station_id,
         vehicle_id=vehicle_id,
         metadata={
-            "severity":    payload.severity,
+            "severity": payload.severity,
             "description": payload.description,
         },
         severity=audit_severity,
@@ -156,13 +169,17 @@ def create_repair_request(
     db.refresh(repair)
     logger.info(
         "Repair request %s filed for vehicle %s (severity=%s) by %s",
-        repair.repair_id, vehicle_id, payload.severity, current_user.user_id,
+        repair.repair_id,
+        vehicle_id,
+        payload.severity,
+        current_user.user_id,
         extra={"repair_id": repair.repair_id, "actor": current_user.user_id},
     )
     return repair
 
 
 # ── B-E16: Update repair request status ──────────────────────────────────────
+
 
 @router.patch(
     "/vehicles/{vehicle_id}/repair-requests/{repair_id}",
@@ -220,7 +237,7 @@ def update_repair_request(
         station_id=repair.station_id,
         vehicle_id=vehicle_id,
         metadata={
-            "new_status":       payload.status,
+            "new_status": payload.status,
             "resolution_notes": payload.resolution_notes,
         },
         severity="INFO",
@@ -231,6 +248,7 @@ def update_repair_request(
 
 
 # ── B-E17: List repair requests for a vehicle ─────────────────────────────────
+
 
 @router.get(
     "/vehicles/{vehicle_id}/repair-requests",

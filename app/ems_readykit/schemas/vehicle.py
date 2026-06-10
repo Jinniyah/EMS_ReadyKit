@@ -27,11 +27,16 @@ from ems_readykit.models.vehicle import VehicleType
 
 # ── Hex color validator (shared with station schema) ─────────────────────────
 
+
 def _validate_hex_color(v: Optional[str]) -> Optional[str]:
     """Accept None or a valid 7-char CSS hex color (#rrggbb)."""
     if v is None:
         return v
-    if len(v) != 7 or v[0] != '#' or not all(c in '0123456789abcdefABCDEF' for c in v[1:]):
+    if (
+        len(v) != 7
+        or v[0] != "#"
+        or not all(c in "0123456789abcdefABCDEF" for c in v[1:])
+    ):
         raise ValueError("color must be a 7-character hex string, e.g. '#1a3a5c'")
     return v.lower()
 
@@ -63,6 +68,7 @@ class VehicleBase(BaseModel):
 
 class VehicleCreate(VehicleBase):
     """Request body for POST /vehicles."""
+
     vehicle_color: Optional[str] = Field(
         default=None,
         max_length=7,
@@ -80,7 +86,8 @@ class VehicleUpdate(BaseModel):
     Request body for PATCH /vehicles/{id} (Supervisor+).
     Allows toggling active status with a mandatory reason when deactivating.
     """
-    active:          bool = Field(..., description="True = in service; False = out of service")
+
+    active: bool = Field(..., description="True = in service; False = out of service")
     inactive_reason: Optional[str] = Field(
         default=None,
         max_length=200,
@@ -90,12 +97,14 @@ class VehicleUpdate(BaseModel):
 
 class VehicleDetailsUpdate(BaseModel):
     """Request body for PATCH /admin/vehicles/{id}/details (Admin only)."""
+
     vehicle_number: str = Field(..., min_length=1, max_length=20)
     vehicle_type: VehicleType
 
 
 class VehicleColorUpdate(BaseModel):
     """Request body for PATCH /admin/vehicles/{id}/color (ADMIN-UX1-V)."""
+
     vehicle_color: Optional[str] = Field(
         default=None,
         max_length=7,
@@ -117,12 +126,12 @@ class VehicleRead(VehicleBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-    vehicle_id:     int
+    vehicle_id: int
     inactive_reason: Optional[str]
-    inactive_since:  Optional[datetime]
-    vehicle_color:   Optional[str]
-    created_at:      datetime
-    updated_at:      datetime
+    inactive_since: Optional[datetime]
+    vehicle_color: Optional[str]
+    created_at: datetime
+    updated_at: datetime
 
     # Computed from vehicle_type — included here for client convenience.
     requires_controlled_substance_check: bool = Field(

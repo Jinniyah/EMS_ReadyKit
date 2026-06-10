@@ -10,6 +10,7 @@ Covers:
   - GET /inventory/receive-stock/template
   - POST /inventory/locations/{id}/receive-stock/csv
 """
+
 from __future__ import annotations
 
 import io
@@ -30,9 +31,12 @@ from ems_readykit.models.vehicle import Vehicle, VehicleType
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def station(db):
-    s = Station(name="Test Supply Station", address="123 Test St", region="Test", active=True)
+    s = Station(
+        name="Test Supply Station", address="123 Test St", region="Test", active=True
+    )
     db.add(s)
     db.flush()
     return s
@@ -51,8 +55,15 @@ def supply_room(db, station):
         ("Cab 1 - Shelf 1", "Cabinet 1, top shelf", 1),
         ("Cab 1 - Shelf 2", "Cabinet 1, bottom shelf", 2),
     ]:
-        db.add(Compartment(location_id=loc.location_id, name=name,
-                           location_descriptor=descriptor, sort_order=sort_order, active=True))
+        db.add(
+            Compartment(
+                location_id=loc.location_id,
+                name=name,
+                location_descriptor=descriptor,
+                sort_order=sort_order,
+                active=True,
+            )
+        )
     db.flush()
     return loc
 
@@ -80,10 +91,14 @@ def vehicle_location(db, station):
         v.station_id = station.station_id
         db.flush()
 
-    loc = db.query(InventoryLocation).filter(
-        InventoryLocation.vehicle_id == v.vehicle_id,
-        InventoryLocation.location_type == LocationType.VEHICLE,
-    ).first()
+    loc = (
+        db.query(InventoryLocation)
+        .filter(
+            InventoryLocation.vehicle_id == v.vehicle_id,
+            InventoryLocation.location_type == LocationType.VEHICLE,
+        )
+        .first()
+    )
     if loc is None:
         loc = InventoryLocation(
             location_type=LocationType.VEHICLE,
@@ -141,16 +156,18 @@ def membership(db, station):
     """Add admin, supervisor, and responder to the station."""
     for user_id, role in [
         ("test-administrator@ems.local", "Administrator"),
-        ("test-supervisor@ems.local",    "Supervisor"),
-        ("test-responder@ems.local",     "Responder"),
+        ("test-supervisor@ems.local", "Supervisor"),
+        ("test-responder@ems.local", "Responder"),
     ]:
-        db.add(StationMember(
-            station_id=station.station_id,
-            user_id=user_id,
-            role=role,
-            assigned_by="test",
-            active=True,
-        ))
+        db.add(
+            StationMember(
+                station_id=station.station_id,
+                user_id=user_id,
+                role=role,
+                assigned_by="test",
+                active=True,
+            )
+        )
     db.flush()
 
 
@@ -158,8 +175,11 @@ def membership(db, station):
 # SUPPLY-B3: GET /stations/{id}/supply-room
 # ---------------------------------------------------------------------------
 
+
 def test_get_supply_room_ok(client, db, station, supply_room, membership, auth_admin):
-    r = client.get(f"/api/v1/stations/{station.station_id}/supply-room", headers=auth_admin)
+    r = client.get(
+        f"/api/v1/stations/{station.station_id}/supply-room", headers=auth_admin
+    )
     assert r.status_code == 200
     data = r.json()
     assert data["location_type"] == "STATION_SUPPLY_ROOM"
@@ -168,15 +188,21 @@ def test_get_supply_room_ok(client, db, station, supply_room, membership, auth_a
 
 def test_get_supply_room_404_when_none(client, db, station, membership, auth_admin):
     """Station exists but has no supply room."""
-    r = client.get(f"/api/v1/stations/{station.station_id}/supply-room", headers=auth_admin)
+    r = client.get(
+        f"/api/v1/stations/{station.station_id}/supply-room", headers=auth_admin
+    )
     assert r.status_code == 404
 
 
-def test_get_supply_room_requires_membership(client, db, station, supply_room, auth_supervisor):
+def test_get_supply_room_requires_membership(
+    client, db, station, supply_room, auth_supervisor
+):
     """Supervisor without a membership row gets 403.
     Note: auth_admin bypasses membership checks entirely — use supervisor here."""
     # Intentionally no `membership` fixture so test-supervisor@ems.local has no row
-    r = client.get(f"/api/v1/stations/{station.station_id}/supply-room", headers=auth_supervisor)
+    r = client.get(
+        f"/api/v1/stations/{station.station_id}/supply-room", headers=auth_supervisor
+    )
     assert r.status_code == 403
 
 
@@ -184,16 +210,23 @@ def test_get_supply_room_requires_membership(client, db, station, supply_room, a
 # SUPPLY-B2: GET /inventory/locations/{id}/stock-summary
 # ---------------------------------------------------------------------------
 
+
 def test_stock_summary_empty(client, db, supply_room, membership, auth_admin):
-    r = client.get(f"/api/v1/inventory/locations/{supply_room.location_id}/stock-summary",
-                   headers=auth_admin)
+    r = client.get(
+        f"/api/v1/inventory/locations/{supply_room.location_id}/stock-summary",
+        headers=auth_admin,
+    )
     assert r.status_code == 200
     assert r.json() == []
 
 
-def test_stock_summary_with_lots(client, db, supply_room, supply_lot, membership, auth_admin):
-    r = client.get(f"/api/v1/inventory/locations/{supply_room.location_id}/stock-summary",
-                   headers=auth_admin)
+def test_stock_summary_with_lots(
+    client, db, supply_room, supply_lot, membership, auth_admin
+):
+    r = client.get(
+        f"/api/v1/inventory/locations/{supply_room.location_id}/stock-summary",
+        headers=auth_admin,
+    )
     assert r.status_code == 200
     items = r.json()
     assert len(items) == 1
@@ -203,28 +236,44 @@ def test_stock_summary_with_lots(client, db, supply_room, supply_lot, membership
     assert len(item["lots"]) == 1
 
 
-def test_stock_summary_status_with_par(client, db, supply_room, supply_lot, test_item, membership, auth_admin):
-    db.add(ParLevel(
-        item_id=test_item.item_id, location_id=supply_room.location_id,
-        min_quantity=25, max_quantity=50,
-    ))
+def test_stock_summary_status_with_par(
+    client, db, supply_room, supply_lot, test_item, membership, auth_admin
+):
+    db.add(
+        ParLevel(
+            item_id=test_item.item_id,
+            location_id=supply_room.location_id,
+            min_quantity=25,
+            max_quantity=50,
+        )
+    )
     db.flush()
-    r = client.get(f"/api/v1/inventory/locations/{supply_room.location_id}/stock-summary",
-                   headers=auth_admin)
+    r = client.get(
+        f"/api/v1/inventory/locations/{supply_room.location_id}/stock-summary",
+        headers=auth_admin,
+    )
     assert r.status_code == 200
     item = r.json()[0]
     assert item["status"] == "LOW"
     assert item["par_min"] == 25
 
 
-def test_stock_summary_status_ok(client, db, supply_room, supply_lot, test_item, membership, auth_admin):
-    db.add(ParLevel(
-        item_id=test_item.item_id, location_id=supply_room.location_id,
-        min_quantity=5, max_quantity=20,
-    ))
+def test_stock_summary_status_ok(
+    client, db, supply_room, supply_lot, test_item, membership, auth_admin
+):
+    db.add(
+        ParLevel(
+            item_id=test_item.item_id,
+            location_id=supply_room.location_id,
+            min_quantity=5,
+            max_quantity=20,
+        )
+    )
     db.flush()
-    r = client.get(f"/api/v1/inventory/locations/{supply_room.location_id}/stock-summary",
-                   headers=auth_admin)
+    r = client.get(
+        f"/api/v1/inventory/locations/{supply_room.location_id}/stock-summary",
+        headers=auth_admin,
+    )
     assert r.status_code == 200
     assert r.json()[0]["status"] == "OK"
 
@@ -233,10 +282,15 @@ def test_stock_summary_status_ok(client, db, supply_room, supply_lot, test_item,
 # Transfer history (SR-B5: POST /inventory/transfer removed; history retained)
 # ---------------------------------------------------------------------------
 
-def test_transfer_history_empty(client, db, station, supply_room, membership, auth_supervisor):
+
+def test_transfer_history_empty(
+    client, db, station, supply_room, membership, auth_supervisor
+):
     # No transfers exist for this supply room — endpoint should return empty list
-    r = client.get(f"/api/v1/inventory/locations/{supply_room.location_id}/transfers",
-                   headers=auth_supervisor)
+    r = client.get(
+        f"/api/v1/inventory/locations/{supply_room.location_id}/transfers",
+        headers=auth_supervisor,
+    )
     assert r.status_code == 200
     assert r.json() == []
 
@@ -244,6 +298,7 @@ def test_transfer_history_empty(client, db, station, supply_room, membership, au
 # ---------------------------------------------------------------------------
 # CSV template
 # ---------------------------------------------------------------------------
+
 
 def test_csv_template_download(client, auth_supervisor):
     r = client.get("/api/v1/inventory/receive-stock/template", headers=auth_supervisor)
@@ -257,7 +312,10 @@ def test_csv_template_download(client, auth_supervisor):
 # CSV bulk receive
 # ---------------------------------------------------------------------------
 
-def test_csv_receive_valid(client, db, supply_room, test_item, membership, auth_supervisor):
+
+def test_csv_receive_valid(
+    client, db, supply_room, test_item, membership, auth_supervisor
+):
     csv_content = (
         "item_name,lot_number,expiration_date,quantity\n"
         f"{test_item.name},LOT-CSV-001,2027-12-31,15\n"
@@ -296,21 +354,33 @@ def test_csv_receive_unknown_item(client, db, supply_room, membership, auth_supe
 # SR-B3: GET /stations/{id}/supply-alerts
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def supply_room_par(db, supply_room, test_item):
     """A par level on the supply room for test_item (min=10)."""
-    comp = db.query(Compartment).filter(
-        Compartment.location_id == supply_room.location_id
-    ).first()
+    comp = (
+        db.query(Compartment)
+        .filter(Compartment.location_id == supply_room.location_id)
+        .first()
+    )
     if comp is None:
-        comp = Compartment(location_id=supply_room.location_id, name="SR Test Comp",
-                           sort_order=1, active=True)
+        comp = Compartment(
+            location_id=supply_room.location_id,
+            name="SR Test Comp",
+            sort_order=1,
+            active=True,
+        )
         db.add(comp)
         db.flush()
-    db.add(ParLevel(
-        item_id=test_item.item_id, location_id=supply_room.location_id,
-        compartment_id=comp.compartment_id, min_quantity=10, max_quantity=20,
-    ))
+    db.add(
+        ParLevel(
+            item_id=test_item.item_id,
+            location_id=supply_room.location_id,
+            compartment_id=comp.compartment_id,
+            min_quantity=10,
+            max_quantity=20,
+        )
+    )
     db.flush()
 
 
@@ -321,35 +391,63 @@ def vehicle_comp(db, vehicle_location, test_item):
     Get-or-create: vehicle_location persists across tests when route handlers
     call db.commit() (releases savepoint, outer rollback doesn't undo the row).
     """
-    comp = db.query(Compartment).filter(
-        Compartment.location_id == vehicle_location.location_id,
-        Compartment.name        == "SR-B4 Test Comp",
-    ).first()
+    comp = (
+        db.query(Compartment)
+        .filter(
+            Compartment.location_id == vehicle_location.location_id,
+            Compartment.name == "SR-B4 Test Comp",
+        )
+        .first()
+    )
     if comp is None:
-        comp = Compartment(location_id=vehicle_location.location_id,
-                           name="SR-B4 Test Comp", sort_order=1, active=True)
+        comp = Compartment(
+            location_id=vehicle_location.location_id,
+            name="SR-B4 Test Comp",
+            sort_order=1,
+            active=True,
+        )
         db.add(comp)
         db.flush()
 
-    existing_par = db.query(ParLevel).filter(
-        ParLevel.item_id        == test_item.item_id,
-        ParLevel.compartment_id == comp.compartment_id,
-    ).first()
+    existing_par = (
+        db.query(ParLevel)
+        .filter(
+            ParLevel.item_id == test_item.item_id,
+            ParLevel.compartment_id == comp.compartment_id,
+        )
+        .first()
+    )
     if existing_par is None:
-        db.add(ParLevel(
-            item_id=test_item.item_id, location_id=vehicle_location.location_id,
-            compartment_id=comp.compartment_id, min_quantity=5, max_quantity=5,
-        ))
+        db.add(
+            ParLevel(
+                item_id=test_item.item_id,
+                location_id=vehicle_location.location_id,
+                compartment_id=comp.compartment_id,
+                min_quantity=5,
+                max_quantity=5,
+            )
+        )
         db.flush()
     return comp
 
 
-def test_supply_alerts_low_stock(client, db, station, supply_room, supply_lot, supply_room_par, membership, auth_supervisor):
+def test_supply_alerts_low_stock(
+    client,
+    db,
+    station,
+    supply_room,
+    supply_lot,
+    supply_room_par,
+    membership,
+    auth_supervisor,
+):
     # supply_lot has 20 units; par_min is 10 — supply_lot > par → no alerts
     # Reduce lot to 5 to trigger alert
     supply_lot.quantity = 5
     db.flush()
-    r = client.get(f"/api/v1/stations/{station.station_id}/supply-alerts", headers=auth_supervisor)
+    r = client.get(
+        f"/api/v1/stations/{station.station_id}/supply-alerts", headers=auth_supervisor
+    )
     assert r.status_code == 200
     alerts = r.json()
     assert len(alerts) == 1
@@ -358,21 +456,38 @@ def test_supply_alerts_low_stock(client, db, station, supply_room, supply_lot, s
     assert alerts[0]["par_min"] == 10
 
 
-def test_supply_alerts_stock_ok(client, db, station, supply_room, supply_lot, supply_room_par, membership, auth_supervisor):
+def test_supply_alerts_stock_ok(
+    client,
+    db,
+    station,
+    supply_room,
+    supply_lot,
+    supply_room_par,
+    membership,
+    auth_supervisor,
+):
     # supply_lot has 20 units; par_min is 10 → on_hand >= par_min → no alerts
-    r = client.get(f"/api/v1/stations/{station.station_id}/supply-alerts", headers=auth_supervisor)
+    r = client.get(
+        f"/api/v1/stations/{station.station_id}/supply-alerts", headers=auth_supervisor
+    )
     assert r.status_code == 200
     assert r.json() == []
 
 
 def test_supply_alerts_no_supply_room(client, db, station, membership, auth_supervisor):
-    r = client.get(f"/api/v1/stations/{station.station_id}/supply-alerts", headers=auth_supervisor)
+    r = client.get(
+        f"/api/v1/stations/{station.station_id}/supply-alerts", headers=auth_supervisor
+    )
     assert r.status_code == 200
     assert r.json() == []
 
 
-def test_supply_alerts_requires_supervisor(client, db, station, supply_room, membership, auth_responder):
-    r = client.get(f"/api/v1/stations/{station.station_id}/supply-alerts", headers=auth_responder)
+def test_supply_alerts_requires_supervisor(
+    client, db, station, supply_room, membership, auth_responder
+):
+    r = client.get(
+        f"/api/v1/stations/{station.station_id}/supply-alerts", headers=auth_responder
+    )
     assert r.status_code == 403
 
 
@@ -380,69 +495,154 @@ def test_supply_alerts_requires_supervisor(client, db, station, supply_room, mem
 # SR-B4: Auto-decrement supply room on vehicle check submit
 # ---------------------------------------------------------------------------
 
+
 def _utcnow_str() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def test_check_auto_decrements_supply_room(client, db, station, supply_room, supply_lot, vehicle_location, vehicle_comp, test_item, membership, auth_supervisor):
-    v = db.query(Vehicle).filter(Vehicle.vehicle_id == vehicle_location.vehicle_id).first()
+def test_check_auto_decrements_supply_room(
+    client,
+    db,
+    station,
+    supply_room,
+    supply_lot,
+    vehicle_location,
+    vehicle_comp,
+    test_item,
+    membership,
+    auth_supervisor,
+):
+    v = (
+        db.query(Vehicle)
+        .filter(Vehicle.vehicle_id == vehicle_location.vehicle_id)
+        .first()
+    )
 
     # First check: baseline qty_found = 3
-    r1 = client.post("/api/v1/checks/daily", json={
-        "vehicle_id": v.vehicle_id, "station_id": station.station_id,
-        "check_date": "2026-06-01", "timestamp": _utcnow_str(),
-        "line_items": [{"compartment_id": vehicle_comp.compartment_id,
-                        "item_id": test_item.item_id, "quantity_needed": 5, "quantity_found": 3}],
-    }, headers=auth_supervisor)
+    r1 = client.post(
+        "/api/v1/checks/daily",
+        json={
+            "vehicle_id": v.vehicle_id,
+            "station_id": station.station_id,
+            "check_date": "2026-06-01",
+            "timestamp": _utcnow_str(),
+            "line_items": [
+                {
+                    "compartment_id": vehicle_comp.compartment_id,
+                    "item_id": test_item.item_id,
+                    "quantity_needed": 5,
+                    "quantity_found": 3,
+                }
+            ],
+        },
+        headers=auth_supervisor,
+    )
     assert r1.status_code == 201
 
     # Second check: topped off to 5 → 2 units should be deducted from supply room (20 → 18)
-    r2 = client.post("/api/v1/checks/daily", json={
-        "vehicle_id": v.vehicle_id, "station_id": station.station_id,
-        "check_date": "2026-06-02", "timestamp": _utcnow_str(),
-        "line_items": [{"compartment_id": vehicle_comp.compartment_id,
-                        "item_id": test_item.item_id, "quantity_needed": 5, "quantity_found": 5}],
-    }, headers=auth_supervisor)
+    r2 = client.post(
+        "/api/v1/checks/daily",
+        json={
+            "vehicle_id": v.vehicle_id,
+            "station_id": station.station_id,
+            "check_date": "2026-06-02",
+            "timestamp": _utcnow_str(),
+            "line_items": [
+                {
+                    "compartment_id": vehicle_comp.compartment_id,
+                    "item_id": test_item.item_id,
+                    "quantity_needed": 5,
+                    "quantity_found": 5,
+                }
+            ],
+        },
+        headers=auth_supervisor,
+    )
     assert r2.status_code == 201
 
     db.expire_all()
     total = sum(
-        lot.quantity for lot in db.query(StockLot).filter(
+        lot.quantity
+        for lot in db.query(StockLot)
+        .filter(
             StockLot.location_id == supply_room.location_id,
-            StockLot.item_id     == test_item.item_id,
-        ).all()
+            StockLot.item_id == test_item.item_id,
+        )
+        .all()
     )
     assert total == 18
 
 
-def test_check_auto_decrement_best_effort(client, db, station, supply_room, supply_lot, vehicle_location, vehicle_comp, test_item, membership, auth_supervisor):
+def test_check_auto_decrement_best_effort(
+    client,
+    db,
+    station,
+    supply_room,
+    supply_lot,
+    vehicle_location,
+    vehicle_comp,
+    test_item,
+    membership,
+    auth_supervisor,
+):
     """Check still submits even when supply room has less stock than was topped off."""
-    v = db.query(Vehicle).filter(Vehicle.vehicle_id == vehicle_location.vehicle_id).first()
+    v = (
+        db.query(Vehicle)
+        .filter(Vehicle.vehicle_id == vehicle_location.vehicle_id)
+        .first()
+    )
 
     # First check: baseline = 5
-    r1 = client.post("/api/v1/checks/daily", json={
-        "vehicle_id": v.vehicle_id, "station_id": station.station_id,
-        "check_date": "2026-06-01", "timestamp": _utcnow_str(),
-        "line_items": [{"compartment_id": vehicle_comp.compartment_id,
-                        "item_id": test_item.item_id, "quantity_needed": 5, "quantity_found": 5}],
-    }, headers=auth_supervisor)
+    r1 = client.post(
+        "/api/v1/checks/daily",
+        json={
+            "vehicle_id": v.vehicle_id,
+            "station_id": station.station_id,
+            "check_date": "2026-06-01",
+            "timestamp": _utcnow_str(),
+            "line_items": [
+                {
+                    "compartment_id": vehicle_comp.compartment_id,
+                    "item_id": test_item.item_id,
+                    "quantity_needed": 5,
+                    "quantity_found": 5,
+                }
+            ],
+        },
+        headers=auth_supervisor,
+    )
     assert r1.status_code == 201
 
     # Second check: topped off by 100 (supply room only has 20)
-    r2 = client.post("/api/v1/checks/daily", json={
-        "vehicle_id": v.vehicle_id, "station_id": station.station_id,
-        "check_date": "2026-06-02", "timestamp": _utcnow_str(),
-        "line_items": [{"compartment_id": vehicle_comp.compartment_id,
-                        "item_id": test_item.item_id, "quantity_needed": 5, "quantity_found": 105}],
-    }, headers=auth_supervisor)
+    r2 = client.post(
+        "/api/v1/checks/daily",
+        json={
+            "vehicle_id": v.vehicle_id,
+            "station_id": station.station_id,
+            "check_date": "2026-06-02",
+            "timestamp": _utcnow_str(),
+            "line_items": [
+                {
+                    "compartment_id": vehicle_comp.compartment_id,
+                    "item_id": test_item.item_id,
+                    "quantity_needed": 5,
+                    "quantity_found": 105,
+                }
+            ],
+        },
+        headers=auth_supervisor,
+    )
     assert r2.status_code == 201  # never blocked by insufficient stock
 
     db.expire_all()
     total = sum(
-        lot.quantity for lot in db.query(StockLot).filter(
+        lot.quantity
+        for lot in db.query(StockLot)
+        .filter(
             StockLot.location_id == supply_room.location_id,
-            StockLot.item_id     == test_item.item_id,
-        ).all()
+            StockLot.item_id == test_item.item_id,
+        )
+        .all()
     )
     assert total == 0  # depleted to zero, not negative
 
@@ -451,8 +651,14 @@ def test_check_auto_decrement_best_effort(client, db, station, supply_room, supp
 # SR-B1: GET /inventory/supply-catalog?station_id=
 # ---------------------------------------------------------------------------
 
-def test_supply_catalog_returns_items(client, db, station, supply_room, supply_lot, membership, auth_supervisor):
-    r = client.get(f"/api/v1/inventory/supply-catalog?station_id={station.station_id}", headers=auth_supervisor)
+
+def test_supply_catalog_returns_items(
+    client, db, station, supply_room, supply_lot, membership, auth_supervisor
+):
+    r = client.get(
+        f"/api/v1/inventory/supply-catalog?station_id={station.station_id}",
+        headers=auth_supervisor,
+    )
     assert r.status_code == 200
     catalog = r.json()
     # Test Gauze Pad is SUPPLY + station_supply defaults True → should appear
@@ -463,37 +669,58 @@ def test_supply_catalog_returns_items(client, db, station, supply_room, supply_l
     assert item["check_type"] == "SUPPLY"
 
 
-def test_supply_catalog_excludes_functional_items(client, db, station, supply_room, membership, auth_supervisor, test_item):
+def test_supply_catalog_excludes_functional_items(
+    client, db, station, supply_room, membership, auth_supervisor, test_item
+):
     from ems_readykit.models.item import ItemCheckType
+
     func_item = db.query(test_item.__class__).filter_by(name="Test Gauze Pad").first()
     # Temporarily set to FUNCTIONAL — should be excluded from catalog
     func_item.check_type = ItemCheckType.FUNCTIONAL
     db.flush()
-    r = client.get(f"/api/v1/inventory/supply-catalog?station_id={station.station_id}", headers=auth_supervisor)
+    r = client.get(
+        f"/api/v1/inventory/supply-catalog?station_id={station.station_id}",
+        headers=auth_supervisor,
+    )
     assert r.status_code == 200
     names = [i["item_name"] for i in r.json()]
     assert "Test Gauze Pad" not in names
 
 
-def test_supply_catalog_excludes_non_station_supply_items(client, db, station, supply_room, supply_lot, membership, auth_supervisor, test_item):
+def test_supply_catalog_excludes_non_station_supply_items(
+    client, db, station, supply_room, supply_lot, membership, auth_supervisor, test_item
+):
     test_item.station_supply = False
     db.flush()
-    r = client.get(f"/api/v1/inventory/supply-catalog?station_id={station.station_id}", headers=auth_supervisor)
+    r = client.get(
+        f"/api/v1/inventory/supply-catalog?station_id={station.station_id}",
+        headers=auth_supervisor,
+    )
     assert r.status_code == 200
     names = [i["item_name"] for i in r.json()]
     assert "Test Gauze Pad" not in names
 
 
-def test_supply_catalog_no_supply_room(client, db, station, membership, auth_supervisor):
+def test_supply_catalog_no_supply_room(
+    client, db, station, membership, auth_supervisor
+):
     # Station exists but has no supply room — should return empty list
-    r = client.get(f"/api/v1/inventory/supply-catalog?station_id={station.station_id}", headers=auth_supervisor)
+    r = client.get(
+        f"/api/v1/inventory/supply-catalog?station_id={station.station_id}",
+        headers=auth_supervisor,
+    )
     assert r.status_code == 200
     assert r.json() == []
 
 
-def test_supply_catalog_requires_membership(client, db, station, supply_room, auth_supervisor):
+def test_supply_catalog_requires_membership(
+    client, db, station, supply_room, auth_supervisor
+):
     # No membership fixture — supervisor has no station access
-    r = client.get(f"/api/v1/inventory/supply-catalog?station_id={station.station_id}", headers=auth_supervisor)
+    r = client.get(
+        f"/api/v1/inventory/supply-catalog?station_id={station.station_id}",
+        headers=auth_supervisor,
+    )
     assert r.status_code == 403
 
 
@@ -501,11 +728,18 @@ def test_supply_catalog_requires_membership(client, db, station, supply_room, au
 # SR-B2: PATCH /inventory/supply-catalog/items/{id}/count
 # ---------------------------------------------------------------------------
 
-def test_patch_count_decrease(client, db, station, supply_room, supply_lot, membership, auth_supervisor, test_item):
+
+def test_patch_count_decrease(
+    client, db, station, supply_room, supply_lot, membership, auth_supervisor, test_item
+):
     # Supply lot starts at 20 — correct to 15
     r = client.patch(
         f"/api/v1/inventory/supply-catalog/items/{test_item.item_id}/count",
-        json={"location_id": supply_room.location_id, "quantity": 15, "comment": "Physical count"},
+        json={
+            "location_id": supply_room.location_id,
+            "quantity": 15,
+            "comment": "Physical count",
+        },
         headers=auth_supervisor,
     )
     assert r.status_code == 200
@@ -513,7 +747,9 @@ def test_patch_count_decrease(client, db, station, supply_room, supply_lot, memb
     assert data["on_hand"] == 15
 
 
-def test_patch_count_increase(client, db, station, supply_room, supply_lot, membership, auth_supervisor, test_item):
+def test_patch_count_increase(
+    client, db, station, supply_room, supply_lot, membership, auth_supervisor, test_item
+):
     # Supply lot starts at 20 — found 5 more during count → 25
     r = client.patch(
         f"/api/v1/inventory/supply-catalog/items/{test_item.item_id}/count",
@@ -524,7 +760,9 @@ def test_patch_count_increase(client, db, station, supply_room, supply_lot, memb
     assert r.json()["on_hand"] == 25
 
 
-def test_patch_count_same(client, db, station, supply_room, supply_lot, membership, auth_supervisor, test_item):
+def test_patch_count_same(
+    client, db, station, supply_room, supply_lot, membership, auth_supervisor, test_item
+):
     r = client.patch(
         f"/api/v1/inventory/supply-catalog/items/{test_item.item_id}/count",
         json={"location_id": supply_room.location_id, "quantity": 20},
@@ -534,7 +772,16 @@ def test_patch_count_same(client, db, station, supply_room, supply_lot, membersh
     assert r.json()["on_hand"] == 20
 
 
-def test_patch_count_wrong_location_type(client, db, station, vehicle_location, supply_lot, membership, auth_supervisor, test_item):
+def test_patch_count_wrong_location_type(
+    client,
+    db,
+    station,
+    vehicle_location,
+    supply_lot,
+    membership,
+    auth_supervisor,
+    test_item,
+):
     r = client.patch(
         f"/api/v1/inventory/supply-catalog/items/{test_item.item_id}/count",
         json={"location_id": vehicle_location.location_id, "quantity": 5},
@@ -543,7 +790,9 @@ def test_patch_count_wrong_location_type(client, db, station, vehicle_location, 
     assert r.status_code == 422
 
 
-def test_patch_count_requires_supervisor(client, db, station, supply_room, supply_lot, membership, auth_responder, test_item):
+def test_patch_count_requires_supervisor(
+    client, db, station, supply_room, supply_lot, membership, auth_responder, test_item
+):
     r = client.patch(
         f"/api/v1/inventory/supply-catalog/items/{test_item.item_id}/count",
         json={"location_id": supply_room.location_id, "quantity": 10},
@@ -555,6 +804,7 @@ def test_patch_count_requires_supervisor(client, db, station, supply_room, suppl
 # ---------------------------------------------------------------------------
 # B-E8: PUT /inventory/lots/{lot_id} — correct expiry date / lot number
 # ---------------------------------------------------------------------------
+
 
 def test_update_lot_expiry(client, db, supply_lot, membership, auth_supervisor):
     new_expiry = str(date.today() + timedelta(days=365))
@@ -601,7 +851,9 @@ def test_update_lot_404(client, db, membership, auth_supervisor):
     assert r.status_code == 404
 
 
-def test_update_lot_requires_supervisor(client, db, supply_lot, membership, auth_responder):
+def test_update_lot_requires_supervisor(
+    client, db, supply_lot, membership, auth_responder
+):
     r = client.put(
         f"/api/v1/inventory/lots/{supply_lot.lot_id}",
         json={"expiration_date": str(date.today() + timedelta(days=30))},

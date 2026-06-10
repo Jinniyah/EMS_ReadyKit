@@ -15,6 +15,7 @@ Background:
   This migration must run before 0003 so the version stamp succeeds.
   It is a no-op if the column is already wide enough.
 """
+
 from __future__ import annotations
 
 from typing import Sequence, Union

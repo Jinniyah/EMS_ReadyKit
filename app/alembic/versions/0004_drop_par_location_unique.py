@@ -27,6 +27,7 @@ SQLite note:
 PostgreSQL note:
     Native ALTER TABLE DROP CONSTRAINT with IF EXISTS guard for idempotency.
 """
+
 from __future__ import annotations
 
 from typing import Sequence, Union

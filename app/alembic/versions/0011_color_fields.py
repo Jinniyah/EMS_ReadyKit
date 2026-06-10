@@ -26,6 +26,7 @@ Design notes:
   - Both default NULL — existing data is unaffected; the frontend already
     falls back to --color-brand when no color is set.
 """
+
 from __future__ import annotations
 
 from typing import Sequence, Union
@@ -54,12 +55,16 @@ def upgrade() -> None:
             sa.Column("vehicle_color", sa.String(7), nullable=True),
         )
     else:
-        bind.execute(sa.text(
-            "ALTER TABLE stations ADD COLUMN IF NOT EXISTS primary_color VARCHAR(7)"
-        ))
-        bind.execute(sa.text(
-            "ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS vehicle_color VARCHAR(7)"
-        ))
+        bind.execute(
+            sa.text(
+                "ALTER TABLE stations ADD COLUMN IF NOT EXISTS primary_color VARCHAR(7)"
+            )
+        )
+        bind.execute(
+            sa.text(
+                "ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS vehicle_color VARCHAR(7)"
+            )
+        )
 
 
 def downgrade() -> None:

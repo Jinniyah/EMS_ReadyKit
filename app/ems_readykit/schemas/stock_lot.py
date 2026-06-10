@@ -18,14 +18,23 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 
 
 class StockLotBase(BaseModel):
     """Fields supplied by the caller on create."""
 
     item_id: int = Field(..., gt=0, description="ID of the item this lot tracks")
-    location_id: int = Field(..., gt=0, description="ID of the inventory location holding this lot")
+    location_id: int = Field(
+        ..., gt=0, description="ID of the inventory location holding this lot"
+    )
     quantity: int = Field(
         ...,
         ge=0,
@@ -52,12 +61,15 @@ class StockLotBase(BaseModel):
         if self.expiration_date:
             max_date = date.today().replace(year=date.today().year + 10)
             if self.expiration_date > max_date:
-                raise ValueError("Expiration date cannot be more than 10 years in the future.")
+                raise ValueError(
+                    "Expiration date cannot be more than 10 years in the future."
+                )
         return self
 
 
 class StockLotCreate(StockLotBase):
     """Request body for POST /inventory/lots."""
+
     pass
 
 
@@ -80,7 +92,9 @@ class StockLotUpdate(BaseModel):
         if v is not None:
             max_date = date.today().replace(year=date.today().year + 10)
             if v > max_date:
-                raise ValueError("Expiration date cannot be more than 10 years in the future.")
+                raise ValueError(
+                    "Expiration date cannot be more than 10 years in the future."
+                )
         return v
 
 

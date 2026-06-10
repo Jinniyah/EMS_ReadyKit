@@ -26,6 +26,7 @@ Changes:
 SQLite: batch mode for all ALTER TABLE operations.
 PostgreSQL: ADD COLUMN IF NOT EXISTS guards for idempotency on retry.
 """
+
 from __future__ import annotations
 
 from typing import Sequence, Union
@@ -48,13 +49,28 @@ def upgrade() -> None:
         with op.batch_alter_table("daily_inventory_checks", schema=None) as batch_op:
             # B-M7 — acknowledgement
             batch_op.add_column(sa.Column("reviewed_by", sa.String(100), nullable=True))
-            batch_op.add_column(sa.Column("reviewed_at", sa.DateTime(timezone=True), nullable=True))
-            batch_op.add_column(sa.Column("corrective_action", sa.String(500), nullable=True))
+            batch_op.add_column(
+                sa.Column("reviewed_at", sa.DateTime(timezone=True), nullable=True)
+            )
+            batch_op.add_column(
+                sa.Column("corrective_action", sa.String(500), nullable=True)
+            )
             # B-M9 — soft delete
-            batch_op.add_column(sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True))
+            batch_op.add_column(
+                sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True)
+            )
             batch_op.add_column(sa.Column("deleted_by", sa.String(100), nullable=True))
-            batch_op.add_column(sa.Column("deletion_reason", sa.String(300), nullable=True))
-            batch_op.add_column(sa.Column("force_deleted", sa.Boolean, nullable=False, server_default=sa.false()))
+            batch_op.add_column(
+                sa.Column("deletion_reason", sa.String(300), nullable=True)
+            )
+            batch_op.add_column(
+                sa.Column(
+                    "force_deleted",
+                    sa.Boolean,
+                    nullable=False,
+                    server_default=sa.false(),
+                )
+            )
     else:
         # B-M7
         bind.execute(sa.text("""
@@ -109,8 +125,15 @@ def downgrade() -> None:
             batch_op.drop_column("reviewed_by")
     else:
         bind.execute(sa.text("DROP INDEX IF EXISTS ix_daily_checks_deleted_at"))
-        for col in ("force_deleted", "deletion_reason", "deleted_by", "deleted_at",
-                    "corrective_action", "reviewed_at", "reviewed_by"):
+        for col in (
+            "force_deleted",
+            "deletion_reason",
+            "deleted_by",
+            "deleted_at",
+            "corrective_action",
+            "reviewed_at",
+            "reviewed_by",
+        ):
             bind.execute(sa.text(f"""
                 ALTER TABLE daily_inventory_checks
                 DROP COLUMN IF EXISTS {col}

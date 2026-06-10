@@ -50,7 +50,10 @@ from ems_readykit.routers.deps import (
     require_station_membership,
 )
 from ems_readykit.schemas.compartment import CompartmentCreate, CompartmentRead
-from ems_readykit.schemas.inventory_location import InventoryLocationCreate, InventoryLocationRead
+from ems_readykit.schemas.inventory_location import (
+    InventoryLocationCreate,
+    InventoryLocationRead,
+)
 from ems_readykit.schemas.par_level import ParLevelCreate, ParLevelRead
 from ems_readykit.schemas.stock_lot import StockLotCreate, StockLotRead, StockLotUpdate
 from ems_readykit.schemas.stock_transfer import (
@@ -58,7 +61,10 @@ from ems_readykit.schemas.stock_transfer import (
     StockItemSummary,
     StockTransferRead,
 )
-from ems_readykit.schemas.supply_catalog import SupplyCatalogCountPatch, SupplyCatalogItem
+from ems_readykit.schemas.supply_catalog import (
+    SupplyCatalogCountPatch,
+    SupplyCatalogItem,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -66,9 +72,11 @@ router = APIRouter(prefix="/inventory", tags=["inventory"])
 
 
 def _get_location_or_404(location_id: int, db: Session) -> InventoryLocation:
-    location = db.query(InventoryLocation).filter(
-        InventoryLocation.location_id == location_id
-    ).first()
+    location = (
+        db.query(InventoryLocation)
+        .filter(InventoryLocation.location_id == location_id)
+        .first()
+    )
     if not location:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -78,6 +86,7 @@ def _get_location_or_404(location_id: int, db: Session) -> InventoryLocation:
 
 
 # ── Inventory Locations ───────────────────────────────────────────────────────
+
 
 @router.get(
     "/locations",
@@ -146,7 +155,10 @@ def create_location(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> InventoryLocation:
-    if payload.location_type in (LocationType.VEHICLE, LocationType.STATION_SUPPLY_ROOM):
+    if payload.location_type in (
+        LocationType.VEHICLE,
+        LocationType.STATION_SUPPLY_ROOM,
+    ):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
@@ -155,6 +167,7 @@ def create_location(
             ),
         )
     from ems_readykit.models.station import Station
+
     station = db.query(Station).filter(Station.station_id == payload.station_id).first()
     if not station:
         raise HTTPException(
@@ -175,11 +188,13 @@ def create_location(
     db.refresh(location)
     logger.info(
         "Inventory location created: location_id=%s type=%s station_id=%s",
-        location.location_id, location.location_type, location.station_id,
+        location.location_id,
+        location.location_type,
+        location.station_id,
         extra={
-            "action":      "LOCATION_CREATED",
+            "action": "LOCATION_CREATED",
             "entity_type": "inventory_location",
-            "entity_id":   str(location.location_id),
+            "entity_id": str(location.location_id),
         },
     )
     return location
@@ -216,6 +231,7 @@ def list_location_par_levels(
 
 
 # ── Compartments ──────────────────────────────────────────────────────────────
+
 
 @router.get(
     "/locations/{location_id}/compartments",
@@ -286,11 +302,13 @@ def create_compartment(
     db.refresh(compartment)
     logger.info(
         "Compartment created: compartment_id=%s name=%r location_id=%s",
-        compartment.compartment_id, compartment.name, location_id,
+        compartment.compartment_id,
+        compartment.name,
+        location_id,
         extra={
-            "action":      "COMPARTMENT_CREATED",
+            "action": "COMPARTMENT_CREATED",
             "entity_type": "compartment",
-            "entity_id":   str(compartment.compartment_id),
+            "entity_id": str(compartment.compartment_id),
         },
     )
     return compartment
@@ -306,9 +324,11 @@ def get_compartment(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
 ) -> Compartment:
-    compartment = db.query(Compartment).filter(
-        Compartment.compartment_id == compartment_id
-    ).first()
+    compartment = (
+        db.query(Compartment)
+        .filter(Compartment.compartment_id == compartment_id)
+        .first()
+    )
     if not compartment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -334,9 +354,11 @@ def update_compartment(
     Edit a compartment's name, descriptor, sort order, or restriction note.
     Supervisor+ with station membership required.
     """
-    compartment = db.query(Compartment).filter(
-        Compartment.compartment_id == compartment_id
-    ).first()
+    compartment = (
+        db.query(Compartment)
+        .filter(Compartment.compartment_id == compartment_id)
+        .first()
+    )
     if not compartment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -346,39 +368,45 @@ def update_compartment(
     require_station_membership(location.station_id, current_user, db)
 
     # Check for name conflict within same location
-    name_conflict = db.query(Compartment).filter(
-        Compartment.location_id    == compartment.location_id,
-        Compartment.name           == payload.name,
-        Compartment.compartment_id != compartment_id,
-    ).first()
+    name_conflict = (
+        db.query(Compartment)
+        .filter(
+            Compartment.location_id == compartment.location_id,
+            Compartment.name == payload.name,
+            Compartment.compartment_id != compartment_id,
+        )
+        .first()
+    )
     if name_conflict:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"A compartment named '{payload.name}' already exists at this location.",
         )
 
-    compartment.name                 = payload.name
-    compartment.location_descriptor  = payload.location_descriptor
-    compartment.sort_order           = payload.sort_order
-    compartment.restriction_note     = payload.restriction_note
-    compartment.als_only             = payload.als_only
-    compartment.active               = payload.active
+    compartment.name = payload.name
+    compartment.location_descriptor = payload.location_descriptor
+    compartment.sort_order = payload.sort_order
+    compartment.restriction_note = payload.restriction_note
+    compartment.als_only = payload.als_only
+    compartment.active = payload.active
 
     db.commit()
     db.refresh(compartment)
     logger.info(
         "Compartment updated: compartment_id=%s name=%r",
-        compartment.compartment_id, compartment.name,
+        compartment.compartment_id,
+        compartment.name,
         extra={
-            "action":      "COMPARTMENT_UPDATED",
+            "action": "COMPARTMENT_UPDATED",
             "entity_type": "compartment",
-            "entity_id":   str(compartment.compartment_id),
+            "entity_id": str(compartment.compartment_id),
         },
     )
     return compartment
 
 
 # ── Stock Lots ────────────────────────────────────────────────────────────────
+
 
 @router.post(
     "/lots",
@@ -406,11 +434,13 @@ def create_stock_lot(
     db.refresh(lot)
     logger.info(
         "Stock lot created: lot_id=%s item_id=%s location_id=%s",
-        lot.lot_id, lot.item_id, lot.location_id,
+        lot.lot_id,
+        lot.item_id,
+        lot.location_id,
         extra={
-            "action":      "STOCK_LOT_CREATED",
+            "action": "STOCK_LOT_CREATED",
             "entity_type": "stock_lot",
-            "entity_id":   str(lot.lot_id),
+            "entity_id": str(lot.lot_id),
         },
     )
     return lot
@@ -476,7 +506,9 @@ def update_stock_lot(
         entity_id=str(lot_id),
         metadata={
             "old_expiration_date": str(old_expiry) if old_expiry else None,
-            "new_expiration_date": str(lot.expiration_date) if lot.expiration_date else None,
+            "new_expiration_date": (
+                str(lot.expiration_date) if lot.expiration_date else None
+            ),
             "old_lot_number": old_lot_number,
             "new_lot_number": lot.lot_number,
         },
@@ -512,6 +544,7 @@ def list_expiring_lots(
 
 # ── Par Levels ────────────────────────────────────────────────────────────────
 
+
 @router.post(
     "/par-levels",
     response_model=ParLevelRead,
@@ -527,10 +560,14 @@ def create_par_level(
     require_station_membership(location.station_id, current_user, db)
 
     if payload.compartment_id is not None:
-        existing = db.query(ParLevel).filter(
-            ParLevel.item_id        == payload.item_id,
-            ParLevel.compartment_id == payload.compartment_id,
-        ).first()
+        existing = (
+            db.query(ParLevel)
+            .filter(
+                ParLevel.item_id == payload.item_id,
+                ParLevel.compartment_id == payload.compartment_id,
+            )
+            .first()
+        )
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -540,11 +577,15 @@ def create_par_level(
                 ),
             )
     else:
-        existing = db.query(ParLevel).filter(
-            ParLevel.item_id        == payload.item_id,
-            ParLevel.location_id    == payload.location_id,
-            ParLevel.compartment_id.is_(None),
-        ).first()
+        existing = (
+            db.query(ParLevel)
+            .filter(
+                ParLevel.item_id == payload.item_id,
+                ParLevel.location_id == payload.location_id,
+                ParLevel.compartment_id.is_(None),
+            )
+            .first()
+        )
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -573,11 +614,14 @@ def create_par_level(
     db.refresh(par)
     logger.info(
         "Par level created: par_id=%s item_id=%s location_id=%s compartment_id=%s",
-        par.par_id, par.item_id, par.location_id, par.compartment_id,
+        par.par_id,
+        par.item_id,
+        par.location_id,
+        par.compartment_id,
         extra={
-            "action":      "PAR_LEVEL_CREATED",
+            "action": "PAR_LEVEL_CREATED",
             "entity_type": "par_level",
-            "entity_id":   str(par.par_id),
+            "entity_id": str(par.par_id),
         },
     )
     return par
@@ -605,6 +649,7 @@ def get_par_level(
 
 
 # ── SUPPLY-B2: Stock summary ──────────────────────────────────────────────────
+
 
 @router.get(
     "/locations/{location_id}/stock-summary",
@@ -653,13 +698,12 @@ def get_stock_summary(
     # Fetch item metadata
     item_ids = list(lots_by_item.keys())
     items_map = {
-        i.item_id: i
-        for i in db.query(Item).filter(Item.item_id.in_(item_ids)).all()
+        i.item_id: i for i in db.query(Item).filter(Item.item_id.in_(item_ids)).all()
     }
 
-    today     = date.today()
+    today = date.today()
     warn_date = today + timedelta(days=30)
-    result    = []
+    result = []
 
     for item_id, item_lots in lots_by_item.items():
         item = items_map.get(item_id)
@@ -667,7 +711,7 @@ def get_stock_summary(
             continue
 
         total_qty = sum(lot.quantity for lot in item_lots)
-        par       = par_by_item.get(item_id)
+        par = par_by_item.get(item_id)
 
         if par:
             if total_qty >= par.min_quantity:
@@ -679,21 +723,25 @@ def get_stock_summary(
         else:
             status_val = "NO_PAR"
 
-        result.append({
-            "item_id":          item_id,
-            "item_name":        item.name,
-            "item_category":    item.category.value,
-            "total_quantity":   total_qty,
-            "par_min":          par.min_quantity if par else None,
-            "par_max":          par.max_quantity if par else None,
-            "status":           status_val,
-            "is_any_expiring":  any(
-                lot.expiration_date and lot.expiration_date <= warn_date and not lot.is_expired
-                for lot in item_lots
-            ),
-            "is_any_expired":   any(lot.is_expired for lot in item_lots),
-            "lots":             item_lots,
-        })
+        result.append(
+            {
+                "item_id": item_id,
+                "item_name": item.name,
+                "item_category": item.category.value,
+                "total_quantity": total_qty,
+                "par_min": par.min_quantity if par else None,
+                "par_max": par.max_quantity if par else None,
+                "status": status_val,
+                "is_any_expiring": any(
+                    lot.expiration_date
+                    and lot.expiration_date <= warn_date
+                    and not lot.is_expired
+                    for lot in item_lots
+                ),
+                "is_any_expired": any(lot.is_expired for lot in item_lots),
+                "lots": item_lots,
+            }
+        )
 
     result.sort(key=lambda x: (x["status"] not in ("OUT", "LOW"), x["item_name"]))
     return result
@@ -705,6 +753,7 @@ def get_stock_summary(
 # submitted with quantity_found > last check's quantity_found (SR-B4).
 # The stock_transfers table and transfer history endpoint are retained for
 # the audit trail of transfers that occurred before this change.
+
 
 @router.get(
     "/locations/{location_id}/transfers",
@@ -724,12 +773,13 @@ def list_location_transfers(
     require_station_membership(location.station_id, current_user, db)
 
     from sqlalchemy import or_
+
     transfers = (
         db.query(StockTransfer)
         .filter(
             or_(
                 StockTransfer.from_location_id == location_id,
-                StockTransfer.to_location_id   == location_id,
+                StockTransfer.to_location_id == location_id,
             )
         )
         .order_by(StockTransfer.created_at.desc())
@@ -738,7 +788,7 @@ def list_location_transfers(
     )
 
     # Gather all location and item IDs for batch fetch
-    loc_ids  = set()
+    loc_ids = set()
     item_ids = set()
     for t in transfers:
         if t.from_location_id:
@@ -746,30 +796,46 @@ def list_location_transfers(
         loc_ids.add(t.to_location_id)
         item_ids.add(t.item_id)
 
-    locs  = {loc.location_id: loc for loc in db.query(InventoryLocation).filter(InventoryLocation.location_id.in_(loc_ids)).all()}
-    items = {i.item_id: i     for i in db.query(Item).filter(Item.item_id.in_(item_ids)).all()}
+    locs = {
+        loc.location_id: loc
+        for loc in db.query(InventoryLocation)
+        .filter(InventoryLocation.location_id.in_(loc_ids))
+        .all()
+    }
+    items = {
+        i.item_id: i for i in db.query(Item).filter(Item.item_id.in_(item_ids)).all()
+    }
 
     return [
         StockTransferRead(
-            transfer_id          = t.transfer_id,
-            from_location_id     = t.from_location_id,
-            to_location_id       = t.to_location_id,
-            from_location_label  = locs[t.from_location_id].label if t.from_location_id and t.from_location_id in locs else None,
-            to_location_label    = locs[t.to_location_id].label if t.to_location_id in locs else str(t.to_location_id),
-            item_id              = t.item_id,
-            item_name            = items[t.item_id].name if t.item_id in items else str(t.item_id),
-            quantity             = t.quantity,
-            transferred_by       = t.transferred_by,
-            notes                = t.notes,
-            lot_number           = t.lot_number,
-            lot_expiration_date  = t.lot_expiration_date,
-            transferred_at       = t.created_at,
+            transfer_id=t.transfer_id,
+            from_location_id=t.from_location_id,
+            to_location_id=t.to_location_id,
+            from_location_label=(
+                locs[t.from_location_id].label
+                if t.from_location_id and t.from_location_id in locs
+                else None
+            ),
+            to_location_label=(
+                locs[t.to_location_id].label
+                if t.to_location_id in locs
+                else str(t.to_location_id)
+            ),
+            item_id=t.item_id,
+            item_name=items[t.item_id].name if t.item_id in items else str(t.item_id),
+            quantity=t.quantity,
+            transferred_by=t.transferred_by,
+            notes=t.notes,
+            lot_number=t.lot_number,
+            lot_expiration_date=t.lot_expiration_date,
+            transferred_at=t.created_at,
         )
         for t in transfers
     ]
 
 
 # ── CSV receive template ──────────────────────────────────────────────────────
+
 
 @router.get(
     "/receive-stock/template",
@@ -789,11 +855,14 @@ def receive_stock_template() -> StreamingResponse:
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=supply_room_receive_template.csv"},
+        headers={
+            "Content-Disposition": "attachment; filename=supply_room_receive_template.csv"
+        },
     )
 
 
 # ── PATCH /inventory/items/{item_id}/status — DMG-B1 ─────────────────────────
+
 
 class _ItemStatusPatch(BaseModel):
     compartment_id: int
@@ -848,6 +917,7 @@ def patch_item_status(
 
 # ── CSV bulk receive ──────────────────────────────────────────────────────────
 
+
 @router.post(
     "/locations/{location_id}/receive-stock/csv",
     response_model=CsvReceiveResult,
@@ -856,7 +926,9 @@ def patch_item_status(
 )
 async def receive_stock_csv(
     location_id: int,
-    file: UploadFile = File(..., description="CSV file: item_name, lot_number, expiration_date, quantity"),
+    file: UploadFile = File(
+        ..., description="CSV file: item_name, lot_number, expiration_date, quantity"
+    ),
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> CsvReceiveResult:
@@ -869,29 +941,37 @@ async def receive_stock_csv(
     location = _get_location_or_404(location_id, db)
     require_station_membership(location.station_id, current_user, db)
 
-    content    = await file.read()
-    text       = content.decode("utf-8-sig")
-    reader     = csv_mod.DictReader(io.StringIO(text))
+    content = await file.read()
+    text = content.decode("utf-8-sig")
+    reader = csv_mod.DictReader(io.StringIO(text))
     errors: List[Dict[str, Any]] = []
     lots_created: List[StockLot] = []
-    row_num    = 1
+    row_num = 1
 
     # Case-insensitive item name → item map
-    all_items  = db.query(Item).filter(Item.active).all()
-    item_map   = {i.name.lower(): i for i in all_items}
+    all_items = db.query(Item).filter(Item.active).all()
+    item_map = {i.name.lower(): i for i in all_items}
 
     for row in reader:
         row_num += 1
         raw_name = (row.get("item_name") or "").strip()
-        raw_qty  = (row.get("quantity")  or "").strip()
-        raw_exp  = (row.get("expiration_date") or "").strip()
-        raw_lot  = (row.get("lot_number") or "").strip()
+        raw_qty = (row.get("quantity") or "").strip()
+        raw_exp = (row.get("expiration_date") or "").strip()
+        raw_lot = (row.get("lot_number") or "").strip()
 
         if not raw_name:
-            errors.append({"row": row_num, "item_name": "(blank)", "error": "item_name is required"})
+            errors.append(
+                {
+                    "row": row_num,
+                    "item_name": "(blank)",
+                    "error": "item_name is required",
+                }
+            )
             continue
         if not raw_qty:
-            errors.append({"row": row_num, "item_name": raw_name, "error": "quantity is required"})
+            errors.append(
+                {"row": row_num, "item_name": raw_name, "error": "quantity is required"}
+            )
             continue
 
         try:
@@ -899,12 +979,24 @@ async def receive_stock_csv(
             if qty < 1:
                 raise ValueError
         except ValueError:
-            errors.append({"row": row_num, "item_name": raw_name, "error": f"Invalid quantity: {raw_qty!r}"})
+            errors.append(
+                {
+                    "row": row_num,
+                    "item_name": raw_name,
+                    "error": f"Invalid quantity: {raw_qty!r}",
+                }
+            )
             continue
 
         item = item_map.get(raw_name.lower())
         if not item:
-            errors.append({"row": row_num, "item_name": raw_name, "error": "Item not found in catalog"})
+            errors.append(
+                {
+                    "row": row_num,
+                    "item_name": raw_name,
+                    "error": "Item not found in catalog",
+                }
+            )
             continue
 
         expiry = None
@@ -912,15 +1004,21 @@ async def receive_stock_csv(
             try:
                 expiry = date.fromisoformat(raw_exp)
             except ValueError:
-                errors.append({"row": row_num, "item_name": raw_name, "error": f"Invalid date {raw_exp!r} — use YYYY-MM-DD"})
+                errors.append(
+                    {
+                        "row": row_num,
+                        "item_name": raw_name,
+                        "error": f"Invalid date {raw_exp!r} — use YYYY-MM-DD",
+                    }
+                )
                 continue
 
         lot = StockLot(
-            item_id         = item.item_id,
-            location_id     = location_id,
-            quantity        = qty,
-            lot_number      = raw_lot or None,
-            expiration_date = expiry,
+            item_id=item.item_id,
+            location_id=location_id,
+            quantity=qty,
+            lot_number=raw_lot or None,
+            expiration_date=expiry,
         )
         db.add(lot)
         lots_created.append(lot)
@@ -932,23 +1030,26 @@ async def receive_stock_csv(
 
         logger.info(
             "Bulk CSV stock receive: location_id=%s rows_imported=%s rows_skipped=%s",
-            location_id, len(lots_created), len(errors),
+            location_id,
+            len(lots_created),
+            len(errors),
             extra={
-                "action":      "STOCK_CSV_RECEIVED",
+                "action": "STOCK_CSV_RECEIVED",
                 "entity_type": "stock_lot",
-                "entity_id":   str(location_id),
+                "entity_id": str(location_id),
             },
         )
 
     return CsvReceiveResult(
-        rows_imported = len(lots_created),
-        rows_skipped  = len(errors),
-        errors        = errors,
-        lots_created  = lots_created,
+        rows_imported=len(lots_created),
+        rows_skipped=len(errors),
+        errors=errors,
+        lots_created=lots_created,
     )
 
 
 # ── SR-B1: Station supply catalog ─────────────────────────────────────────────
+
 
 @router.get(
     "/supply-catalog",
@@ -956,7 +1057,9 @@ async def receive_stock_csv(
     summary="Station supply catalog with on-hand counts (SR-B1)",
 )
 def get_supply_catalog(
-    station_id: int = Query(..., gt=0, description="Station to retrieve supply catalog for"),
+    station_id: int = Query(
+        ..., gt=0, description="Station to retrieve supply catalog for"
+    ),
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
 ) -> List[SupplyCatalogItem]:
@@ -967,10 +1070,14 @@ def get_supply_catalog(
     """
     require_station_membership(station_id, current_user, db)
 
-    supply_room = db.query(InventoryLocation).filter(
-        InventoryLocation.station_id    == station_id,
-        InventoryLocation.location_type == LocationType.STATION_SUPPLY_ROOM,
-    ).first()
+    supply_room = (
+        db.query(InventoryLocation)
+        .filter(
+            InventoryLocation.station_id == station_id,
+            InventoryLocation.location_type == LocationType.STATION_SUPPLY_ROOM,
+        )
+        .first()
+    )
     if not supply_room:
         return []
 
@@ -978,7 +1085,7 @@ def get_supply_catalog(
         db.query(Item)
         .filter(
             Item.station_supply,
-            Item.check_type     != ItemCheckType.FUNCTIONAL,
+            Item.check_type != ItemCheckType.FUNCTIONAL,
             Item.active,
         )
         .order_by(Item.name.asc())
@@ -995,7 +1102,7 @@ def get_supply_catalog(
         .filter(
             StockLot.location_id == supply_room.location_id,
             StockLot.item_id.in_(item_ids),
-            StockLot.quantity    >  0,
+            StockLot.quantity > 0,
         )
         .order_by(StockLot.expiration_date.asc().nulls_last())
         .all()
@@ -1004,37 +1111,56 @@ def get_supply_catalog(
     for lot in lots:
         lots_by_item.setdefault(lot.item_id, []).append(lot)
 
-    # Par levels at supply room — lowest min_quantity wins if multiple compartments
-    par_levels = (
-        db.query(ParLevel)
+    # Par levels at supply room — join compartments for shelf grouping (SS-F2) and is_damaged (DMG-F3)
+    par_rows = (
+        db.query(ParLevel, Compartment)
+        .outerjoin(Compartment, Compartment.compartment_id == ParLevel.compartment_id)
         .filter(
             ParLevel.location_id == supply_room.location_id,
             ParLevel.item_id.in_(item_ids),
-            ParLevel.active,
+            ParLevel.active.is_(True),
+        )
+        .order_by(
+            Compartment.sort_order.asc().nulls_last(), ParLevel.min_quantity.asc()
         )
         .all()
     )
+
     par_min_by_item: Dict[int, int] = {}
-    for par in par_levels:
-        existing = par_min_by_item.get(par.item_id)
-        if existing is None or par.min_quantity < existing:
+    compartment_by_item: Dict[int, tuple] = (
+        {}
+    )  # item_id -> (compartment_id, compartment_name)
+    damaged_items: set = set()
+    for par, comp in par_rows:
+        if (
+            par.item_id not in par_min_by_item
+            or par.min_quantity < par_min_by_item[par.item_id]
+        ):
             par_min_by_item[par.item_id] = par.min_quantity
+        if par.item_id not in compartment_by_item and comp is not None:
+            compartment_by_item[par.item_id] = (comp.compartment_id, comp.name)
+        if par.is_damaged:
+            damaged_items.add(par.item_id)
 
     return [
         SupplyCatalogItem(
-            item_id        = item.item_id,
-            item_name      = item.name,
-            unit_of_measure= item.unit_of_measure,
-            check_type     = item.check_type.value,
-            on_hand        = sum(lot.quantity for lot in lots_by_item.get(item.item_id, [])),
-            par_min        = par_min_by_item.get(item.item_id),
-            lots           = lots_by_item.get(item.item_id, []),
+            item_id=item.item_id,
+            item_name=item.name,
+            unit_of_measure=item.unit_of_measure,
+            check_type=item.check_type.value,
+            on_hand=sum(lot.quantity for lot in lots_by_item.get(item.item_id, [])),
+            par_min=par_min_by_item.get(item.item_id),
+            lots=lots_by_item.get(item.item_id, []),
+            compartment_id=compartment_by_item.get(item.item_id, (None, None))[0],
+            compartment_name=compartment_by_item.get(item.item_id, (None, None))[1],
+            is_damaged=item.item_id in damaged_items,
         )
         for item in items
     ]
 
 
 # ── SR-B2: Correct supply room on-hand count ──────────────────────────────────
+
 
 @router.patch(
     "/supply-catalog/items/{item_id}/count",
@@ -1071,8 +1197,8 @@ def patch_supply_catalog_count(
         db.query(StockLot)
         .filter(
             StockLot.location_id == payload.location_id,
-            StockLot.item_id     == item_id,
-            StockLot.quantity    >  0,
+            StockLot.item_id == item_id,
+            StockLot.quantity > 0,
         )
         .order_by(StockLot.expiration_date.asc().nulls_last())
         .all()
@@ -1085,17 +1211,19 @@ def patch_supply_catalog_count(
         for lot in current_lots:
             if to_deduct <= 0:
                 break
-            take          = min(lot.quantity, to_deduct)
+            take = min(lot.quantity, to_deduct)
             lot.quantity -= take
-            to_deduct    -= take
+            to_deduct -= take
     elif new_qty > old_qty:
-        db.add(StockLot(
-            item_id         = item_id,
-            location_id     = payload.location_id,
-            quantity        = new_qty - old_qty,
-            lot_number      = None,
-            expiration_date = None,
-        ))
+        db.add(
+            StockLot(
+                item_id=item_id,
+                location_id=payload.location_id,
+                quantity=new_qty - old_qty,
+                lot_number=None,
+                expiration_date=None,
+            )
+        )
 
     db.flush()
 
@@ -1109,7 +1237,7 @@ def patch_supply_catalog_count(
             "location_id": payload.location_id,
             "old_quantity": old_qty,
             "new_quantity": new_qty,
-            "comment":      payload.comment,
+            "comment": payload.comment,
         },
     )
     db.commit()
@@ -1118,8 +1246,8 @@ def patch_supply_catalog_count(
         db.query(StockLot)
         .filter(
             StockLot.location_id == payload.location_id,
-            StockLot.item_id     == item_id,
-            StockLot.quantity    >  0,
+            StockLot.item_id == item_id,
+            StockLot.quantity > 0,
         )
         .order_by(StockLot.expiration_date.asc().nulls_last())
         .all()
@@ -1128,7 +1256,7 @@ def patch_supply_catalog_count(
         db.query(ParLevel)
         .filter(
             ParLevel.location_id == payload.location_id,
-            ParLevel.item_id     == item_id,
+            ParLevel.item_id == item_id,
             ParLevel.active,
         )
         .all()
@@ -1136,11 +1264,11 @@ def patch_supply_catalog_count(
     par_min = min((p.min_quantity for p in par_levels), default=None)
 
     return SupplyCatalogItem(
-        item_id         = item.item_id,
-        item_name       = item.name,
-        unit_of_measure = item.unit_of_measure,
-        check_type      = item.check_type.value,
-        on_hand         = sum(lot.quantity for lot in updated_lots),
-        par_min         = par_min,
-        lots            = updated_lots,
+        item_id=item.item_id,
+        item_name=item.name,
+        unit_of_measure=item.unit_of_measure,
+        check_type=item.check_type.value,
+        on_hand=sum(lot.quantity for lot in updated_lots),
+        par_min=par_min,
+        lots=updated_lots,
     )

@@ -27,12 +27,16 @@ if TYPE_CHECKING:
 class UsageEvent(TimestampMixin, Base):
     __tablename__ = "usage_events"
 
-    event_id:     Mapped[int]           = mapped_column(primary_key=True, autoincrement=True)
-    station_id:   Mapped[int]           = mapped_column(ForeignKey("stations.station_id"), nullable=False)
-    vehicle_id:   Mapped[Optional[int]] = mapped_column(ForeignKey("vehicles.vehicle_id"), nullable=True)
-    performed_by: Mapped[str]           = mapped_column(String(100), nullable=False)
-    timestamp:    Mapped[datetime]      = mapped_column(DateTime(timezone=True), nullable=False)
-    notes:        Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    event_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    station_id: Mapped[int] = mapped_column(
+        ForeignKey("stations.station_id"), nullable=False
+    )
+    vehicle_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("vehicles.vehicle_id"), nullable=True
+    )
+    performed_by: Mapped[str] = mapped_column(String(100), nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    notes: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
     vehicle: Mapped[Optional["Vehicle"]] = relationship("Vehicle", lazy="selectin")
     items: Mapped[List["UsageEventItem"]] = relationship(
@@ -53,9 +57,11 @@ class UsageEventItem(TimestampMixin, Base):
     __tablename__ = "usage_event_items"
 
     usage_item_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    event_id:      Mapped[int] = mapped_column(ForeignKey("usage_events.event_id"), nullable=False)
-    item_id:       Mapped[int] = mapped_column(ForeignKey("items.item_id"),         nullable=False)
+    event_id: Mapped[int] = mapped_column(
+        ForeignKey("usage_events.event_id"), nullable=False
+    )
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.item_id"), nullable=False)
     quantity_used: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     event: Mapped["UsageEvent"] = relationship("UsageEvent", back_populates="items")
-    item:  Mapped["Item"]       = relationship("Item", lazy="selectin")
+    item: Mapped["Item"] = relationship("Item", lazy="selectin")

@@ -175,7 +175,9 @@ def test_par_level_unique_constraint(db):
     db.add(loc)
     db.flush()
 
-    item = Item(name="Gauze 4x4", category=ItemCategory.CONSUMABLE, unit_of_measure="each")
+    item = Item(
+        name="Gauze 4x4", category=ItemCategory.CONSUMABLE, unit_of_measure="each"
+    )
     db.add(item)
     db.flush()
 

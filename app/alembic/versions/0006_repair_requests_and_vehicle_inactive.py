@@ -21,6 +21,7 @@ PostgreSQL note:
   Uses raw DDL with IF NOT EXISTS / ADD COLUMN IF NOT EXISTS guards
   for full idempotency on retry after a partial failure.
 """
+
 from __future__ import annotations
 
 from typing import Sequence, Union
@@ -58,7 +59,9 @@ def upgrade() -> None:
             ),
             sa.Column("reported_by", sa.String(100), nullable=False),
             sa.Column("reported_at", sa.DateTime(timezone=True), nullable=False),
-            sa.Column("severity", sa.String(10), nullable=False, server_default="ROUTINE"),
+            sa.Column(
+                "severity", sa.String(10), nullable=False, server_default="ROUTINE"
+            ),
             sa.Column("description", sa.String(500), nullable=False),
             sa.Column("status", sa.String(20), nullable=False, server_default="OPEN"),
             sa.Column("resolved_by", sa.String(100), nullable=True),
@@ -67,7 +70,9 @@ def upgrade() -> None:
             sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
             sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         )
-        op.create_index("ix_repair_requests_vehicle_id", "repair_requests", ["vehicle_id"])
+        op.create_index(
+            "ix_repair_requests_vehicle_id", "repair_requests", ["vehicle_id"]
+        )
         op.create_index("ix_repair_requests_status", "repair_requests", ["status"])
         op.create_index("ix_repair_requests_severity", "repair_requests", ["severity"])
     else:
@@ -108,8 +113,12 @@ def upgrade() -> None:
     # companion columns that explain *why* and *when* a vehicle was deactivated.
     if dialect == "sqlite":
         with op.batch_alter_table("vehicles", schema=None) as batch_op:
-            batch_op.add_column(sa.Column("inactive_reason", sa.String(200), nullable=True))
-            batch_op.add_column(sa.Column("inactive_since", sa.DateTime(timezone=True), nullable=True))
+            batch_op.add_column(
+                sa.Column("inactive_reason", sa.String(200), nullable=True)
+            )
+            batch_op.add_column(
+                sa.Column("inactive_since", sa.DateTime(timezone=True), nullable=True)
+            )
     else:
         bind.execute(sa.text("""
             ALTER TABLE vehicles

@@ -95,7 +95,9 @@ class Compartment(TimestampMixin, Base):
     # e.g. "Interior, left side behind driver seat"
     # e.g. "Exterior, driver side, forward bay"
     # e.g. "Front pocket of jump bag"
-    location_descriptor: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    location_descriptor: Mapped[Optional[str]] = mapped_column(
+        String(150), nullable=True
+    )
 
     # Display order matching physical walk-around sequence.
     # Interior PCs → Exterior ECs → Bags → Equipment

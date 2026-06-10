@@ -17,6 +17,7 @@ Design notes:
     that may overlap across regions; the frontend validates non-blank only).
   - The primary_color column was added in 0011_color_fields.
 """
+
 from __future__ import annotations
 
 from typing import Sequence, Union
@@ -41,9 +42,11 @@ def upgrade() -> None:
             sa.Column("call_sign", sa.String(20), nullable=True),
         )
     else:
-        bind.execute(sa.text(
-            "ALTER TABLE stations ADD COLUMN IF NOT EXISTS call_sign VARCHAR(20)"
-        ))
+        bind.execute(
+            sa.text(
+                "ALTER TABLE stations ADD COLUMN IF NOT EXISTS call_sign VARCHAR(20)"
+            )
+        )
 
 
 def downgrade() -> None:

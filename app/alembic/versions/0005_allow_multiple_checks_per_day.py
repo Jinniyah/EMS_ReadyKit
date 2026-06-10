@@ -36,6 +36,7 @@ PostgreSQL note:
     Native ALTER TABLE DROP CONSTRAINT with IF EXISTS guard for idempotency.
     The replacement index is created with CREATE INDEX IF NOT EXISTS.
 """
+
 from __future__ import annotations
 
 from typing import Sequence, Union

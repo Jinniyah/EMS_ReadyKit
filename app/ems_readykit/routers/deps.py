@@ -47,9 +47,9 @@ __all__ = [
 
 # ── Role constant tuples ──────────────────────────────────────────────────────
 
-ALL_ROLES       = (ROLE_RESPONDER, ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
+ALL_ROLES = (ROLE_RESPONDER, ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
 SUPERVISOR_PLUS = (ROLE_SUPERVISOR, ROLE_ADMINISTRATOR)
-ADMIN_ONLY      = (ROLE_ADMINISTRATOR,)
+ADMIN_ONLY = (ROLE_ADMINISTRATOR,)
 
 # ── Auth bearer scheme ────────────────────────────────────────────────────────
 
@@ -68,6 +68,7 @@ def get_current_user(
 
 # ── RBAC helper ───────────────────────────────────────────────────────────────
 
+
 def require_role(*roles: str) -> Callable[[CurrentUser], CurrentUser]:
     """
     Dependency factory — returns a FastAPI dependency that enforces role membership.
@@ -80,6 +81,7 @@ def require_role(*roles: str) -> Callable[[CurrentUser], CurrentUser]:
         def create_check(..., current_user: CurrentUser = Depends(require_role(*ALL_ROLES))):
             ...
     """
+
     def _check(
         current_user: CurrentUser = Depends(get_current_user),
     ) -> CurrentUser:
@@ -98,9 +100,11 @@ def require_role(*roles: str) -> Callable[[CurrentUser], CurrentUser]:
 
 # ── Shared model helpers ──────────────────────────────────────────────────────
 
+
 def get_vehicle_or_404(vehicle_id: int, db: Session) -> "Vehicle":  # noqa: F821
     """Query a vehicle by ID or raise HTTP 404."""
     from ems_readykit.models.vehicle import Vehicle
+
     vehicle = db.query(Vehicle).filter(Vehicle.vehicle_id == vehicle_id).first()
     if not vehicle:
         raise HTTPException(
@@ -132,11 +136,15 @@ def require_station_membership(
     if current_user.has_role(ROLE_ADMINISTRATOR):
         return
 
-    member = db.query(StationMember).filter(
-        StationMember.station_id == station_id,
-        StationMember.user_id    == current_user.email,
-        StationMember.active,
-    ).first()
+    member = (
+        db.query(StationMember)
+        .filter(
+            StationMember.station_id == station_id,
+            StationMember.user_id == current_user.email,
+            StationMember.active,
+        )
+        .first()
+    )
 
     if not member:
         raise HTTPException(

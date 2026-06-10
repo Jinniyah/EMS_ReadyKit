@@ -2,6 +2,8 @@
  * supply-room/components/SupplyCatalogView.jsx
  * SR-F3: View Supplies — catalog from SR-B1, inline count correction (SR-B2).
  * SR-F7: Inline lot expiry correction via PUT /inventory/lots/{id}.
+ * DMG-F3: Damaged items show ⚠ badge.
+ * SS-F2: Supervisor+ sees "+ Add Item" per shelf section.
  *
  * Responders: view only (no count or expiry editing).
  * Supervisors+: tap item → count correction + lot expiry editing.
@@ -10,6 +12,7 @@ import React, { useState } from 'react'
 import { supplyApi } from '../api/supplyApi.js'
 import { useAuth } from '../../../shared/hooks/useAuth.jsx'
 import { canAccess } from '../../../shared/utils/roleGuard.js'
+import CompartmentParLevels from '../../admin/components/CompartmentParLevels.jsx'
 
 function itemColor(item) {
   if (item.on_hand === 0) return 'out'
@@ -27,6 +30,25 @@ function formatExpiry(isoDate) {
 export default function SupplyCatalogView({ stationId, locationId, items, loading, error, onRefresh }) {
   const { user, getToken } = useAuth()
   const isSupervisor = canAccess(user, 'supervisor')
+
+  // Group items by shelf/compartment for SS-F2
+  function groupByShelf(itemList) {
+    const shelves = new Map()
+    const uncatalogued = []
+    for (const item of itemList) {
+      if (item.compartment_id != null) {
+        if (!shelves.has(item.compartment_id)) {
+          shelves.set(item.compartment_id, { id: item.compartment_id, name: item.compartment_name, items: [] })
+        }
+        shelves.get(item.compartment_id).items.push(item)
+      } else {
+        uncatalogued.push(item)
+      }
+    }
+    const groups = [...shelves.values()]
+    if (uncatalogued.length) groups.push({ id: null, name: null, items: uncatalogued })
+    return groups
+  }
 
   // Count correction state
   const [expandedId, setExpandedId]   = useState(null)
@@ -130,9 +152,16 @@ export default function SupplyCatalogView({ stationId, locationId, items, loadin
     }
   }
 
+  const shelves = groupByShelf(items)
+
   return (
     <div className="sr-catalog">
-      {items.map(item => {
+      {shelves.map(shelf => (
+        <div key={shelf.id ?? 'uncatalogued'} className="sr-catalog-shelf">
+          {shelf.name && (
+            <div className="sr-catalog-shelf__heading">{shelf.name}</div>
+          )}
+          {shelf.items.map(item => {
         const color    = itemColor(item)
         const expanded = expandedId === item.item_id
         const lots     = item.lots ?? []
@@ -151,7 +180,14 @@ export default function SupplyCatalogView({ stationId, locationId, items, loadin
               disabled={!isSupervisor}
               style={{ cursor: isSupervisor ? 'pointer' : 'default' }}
             >
-              <div className="sr-catalog-item__name">{item.item_name}</div>
+              <div className="sr-catalog-item__name">
+                {item.item_name}
+                {item.is_damaged && (
+                  <span className="sr-catalog-item__damaged" aria-label="Item marked damaged">
+                    {' '}⚠ Damaged
+                  </span>
+                )}
+              </div>
               <div className="sr-catalog-item__qty-block">
                 <span className={`sr-catalog-item__qty sr-catalog-item__qty--${color}`}>
                   {item.on_hand}
@@ -295,6 +331,16 @@ export default function SupplyCatalogView({ stationId, locationId, items, loadin
           </div>
         )
       })}
+
+          {/* SS-F2: Add item to this shelf (Supervisor+ only, shelf must have a compartment_id) */}
+          {isSupervisor && shelf.id != null && (
+            <CompartmentParLevels
+              compartmentId={shelf.id}
+              locationId={locationId}
+            />
+          )}
+        </div>
+      ))}
     </div>
   )
 }

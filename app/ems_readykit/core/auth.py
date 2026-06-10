@@ -40,8 +40,8 @@ logger = logging.getLogger(__name__)
 # ── Role constants (match app_role.value in Terraform) ───────────────────────
 
 ROLE_ADMINISTRATOR = "Administrator"
-ROLE_SUPERVISOR    = "Supervisor"
-ROLE_RESPONDER     = "Responder"
+ROLE_SUPERVISOR = "Supervisor"
+ROLE_RESPONDER = "Responder"
 
 ALL_ROLES = {ROLE_ADMINISTRATOR, ROLE_SUPERVISOR, ROLE_RESPONDER}
 
@@ -51,6 +51,7 @@ ALL_ROLES = {ROLE_ADMINISTRATOR, ROLE_SUPERVISOR, ROLE_RESPONDER}
 @dataclass
 class CurrentUser:
     """Resolved identity attached to each authenticated request."""
+
     user_id: str
     name: str
     email: str
@@ -106,11 +107,14 @@ def _validate_azure_token(token: str) -> CurrentUser:
         )
 
     client_id = settings.azure_ad_client_id or ""
-    accepted_audiences = list({
-        settings.azure_ad_audience,
-        client_id,
-        f"api://{client_id}",
-    } - {""})
+    accepted_audiences = list(
+        {
+            settings.azure_ad_audience,
+            client_id,
+            f"api://{client_id}",
+        }
+        - {""}
+    )
 
     try:
         client = _get_jwks_client()
@@ -121,7 +125,7 @@ def _validate_azure_token(token: str) -> CurrentUser:
             exc,
             extra={
                 "action": "JWKS_LOOKUP_FAILED",
-                "error":  str(exc),
+                "error": str(exc),
             },
         )
         raise HTTPException(
@@ -155,9 +159,9 @@ def _validate_azure_token(token: str) -> CurrentUser:
             "Token validation failed: %s",
             exc,
             extra={
-                "action":             "TOKEN_REJECTED",
-                "error":              str(exc),
-                "token_aud":          token_aud,
+                "action": "TOKEN_REJECTED",
+                "error": str(exc),
+                "token_aud": token_aud,
                 "accepted_audiences": accepted_audiences,
             },
         )
@@ -172,8 +176,8 @@ def _validate_azure_token(token: str) -> CurrentUser:
         logger.warning(
             "Token rejected: tid mismatch",
             extra={
-                "action":       "TENANT_MISMATCH",
-                "token_tid":    token_tid,
+                "action": "TENANT_MISMATCH",
+                "token_tid": token_tid,
                 "expected_tid": settings.azure_ad_tenant_id,
             },
         )
@@ -190,8 +194,8 @@ def _validate_azure_token(token: str) -> CurrentUser:
             "Token contained unrecognised roles: %s",
             unknown,
             extra={
-                "action":           "UNKNOWN_ROLES",
-                "unrecognised":     list(unknown),
+                "action": "UNKNOWN_ROLES",
+                "unrecognised": list(unknown),
             },
         )
 
@@ -207,10 +211,10 @@ def _validate_azure_token(token: str) -> CurrentUser:
 
 def _validate_test_token(token: str) -> CurrentUser:
     mapping = {
-        "test-responder":     (ROLE_RESPONDER,),
-        "test-supervisor":    (ROLE_SUPERVISOR,),
+        "test-responder": (ROLE_RESPONDER,),
+        "test-supervisor": (ROLE_SUPERVISOR,),
         "test-administrator": (ROLE_ADMINISTRATOR,),
-        "test-admin":         (ROLE_ADMINISTRATOR, ROLE_SUPERVISOR, ROLE_RESPONDER),
+        "test-admin": (ROLE_ADMINISTRATOR, ROLE_SUPERVISOR, ROLE_RESPONDER),
     }
 
     roles_tuple = mapping.get(token.lower())

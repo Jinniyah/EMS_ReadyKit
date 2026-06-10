@@ -24,18 +24,24 @@ if TYPE_CHECKING:
 class Station(TimestampMixin, Base):
     __tablename__ = "stations"
 
-    station_id:    Mapped[int]  = mapped_column(primary_key=True, autoincrement=True)
-    name:          Mapped[str]  = mapped_column(String(100), nullable=False)
-    address:       Mapped[str]  = mapped_column(String(255), nullable=False)
-    region:        Mapped[str]  = mapped_column(String(100), nullable=False)
-    active:        Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    station_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    address: Mapped[str] = mapped_column(String(255), nullable=False)
+    region: Mapped[str] = mapped_column(String(100), nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # ADMIN-B15: short radio/dispatch identifier. Optional.
-    call_sign:     Mapped[Optional[str]] = mapped_column(String(20),  nullable=True)
+    call_sign: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
 
     # B-M11: station color for header / buttons / station card bar.
     # Null = fall back to --color-brand (#1a3a5c) in the frontend.
-    primary_color: Mapped[Optional[str]] = mapped_column(String(7),   nullable=True)
+    primary_color: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)
+
+    # B-M10: whether submitted checks may be modified. Default True.
+    # Prerequisite for CH-F6 (acknowledgement / corrective note).
+    allow_check_modification: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False
+    )
 
     # ── Relationships ─────────────────────────────────────────────────────────
     vehicles: Mapped[List["Vehicle"]] = relationship(

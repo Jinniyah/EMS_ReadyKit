@@ -94,10 +94,7 @@ class Settings(BaseSettings):
         """Expected issuer claim in Azure AD access tokens."""
         if not self.azure_ad_tenant_id:
             return None
-        return (
-            f"https://login.microsoftonline.com/"
-            f"{self.azure_ad_tenant_id}/v2.0"
-        )
+        return f"https://login.microsoftonline.com/" f"{self.azure_ad_tenant_id}/v2.0"
 
 
 @lru_cache

@@ -32,7 +32,8 @@ class ParLevel(TimestampMixin, Base):
         # One par level per item per compartment — the correct constraint.
         # uq_par_item_location (item_id, location_id) was dropped in 0004.
         UniqueConstraint(
-            "item_id", "compartment_id",
+            "item_id",
+            "compartment_id",
             name="uq_par_item_compartment",
         ),
     )
@@ -47,14 +48,20 @@ class ParLevel(TimestampMixin, Base):
     )
     min_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     max_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
-    active: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=True, server_default=sa.true())
+    active: Mapped[bool] = mapped_column(
+        sa.Boolean, nullable=False, default=True, server_default=sa.true()
+    )
 
     # Priority items — supervisor marks per vehicle. Pulled above compartment list in check wizard.
-    priority_check: Mapped[Optional[bool]] = mapped_column(sa.Boolean, nullable=True, default=False)
+    priority_check: Mapped[Optional[bool]] = mapped_column(
+        sa.Boolean, nullable=True, default=False
+    )
     # Plain-English question shown to responder in place of item name (max 150 chars).
     priority_question: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
     # Damaged flag — responder marks item as damaged/unavailable at this compartment.
-    is_damaged: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=False, server_default=sa.false())
+    is_damaged: Mapped[bool] = mapped_column(
+        sa.Boolean, nullable=False, default=False, server_default=sa.false()
+    )
 
     # Relationships
     item: Mapped["Item"] = relationship("Item", back_populates="par_levels")

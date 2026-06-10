@@ -19,6 +19,7 @@ PostgreSQL note:
   partially applied some statements; the guards prevent "already exists"
   errors on retry.
 """
+
 from __future__ import annotations
 
 from typing import Sequence, Union
@@ -40,14 +41,20 @@ def upgrade() -> None:
     # ── items: add check_type and measurement/recurrence metadata ─────────────
     if dialect == "sqlite":
         with op.batch_alter_table("items", schema=None) as batch_op:
-            batch_op.add_column(sa.Column(
-                "check_type",
-                sa.String(20),
-                nullable=False,
-                server_default="SUPPLY",
-            ))
-            batch_op.add_column(sa.Column("measurement_minimum", sa.Float, nullable=True))
-            batch_op.add_column(sa.Column("measurement_maximum", sa.Float, nullable=True))
+            batch_op.add_column(
+                sa.Column(
+                    "check_type",
+                    sa.String(20),
+                    nullable=False,
+                    server_default="SUPPLY",
+                )
+            )
+            batch_op.add_column(
+                sa.Column("measurement_minimum", sa.Float, nullable=True)
+            )
+            batch_op.add_column(
+                sa.Column("measurement_maximum", sa.Float, nullable=True)
+            )
             batch_op.add_column(sa.Column("recurrence_days", sa.Integer, nullable=True))
             batch_op.create_index("ix_items_check_type", ["check_type"])
     else:
@@ -95,9 +102,15 @@ def upgrade() -> None:
     # ── compartments: add location descriptor, parent, restriction note ───────
     if dialect == "sqlite":
         with op.batch_alter_table("compartments", schema=None) as batch_op:
-            batch_op.add_column(sa.Column("location_descriptor", sa.String(150), nullable=True))
-            batch_op.add_column(sa.Column("parent_compartment_id", sa.Integer, nullable=True))
-            batch_op.add_column(sa.Column("restriction_note", sa.String(100), nullable=True))
+            batch_op.add_column(
+                sa.Column("location_descriptor", sa.String(150), nullable=True)
+            )
+            batch_op.add_column(
+                sa.Column("parent_compartment_id", sa.Integer, nullable=True)
+            )
+            batch_op.add_column(
+                sa.Column("restriction_note", sa.String(100), nullable=True)
+            )
             batch_op.create_index(
                 "ix_compartments_parent_compartment_id",
                 ["parent_compartment_id"],

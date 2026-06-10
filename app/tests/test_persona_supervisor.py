@@ -41,6 +41,7 @@ from ems_readykit.models.station_member import StationMember
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _uid() -> str:
     return uuid.uuid4().hex[:8]
 
@@ -55,15 +56,19 @@ def _setup(db: Session):
     db.flush()
 
     for email, role in [
-        ("test-supervisor@ems.local",    "Supervisor"),
-        ("test-responder@ems.local",     "Responder"),
+        ("test-supervisor@ems.local", "Supervisor"),
+        ("test-responder@ems.local", "Responder"),
         ("test-administrator@ems.local", "Administrator"),
     ]:
-        db.add(StationMember(
-            station_id=station.station_id,
-            user_id=email, role=role,
-            assigned_by="test-setup", active=True,
-        ))
+        db.add(
+            StationMember(
+                station_id=station.station_id,
+                user_id=email,
+                role=role,
+                assigned_by="test-setup",
+                active=True,
+            )
+        )
     db.flush()
 
     vehicle = Vehicle(
@@ -86,7 +91,8 @@ def _setup(db: Session):
     comp = Compartment(
         location_id=location.location_id,
         name=f"Comp-{_uid()}",
-        sort_order=1, active=True,
+        sort_order=1,
+        active=True,
     )
     db.add(comp)
     db.flush()
@@ -101,12 +107,15 @@ def _setup(db: Session):
     db.add(item)
     db.flush()
 
-    db.add(ParLevel(
-        item_id=item.item_id,
-        location_id=location.location_id,
-        compartment_id=comp.compartment_id,
-        min_quantity=1, max_quantity=1,
-    ))
+    db.add(
+        ParLevel(
+            item_id=item.item_id,
+            location_id=location.location_id,
+            compartment_id=comp.compartment_id,
+            min_quantity=1,
+            max_quantity=1,
+        )
+    )
     db.flush()
 
     return station, vehicle, location, comp, item
@@ -114,20 +123,26 @@ def _setup(db: Session):
 
 def _submit_fail_check(client, *, station, vehicle, item, comp, auth):
     """Submit a check with one FAIL FUNCTIONAL line item."""
-    r = client.post("/api/v1/checks/daily", json={
-        "vehicle_id": vehicle.vehicle_id,
-        "station_id": station.station_id,
-        "check_date": date.today().isoformat(),
-        "timestamp": _utcnow(),
-        "line_items": [{
-            "compartment_id": comp.compartment_id,
-            "item_id": item.item_id,
-            "quantity_needed": 0,
-            "quantity_found": 0,
-            "functional_pass": False,
-            "notes": "Equipment malfunction — supervisor notified",
-        }],
-    }, headers=auth)
+    r = client.post(
+        "/api/v1/checks/daily",
+        json={
+            "vehicle_id": vehicle.vehicle_id,
+            "station_id": station.station_id,
+            "check_date": date.today().isoformat(),
+            "timestamp": _utcnow(),
+            "line_items": [
+                {
+                    "compartment_id": comp.compartment_id,
+                    "item_id": item.item_id,
+                    "quantity_needed": 0,
+                    "quantity_found": 0,
+                    "functional_pass": False,
+                    "notes": "Equipment malfunction — supervisor notified",
+                }
+            ],
+        },
+        headers=auth,
+    )
     assert r.status_code == 201, f"Fail check submission failed: {r.text}"
     return r.json()["check_id"]
 
@@ -135,6 +150,7 @@ def _submit_fail_check(client, *, station, vehicle, item, comp, auth):
 # ---------------------------------------------------------------------------
 # Check history visibility
 # ---------------------------------------------------------------------------
+
 
 class TestSupervisorCheckHistory:
 
@@ -144,11 +160,17 @@ class TestSupervisorCheckHistory:
         """Earl must be able to see check details submitted by responders."""
         station, vehicle, _, comp, item = _setup(db)
         check_id = _submit_fail_check(
-            client, station=station, vehicle=vehicle,
-            item=item, comp=comp, auth=auth_responder
+            client,
+            station=station,
+            vehicle=vehicle,
+            item=item,
+            comp=comp,
+            auth=auth_responder,
         )
 
-        r = client.get(f"/api/v1/checks/daily/{check_id}/detail", headers=auth_supervisor)
+        r = client.get(
+            f"/api/v1/checks/daily/{check_id}/detail", headers=auth_supervisor
+        )
         assert r.status_code == 200, f"Supervisor cannot view check detail: {r.text}"
         assert r.json()["check_id"] == check_id
 
@@ -158,16 +180,25 @@ class TestSupervisorCheckHistory:
         """Earl must be able to acknowledge a FAIL check with corrective action."""
         station, vehicle, _, comp, item = _setup(db)
         check_id = _submit_fail_check(
-            client, station=station, vehicle=vehicle,
-            item=item, comp=comp, auth=auth_responder
+            client,
+            station=station,
+            vehicle=vehicle,
+            item=item,
+            comp=comp,
+            auth=auth_responder,
         )
 
-        r = client.patch(f"/api/v1/checks/daily/{check_id}/acknowledge", json={
-            "corrective_action": "Item replaced and tested — ready for service",
-        }, headers=auth_supervisor)
-        assert r.status_code in (200, 201), (
-            f"Supervisor could not acknowledge FAIL check: {r.text}"
+        r = client.patch(
+            f"/api/v1/checks/daily/{check_id}/acknowledge",
+            json={
+                "corrective_action": "Item replaced and tested — ready for service",
+            },
+            headers=auth_supervisor,
         )
+        assert r.status_code in (
+            200,
+            201,
+        ), f"Supervisor could not acknowledge FAIL check: {r.text}"
         data = r.json()
         assert data.get("corrective_action") is not None
 
@@ -175,6 +206,7 @@ class TestSupervisorCheckHistory:
 # ---------------------------------------------------------------------------
 # Damaged item — regression test for write_audit_event kwargs bug
 # ---------------------------------------------------------------------------
+
 
 class TestSupervisorDamagedItems:
     """
@@ -197,9 +229,10 @@ class TestSupervisorDamagedItems:
             "Check write_audit_event in inventory.py::patch_item_status. "
             "kwargs must be actor= and metadata=, not performed_by= or detail=."
         )
-        assert r.status_code in (200, 201), (
-            f"Mark damaged failed: {r.status_code} {r.text}"
-        )
+        assert r.status_code in (
+            200,
+            201,
+        ), f"Mark damaged failed: {r.status_code} {r.text}"
 
     def test_clear_damaged_returns_200_not_500(self, client, db, auth_supervisor):
         """Clear damaged must return 200. 500 = same bug as above."""
@@ -218,12 +251,13 @@ class TestSupervisorDamagedItems:
             json={"compartment_id": comp.compartment_id, "is_damaged": False},
             headers=auth_supervisor,
         )
-        assert r.status_code != 500, (
-            "Clear damaged returned 500. Same write_audit_event kwargs bug."
-        )
-        assert r.status_code in (200, 201), (
-            f"Clear damaged failed: {r.status_code} {r.text}"
-        )
+        assert (
+            r.status_code != 500
+        ), "Clear damaged returned 500. Same write_audit_event kwargs bug."
+        assert r.status_code in (
+            200,
+            201,
+        ), f"Clear damaged failed: {r.status_code} {r.text}"
 
     def test_mark_damaged_sets_is_damaged_true(self, client, db, auth_supervisor):
         """After marking damaged, the par level is_damaged field must be True."""
@@ -243,9 +277,12 @@ class TestSupervisorDamagedItems:
         assert r.status_code == 200
         pars = r.json()
         affected = next(
-            (p for p in pars
-             if p.get("item_id") == item.item_id
-             and p.get("compartment_id") == comp.compartment_id),
+            (
+                p
+                for p in pars
+                if p.get("item_id") == item.item_id
+                and p.get("compartment_id") == comp.compartment_id
+            ),
             None,
         )
         if affected and "is_damaged" in affected:
@@ -255,6 +292,7 @@ class TestSupervisorDamagedItems:
 # ---------------------------------------------------------------------------
 # Repair requests
 # ---------------------------------------------------------------------------
+
 
 class TestSupervisorRepairRequests:
 
@@ -271,9 +309,10 @@ class TestSupervisorRepairRequests:
             },
             headers=auth_supervisor,
         )
-        assert r.status_code in (200, 201), (
-            f"Supervisor could not file repair request: {r.text}"
-        )
+        assert r.status_code in (
+            200,
+            201,
+        ), f"Supervisor could not file repair request: {r.text}"
 
     def test_supervisor_can_resolve_repair_request(self, client, db, auth_supervisor):
         """Earl must be able to mark a repair request resolved."""
@@ -291,7 +330,11 @@ class TestSupervisorRepairRequests:
         assert create_r.status_code in (200, 201)
         repair_data = create_r.json()
         # Response key is repair_id per repair_requests router
-        repair_id = repair_data.get("repair_id") or repair_data.get("repair_request_id") or repair_data.get("id")
+        repair_id = (
+            repair_data.get("repair_id")
+            or repair_data.get("repair_request_id")
+            or repair_data.get("id")
+        )
         assert repair_id, f"No repair ID in response: {repair_data}"
 
         r = client.patch(
@@ -302,14 +345,16 @@ class TestSupervisorRepairRequests:
             },
             headers=auth_supervisor,
         )
-        assert r.status_code in (200, 201), (
-            f"Could not resolve repair request: {r.text}"
-        )
+        assert r.status_code in (
+            200,
+            201,
+        ), f"Could not resolve repair request: {r.text}"
 
 
 # ---------------------------------------------------------------------------
 # Supply catalog
 # ---------------------------------------------------------------------------
+
 
 class TestSupervisorSupplyCatalog:
 
@@ -322,49 +367,63 @@ class TestSupervisorSupplyCatalog:
             headers=auth_supervisor,
         )
         # 200 (with or without items) OR 404 if supply room not set up yet — both fine
-        assert r.status_code in (200, 404), (
-            f"Supervisor got unexpected status on supply catalog: {r.status_code}"
-        )
+        assert r.status_code in (
+            200,
+            404,
+        ), f"Supervisor got unexpected status on supply catalog: {r.status_code}"
 
 
 # ---------------------------------------------------------------------------
 # Role boundary — graceful denial
 # ---------------------------------------------------------------------------
 
+
 class TestSupervisorRoleBoundary:
 
-    def test_supervisor_can_create_items_but_not_deactivate(self, client, auth_supervisor):
+    def test_supervisor_can_create_items_but_not_deactivate(
+        self, client, auth_supervisor
+    ):
         """
         POST /api/v1/items is SUPERVISOR_PLUS — supervisors CAN create items.
         Only DEACTIVATE is admin-only. Test that boundary instead.
         """
         # Creating items: Supervisor+ — should succeed
-        r = client.post("/api/v1/items", json={
-            "name": f"Supervisor-Created-{_uid()}",
-            "category": "Equipment",
-            "unit_of_measure": "each",
-        }, headers=auth_supervisor)
-        assert r.status_code == 201, (
-            f"Supervisor should be able to create items (SUPERVISOR_PLUS). Status: {r.status_code}"
+        r = client.post(
+            "/api/v1/items",
+            json={
+                "name": f"Supervisor-Created-{_uid()}",
+                "category": "Equipment",
+                "unit_of_measure": "each",
+            },
+            headers=auth_supervisor,
         )
+        assert (
+            r.status_code == 201
+        ), f"Supervisor should be able to create items (SUPERVISOR_PLUS). Status: {r.status_code}"
         item_id = r.json()["item_id"]
 
         # Deactivating items: Admin only — should be denied
-        r2 = client.patch(f"/api/v1/admin/items/{item_id}/deactivate", headers=auth_supervisor)
-        assert r2.status_code == 403, (
-            f"Supervisor was not denied item deactivation (admin-only). Status: {r2.status_code}"
+        r2 = client.patch(
+            f"/api/v1/admin/items/{item_id}/deactivate", headers=auth_supervisor
         )
+        assert (
+            r2.status_code == 403
+        ), f"Supervisor was not denied item deactivation (admin-only). Status: {r2.status_code}"
 
     def test_supervisor_cannot_create_stations(self, client, auth_supervisor):
         """Station creation is admin-only (via admin router)."""
-        r = client.post("/api/v1/admin/stations", json={
-            "name": f"Unauthorized-{_uid()}",
-            "address": "1 St",
-            "region": "Test",
-        }, headers=auth_supervisor)
-        assert r.status_code == 403, (
-            f"Supervisor was not denied station creation. Status: {r.status_code}"
+        r = client.post(
+            "/api/v1/admin/stations",
+            json={
+                "name": f"Unauthorized-{_uid()}",
+                "address": "1 St",
+                "region": "Test",
+            },
+            headers=auth_supervisor,
         )
+        assert (
+            r.status_code == 403
+        ), f"Supervisor was not denied station creation. Status: {r.status_code}"
 
     def test_supervisor_cannot_hard_delete_checks(self, client, auth_supervisor):
         """Force-delete is Admin only. Supervisor must get 403."""
@@ -376,28 +435,37 @@ class TestSupervisorRoleBoundary:
 # Station today — shift handoff view
 # ---------------------------------------------------------------------------
 
+
 class TestStationTodayView:
 
-    def test_supervisor_can_see_todays_checks(self, client, db, auth_responder, auth_supervisor):
+    def test_supervisor_can_see_todays_checks(
+        self, client, db, auth_responder, auth_supervisor
+    ):
         """
         Supervisor at same station can see all of today's checks.
         Supports shift handoff and oversight.
         """
         station, vehicle, _, comp, item = _setup(db)
 
-        r = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vehicle.vehicle_id,
-            "station_id": station.station_id,
-            "check_date": date.today().isoformat(),
-            "timestamp": _utcnow(),
-            "line_items": [{
-                "compartment_id": comp.compartment_id,
-                "item_id": item.item_id,
-                "quantity_needed": 0,
-                "quantity_found": 0,
-                "functional_pass": True,
-            }],
-        }, headers=auth_responder)
+        r = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vehicle.vehicle_id,
+                "station_id": station.station_id,
+                "check_date": date.today().isoformat(),
+                "timestamp": _utcnow(),
+                "line_items": [
+                    {
+                        "compartment_id": comp.compartment_id,
+                        "item_id": item.item_id,
+                        "quantity_needed": 0,
+                        "quantity_found": 0,
+                        "functional_pass": True,
+                    }
+                ],
+            },
+            headers=auth_responder,
+        )
         assert r.status_code == 201
         check_id = r.json()["check_id"]
 

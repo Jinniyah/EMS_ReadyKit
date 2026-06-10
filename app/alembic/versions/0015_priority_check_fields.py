@@ -15,48 +15,72 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision      = '0015'
-down_revision = '0014'
+revision = "0015"
+down_revision = "0014"
 branch_labels = None
-depends_on    = None
+depends_on = None
 
 
 def upgrade() -> None:
     bind = op.get_bind()
     dialect = bind.dialect.name
 
-    if dialect == 'sqlite':
-        op.add_column('par_levels', sa.Column('priority_check', sa.Boolean, nullable=True))
-        op.add_column('par_levels', sa.Column('priority_question', sa.String(150), nullable=True))
-        op.add_column('compartments', sa.Column(
-            'requires_full_check', sa.Boolean, nullable=False, server_default=sa.false()
-        ))
+    if dialect == "sqlite":
+        op.add_column(
+            "par_levels", sa.Column("priority_check", sa.Boolean, nullable=True)
+        )
+        op.add_column(
+            "par_levels", sa.Column("priority_question", sa.String(150), nullable=True)
+        )
+        op.add_column(
+            "compartments",
+            sa.Column(
+                "requires_full_check",
+                sa.Boolean,
+                nullable=False,
+                server_default=sa.false(),
+            ),
+        )
     else:
-        bind.execute(sa.text(
-            "ALTER TABLE par_levels "
-            "ADD COLUMN IF NOT EXISTS priority_check BOOLEAN"
-        ))
-        bind.execute(sa.text(
-            "ALTER TABLE par_levels "
-            "ADD COLUMN IF NOT EXISTS priority_question VARCHAR(150)"
-        ))
-        bind.execute(sa.text(
-            "ALTER TABLE compartments "
-            "ADD COLUMN IF NOT EXISTS requires_full_check BOOLEAN NOT NULL DEFAULT FALSE"
-        ))
+        bind.execute(
+            sa.text(
+                "ALTER TABLE par_levels "
+                "ADD COLUMN IF NOT EXISTS priority_check BOOLEAN"
+            )
+        )
+        bind.execute(
+            sa.text(
+                "ALTER TABLE par_levels "
+                "ADD COLUMN IF NOT EXISTS priority_question VARCHAR(150)"
+            )
+        )
+        bind.execute(
+            sa.text(
+                "ALTER TABLE compartments "
+                "ADD COLUMN IF NOT EXISTS requires_full_check BOOLEAN NOT NULL DEFAULT FALSE"
+            )
+        )
 
 
 def downgrade() -> None:
     bind = op.get_bind()
     dialect = bind.dialect.name
 
-    if dialect == 'sqlite':
-        with op.batch_alter_table('par_levels') as batch_op:
-            batch_op.drop_column('priority_question')
-            batch_op.drop_column('priority_check')
-        with op.batch_alter_table('compartments') as batch_op:
-            batch_op.drop_column('requires_full_check')
+    if dialect == "sqlite":
+        with op.batch_alter_table("par_levels") as batch_op:
+            batch_op.drop_column("priority_question")
+            batch_op.drop_column("priority_check")
+        with op.batch_alter_table("compartments") as batch_op:
+            batch_op.drop_column("requires_full_check")
     else:
-        bind.execute(sa.text("ALTER TABLE par_levels DROP COLUMN IF EXISTS priority_question"))
-        bind.execute(sa.text("ALTER TABLE par_levels DROP COLUMN IF EXISTS priority_check"))
-        bind.execute(sa.text("ALTER TABLE compartments DROP COLUMN IF EXISTS requires_full_check"))
+        bind.execute(
+            sa.text("ALTER TABLE par_levels DROP COLUMN IF EXISTS priority_question")
+        )
+        bind.execute(
+            sa.text("ALTER TABLE par_levels DROP COLUMN IF EXISTS priority_check")
+        )
+        bind.execute(
+            sa.text(
+                "ALTER TABLE compartments DROP COLUMN IF EXISTS requires_full_check"
+            )
+        )

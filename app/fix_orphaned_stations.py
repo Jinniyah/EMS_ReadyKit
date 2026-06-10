@@ -27,8 +27,8 @@ from ems_readykit.models.station import Station
 from ems_readykit.models.station_member import StationMember
 
 ADMINS = [
-    ("jinniyah@gmail.com",             "Jinni Allen"),
-    ("test-administrator@ems.local",   "Test Administrator"),
+    ("jinniyah@gmail.com", "Jinni Allen"),
+    ("test-administrator@ems.local", "Test Administrator"),
 ]
 
 ASSIGNED_BY = "fix_orphaned_stations.py"
@@ -42,10 +42,14 @@ def fix(db: Session) -> None:
         print(f"Station [{station.station_id}]: {station.name}")
 
         for user_id, preferred_name in ADMINS:
-            existing = db.query(StationMember).filter(
-                StationMember.station_id == station.station_id,
-                StationMember.user_id    == user_id,
-            ).first()
+            existing = (
+                db.query(StationMember)
+                .filter(
+                    StationMember.station_id == station.station_id,
+                    StationMember.user_id == user_id,
+                )
+                .first()
+            )
 
             if existing and existing.active:
                 print(f"  ✓ {user_id} — already a member, skipping")
@@ -53,14 +57,16 @@ def fix(db: Session) -> None:
                 existing.active = True
                 print(f"  ↺ {user_id} — re-activated")
             else:
-                db.add(StationMember(
-                    station_id     = station.station_id,
-                    user_id        = user_id,
-                    preferred_name = preferred_name,
-                    role           = "Administrator",
-                    assigned_by    = ASSIGNED_BY,
-                    active         = True,
-                ))
+                db.add(
+                    StationMember(
+                        station_id=station.station_id,
+                        user_id=user_id,
+                        preferred_name=preferred_name,
+                        role="Administrator",
+                        assigned_by=ASSIGNED_BY,
+                        active=True,
+                    )
+                )
                 print(f"  + {user_id} — added as Administrator")
 
     db.commit()

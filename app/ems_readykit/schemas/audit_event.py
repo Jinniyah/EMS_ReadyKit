@@ -37,10 +37,18 @@ class AuditEventRead(BaseModel):
     action: str = Field(
         description="Action code (e.g. INVENTORY_CHANGE, CS_DISCREPANCY, CHECK_COMPLETED)"
     )
-    entity_type: str = Field(description="Type of entity affected (e.g. StockLot, Vehicle)")
-    entity_id: Optional[str] = Field(default=None, description="ID of the affected entity")
-    station_id: Optional[int] = Field(default=None, description="Station context for SIEM correlation")
-    vehicle_id: Optional[int] = Field(default=None, description="Vehicle context for SIEM correlation")
+    entity_type: str = Field(
+        description="Type of entity affected (e.g. StockLot, Vehicle)"
+    )
+    entity_id: Optional[str] = Field(
+        default=None, description="ID of the affected entity"
+    )
+    station_id: Optional[int] = Field(
+        default=None, description="Station context for SIEM correlation"
+    )
+    vehicle_id: Optional[int] = Field(
+        default=None, description="Vehicle context for SIEM correlation"
+    )
     metadata_json: Optional[dict[str, Any]] = Field(
         default=None,
         description="Structured event detail (e.g. before/after quantities, lot numbers)",

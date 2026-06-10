@@ -24,6 +24,8 @@ import ColorPickerWidget from '../../shared/components/ColorPickerWidget.jsx'
 import MembersScreen from './components/MembersScreen.jsx'
 import ItemCatalog from './components/ItemCatalog.jsx'
 import VehiclesScreen from './components/VehiclesScreen.jsx'
+import StationSuppliesScreen from './components/StationSuppliesScreen.jsx'
+import PortableLocationsScreen from './components/PortableLocationsScreen.jsx'
 import { adminApi } from './api/adminApi.js'
 import './admin.css'
 
@@ -310,9 +312,11 @@ function AdminHome({ stations, selectedId, onSelectStation, onBack, onNavigate, 
     : stations
 
   const NAV_CARDS = [
-    { id: 'members',  icon: '👥', label: 'Members',      hint: 'Manage crew access' },
-    { id: 'catalog',  icon: '📦', label: 'Item Catalog', hint: 'Add and manage inventory items' },
-    { id: 'vehicles', icon: '🚑', label: 'Vehicles',     hint: 'Add vehicles and compartments' },
+    { id: 'members',   icon: '👥', label: 'Members',            hint: 'Manage crew access' },
+    { id: 'catalog',   icon: '📦', label: 'Item Catalog',       hint: 'Add and manage inventory items' },
+    { id: 'vehicles',  icon: '🚑', label: 'Vehicles',           hint: 'Add vehicles and compartments' },
+    { id: 'supplies',  icon: '🏪', label: 'Station Supplies',   hint: 'Manage supply room shelves and items' },
+    { id: 'portable',  icon: '🎒', label: 'Jump Bags',          hint: 'Manage portable locations and compartments' },
   ]
 
   function handleSaved(s) {
@@ -575,6 +579,22 @@ export default function AdminScreen({ onBack }) {
     return (
       <ErrorBoundary moduleName="Vehicles">
         <VehiclesScreen station={activeStation} onBack={handleBack} />
+      </ErrorBoundary>
+    )
+  }
+
+  if (activeSection === 'supplies' && activeStation) {
+    return (
+      <ErrorBoundary moduleName="Station Supplies">
+        <StationSuppliesScreen station={activeStation} onBack={handleBack} />
+      </ErrorBoundary>
+    )
+  }
+
+  if (activeSection === 'portable' && activeStation) {
+    return (
+      <ErrorBoundary moduleName="Portable Locations">
+        <PortableLocationsScreen station={activeStation} onBack={handleBack} />
       </ErrorBoundary>
     )
   }

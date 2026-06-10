@@ -42,6 +42,7 @@ from ems_readykit.models.stock_lot import StockLot
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _uid() -> str:
     return uuid.uuid4().hex[:8]
 
@@ -62,14 +63,18 @@ def _setup(db: Session):
 
     for email, role in [
         ("test-administrator@ems.local", "Administrator"),
-        ("test-supervisor@ems.local",    "Supervisor"),
-        ("test-responder@ems.local",     "Responder"),
+        ("test-supervisor@ems.local", "Supervisor"),
+        ("test-responder@ems.local", "Responder"),
     ]:
-        db.add(StationMember(
-            station_id=station.station_id,
-            user_id=email, role=role,
-            assigned_by="test-setup", active=True,
-        ))
+        db.add(
+            StationMember(
+                station_id=station.station_id,
+                user_id=email,
+                role=role,
+                assigned_by="test-setup",
+                active=True,
+            )
+        )
     db.flush()
 
     vehicle = Vehicle(
@@ -100,7 +105,8 @@ def _setup(db: Session):
     comp = Compartment(
         location_id=location.location_id,
         name=f"Comp-{_uid()}",
-        sort_order=1, active=True,
+        sort_order=1,
+        active=True,
     )
     db.add(comp)
     db.flush()
@@ -116,20 +122,25 @@ def _setup(db: Session):
     db.add(supply_item)
     db.flush()
 
-    db.add(ParLevel(
-        item_id=supply_item.item_id,
-        location_id=location.location_id,
-        compartment_id=comp.compartment_id,
-        min_quantity=4, max_quantity=4,
-    ))
+    db.add(
+        ParLevel(
+            item_id=supply_item.item_id,
+            location_id=location.location_id,
+            compartment_id=comp.compartment_id,
+            min_quantity=4,
+            max_quantity=4,
+        )
+    )
 
     # Seed supply room stock
-    db.add(StockLot(
-        item_id=supply_item.item_id,
-        location_id=supply_room.location_id,
-        quantity=20,
-        lot_number=f"LOT-{_uid()}",
-    ))
+    db.add(
+        StockLot(
+            item_id=supply_item.item_id,
+            location_id=supply_room.location_id,
+            quantity=20,
+            lot_number=f"LOT-{_uid()}",
+        )
+    )
     db.flush()
 
     return station, vehicle, location, supply_room, comp, supply_item
@@ -152,24 +163,31 @@ def _delete_with_body(client, url: str, body: dict, headers: dict):
 # Admin is superset of Supervisor
 # ---------------------------------------------------------------------------
 
+
 class TestAdminSupersetOfSupervisor:
     """Regressions here mean Jennifer loses access she needs to maintain the system."""
 
     def test_admin_can_view_check_detail(self, client, db, auth_responder, auth_admin):
         station, vehicle, _, _, comp, item = _setup(db)
 
-        r = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vehicle.vehicle_id,
-            "station_id": station.station_id,
-            "check_date": date.today().isoformat(),
-            "timestamp": _utcnow(),
-            "line_items": [{
-                "compartment_id": comp.compartment_id,
-                "item_id": item.item_id,
-                "quantity_needed": 4,
-                "quantity_found": 4,
-            }],
-        }, headers=auth_responder)
+        r = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vehicle.vehicle_id,
+                "station_id": station.station_id,
+                "check_date": date.today().isoformat(),
+                "timestamp": _utcnow(),
+                "line_items": [
+                    {
+                        "compartment_id": comp.compartment_id,
+                        "item_id": item.item_id,
+                        "quantity_needed": 4,
+                        "quantity_found": 4,
+                    }
+                ],
+            },
+            headers=auth_responder,
+        )
         check_id = r.json()["check_id"]
 
         r2 = client.get(f"/api/v1/checks/daily/{check_id}/detail", headers=auth_admin)
@@ -183,9 +201,10 @@ class TestAdminSupersetOfSupervisor:
             json={"compartment_id": comp.compartment_id, "is_damaged": True},
             headers=auth_admin,
         )
-        assert r.status_code not in (403, 500), (
-            f"Admin could not mark item damaged: {r.status_code}"
-        )
+        assert r.status_code not in (
+            403,
+            500,
+        ), f"Admin could not mark item damaged: {r.status_code}"
 
     def test_admin_can_file_repair_request(self, client, db, auth_admin):
         _station, vehicle, _location, _, comp, item = _setup(db)
@@ -204,23 +223,33 @@ class TestAdminSupersetOfSupervisor:
     def test_admin_can_acknowledge_check(self, client, db, auth_responder, auth_admin):
         station, vehicle, _, _, comp, item = _setup(db)
 
-        r = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vehicle.vehicle_id,
-            "station_id": station.station_id,
-            "check_date": date.today().isoformat(),
-            "timestamp": _utcnow(),
-            "line_items": [{
-                "compartment_id": comp.compartment_id,
-                "item_id": item.item_id,
-                "quantity_needed": 4,
-                "quantity_found": 0,
-            }],
-        }, headers=auth_responder)
+        r = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vehicle.vehicle_id,
+                "station_id": station.station_id,
+                "check_date": date.today().isoformat(),
+                "timestamp": _utcnow(),
+                "line_items": [
+                    {
+                        "compartment_id": comp.compartment_id,
+                        "item_id": item.item_id,
+                        "quantity_needed": 4,
+                        "quantity_found": 0,
+                    }
+                ],
+            },
+            headers=auth_responder,
+        )
         check_id = r.json()["check_id"]
 
-        r2 = client.patch(f"/api/v1/checks/daily/{check_id}/acknowledge", json={
-            "corrective_action": "Restock ordered and received",
-        }, headers=auth_admin)
+        r2 = client.patch(
+            f"/api/v1/checks/daily/{check_id}/acknowledge",
+            json={
+                "corrective_action": "Restock ordered and received",
+            },
+            headers=auth_admin,
+        )
         assert r2.status_code in (200, 201)
 
 
@@ -228,27 +257,37 @@ class TestAdminSupersetOfSupervisor:
 # Admin-only capabilities
 # ---------------------------------------------------------------------------
 
+
 class TestAdminOnlyCapabilities:
 
     def test_admin_can_create_item_in_catalog(self, client, auth_admin):
         """Jennifer can add items to the shared item catalog."""
-        r = client.post("/api/v1/items", json={
-            "name": f"Admin-Created-Item-{_uid()}",
-            "category": "Equipment",
-            "check_type": "SUPPLY",
-            "unit_of_measure": "each",
-        }, headers=auth_admin)
-        assert r.status_code in (200, 201), (
-            f"Admin could not create item: {r.status_code} {r.text}"
+        r = client.post(
+            "/api/v1/items",
+            json={
+                "name": f"Admin-Created-Item-{_uid()}",
+                "category": "Equipment",
+                "check_type": "SUPPLY",
+                "unit_of_measure": "each",
+            },
+            headers=auth_admin,
         )
+        assert r.status_code in (
+            200,
+            201,
+        ), f"Admin could not create item: {r.status_code} {r.text}"
 
     def test_admin_can_create_station(self, client, auth_admin):
         """Station creation is admin-only."""
-        r = client.post("/api/v1/stations", json={
-            "name": f"Admin-Created-Station-{_uid()}",
-            "address": "1 Admin St",
-            "region": "Test",
-        }, headers=auth_admin)
+        r = client.post(
+            "/api/v1/stations",
+            json={
+                "name": f"Admin-Created-Station-{_uid()}",
+                "address": "1 Admin St",
+                "region": "Test",
+            },
+            headers=auth_admin,
+        )
         assert r.status_code == 201
 
     def test_admin_can_view_all_stations(self, client, db, auth_admin):
@@ -269,12 +308,16 @@ class TestAdminOnlyCapabilities:
         """Admin can soft-delete a check (Supervisor+ capability)."""
         station, vehicle, _, _, _comp, _item = _setup(db)
 
-        r = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vehicle.vehicle_id,
-            "station_id": station.station_id,
-            "check_date": date.today().isoformat(),
-            "timestamp": _utcnow(),
-        }, headers=auth_responder)
+        r = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vehicle.vehicle_id,
+                "station_id": station.station_id,
+                "check_date": date.today().isoformat(),
+                "timestamp": _utcnow(),
+            },
+            headers=auth_responder,
+        )
         check_id = r.json()["check_id"]
 
         r2 = _delete_with_body(
@@ -285,16 +328,22 @@ class TestAdminOnlyCapabilities:
         )
         assert r2.status_code in (200, 201), f"Admin soft-delete failed: {r2.text}"
 
-    def test_admin_can_hard_delete_soft_deleted_check(self, client, db, auth_responder, auth_admin):
+    def test_admin_can_hard_delete_soft_deleted_check(
+        self, client, db, auth_responder, auth_admin
+    ):
         """Admin can permanently delete a check that was already soft-deleted."""
         station, vehicle, _, _, _comp, _item = _setup(db)
 
-        r = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vehicle.vehicle_id,
-            "station_id": station.station_id,
-            "check_date": date.today().isoformat(),
-            "timestamp": _utcnow(),
-        }, headers=auth_responder)
+        r = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vehicle.vehicle_id,
+                "station_id": station.station_id,
+                "check_date": date.today().isoformat(),
+                "timestamp": _utcnow(),
+            },
+            headers=auth_responder,
+        )
         check_id = r.json()["check_id"]
 
         # Soft-delete first
@@ -307,9 +356,9 @@ class TestAdminOnlyCapabilities:
 
         # Hard-delete
         r2 = client.delete(f"/api/v1/checks/daily/{check_id}/force", headers=auth_admin)
-        assert r2.status_code == 204, (
-            f"Admin hard-delete failed: {r2.status_code} {r2.text}"
-        )
+        assert (
+            r2.status_code == 204
+        ), f"Admin hard-delete failed: {r2.status_code} {r2.text}"
 
     def test_admin_can_set_priority_flag_on_par_level(self, client, db, auth_admin):
         """
@@ -335,19 +384,25 @@ class TestAdminOnlyCapabilities:
             pytest.skip("Could not find par level ID")
 
         # UpdateParLevelRequest requires min_quantity + max_quantity
-        r2 = client.patch(f"/api/v1/admin/par-levels/{par_id}", json={
-            "min_quantity": par.get("min_quantity", 1),
-            "max_quantity": par.get("max_quantity", 1),
-            "priority_check": True,
-            "priority_question": "Is this item ready?",
-        }, headers=auth_admin)
-
-        assert r2.status_code in (200, 201), (
-            f"Priority flag PATCH failed: {r2.status_code} {r2.text}"
+        r2 = client.patch(
+            f"/api/v1/admin/par-levels/{par_id}",
+            json={
+                "min_quantity": par.get("min_quantity", 1),
+                "max_quantity": par.get("max_quantity", 1),
+                "priority_check": True,
+                "priority_question": "Is this item ready?",
+            },
+            headers=auth_admin,
         )
+
+        assert r2.status_code in (
+            200,
+            201,
+        ), f"Priority flag PATCH failed: {r2.status_code} {r2.text}"
 
         # Verify directly in DB — _enrich_par may not include priority fields in response
         from ems_readykit.models.par_level import ParLevel as PL
+
         db_par = db.query(PL).filter(PL.par_id == par_id).first()
         assert db_par is not None
         assert db_par.priority_check is True, (
@@ -357,37 +412,49 @@ class TestAdminOnlyCapabilities:
         )
         assert db_par.priority_question == "Is this item ready?"
 
-    def test_admin_only_can_deactivate_items(self, client, db, auth_admin, auth_supervisor):
+    def test_admin_only_can_deactivate_items(
+        self, client, db, auth_admin, auth_supervisor
+    ):
         """
         Item deactivation is Admin only.
         Supervisor can CREATE items (SUPERVISOR_PLUS) but not deactivate them.
         """
         # Create an item as supervisor - should succeed (SUPERVISOR_PLUS)
-        r = client.post("/api/v1/items", json={
-            "name": f"Deactivation-Test-{_uid()}",
-            "category": "Equipment",
-            "unit_of_measure": "each",
-        }, headers=auth_supervisor)
+        r = client.post(
+            "/api/v1/items",
+            json={
+                "name": f"Deactivation-Test-{_uid()}",
+                "category": "Equipment",
+                "unit_of_measure": "each",
+            },
+            headers=auth_supervisor,
+        )
         assert r.status_code == 201, "Supervisor should be able to create items"
         item_id = r.json()["item_id"]
 
         # Supervisor tries to deactivate - should fail (Admin only)
-        r2 = client.patch(f"/api/v1/admin/items/{item_id}/deactivate", headers=auth_supervisor)
+        r2 = client.patch(
+            f"/api/v1/admin/items/{item_id}/deactivate", headers=auth_supervisor
+        )
         assert r2.status_code == 403, (
             f"Supervisor was not denied item deactivation (admin-only). "
             f"Status: {r2.status_code}"
         )
 
         # Admin can deactivate
-        r3 = client.patch(f"/api/v1/admin/items/{item_id}/deactivate", headers=auth_admin)
-        assert r3.status_code in (200, 204), (
-            f"Admin could not deactivate item: {r3.status_code}"
+        r3 = client.patch(
+            f"/api/v1/admin/items/{item_id}/deactivate", headers=auth_admin
         )
+        assert r3.status_code in (
+            200,
+            204,
+        ), f"Admin could not deactivate item: {r3.status_code}"
 
 
 # ---------------------------------------------------------------------------
 # Role alias regression
 # ---------------------------------------------------------------------------
+
 
 class TestAdminRoleAlias:
     """
@@ -404,11 +471,15 @@ class TestAdminRoleAlias:
         admin_headers = {"Authorization": "Bearer test-admin"}
 
         # Station creation is Administrator only
-        r = client.post("/api/v1/stations", json={
-            "name": f"Role-Alias-{_uid()}",
-            "address": "1 Alias St",
-            "region": "Test",
-        }, headers=admin_headers)
+        r = client.post(
+            "/api/v1/stations",
+            json={
+                "name": f"Role-Alias-{_uid()}",
+                "address": "1 Alias St",
+                "region": "Test",
+            },
+            headers=admin_headers,
+        )
         assert r.status_code in (200, 201), (
             f"'test-admin' token was denied Administrator access. "
             f"Status: {r.status_code}. "
@@ -419,6 +490,7 @@ class TestAdminRoleAlias:
 # ---------------------------------------------------------------------------
 # Supply room auto-decrement (SR-B4)
 # ---------------------------------------------------------------------------
+
 
 class TestSupplyRoomDecrement:
     """
@@ -453,36 +525,50 @@ class TestSupplyRoomDecrement:
 
         initial_on_hand = entry.get("on_hand", 0)
         if initial_on_hand < 2:
-            pytest.skip(f"Insufficient supply room stock ({initial_on_hand}) for decrement test")
+            pytest.skip(
+                f"Insufficient supply room stock ({initial_on_hand}) for decrement test"
+            )
 
         # Check 1: found 2 (par is 4) - baseline
-        r1 = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vehicle.vehicle_id,
-            "station_id": station.station_id,
-            "check_date": date.today().isoformat(),
-            "timestamp": _utcnow(),
-            "line_items": [{
-                "compartment_id": comp.compartment_id,
-                "item_id": item.item_id,
-                "quantity_needed": 4,
-                "quantity_found": 2,
-            }],
-        }, headers=auth_responder)
+        r1 = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vehicle.vehicle_id,
+                "station_id": station.station_id,
+                "check_date": date.today().isoformat(),
+                "timestamp": _utcnow(),
+                "line_items": [
+                    {
+                        "compartment_id": comp.compartment_id,
+                        "item_id": item.item_id,
+                        "quantity_needed": 4,
+                        "quantity_found": 2,
+                    }
+                ],
+            },
+            headers=auth_responder,
+        )
         assert r1.status_code == 201
 
         # Check 2: found 4 (topped off from 2 to 4, delta = 2)
-        r2 = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vehicle.vehicle_id,
-            "station_id": station.station_id,
-            "check_date": date.today().isoformat(),
-            "timestamp": _utcnow(),
-            "line_items": [{
-                "compartment_id": comp.compartment_id,
-                "item_id": item.item_id,
-                "quantity_needed": 4,
-                "quantity_found": 4,
-            }],
-        }, headers=auth_responder)
+        r2 = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vehicle.vehicle_id,
+                "station_id": station.station_id,
+                "check_date": date.today().isoformat(),
+                "timestamp": _utcnow(),
+                "line_items": [
+                    {
+                        "compartment_id": comp.compartment_id,
+                        "item_id": item.item_id,
+                        "quantity_needed": 4,
+                        "quantity_found": 4,
+                    }
+                ],
+            },
+            headers=auth_responder,
+        )
         assert r2.status_code == 201
 
         # Verify supply room decremented by 2
@@ -524,11 +610,13 @@ class TestSupplyRoomDecrement:
         db.add(functional)
         db.flush()
 
-        db.add(StockLot(
-            item_id=functional.item_id,
-            location_id=supply_room.location_id,
-            quantity=5,
-        ))
+        db.add(
+            StockLot(
+                item_id=functional.item_id,
+                location_id=supply_room.location_id,
+                quantity=5,
+            )
+        )
         db.flush()
 
         r = client.get(
@@ -573,12 +661,16 @@ class TestSupplyRoomDecrement:
         initial_on_hand = entry.get("on_hand", 0)
 
         # Submit a supply-room check (no vehicle_id - only location_id)
-        r = client.post("/api/v1/checks/daily", json={
-            "location_id": supply_room.location_id,
-            "station_id": station.station_id,
-            "check_date": date.today().isoformat(),
-            "timestamp": _utcnow(),
-        }, headers=auth_responder)
+        r = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "location_id": supply_room.location_id,
+                "station_id": station.station_id,
+                "check_date": date.today().isoformat(),
+                "timestamp": _utcnow(),
+            },
+            headers=auth_responder,
+        )
 
         if r.status_code not in (200, 201):
             pytest.skip(f"Supply room check not supported: {r.text}")

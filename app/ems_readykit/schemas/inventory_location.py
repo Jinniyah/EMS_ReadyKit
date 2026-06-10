@@ -35,6 +35,7 @@ class InventoryLocationCreate(BaseModel):
     Only valid for JUMP_BAG and EQUIPMENT location types.
     VEHICLE and STATION_SUPPLY_ROOM are system-managed.
     """
+
     location_type: LocationType = Field(
         ...,
         description="JUMP_BAG or EQUIPMENT only — VEHICLE and SUPPLY_ROOM are auto-created",
@@ -55,13 +56,12 @@ class InventoryLocationCreate(BaseModel):
 
 class InventoryLocationRead(BaseModel):
     """Response model for inventory location endpoints."""
+
     model_config = ConfigDict(from_attributes=True)
 
     location_id: int
     location_type: LocationType = Field(
-        description=(
-            "VEHICLE | STATION_SUPPLY_ROOM | JUMP_BAG | EQUIPMENT"
-        )
+        description=("VEHICLE | STATION_SUPPLY_ROOM | JUMP_BAG | EQUIPMENT")
     )
     station_id: int
     vehicle_id: Optional[int] = Field(

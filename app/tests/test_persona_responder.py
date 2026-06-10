@@ -38,6 +38,7 @@ from ems_readykit.models.station_member import StationMember
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _uid() -> str:
     return uuid.uuid4().hex[:8]
 
@@ -56,15 +57,19 @@ def _setup(db: Session):
     db.flush()
 
     for email, role in [
-        ("test-responder@ems.local",     "Responder"),
-        ("test-supervisor@ems.local",    "Supervisor"),
+        ("test-responder@ems.local", "Responder"),
+        ("test-supervisor@ems.local", "Supervisor"),
         ("test-administrator@ems.local", "Administrator"),
     ]:
-        db.add(StationMember(
-            station_id=station.station_id,
-            user_id=email, role=role,
-            assigned_by="test-setup", active=True,
-        ))
+        db.add(
+            StationMember(
+                station_id=station.station_id,
+                user_id=email,
+                role=role,
+                assigned_by="test-setup",
+                active=True,
+            )
+        )
     db.flush()
 
     vehicle = Vehicle(
@@ -87,7 +92,8 @@ def _setup(db: Session):
     comp = Compartment(
         location_id=location.location_id,
         name=f"Comp-{_uid()}",
-        sort_order=1, active=True,
+        sort_order=1,
+        active=True,
     )
     db.add(comp)
     db.flush()
@@ -111,19 +117,24 @@ def _setup(db: Session):
         )
         db.add(item)
         db.flush()
-        db.add(ParLevel(
-            item_id=item.item_id,
-            location_id=location.location_id,
-            compartment_id=comp.compartment_id,
-            min_quantity=2, max_quantity=2,
-        ))
+        db.add(
+            ParLevel(
+                item_id=item.item_id,
+                location_id=location.location_id,
+                compartment_id=comp.compartment_id,
+                min_quantity=2,
+                max_quantity=2,
+            )
+        )
         items[ct] = item
 
     db.flush()
     return station, vehicle, location, comp, items
 
 
-def _line_item_for(item: Item, comp: Compartment, *, fail: bool = False, notes: str | None = None) -> dict:
+def _line_item_for(
+    item: Item, comp: Compartment, *, fail: bool = False, notes: str | None = None
+) -> dict:
     """Build a line item dict for the given item with sensible defaults."""
     base = {
         "compartment_id": comp.compartment_id,
@@ -157,6 +168,7 @@ def _line_item_for(item: Item, comp: Compartment, *, fail: bool = False, notes: 
 # Core wizard — all five check types
 # ---------------------------------------------------------------------------
 
+
 class TestResponderAllCheckTypes:
     """Jamie must be able to submit every check type without confusion."""
 
@@ -164,13 +176,17 @@ class TestResponderAllCheckTypes:
         station, vehicle, _, comp, items = _setup(db)
         item = items[ItemCheckType.SUPPLY]
 
-        r = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vehicle.vehicle_id,
-            "station_id": station.station_id,
-            "check_date": date.today().isoformat(),
-            "timestamp": _utcnow(),
-            "line_items": [_line_item_for(item, comp)],
-        }, headers=auth_responder)
+        r = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vehicle.vehicle_id,
+                "station_id": station.station_id,
+                "check_date": date.today().isoformat(),
+                "timestamp": _utcnow(),
+                "line_items": [_line_item_for(item, comp)],
+            },
+            headers=auth_responder,
+        )
         assert r.status_code == 201, f"SUPPLY check failed: {r.text}"
         assert r.json()["line_items"][0]["status"] == "OK"
 
@@ -179,13 +195,17 @@ class TestResponderAllCheckTypes:
         station, vehicle, _, comp, items = _setup(db)
         item = items[ItemCheckType.MEASUREMENT]
 
-        r = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vehicle.vehicle_id,
-            "station_id": station.station_id,
-            "check_date": date.today().isoformat(),
-            "timestamp": _utcnow(),
-            "line_items": [_line_item_for(item, comp)],
-        }, headers=auth_responder)
+        r = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vehicle.vehicle_id,
+                "station_id": station.station_id,
+                "check_date": date.today().isoformat(),
+                "timestamp": _utcnow(),
+                "line_items": [_line_item_for(item, comp)],
+            },
+            headers=auth_responder,
+        )
         assert r.status_code == 201, f"MEASUREMENT check failed: {r.text}"
         assert r.json()["line_items"][0]["status"] == "OK"
 
@@ -193,13 +213,17 @@ class TestResponderAllCheckTypes:
         station, vehicle, _, comp, items = _setup(db)
         item = items[ItemCheckType.FUNCTIONAL]
 
-        r = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vehicle.vehicle_id,
-            "station_id": station.station_id,
-            "check_date": date.today().isoformat(),
-            "timestamp": _utcnow(),
-            "line_items": [_line_item_for(item, comp)],
-        }, headers=auth_responder)
+        r = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vehicle.vehicle_id,
+                "station_id": station.station_id,
+                "check_date": date.today().isoformat(),
+                "timestamp": _utcnow(),
+                "line_items": [_line_item_for(item, comp)],
+            },
+            headers=auth_responder,
+        )
         assert r.status_code == 201, f"FUNCTIONAL PASS failed: {r.text}"
         assert r.json()["line_items"][0]["status"] == "OK"
 
@@ -207,13 +231,17 @@ class TestResponderAllCheckTypes:
         station, vehicle, _, comp, items = _setup(db)
         item = items[ItemCheckType.DATE_RECORD]
 
-        r = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vehicle.vehicle_id,
-            "station_id": station.station_id,
-            "check_date": date.today().isoformat(),
-            "timestamp": _utcnow(),
-            "line_items": [_line_item_for(item, comp)],
-        }, headers=auth_responder)
+        r = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vehicle.vehicle_id,
+                "station_id": station.station_id,
+                "check_date": date.today().isoformat(),
+                "timestamp": _utcnow(),
+                "line_items": [_line_item_for(item, comp)],
+            },
+            headers=auth_responder,
+        )
         assert r.status_code == 201, f"DATE_RECORD check failed: {r.text}"
         assert r.json()["line_items"][0]["status"] == "OK"
 
@@ -221,13 +249,17 @@ class TestResponderAllCheckTypes:
         station, vehicle, _, comp, items = _setup(db)
         item = items[ItemCheckType.DOCUMENT]
 
-        r = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vehicle.vehicle_id,
-            "station_id": station.station_id,
-            "check_date": date.today().isoformat(),
-            "timestamp": _utcnow(),
-            "line_items": [_line_item_for(item, comp)],
-        }, headers=auth_responder)
+        r = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vehicle.vehicle_id,
+                "station_id": station.station_id,
+                "check_date": date.today().isoformat(),
+                "timestamp": _utcnow(),
+                "line_items": [_line_item_for(item, comp)],
+            },
+            headers=auth_responder,
+        )
         assert r.status_code == 201, f"DOCUMENT check failed: {r.text}"
         assert r.json()["line_items"][0]["status"] == "OK"
 
@@ -235,6 +267,7 @@ class TestResponderAllCheckTypes:
 # ---------------------------------------------------------------------------
 # FAIL + comment — the core tired-responder scenario
 # ---------------------------------------------------------------------------
+
 
 class TestResponderFailAndContinue:
     """
@@ -252,16 +285,21 @@ class TestResponderFailAndContinue:
         station, vehicle, _, comp, items = _setup(db)
         item = items[ItemCheckType.FUNCTIONAL]
 
-        r = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vehicle.vehicle_id,
-            "station_id": station.station_id,
-            "check_date": date.today().isoformat(),
-            "timestamp": _utcnow(),
-            "line_items": [
-                _line_item_for(item, comp, fail=True,
-                               notes="Not working, noted for supervisor"),
-            ],
-        }, headers=auth_responder)
+        r = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vehicle.vehicle_id,
+                "station_id": station.station_id,
+                "check_date": date.today().isoformat(),
+                "timestamp": _utcnow(),
+                "line_items": [
+                    _line_item_for(
+                        item, comp, fail=True, notes="Not working, noted for supervisor"
+                    ),
+                ],
+            },
+            headers=auth_responder,
+        )
         assert r.status_code == 201, (
             f"FAIL with comment was rejected: {r.text}. "
             "Tired responder must be able to log FAIL and continue."
@@ -276,21 +314,27 @@ class TestResponderFailAndContinue:
         station, vehicle, _, comp, items = _setup(db)
 
         line_items = [
-            _line_item_for(items[ItemCheckType.SUPPLY], comp),           # OK
-            _line_item_for(items[ItemCheckType.FUNCTIONAL], comp, fail=True,
-                           notes="Test fail — automated"),               # FAIL
+            _line_item_for(items[ItemCheckType.SUPPLY], comp),  # OK
+            _line_item_for(
+                items[ItemCheckType.FUNCTIONAL],
+                comp,
+                fail=True,
+                notes="Test fail — automated",
+            ),  # FAIL
         ]
 
-        r = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vehicle.vehicle_id,
-            "station_id": station.station_id,
-            "check_date": date.today().isoformat(),
-            "timestamp": _utcnow(),
-            "line_items": line_items,
-        }, headers=auth_responder)
-        assert r.status_code == 201, (
-            f"Mixed PASS/FAIL check failed to submit: {r.text}"
+        r = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vehicle.vehicle_id,
+                "station_id": station.station_id,
+                "check_date": date.today().isoformat(),
+                "timestamp": _utcnow(),
+                "line_items": line_items,
+            },
+            headers=auth_responder,
         )
+        assert r.status_code == 201, f"Mixed PASS/FAIL check failed to submit: {r.text}"
         assert r.json()["status"] == "FAIL"
 
     def test_submitted_check_appears_in_my_history(self, client, db, auth_responder):
@@ -298,17 +342,23 @@ class TestResponderFailAndContinue:
         station, vehicle, _, comp, items = _setup(db)
         item = items[ItemCheckType.SUPPLY]
 
-        r = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vehicle.vehicle_id,
-            "station_id": station.station_id,
-            "check_date": date.today().isoformat(),
-            "timestamp": _utcnow(),
-            "line_items": [_line_item_for(item, comp)],
-        }, headers=auth_responder)
+        r = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vehicle.vehicle_id,
+                "station_id": station.station_id,
+                "check_date": date.today().isoformat(),
+                "timestamp": _utcnow(),
+                "line_items": [_line_item_for(item, comp)],
+            },
+            headers=auth_responder,
+        )
         assert r.status_code == 201
         check_id = r.json()["check_id"]
 
-        history_r = client.get("/api/v1/checks/daily/my-history", headers=auth_responder)
+        history_r = client.get(
+            "/api/v1/checks/daily/my-history", headers=auth_responder
+        )
         assert history_r.status_code == 200
         ids = [c.get("check_id") for c in history_r.json()]
         assert check_id in ids, "Submitted check not in responder history"
@@ -317,6 +367,7 @@ class TestResponderFailAndContinue:
 # ---------------------------------------------------------------------------
 # Multiple checks per day
 # ---------------------------------------------------------------------------
+
 
 class TestMultipleChecksPerDay:
 
@@ -329,18 +380,28 @@ class TestMultipleChecksPerDay:
 
         today = date.today().isoformat()
 
-        r1 = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vehicle.vehicle_id,
-            "station_id": station.station_id,
-            "check_date": today, "timestamp": _utcnow(),
-        }, headers=auth_responder)
+        r1 = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vehicle.vehicle_id,
+                "station_id": station.station_id,
+                "check_date": today,
+                "timestamp": _utcnow(),
+            },
+            headers=auth_responder,
+        )
         assert r1.status_code == 201
 
-        r2 = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vehicle.vehicle_id,
-            "station_id": station.station_id,
-            "check_date": today, "timestamp": _utcnow(),
-        }, headers=auth_responder)
+        r2 = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vehicle.vehicle_id,
+                "station_id": station.station_id,
+                "check_date": today,
+                "timestamp": _utcnow(),
+            },
+            headers=auth_responder,
+        )
         assert r2.status_code == 201, (
             f"Second check same day rejected: {r2.text}. "
             "Multiple checks per day are legally required."
@@ -352,15 +413,20 @@ class TestMultipleChecksPerDay:
 # Role boundary
 # ---------------------------------------------------------------------------
 
+
 class TestResponderRoleBoundary:
 
     def test_responder_cannot_create_item(self, client, auth_responder):
         """Responder gets 403 on admin item creation — not a 500, not a 200."""
-        r = client.post("/api/v1/items", json={
-            "name": f"Unauthorized-{_uid()}",
-            "category": "Equipment",
-            "unit_of_measure": "each",
-        }, headers=auth_responder)
+        r = client.post(
+            "/api/v1/items",
+            json={
+                "name": f"Unauthorized-{_uid()}",
+                "category": "Equipment",
+                "unit_of_measure": "each",
+            },
+            headers=auth_responder,
+        )
         assert r.status_code == 403, (
             f"Responder not denied item creation. "
             f"Expected 403, got {r.status_code}."
@@ -396,6 +462,7 @@ class TestResponderRoleBoundary:
 # Draft station scoping (shift handoff)
 # ---------------------------------------------------------------------------
 
+
 class TestDraftStationScope:
 
     def test_station_today_visible_to_supervisor_at_same_station(
@@ -408,12 +475,16 @@ class TestDraftStationScope:
         """
         station, vehicle, _, _, _ = _setup(db)
 
-        r = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vehicle.vehicle_id,
-            "station_id": station.station_id,
-            "check_date": date.today().isoformat(),
-            "timestamp": _utcnow(),
-        }, headers=auth_responder)
+        r = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vehicle.vehicle_id,
+                "station_id": station.station_id,
+                "check_date": date.today().isoformat(),
+                "timestamp": _utcnow(),
+            },
+            headers=auth_responder,
+        )
         assert r.status_code == 201
         check_id = r.json()["check_id"]
 

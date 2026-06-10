@@ -87,16 +87,16 @@ if TYPE_CHECKING:
 class ItemCategory(str, enum.Enum):
     MEDICATION = "Medication"
     CONSUMABLE = "Consumable"
-    EQUIPMENT  = "Equipment"
-    DOCUMENT   = "Document"
+    EQUIPMENT = "Equipment"
+    DOCUMENT = "Document"
 
 
 class ItemCheckType(str, enum.Enum):
-    SUPPLY      = "SUPPLY"       # counted / presence-verified supply (default)
+    SUPPLY = "SUPPLY"  # counted / presence-verified supply (default)
     MEASUREMENT = "MEASUREMENT"  # numeric reading (PSI, temperature, glucose)
-    FUNCTIONAL  = "FUNCTIONAL"   # pass/fail operational check (battery OK, runs & starts)
+    FUNCTIONAL = "FUNCTIONAL"  # pass/fail operational check (battery OK, runs & starts)
     DATE_RECORD = "DATE_RECORD"  # date recorded (last charge date, last service date)
-    DOCUMENT    = "DOCUMENT"     # presence-only paperwork check
+    DOCUMENT = "DOCUMENT"  # presence-only paperwork check
     EXPIRY_DATE = "EXPIRY_DATE"  # expiration date from package label (e.g. AED pads) — EXPIRED when today > date_value
 
 
@@ -121,7 +121,9 @@ class Item(TimestampMixin, Base):
     )
 
     # Controlled substances require ALS vehicle + dual-witness count
-    controlled_substance: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    controlled_substance: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
 
     # Unit of measure for SUPPLY items (each, box, roll, mg, mL...)
     # For MEASUREMENT items this is the reading unit (PSI, °F, mg/dL...)
@@ -162,15 +164,23 @@ class Item(TimestampMixin, Base):
 
     # URL of a reference photo stored in Azure Blob Storage.
     # Used by the AI pipeline to verify a visual match.
-    reference_image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    reference_image_url: Mapped[Optional[str]] = mapped_column(
+        String(500), nullable=True
+    )
 
     # UPC or GS1 barcode — unique across all items.
     # AI image pipeline can attempt to read barcodes from photos.
-    barcode: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, unique=True)
+    barcode: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True, unique=True
+    )
 
     # Relationships
-    stock_lots: Mapped[List["StockLot"]] = relationship("StockLot", back_populates="item")
-    par_levels: Mapped[List["ParLevel"]] = relationship("ParLevel", back_populates="item")
+    stock_lots: Mapped[List["StockLot"]] = relationship(
+        "StockLot", back_populates="item"
+    )
+    par_levels: Mapped[List["ParLevel"]] = relationship(
+        "ParLevel", back_populates="item"
+    )
     check_line_items: Mapped[List["CheckLineItem"]] = relationship(
         "CheckLineItem", back_populates="item"
     )

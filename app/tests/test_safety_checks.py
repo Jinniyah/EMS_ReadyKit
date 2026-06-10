@@ -50,6 +50,7 @@ from ems_readykit.models.station_member import StationMember
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _uid() -> str:
     return uuid.uuid4().hex[:8]
 
@@ -65,15 +66,19 @@ def _setup(db: Session):
     db.flush()
 
     for email, role in [
-        ("test-responder@ems.local",     "Responder"),
-        ("test-supervisor@ems.local",    "Supervisor"),
+        ("test-responder@ems.local", "Responder"),
+        ("test-supervisor@ems.local", "Supervisor"),
         ("test-administrator@ems.local", "Administrator"),
     ]:
-        db.add(StationMember(
-            station_id=station.station_id,
-            user_id=email, role=role,
-            assigned_by="test-setup", active=True,
-        ))
+        db.add(
+            StationMember(
+                station_id=station.station_id,
+                user_id=email,
+                role=role,
+                assigned_by="test-setup",
+                active=True,
+            )
+        )
     db.flush()
 
     vehicle = Vehicle(
@@ -110,7 +115,8 @@ def _measurement_item(
     db: Session, *, name: str, minimum: float, maximum: float = 2200.0
 ) -> Item:
     item = Item(
-        name=name, category=ItemCategory.EQUIPMENT,
+        name=name,
+        category=ItemCategory.EQUIPMENT,
         check_type=ItemCheckType.MEASUREMENT,
         unit_of_measure="PSI",
         measurement_minimum=minimum,
@@ -124,7 +130,8 @@ def _measurement_item(
 
 def _date_record_item(db: Session, *, name: str, recurrence_days: int) -> Item:
     item = Item(
-        name=name, category=ItemCategory.EQUIPMENT,
+        name=name,
+        category=ItemCategory.EQUIPMENT,
         check_type=ItemCheckType.DATE_RECORD,
         unit_of_measure="N/A",
         recurrence_days=recurrence_days,
@@ -137,7 +144,8 @@ def _date_record_item(db: Session, *, name: str, recurrence_days: int) -> Item:
 
 def _functional_item(db: Session, *, name: str) -> Item:
     item = Item(
-        name=name, category=ItemCategory.EQUIPMENT,
+        name=name,
+        category=ItemCategory.EQUIPMENT,
         check_type=ItemCheckType.FUNCTIONAL,
         unit_of_measure="N/A",
         active=True,
@@ -148,28 +156,36 @@ def _functional_item(db: Session, *, name: str) -> Item:
 
 
 def _par(db: Session, *, item: Item, location: InventoryLocation, comp: Compartment):
-    db.add(ParLevel(
-        item_id=item.item_id,
-        location_id=location.location_id,
-        compartment_id=comp.compartment_id,
-        min_quantity=1, max_quantity=1,
-    ))
+    db.add(
+        ParLevel(
+            item_id=item.item_id,
+            location_id=location.location_id,
+            compartment_id=comp.compartment_id,
+            min_quantity=1,
+            max_quantity=1,
+        )
+    )
     db.flush()
 
 
 def _submit(client, *, station, vehicle, line_items: list, auth):
-    return client.post("/api/v1/checks/daily", json={
-        "vehicle_id": vehicle.vehicle_id,
-        "station_id": station.station_id,
-        "check_date": date.today().isoformat(),
-        "timestamp": _utcnow(),
-        "line_items": line_items,
-    }, headers=auth)
+    return client.post(
+        "/api/v1/checks/daily",
+        json={
+            "vehicle_id": vehicle.vehicle_id,
+            "station_id": station.station_id,
+            "check_date": date.today().isoformat(),
+            "timestamp": _utcnow(),
+            "line_items": line_items,
+        },
+        headers=auth,
+    )
 
 
 # ---------------------------------------------------------------------------
 # 1. O2 PSI below minimum
 # ---------------------------------------------------------------------------
+
 
 class TestO2PSIBelowMinimum:
     """
@@ -184,19 +200,26 @@ class TestO2PSIBelowMinimum:
         item = _measurement_item(db, name=f"O2 PSI {_uid()}", minimum=500.0)
         _par(db, item=item, location=location, comp=comp)
 
-        r = _submit(client, station=station, vehicle=vehicle, auth=auth_responder,
-                    line_items=[{
-                        "compartment_id": comp.compartment_id,
-                        "item_id": item.item_id,
-                        "quantity_needed": 0,
-                        "quantity_found": 0,
-                        "measurement_value": 500.0,
-                    }])
+        r = _submit(
+            client,
+            station=station,
+            vehicle=vehicle,
+            auth=auth_responder,
+            line_items=[
+                {
+                    "compartment_id": comp.compartment_id,
+                    "item_id": item.item_id,
+                    "quantity_needed": 0,
+                    "quantity_found": 0,
+                    "measurement_value": 500.0,
+                }
+            ],
+        )
         assert r.status_code == 201, f"Unexpected: {r.text}"
         li = r.json()["line_items"][0]
-        assert li["status"] == LineItemStatus.OK.value, (
-            f"500 PSI (exactly at minimum) returned status={li['status']} — must be OK"
-        )
+        assert (
+            li["status"] == LineItemStatus.OK.value
+        ), f"500 PSI (exactly at minimum) returned status={li['status']} — must be OK"
         assert r.json()["status"] == CheckStatus.PASS.value
 
     def test_o2_psi_above_minimum_is_ok(self, client, db, auth_responder):
@@ -205,14 +228,21 @@ class TestO2PSIBelowMinimum:
         item = _measurement_item(db, name=f"O2 PSI {_uid()}", minimum=500.0)
         _par(db, item=item, location=location, comp=comp)
 
-        r = _submit(client, station=station, vehicle=vehicle, auth=auth_responder,
-                    line_items=[{
-                        "compartment_id": comp.compartment_id,
-                        "item_id": item.item_id,
-                        "quantity_needed": 0,
-                        "quantity_found": 0,
-                        "measurement_value": 1800.0,
-                    }])
+        r = _submit(
+            client,
+            station=station,
+            vehicle=vehicle,
+            auth=auth_responder,
+            line_items=[
+                {
+                    "compartment_id": comp.compartment_id,
+                    "item_id": item.item_id,
+                    "quantity_needed": 0,
+                    "quantity_found": 0,
+                    "measurement_value": 1800.0,
+                }
+            ],
+        )
         assert r.status_code == 201
         assert r.json()["line_items"][0]["status"] == LineItemStatus.OK.value
 
@@ -226,14 +256,21 @@ class TestO2PSIBelowMinimum:
         item = _measurement_item(db, name=f"O2 PSI {_uid()}", minimum=500.0)
         _par(db, item=item, location=location, comp=comp)
 
-        r = _submit(client, station=station, vehicle=vehicle, auth=auth_responder,
-                    line_items=[{
-                        "compartment_id": comp.compartment_id,
-                        "item_id": item.item_id,
-                        "quantity_needed": 0,
-                        "quantity_found": 0,
-                        "measurement_value": 400.0,
-                    }])
+        r = _submit(
+            client,
+            station=station,
+            vehicle=vehicle,
+            auth=auth_responder,
+            line_items=[
+                {
+                    "compartment_id": comp.compartment_id,
+                    "item_id": item.item_id,
+                    "quantity_needed": 0,
+                    "quantity_found": 0,
+                    "measurement_value": 400.0,
+                }
+            ],
+        )
         assert r.status_code == 201, f"Unexpected rejection: {r.text}"
         body = r.json()
         li = body["line_items"][0]
@@ -253,19 +290,26 @@ class TestO2PSIBelowMinimum:
         item = _measurement_item(db, name=f"O2 PSI {_uid()}", minimum=500.0)
         _par(db, item=item, location=location, comp=comp)
 
-        r = _submit(client, station=station, vehicle=vehicle, auth=auth_responder,
-                    line_items=[{
-                        "compartment_id": comp.compartment_id,
-                        "item_id": item.item_id,
-                        "quantity_needed": 0,
-                        "quantity_found": 0,
-                        "measurement_value": 0.0,
-                    }])
+        r = _submit(
+            client,
+            station=station,
+            vehicle=vehicle,
+            auth=auth_responder,
+            line_items=[
+                {
+                    "compartment_id": comp.compartment_id,
+                    "item_id": item.item_id,
+                    "quantity_needed": 0,
+                    "quantity_found": 0,
+                    "measurement_value": 0.0,
+                }
+            ],
+        )
         assert r.status_code == 201
         li = r.json()["line_items"][0]
-        assert li["status"] == LineItemStatus.LOW.value, (
-            f"0 PSI returned status={li['status']} — must be LOW"
-        )
+        assert (
+            li["status"] == LineItemStatus.LOW.value
+        ), f"0 PSI returned status={li['status']} — must be LOW"
 
     def test_o2_psi_missing_reading_is_missing(self, client, db, auth_responder):
         """No reading submitted at all (measurement_value omitted) must be MISSING."""
@@ -273,25 +317,33 @@ class TestO2PSIBelowMinimum:
         item = _measurement_item(db, name=f"O2 PSI {_uid()}", minimum=500.0)
         _par(db, item=item, location=location, comp=comp)
 
-        r = _submit(client, station=station, vehicle=vehicle, auth=auth_responder,
-                    line_items=[{
-                        "compartment_id": comp.compartment_id,
-                        "item_id": item.item_id,
-                        "quantity_needed": 0,
-                        "quantity_found": 0,
-                        # measurement_value intentionally omitted
-                    }])
+        r = _submit(
+            client,
+            station=station,
+            vehicle=vehicle,
+            auth=auth_responder,
+            line_items=[
+                {
+                    "compartment_id": comp.compartment_id,
+                    "item_id": item.item_id,
+                    "quantity_needed": 0,
+                    "quantity_found": 0,
+                    # measurement_value intentionally omitted
+                }
+            ],
+        )
         assert r.status_code == 201
         li = r.json()["line_items"][0]
-        assert li["status"] == LineItemStatus.MISSING.value, (
-            f"Omitted O2 reading returned status={li['status']} — must be MISSING"
-        )
+        assert (
+            li["status"] == LineItemStatus.MISSING.value
+        ), f"Omitted O2 reading returned status={li['status']} — must be MISSING"
         assert r.json()["status"] == CheckStatus.FAIL.value
 
 
 # ---------------------------------------------------------------------------
 # 2. Date recurrence overdue
 # ---------------------------------------------------------------------------
+
 
 class TestDateRecurrenceOverdue:
     """
@@ -313,19 +365,26 @@ class TestDateRecurrenceOverdue:
         _par(db, item=item, location=location, comp=comp)
 
         recent = (date.today() - timedelta(days=10)).isoformat()
-        r = _submit(client, station=station, vehicle=vehicle, auth=auth_responder,
-                    line_items=[{
-                        "compartment_id": comp.compartment_id,
-                        "item_id": item.item_id,
-                        "quantity_needed": 0,
-                        "quantity_found": 0,
-                        "date_value": recent,
-                    }])
+        r = _submit(
+            client,
+            station=station,
+            vehicle=vehicle,
+            auth=auth_responder,
+            line_items=[
+                {
+                    "compartment_id": comp.compartment_id,
+                    "item_id": item.item_id,
+                    "quantity_needed": 0,
+                    "quantity_found": 0,
+                    "date_value": recent,
+                }
+            ],
+        )
         assert r.status_code == 201
         li = r.json()["line_items"][0]
-        assert li["status"] == LineItemStatus.OK.value, (
-            f"10-day-old date (90-day recurrence) returned {li['status']} — must be OK"
-        )
+        assert (
+            li["status"] == LineItemStatus.OK.value
+        ), f"10-day-old date (90-day recurrence) returned {li['status']} — must be OK"
 
     def test_aed_date_exactly_at_recurrence_is_ok(self, client, db, auth_responder):
         """Date exactly 90 days ago against 90-day recurrence must be OK (boundary)."""
@@ -334,14 +393,21 @@ class TestDateRecurrenceOverdue:
         _par(db, item=item, location=location, comp=comp)
 
         boundary = (date.today() - timedelta(days=90)).isoformat()
-        r = _submit(client, station=station, vehicle=vehicle, auth=auth_responder,
-                    line_items=[{
-                        "compartment_id": comp.compartment_id,
-                        "item_id": item.item_id,
-                        "quantity_needed": 0,
-                        "quantity_found": 0,
-                        "date_value": boundary,
-                    }])
+        r = _submit(
+            client,
+            station=station,
+            vehicle=vehicle,
+            auth=auth_responder,
+            line_items=[
+                {
+                    "compartment_id": comp.compartment_id,
+                    "item_id": item.item_id,
+                    "quantity_needed": 0,
+                    "quantity_found": 0,
+                    "date_value": boundary,
+                }
+            ],
+        )
         assert r.status_code == 201
         li = r.json()["line_items"][0]
         assert li["status"] == LineItemStatus.OK.value, (
@@ -349,7 +415,9 @@ class TestDateRecurrenceOverdue:
             "boundary should be OK (days_since == recurrence_days is not yet overdue)"
         )
 
-    def test_aed_date_one_day_past_recurrence_is_overdue(self, client, db, auth_responder):
+    def test_aed_date_one_day_past_recurrence_is_overdue(
+        self, client, db, auth_responder
+    ):
         """
         CRITICAL: Date 91 days ago against 90-day recurrence must be OVERDUE.
         An overdue AED charge date means the device may not be ready.
@@ -360,14 +428,21 @@ class TestDateRecurrenceOverdue:
         _par(db, item=item, location=location, comp=comp)
 
         overdue = (date.today() - timedelta(days=91)).isoformat()
-        r = _submit(client, station=station, vehicle=vehicle, auth=auth_responder,
-                    line_items=[{
-                        "compartment_id": comp.compartment_id,
-                        "item_id": item.item_id,
-                        "quantity_needed": 0,
-                        "quantity_found": 0,
-                        "date_value": overdue,
-                    }])
+        r = _submit(
+            client,
+            station=station,
+            vehicle=vehicle,
+            auth=auth_responder,
+            line_items=[
+                {
+                    "compartment_id": comp.compartment_id,
+                    "item_id": item.item_id,
+                    "quantity_needed": 0,
+                    "quantity_found": 0,
+                    "date_value": overdue,
+                }
+            ],
+        )
         assert r.status_code == 201
         body = r.json()
         li = body["line_items"][0]
@@ -387,14 +462,21 @@ class TestDateRecurrenceOverdue:
         _par(db, item=item, location=location, comp=comp)
 
         old = (date.today() - timedelta(days=200)).isoformat()
-        r = _submit(client, station=station, vehicle=vehicle, auth=auth_responder,
-                    line_items=[{
-                        "compartment_id": comp.compartment_id,
-                        "item_id": item.item_id,
-                        "quantity_needed": 0,
-                        "quantity_found": 0,
-                        "date_value": old,
-                    }])
+        r = _submit(
+            client,
+            station=station,
+            vehicle=vehicle,
+            auth=auth_responder,
+            line_items=[
+                {
+                    "compartment_id": comp.compartment_id,
+                    "item_id": item.item_id,
+                    "quantity_needed": 0,
+                    "quantity_found": 0,
+                    "date_value": old,
+                }
+            ],
+        )
         assert r.status_code == 201
         assert r.json()["line_items"][0]["status"] == LineItemStatus.OVERDUE.value
 
@@ -409,14 +491,21 @@ class TestDateRecurrenceOverdue:
         _par(db, item=item, location=location, comp=comp)
 
         overdue = (date.today() - timedelta(days=31)).isoformat()
-        r = _submit(client, station=station, vehicle=vehicle, auth=auth_responder,
-                    line_items=[{
-                        "compartment_id": comp.compartment_id,
-                        "item_id": item.item_id,
-                        "quantity_needed": 0,
-                        "quantity_found": 0,
-                        "date_value": overdue,
-                    }])
+        r = _submit(
+            client,
+            station=station,
+            vehicle=vehicle,
+            auth=auth_responder,
+            line_items=[
+                {
+                    "compartment_id": comp.compartment_id,
+                    "item_id": item.item_id,
+                    "quantity_needed": 0,
+                    "quantity_found": 0,
+                    "date_value": overdue,
+                }
+            ],
+        )
         assert r.status_code == 201
         body = r.json()
         li = body["line_items"][0]
@@ -432,25 +521,33 @@ class TestDateRecurrenceOverdue:
         item = _date_record_item(db, name=f"Date Missing {_uid()}", recurrence_days=90)
         _par(db, item=item, location=location, comp=comp)
 
-        r = _submit(client, station=station, vehicle=vehicle, auth=auth_responder,
-                    line_items=[{
-                        "compartment_id": comp.compartment_id,
-                        "item_id": item.item_id,
-                        "quantity_needed": 0,
-                        "quantity_found": 0,
-                        # date_value intentionally omitted
-                    }])
+        r = _submit(
+            client,
+            station=station,
+            vehicle=vehicle,
+            auth=auth_responder,
+            line_items=[
+                {
+                    "compartment_id": comp.compartment_id,
+                    "item_id": item.item_id,
+                    "quantity_needed": 0,
+                    "quantity_found": 0,
+                    # date_value intentionally omitted
+                }
+            ],
+        )
         assert r.status_code == 201
         li = r.json()["line_items"][0]
-        assert li["status"] == LineItemStatus.MISSING.value, (
-            f"Omitted date returned status={li['status']} — must be MISSING"
-        )
+        assert (
+            li["status"] == LineItemStatus.MISSING.value
+        ), f"Omitted date returned status={li['status']} — must be MISSING"
         assert r.json()["status"] == CheckStatus.FAIL.value
 
 
 # ---------------------------------------------------------------------------
 # 3. requires_full_check enforcement (Truck Operations)
 # ---------------------------------------------------------------------------
+
 
 class TestRequiresFullCheck:
     """
@@ -475,11 +572,12 @@ class TestRequiresFullCheck:
         # comp has requires_full_check=False by default from _setup()
         assert comp.requires_full_check is False
 
-        r = _submit(client, station=station, vehicle=vehicle, auth=auth_responder,
-                    line_items=[])
-        assert r.status_code == 201, (
-            f"Normal compartment rejected empty submission: {r.text}"
+        r = _submit(
+            client, station=station, vehicle=vehicle, auth=auth_responder, line_items=[]
         )
+        assert (
+            r.status_code == 201
+        ), f"Normal compartment rejected empty submission: {r.text}"
 
     def test_requires_full_check_true_with_all_items_passes(
         self, client, db, auth_responder
@@ -501,35 +599,43 @@ class TestRequiresFullCheck:
         item1 = _functional_item(db, name=f"Runs {_uid()}")
         item2 = _functional_item(db, name=f"Lights {_uid()}")
         for item in [item1, item2]:
-            db.add(ParLevel(
-                item_id=item.item_id,
-                location_id=location.location_id,
-                compartment_id=full_comp.compartment_id,
-                min_quantity=1, max_quantity=1,
-            ))
+            db.add(
+                ParLevel(
+                    item_id=item.item_id,
+                    location_id=location.location_id,
+                    compartment_id=full_comp.compartment_id,
+                    min_quantity=1,
+                    max_quantity=1,
+                )
+            )
         db.flush()
 
         # Submit with all items explicitly checked
-        r = _submit(client, station=station, vehicle=vehicle, auth=auth_responder,
-                    line_items=[
-                        {
-                            "compartment_id": full_comp.compartment_id,
-                            "item_id": item1.item_id,
-                            "quantity_needed": 0,
-                            "quantity_found": 0,
-                            "functional_pass": True,
-                        },
-                        {
-                            "compartment_id": full_comp.compartment_id,
-                            "item_id": item2.item_id,
-                            "quantity_needed": 0,
-                            "quantity_found": 0,
-                            "functional_pass": True,
-                        },
-                    ])
-        assert r.status_code == 201, (
-            f"Full check with all items submitted was rejected: {r.text}"
+        r = _submit(
+            client,
+            station=station,
+            vehicle=vehicle,
+            auth=auth_responder,
+            line_items=[
+                {
+                    "compartment_id": full_comp.compartment_id,
+                    "item_id": item1.item_id,
+                    "quantity_needed": 0,
+                    "quantity_found": 0,
+                    "functional_pass": True,
+                },
+                {
+                    "compartment_id": full_comp.compartment_id,
+                    "item_id": item2.item_id,
+                    "quantity_needed": 0,
+                    "quantity_found": 0,
+                    "functional_pass": True,
+                },
+            ],
         )
+        assert (
+            r.status_code == 201
+        ), f"Full check with all items submitted was rejected: {r.text}"
         assert r.json()["status"] == CheckStatus.PASS.value
 
     def test_requires_full_check_true_blocks_no_change(
@@ -556,17 +662,21 @@ class TestRequiresFullCheck:
         db.flush()
 
         item = _functional_item(db, name=f"Must Check {_uid()}")
-        db.add(ParLevel(
-            item_id=item.item_id,
-            location_id=location.location_id,
-            compartment_id=full_comp.compartment_id,
-            min_quantity=1, max_quantity=1,
-        ))
+        db.add(
+            ParLevel(
+                item_id=item.item_id,
+                location_id=location.location_id,
+                compartment_id=full_comp.compartment_id,
+                min_quantity=1,
+                max_quantity=1,
+            )
+        )
         db.flush()
 
         # Submit the check with the full_comp item OMITTED (No Change)
-        r = _submit(client, station=station, vehicle=vehicle, auth=auth_responder,
-                    line_items=[])  # item in full_comp not included
+        r = _submit(
+            client, station=station, vehicle=vehicle, auth=auth_responder, line_items=[]
+        )  # item in full_comp not included
 
         if r.status_code == 201:
             # Check passed — enforcement not implemented yet

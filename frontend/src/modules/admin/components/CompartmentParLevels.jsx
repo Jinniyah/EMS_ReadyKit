@@ -28,15 +28,16 @@ function QtyBadge({ min, max }) {
 }
 
 // ── EditCompartmentParRow ─────────────────────────────────────────────────────
-// Simpler than ItemAssignments/EditRow — vehicle and compartment are already
-// known from context, so this only edits the quantities.
+// Edits quantities + optional priority check toggle and question (RX-F12).
 
 function EditCompartmentParRow({ assignment, onSaved, onCancel }) {
   const { getToken } = useAuth()
-  const [min, setMin]           = useState(String(assignment.min_quantity))
-  const [max, setMax]           = useState(String(assignment.max_quantity))
-  const [error, setError]       = useState(null)
-  const [submitting, setSub]    = useState(false)
+  const [min, setMin]                     = useState(String(assignment.min_quantity))
+  const [max, setMax]                     = useState(String(assignment.max_quantity))
+  const [isPriority, setIsPriority]       = useState(assignment.priority_check ?? false)
+  const [question, setQuestion]           = useState(assignment.priority_question ?? '')
+  const [error, setError]                 = useState(null)
+  const [submitting, setSub]              = useState(false)
 
   async function handleSave(e) {
     e.preventDefault()
@@ -47,8 +48,10 @@ function EditCompartmentParRow({ assignment, onSaved, onCancel }) {
     setSub(true); setError(null)
     try {
       await adminApi.updateParLevel(assignment.par_id, {
-        min_quantity: minN,
-        max_quantity: maxN,
+        min_quantity:      minN,
+        max_quantity:      maxN,
+        priority_check:    isPriority,
+        priority_question: isPriority ? (question.trim() || null) : null,
       }, getToken)
       onSaved()
     } catch (err) {
@@ -80,6 +83,32 @@ function EditCompartmentParRow({ assignment, onSaved, onCancel }) {
           />
         </label>
       </div>
+
+      <label className="assignment-edit-priority-row">
+        <input
+          type="checkbox"
+          checked={isPriority}
+          onChange={e => setIsPriority(e.target.checked)}
+          disabled={submitting}
+        />
+        <span>Show as priority item at start of check</span>
+      </label>
+
+      {isPriority && (
+        <label className="assignment-edit-label assignment-edit-label--full">
+          Custom check question (optional, max 150 chars)
+          <input
+            className="assignment-edit-input assignment-edit-input--wide"
+            type="text"
+            maxLength={150}
+            value={question}
+            onChange={e => setQuestion(e.target.value)}
+            placeholder={`e.g. "AED shows READY?"`}
+            disabled={submitting}
+          />
+        </label>
+      )}
+
       {error && <p className="assignment-error" role="alert">{error}</p>}
       <div className="assignment-edit-actions">
         <button type="submit" className="btn btn--primary btn--sm" disabled={submitting}>
@@ -98,7 +127,7 @@ function EditCompartmentParRow({ assignment, onSaved, onCancel }) {
 // Compartment and vehicle are already known — user just picks the item and
 // sets quantities. Quantities appear only after an item is selected.
 
-function AddItemToCompartmentForm({ compartmentId, vehicleId, onAdded, onCancel }) {
+function AddItemToCompartmentForm({ compartmentId, vehicleId, locationId, onAdded, onCancel }) {
   const { getToken }                      = useAuth()
   const [selectedItem, setSelectedItem]   = useState(null)
   const [min, setMin]                     = useState('1')
@@ -116,7 +145,8 @@ function AddItemToCompartmentForm({ compartmentId, vehicleId, onAdded, onCancel 
     setSub(true); setError(null)
     try {
       await adminApi.assignItem(selectedItem.item_id, {
-        vehicle_id:     vehicleId,
+        ...(vehicleId   != null ? { vehicle_id:  vehicleId  } : {}),
+        ...(locationId  != null ? { location_id: locationId } : {}),
         compartment_id: compartmentId,
         min_quantity:   minN,
         max_quantity:   maxN,
@@ -183,7 +213,7 @@ function AddItemToCompartmentForm({ compartmentId, vehicleId, onAdded, onCancel 
 
 // ── CompartmentParLevels ──────────────────────────────────────────────────────
 
-export default function CompartmentParLevels({ compartmentId, vehicleId }) {
+export default function CompartmentParLevels({ compartmentId, vehicleId, locationId }) {
   const { getToken }                      = useAuth()
   const [expanded, setExpanded]           = useState(false)
   const [listKey, setListKey]             = useState(0)
@@ -260,6 +290,11 @@ export default function CompartmentParLevels({ compartmentId, vehicleId }) {
                           <div className="assignment-row__info">
                             <span className="assignment-row__compartment">
                               {a.item_name ?? `Item #${a.item_id}`}
+                              {a.priority_check && (
+                                <span className="assignment-priority-badge" title={a.priority_question || 'Priority item'}>
+                                  {' '}★
+                                </span>
+                              )}
                             </span>
                             <QtyBadge min={a.min_quantity} max={a.max_quantity} />
                           </div>
@@ -292,6 +327,7 @@ export default function CompartmentParLevels({ compartmentId, vehicleId }) {
                 <AddItemToCompartmentForm
                   compartmentId={compartmentId}
                   vehicleId={vehicleId}
+                  locationId={locationId}
                   onAdded={refresh}
                   onCancel={() => setShowAddForm(false)}
                 />

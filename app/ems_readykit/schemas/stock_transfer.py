@@ -14,6 +14,7 @@ from ems_readykit.schemas.stock_lot import StockLotRead
 
 # ── Transfer request / response ───────────────────────────────────────────────
 
+
 class TransferRequest(BaseModel):
     from_location_id: int = Field(..., gt=0, description="Source inventory location")
     to_location_id: int = Field(..., gt=0, description="Destination inventory location")
@@ -24,6 +25,7 @@ class TransferRequest(BaseModel):
 
 class StockTransferRead(BaseModel):
     """Response shape for a completed transfer or history record."""
+
     transfer_id: int
     from_location_id: Optional[int] = None
     to_location_id: int
@@ -41,8 +43,10 @@ class StockTransferRead(BaseModel):
 
 # ── Stock summary (per-item view for a location) ──────────────────────────────
 
+
 class StockItemSummary(BaseModel):
     """Aggregated stock state for one item at a location."""
+
     item_id: int
     item_name: str
     item_category: str
@@ -51,11 +55,12 @@ class StockItemSummary(BaseModel):
     par_max: Optional[int] = None
     status: str  # "OK" | "LOW" | "OUT" | "NO_PAR"
     is_any_expiring: bool  # any lot expiring within 30 days (not yet expired)
-    is_any_expired: bool   # any lot already past expiry
+    is_any_expired: bool  # any lot already past expiry
     lots: List[StockLotRead]
 
 
 # ── CSV receive result ────────────────────────────────────────────────────────
+
 
 class CsvReceiveResult(BaseModel):
     rows_imported: int

@@ -42,9 +42,7 @@ class StockTransfer(TimestampMixin, Base):
     to_location_id: Mapped[int] = mapped_column(
         ForeignKey("inventory_locations.location_id"), nullable=False
     )
-    item_id: Mapped[int] = mapped_column(
-        ForeignKey("items.item_id"), nullable=False
-    )
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.item_id"), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
 
     # JWT-bound server-side — never trust a client-supplied identity

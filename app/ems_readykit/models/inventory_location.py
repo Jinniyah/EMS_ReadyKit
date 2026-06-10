@@ -49,10 +49,10 @@ if TYPE_CHECKING:
 
 
 class LocationType(str, enum.Enum):
-    VEHICLE             = "VEHICLE"
+    VEHICLE = "VEHICLE"
     STATION_SUPPLY_ROOM = "STATION_SUPPLY_ROOM"
-    JUMP_BAG            = "JUMP_BAG"
-    EQUIPMENT           = "EQUIPMENT"
+    JUMP_BAG = "JUMP_BAG"
+    EQUIPMENT = "EQUIPMENT"
 
 
 class InventoryLocation(TimestampMixin, Base):

@@ -26,30 +26,36 @@ if TYPE_CHECKING:
 
 
 class LineItemStatus(str, enum.Enum):
-    OK       = "OK"
-    SHORT    = "SHORT"
-    MISSING  = "MISSING"
-    EXPIRED  = "EXPIRED"
-    LOW      = "LOW"
+    OK = "OK"
+    SHORT = "SHORT"
+    MISSING = "MISSING"
+    EXPIRED = "EXPIRED"
+    LOW = "LOW"
     CRITICAL = "CRITICAL"
-    FAIL     = "FAIL"
-    OVERDUE  = "OVERDUE"
+    FAIL = "FAIL"
+    OVERDUE = "OVERDUE"
 
 
 class CheckLineItem(TimestampMixin, Base):
     __tablename__ = "check_line_items"
 
-    line_item_id:   Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    check_id:       Mapped[int] = mapped_column(ForeignKey("daily_inventory_checks.check_id"), nullable=False)
-    compartment_id: Mapped[int] = mapped_column(ForeignKey("compartments.compartment_id"), nullable=False)
-    item_id:        Mapped[int] = mapped_column(ForeignKey("items.item_id"), nullable=False)
+    line_item_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    check_id: Mapped[int] = mapped_column(
+        ForeignKey("daily_inventory_checks.check_id"), nullable=False
+    )
+    compartment_id: Mapped[int] = mapped_column(
+        ForeignKey("compartments.compartment_id"), nullable=False
+    )
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.item_id"), nullable=False)
 
-    quantity_needed:   Mapped[int]            = mapped_column(Integer, nullable=False, default=0)
-    quantity_found:    Mapped[int]            = mapped_column(Integer, nullable=False, default=0)
-    lot_id:            Mapped[Optional[int]]  = mapped_column(ForeignKey("stock_lots.lot_id"), nullable=True)
+    quantity_needed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    quantity_found: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    lot_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("stock_lots.lot_id"), nullable=True
+    )
     measurement_value: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    functional_pass:   Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
-    date_value:        Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    functional_pass: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    date_value: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
 
     status: Mapped[LineItemStatus] = mapped_column(
         SAEnum(LineItemStatus, native_enum=False), nullable=False
@@ -57,10 +63,18 @@ class CheckLineItem(TimestampMixin, Base):
     notes: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
 
     # ── Relationships ─────────────────────────────────────────────────────────
-    check:       Mapped["DailyInventoryCheck"] = relationship("DailyInventoryCheck", back_populates="line_items")
-    compartment: Mapped["Compartment"]          = relationship("Compartment", back_populates="check_line_items")
-    item:        Mapped["Item"]                 = relationship("Item", back_populates="check_line_items", lazy="selectin")
-    lot:         Mapped[Optional["StockLot"]]   = relationship("StockLot", back_populates="check_line_items", lazy="selectin")
+    check: Mapped["DailyInventoryCheck"] = relationship(
+        "DailyInventoryCheck", back_populates="line_items"
+    )
+    compartment: Mapped["Compartment"] = relationship(
+        "Compartment", back_populates="check_line_items"
+    )
+    item: Mapped["Item"] = relationship(
+        "Item", back_populates="check_line_items", lazy="selectin"
+    )
+    lot: Mapped[Optional["StockLot"]] = relationship(
+        "StockLot", back_populates="check_line_items", lazy="selectin"
+    )
 
     # ── Hybrid properties ─────────────────────────────────────────────────────
 
@@ -83,7 +97,7 @@ class CheckLineItem(TimestampMixin, Base):
         if self.item is None:
             return None
         ct = self.item.check_type
-        return ct.value if hasattr(ct, 'value') else str(ct)
+        return ct.value if hasattr(ct, "value") else str(ct)
 
     def __repr__(self) -> str:
         return (

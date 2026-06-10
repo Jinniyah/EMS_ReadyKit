@@ -59,6 +59,7 @@ class ControlledSubstanceCheckBase(BaseModel):
 
 class ControlledSubstanceCheckCreate(ControlledSubstanceCheckBase):
     """Request body for POST /checks/controlled-substance."""
+
     pass
 
 

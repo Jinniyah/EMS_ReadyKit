@@ -50,8 +50,4 @@ def list_audit_events(
     if station_id is not None:
         query = query.filter(AuditEvent.station_id == station_id)
 
-    return (
-        query.order_by(AuditEvent.timestamp.desc())
-        .limit(limit)
-        .all()
-    )
+    return query.order_by(AuditEvent.timestamp.desc()).limit(limit).all()

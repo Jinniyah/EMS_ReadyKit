@@ -77,11 +77,14 @@ def create_item(payload: ItemCreate, db: Session = Depends(get_db)) -> Item:
     db.refresh(item)
     logger.info(
         "Item created: item_id=%s name=%r category=%s controlled_substance=%s",
-        item.item_id, item.name, item.category, item.controlled_substance,
+        item.item_id,
+        item.name,
+        item.category,
+        item.controlled_substance,
         extra={
-            "action":      "ITEM_CREATED",
+            "action": "ITEM_CREATED",
             "entity_type": "item",
-            "entity_id":   str(item.item_id),
+            "entity_id": str(item.item_id),
         },
     )
     return item

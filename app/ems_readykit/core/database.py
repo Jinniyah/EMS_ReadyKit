@@ -41,7 +41,7 @@ def _build_engine():
     engine_kwargs: dict = {
         "connect_args": connect_args,
         "pool_pre_ping": True,
-        "echo": not settings.is_production,   # SQL query logging in dev only
+        "echo": not settings.is_production,  # SQL query logging in dev only
     }
     if not settings.is_sqlite:
         engine_kwargs["pool_size"] = 5
@@ -71,10 +71,12 @@ SessionLocal = sessionmaker(
 
 class Base(DeclarativeBase):
     """Shared declarative base for all ORM models."""
+
     pass
 
 
 # ── FastAPI dependency ────────────────────────────────────────────────────────
+
 
 def get_db():
     """

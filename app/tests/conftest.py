@@ -96,6 +96,7 @@ def db(engine):
 @pytest.fixture(scope="function")
 def client(db):
     """FastAPI test client with DB dependency overridden to use the test session."""
+
     def override_get_db():
         try:
             yield db
@@ -109,6 +110,7 @@ def client(db):
 
 
 # ── Auth header fixtures ───────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def auth_admin():
@@ -132,7 +134,7 @@ def auth_responder():
 
 # Path to the seeded dev database. Resolved relative to the app/ directory.
 _DEV_DB_PATH = os.path.join(os.path.dirname(__file__), "..", "ems_readykit_dev.db")
-_DEV_DB_URL  = f"sqlite:///{os.path.abspath(_DEV_DB_PATH)}"
+_DEV_DB_URL = f"sqlite:///{os.path.abspath(_DEV_DB_PATH)}"
 
 
 @pytest.fixture(scope="session")

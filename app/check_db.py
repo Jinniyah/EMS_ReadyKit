@@ -6,6 +6,7 @@ Prints:
   - Current Alembic version in the DB
   - Whether the color/call_sign columns exist on stations and vehicles
 """
+
 import sys
 
 sys.path.insert(0, ".")

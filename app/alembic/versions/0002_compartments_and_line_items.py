@@ -27,6 +27,7 @@ PostgreSQL note:
   is fully idempotent. A previous failed deploy may have partially applied
   some statements; the guards prevent "already exists" errors on retry.
 """
+
 from __future__ import annotations
 
 from typing import Sequence, Union
@@ -49,7 +50,9 @@ def upgrade() -> None:
     if dialect == "sqlite":
         op.create_table(
             "compartments",
-            sa.Column("compartment_id", sa.Integer, primary_key=True, autoincrement=True),
+            sa.Column(
+                "compartment_id", sa.Integer, primary_key=True, autoincrement=True
+            ),
             sa.Column(
                 "location_id",
                 sa.Integer,
@@ -58,11 +61,15 @@ def upgrade() -> None:
             ),
             sa.Column("name", sa.String(100), nullable=False),
             sa.Column("sort_order", sa.Integer, nullable=False, server_default="0"),
-            sa.Column("als_only", sa.Boolean, nullable=False, server_default=sa.false()),
+            sa.Column(
+                "als_only", sa.Boolean, nullable=False, server_default=sa.false()
+            ),
             sa.Column("active", sa.Boolean, nullable=False, server_default=sa.true()),
             sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
             sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-            sa.UniqueConstraint("location_id", "name", name="uq_compartment_location_name"),
+            sa.UniqueConstraint(
+                "location_id", "name", name="uq_compartment_location_name"
+            ),
         )
         op.create_index("ix_compartments_location_id", "compartments", ["location_id"])
     else:
@@ -114,15 +121,21 @@ def upgrade() -> None:
                 sa.ForeignKey("stock_lots.lot_id"),
                 nullable=True,
             ),
-            sa.Column("quantity_needed", sa.Integer, nullable=False, server_default="0"),
+            sa.Column(
+                "quantity_needed", sa.Integer, nullable=False, server_default="0"
+            ),
             sa.Column("quantity_found", sa.Integer, nullable=False, server_default="0"),
             sa.Column("status", sa.String(10), nullable=False),
             sa.Column("notes", sa.String(300), nullable=True),
             sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
             sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         )
-        op.create_index("ix_check_line_items_check_id", "check_line_items", ["check_id"])
-        op.create_index("ix_check_line_items_compartment_id", "check_line_items", ["compartment_id"])
+        op.create_index(
+            "ix_check_line_items_check_id", "check_line_items", ["check_id"]
+        )
+        op.create_index(
+            "ix_check_line_items_compartment_id", "check_line_items", ["compartment_id"]
+        )
         op.create_index("ix_check_line_items_status", "check_line_items", ["status"])
         op.create_index("ix_check_line_items_lot_id", "check_line_items", ["lot_id"])
     else:
@@ -168,9 +181,7 @@ def upgrade() -> None:
     # run (failed deploy) doesn't cause "column already exists" errors.
     if dialect == "sqlite":
         with op.batch_alter_table("par_levels", schema=None) as batch_op:
-            batch_op.add_column(
-                sa.Column("compartment_id", sa.Integer, nullable=True)
-            )
+            batch_op.add_column(sa.Column("compartment_id", sa.Integer, nullable=True))
             batch_op.create_index("ix_par_levels_compartment_id", ["compartment_id"])
             batch_op.create_unique_constraint(
                 "uq_par_item_compartment", ["item_id", "compartment_id"]
@@ -226,7 +237,9 @@ def downgrade() -> None:
     if dialect == "sqlite":
         op.drop_index("ix_check_line_items_lot_id", table_name="check_line_items")
         op.drop_index("ix_check_line_items_status", table_name="check_line_items")
-        op.drop_index("ix_check_line_items_compartment_id", table_name="check_line_items")
+        op.drop_index(
+            "ix_check_line_items_compartment_id", table_name="check_line_items"
+        )
         op.drop_index("ix_check_line_items_check_id", table_name="check_line_items")
         op.drop_table("check_line_items")
         op.drop_index("ix_compartments_location_id", table_name="compartments")

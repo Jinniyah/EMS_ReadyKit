@@ -1,5 +1,5 @@
 # EMS ReadyKit — Codebase Index
-# Last updated: 2026-06-10 (Post-session O: EXPIRY_DATE check type, SEED-GAP2 enforcement, RX-F9b/F10/F13)
+# Last updated: 2026-06-10 (Post-session Q: station settings CH-B7/B8, migration 0022, settings module S-F1/F3)
 # PURPOSE: Load this file at the start of every session to orient quickly.
 # After reading this, load only the sections relevant to the current task.
 # Full project state → docs/project_index.md | Open work → docs/backlog.md
@@ -18,7 +18,7 @@ EMS_ReadyKit/
 │   │   ├── schemas/            # Pydantic request/response schemas
 │   │   └── main.py             # App factory, middleware, router registration
 │   ├── alembic/                # DB migrations (versions/ subdirectory)
-│   ├── tests/                  # pytest suite (364 tests, 0 xfailed)
+│   ├── tests/                  # pytest suite (368 tests, 0 xfailed)
 │   ├── seed.py                 # Dev seed data (Newberg 712 BLS + 712 Jump Bag; Marcellus 540 ALS; TEST station)
 │   ├── initial_stock.csv       # 10 seed stock items — upload via Receive New Stock → CSV
 │   └── pyproject.toml          # Dependencies + pytest config
@@ -51,7 +51,7 @@ All routes are prefixed `/api/v1/`. Router registration order in main.py matters
 | File | Size | Route Prefix | Roles | Purpose |
 |------|------|-------------|-------|---------|
 | `deps.py` | 5 KB | — | — | Shared: `get_current_user`, `require_role`, `get_vehicle_or_404`, `require_station_membership`, role constants |
-| `stations.py` | 9 KB | `/stations` | All / Admin | CRUD; GET /my; GET supply-room (404 if missing); POST supply-room (get-or-create + Shelf 1–4) |
+| `stations.py` | 11 KB | `/stations` | All / Admin | CRUD; GET /my; GET supply-room (404 if missing); POST supply-room (get-or-create + Shelf 1–4); `GET /stations/{id}/expiring-soon` includes EXPIRY_DATE check-type items (SUP-F3); `GET /stations/{id}/settings` (Supervisor+, CH-B8); `PATCH /stations/{id}/settings` (Admin only, CH-B7). |
 | `station_members.py` | 8 KB | `/stations/{id}/members` | Supervisor+ | Membership management |
 | `vehicles.py` | 6 KB | `/vehicles` | All + membership | Vehicle CRUD; OOS/RTS status toggle |
 | `checks.py` | 20 KB | `/checks/daily` | All + membership | Check wizard: create with embedded line_items; `_compute_line_item_status`; `_auto_decrement_supply_room` (SR-B4); `GET /daily/last-readings` returns last quantity_found + readings per item for vehicle/location |
@@ -59,7 +59,7 @@ All routes are prefixed `/api/v1/`. Router registration order in main.py matters
 | `repair_requests.py` | 9 KB | `/vehicles/{id}/repair-requests` | All roles | File, update, resolve repair requests; `resolution_notes` required on RESOLVED |
 | `inventory.py` | 28 KB | `/inventory` | All + membership | Locations, compartments, par levels, lots, stock summary, CSV receive. `GET /supply-catalog?station_id=` (SR-B1). `PATCH /supply-catalog/items/{id}/count` (SR-B2). `PUT /lots/{id}` (SR-F7). `PATCH /inventory/items/{id}/status` marks/clears damaged — uses `actor=`/`metadata=` kwargs on write_audit_event. |
 | `items.py` | 3 KB | `/items` | Supervisor+ (create/edit) / All (read) | Item catalog; `POST /items` is SUPERVISOR_PLUS (not admin-only); deactivation is ADMIN_ONLY via admin router |
-| `admin.py` | 29 KB | `/admin` | Admin (most) / Supervisor+ | Stations (Admin only), vehicles, items, par levels, CSV import. `PATCH /admin/par-levels/{id}` requires `min_quantity` + `max_quantity` + optional `priority_check`/`priority_question`. Item deactivation: `PATCH /admin/items/{id}/deactivate` is ADMIN_ONLY. |
+| `admin.py` | 30 KB | `/admin` | Admin (most) / Supervisor+ | Stations (Admin only), vehicles, items, par levels, CSV import. `PATCH /admin/par-levels/{id}` accepts `min_quantity`/`max_quantity`/`priority_check`/`priority_question`. `PATCH /admin/locations/{id}` renames a location label (Admin only, SS-B1). Item deactivation: `PATCH /admin/items/{id}/deactivate` is ADMIN_ONLY. |
 | `usage.py` | 9 KB | `/checks` | All + membership | `POST /checks/usage` (log items used, FIFO decrement); `GET /checks/usage/station/{id}` (history); `GET /checks/usage/station/{id}/frequent` (top 10 items, 90-day window) |
 | `audit.py` | 2 KB | `/audit` | Supervisor+ | Paginated audit event log |
 
@@ -82,7 +82,7 @@ from ems_readykit.routers.deps import (
 
 | File | Key Model | Notes |
 |------|-----------|-------|
-| `station.py` | `Station` | primary_color (0011), call_sign (0012) |
+| `station.py` | `Station` | primary_color (0011), call_sign (0012), allow_check_modification (0022, default True) |
 | `vehicle.py` | `Vehicle` | vehicle_color (0011); status ACTIVE/OOS |
 | `inventory_location.py` | `InventoryLocation` | LocationType: VEHICLE, JUMP_BAG, STATION_SUPPLY_ROOM |
 | `compartment.py` | `Compartment` | sort_order, location_descriptor, `requires_full_check` (bool, migration 0015) — when True, No Change is blocked for that compartment (Truck Operations uses this) |
@@ -153,7 +153,7 @@ AuditEvent     (immutable log)
 | `test_seed_integrity.py` | — | Verifies seeded dev DB: Unit 712, PC 8, AED/LUCAS items, O2 PSI minimums, Truck Operations, jump bags | `seeded_db` |
 | `test_usage.py` | — | POST /checks/usage happy path, FIFO decrement, non-SUPPLY rejection, 403/404 guards; GET history + frequent items | `db` |
 
-**Run:** `cd app; pytest` — **364 tests passing, 0 xfailed**
+**Run:** `cd app; pytest` — **368 tests passing, 0 xfailed**
 
 **Two DB fixtures — do not mix:**
 - `db` — in-memory SQLite, empty, rolls back after each test. Use for all API/logic tests.
@@ -204,7 +204,9 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 | `components/ItemCatalog.jsx` | 9 KB | Item search + list (also reused as View Supplies interface in supply room) |
 | `components/ItemForm.jsx` | 16 KB | Add/edit item form |
 | `components/ItemAssignments.jsx` | 18 KB | Par level assignment — item-centric |
-| `components/CompartmentParLevels.jsx` | — | Par level assignment — vehicle-centric (per-compartment item list) |
+| `components/CompartmentParLevels.jsx` | — | Par level assignment — per-compartment item list. Accepts `vehicleId` OR `locationId` (for supply room / portable locations). Priority checkbox + question field (RX-F12). |
+| `components/StationSuppliesScreen.jsx` | — | SS-F1: Admin screen — manage supply room shelves and their par levels. Fetches supply room → compartments → CompartmentParLevels per shelf. |
+| `components/PortableLocationsScreen.jsx` | — | ADMIN-F7: Full CRUD for portable locations (Jump Bags). List → create → rename + ShelfManager (compartment CRUD + par levels). |
 | `components/CsvImport.jsx` | 8 KB | Bulk item import with template download |
 
 ### supply-room/  (Station Supplies — redesigned Session K)
@@ -213,7 +215,7 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 | `index.jsx` | 6 KB | Landing: 3 large cards (View Supplies, Count Supplies, Usage Log). Detects 404 → setup state with "Set Up Supply Room" button (calls POST supply-room). |
 | `supply-room.css` | — | All supply-room CSS using design tokens |
 | `api/supplyApi.js` | 3 KB | getSupplyRoom, createSupplyRoom (POST), catalog (SR-B1), patchCount (SR-B2), putLot (SR-F7), CSV, station locations |
-| `components/SupplyCatalogView.jsx` | — | SR-F3: catalog from SR-B1; "On hand / Par" color-coded; inline count correction (Supervisor+); lot expiry editor (SR-F7) |
+| `components/SupplyCatalogView.jsx` | — | SR-F3: catalog from SR-B1 (now returns compartment_id/name + is_damaged); items grouped by shelf; ⚠ Damaged badge (DMG-F3); per-shelf CompartmentParLevels add button for Supervisor+ (SS-F2). |
 | `components/ReceiveStockPanel.jsx` | 8 KB | Manual add + CSV bulk upload |
 | `components/TransferHistory.jsx` | 4 KB | Inbound/outbound transfer log |
 | `components/RestockVehiclePanel.jsx` | 9 KB | Retired — no longer imported or routed. Kept for historical reference. |
@@ -240,6 +242,13 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 |------|------|---------|
 | `index.jsx` | 6 KB | My Checks / All Checks tabs + detail navigation |
 | `components/` | — | Check list items and detail view |
+
+### settings/  (Station configuration — Session Q, Supervisor+)
+| File | Size | Purpose |
+|------|------|---------|
+| `index.jsx` | — | Settings screen orchestration. Admin: interactive allow_check_modification toggle. Supervisor: read-only label. Reads via CH-B8, writes via CH-B7. |
+| `api/settingsApi.js` | — | `getSettings(stationId, getToken)`, `updateSettings(stationId, payload, getToken)` — wraps CH-B8/CH-B7 |
+| `settings.css` | — | Token-based CSS: `.settings-screen`, `.settings-section`, `.settings-row`, `.settings-toggle--on/off`, `.settings-value--on/off`. 60px tap targets. |
 
 ---
 
@@ -316,7 +325,7 @@ Vitest + React Testing Library. Run: `cd frontend && npm test` — **180 tests p
 
 ## Migrations (app/alembic/versions/)
 
-21 migrations applied (0001–0021, plus 0003a branch). Run automatically at startup via `startup.sh`.
+22 migrations applied (0001–0022, plus 0003a branch). Run automatically at startup via `startup.sh`.
 To add a new migration: `cd app && alembic revision --autogenerate -m "description"`
 
 | Migration | Description |
@@ -334,6 +343,7 @@ To add a new migration: `cd app && alembic revision --autogenerate -m "descripti
 | 0019 | `ix_check_station_date` composite index on `daily_inventory_checks(station_id, check_date)` |
 | 0020 | `usage_events` + `usage_event_items` tables; indexes on station_id and timestamp (Session N) |
 | 0021 | UPDATE items: AED Pads Adult/Pediatric → `check_type = 'EXPIRY_DATE'`, `recurrence_days = NULL` (Session O) |
+| 0022 | `allow_check_modification` Boolean column on `stations` (NOT NULL, server_default=True). Batch mode. (Session Q, B-M10) |
 
 ---
 
@@ -393,11 +403,5 @@ Idempotent — safe to re-run. Reseed sequence: `Remove-Item ems_readykit_dev.db
 
 | Session | Focus | Key Items |
 |---------|-------|-----------|
-| **P** | Admin + Supply Room (~4.5 hrs) | RX-B2/F12 (priority toggle), DMG-F3, SS-B1/F1/F2, ADMIN-F7, SUP-F3 |
-| **Q** | Dashboard + Station Settings (~4 hrs) | B-M10, CH-B7/B8, ACC-F1-F5, S-F1/F3 |
 | **R** | Retirement + Security (~4 hrs) | RET-M1-M3, RET-B1-B6, RET-F1-F5, S-F6/F7/F8, I-3, SEC-OPS1 |
 | **S** | UAT Dress Rehearsal + Launch | LAUNCH-OPS1-9, UAT-2-11 |
-
-**Pre-launch blockers not yet resolved:**
-- RX-F12: Priority toggle UI in admin par level form — Session P
-- RX-F11: First-run tutorial (3 screens, shown once) — not yet scheduled (was Session N scope, skipped)

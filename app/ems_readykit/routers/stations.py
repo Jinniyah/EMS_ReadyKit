@@ -19,17 +19,22 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel
+from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
+from ems_readykit.core.audit import write_audit_event
 from ems_readykit.core.auth import CurrentUser
 from ems_readykit.core.database import get_db
+from ems_readykit.models.check_line_item import CheckLineItem
 from ems_readykit.models.compartment import Compartment
+from ems_readykit.models.daily_inventory_check import DailyInventoryCheck
 from ems_readykit.models.inventory_location import InventoryLocation, LocationType
-from ems_readykit.models.item import Item
+from ems_readykit.models.item import Item, ItemCheckType
 from ems_readykit.models.par_level import ParLevel
 from ems_readykit.models.station import Station
 from ems_readykit.models.station_member import StationMember
 from ems_readykit.models.stock_lot import StockLot
+from ems_readykit.models.vehicle import Vehicle
 from ems_readykit.routers.deps import (
     ADMIN_ONLY,
     ALL_ROLES,
@@ -38,7 +43,12 @@ from ems_readykit.routers.deps import (
     require_station_membership,
 )
 from ems_readykit.schemas.inventory_location import InventoryLocationRead
-from ems_readykit.schemas.station import StationCreate, StationRead
+from ems_readykit.schemas.station import (
+    StationCreate,
+    StationRead,
+    StationSettingsPatch,
+    StationSettingsRead,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +56,7 @@ router = APIRouter(prefix="/stations", tags=["stations"])
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _get_station_or_404(station_id: int, db: Session) -> Station:
     station = db.query(Station).filter(Station.station_id == station_id).first()
@@ -58,6 +69,7 @@ def _get_station_or_404(station_id: int, db: Session) -> Station:
 
 
 # ── GET /stations — Admin list ────────────────────────────────────────────────
+
 
 @router.get(
     "",
@@ -73,6 +85,7 @@ def list_stations(
 
 
 # ── GET /stations/my — member-scoped list ─────────────────────────────────────
+
 
 @router.get(
     "/my",
@@ -107,6 +120,7 @@ def list_my_stations(
 
 # ── POST /stations — create ────────────────────────────────────────────────────
 
+
 @router.post(
     "",
     response_model=StationRead,
@@ -116,18 +130,31 @@ def list_my_stations(
 )
 def create_station(payload: StationCreate, db: Session = Depends(get_db)) -> Station:
     station = Station(
-        name=payload.name, address=payload.address, region=payload.region,
-        active=payload.active, call_sign=payload.call_sign, primary_color=payload.primary_color,
+        name=payload.name,
+        address=payload.address,
+        region=payload.region,
+        active=payload.active,
+        call_sign=payload.call_sign,
+        primary_color=payload.primary_color,
     )
     db.add(station)
     db.commit()
     db.refresh(station)
-    logger.info("Station created: station_id=%s name=%r", station.station_id, station.name,
-        extra={"action": "STATION_CREATED", "entity_type": "station", "entity_id": str(station.station_id)})
+    logger.info(
+        "Station created: station_id=%s name=%r",
+        station.station_id,
+        station.name,
+        extra={
+            "action": "STATION_CREATED",
+            "entity_type": "station",
+            "entity_id": str(station.station_id),
+        },
+    )
     return station
 
 
 # ── PATCH /stations/{id} — edit ────────────────────────────────────────────────
+
 
 @router.patch(
     "/{station_id}",
@@ -145,20 +172,29 @@ def update_station(
     Administrator only. The station_id never changes.
     """
     station = _get_station_or_404(station_id, db)
-    station.name          = payload.name
-    station.address       = payload.address
-    station.region        = payload.region
-    station.call_sign     = payload.call_sign
+    station.name = payload.name
+    station.address = payload.address
+    station.region = payload.region
+    station.call_sign = payload.call_sign
     station.primary_color = payload.primary_color
-    station.active        = payload.active
+    station.active = payload.active
     db.commit()
     db.refresh(station)
-    logger.info("Station updated: station_id=%s name=%r", station.station_id, station.name,
-        extra={"action": "STATION_UPDATED", "entity_type": "station", "entity_id": str(station_id)})
+    logger.info(
+        "Station updated: station_id=%s name=%r",
+        station.station_id,
+        station.name,
+        extra={
+            "action": "STATION_UPDATED",
+            "entity_type": "station",
+            "entity_id": str(station_id),
+        },
+    )
     return station
 
 
 # ── DELETE /stations/{id} — soft deactivate ────────────────────────────────────
+
 
 @router.delete(
     "/{station_id}",
@@ -182,12 +218,21 @@ def deactivate_station(
         )
     station.active = False
     db.commit()
-    logger.info("Station deactivated: station_id=%s name=%r", station_id, station.name,
-        extra={"action": "STATION_DEACTIVATED", "entity_type": "station", "entity_id": str(station_id)})
+    logger.info(
+        "Station deactivated: station_id=%s name=%r",
+        station_id,
+        station.name,
+        extra={
+            "action": "STATION_DEACTIVATED",
+            "entity_type": "station",
+            "entity_id": str(station_id),
+        },
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # ── GET /stations/{station_id}/locations ──────────────────────────────────────
+
 
 @router.get(
     "/{station_id}/locations",
@@ -205,10 +250,12 @@ def list_station_locations(
         db.query(InventoryLocation)
         .filter(
             InventoryLocation.station_id == station_id,
-            InventoryLocation.location_type.in_([
-                LocationType.JUMP_BAG,
-                LocationType.EQUIPMENT,
-            ]),
+            InventoryLocation.location_type.in_(
+                [
+                    LocationType.JUMP_BAG,
+                    LocationType.EQUIPMENT,
+                ]
+            ),
         )
         .order_by(InventoryLocation.label)
         .all()
@@ -216,6 +263,7 @@ def list_station_locations(
 
 
 # ── GET /stations/{station_id}/supply-room — SUPPLY-B3 ───────────────────────
+
 
 @router.get(
     "/{station_id}/supply-room",
@@ -236,7 +284,7 @@ def get_supply_room(
     location = (
         db.query(InventoryLocation)
         .filter(
-            InventoryLocation.station_id   == station_id,
+            InventoryLocation.station_id == station_id,
             InventoryLocation.location_type == LocationType.STATION_SUPPLY_ROOM,
         )
         .first()
@@ -250,6 +298,7 @@ def get_supply_room(
 
 
 # ── POST /stations/{station_id}/supply-room — create supply room ─────────────
+
 
 @router.post(
     "/{station_id}/supply-room",
@@ -273,7 +322,7 @@ def create_supply_room(
     location = (
         db.query(InventoryLocation)
         .filter(
-            InventoryLocation.station_id    == station_id,
+            InventoryLocation.station_id == station_id,
             InventoryLocation.location_type == LocationType.STATION_SUPPLY_ROOM,
         )
         .first()
@@ -282,10 +331,10 @@ def create_supply_room(
         return location
 
     location = InventoryLocation(
-        station_id    = station_id,
-        vehicle_id    = None,
-        location_type = LocationType.STATION_SUPPLY_ROOM,
-        label         = "Station Supply Room",
+        station_id=station_id,
+        vehicle_id=None,
+        location_type=LocationType.STATION_SUPPLY_ROOM,
+        label="Station Supply Room",
     )
     db.add(location)
     db.flush()
@@ -297,25 +346,31 @@ def create_supply_room(
     ) > 0
 
     if not has_compartments:
-        for sort_order, name in enumerate(["Shelf 1", "Shelf 2", "Shelf 3", "Shelf 4"], start=1):
-            db.add(Compartment(
-                location_id = location.location_id,
-                name        = name,
-                sort_order  = sort_order,
-                active      = True,
-            ))
+        for sort_order, name in enumerate(
+            ["Shelf 1", "Shelf 2", "Shelf 3", "Shelf 4"], start=1
+        ):
+            db.add(
+                Compartment(
+                    location_id=location.location_id,
+                    name=name,
+                    sort_order=sort_order,
+                    active=True,
+                )
+            )
 
     db.commit()
     db.refresh(location)
 
     logger.info(
         "Supply room created for station %s by %s",
-        station_id, current_user.email,
+        station_id,
+        current_user.email,
     )
     return location
 
 
 # ── GET /stations/{station_id}/expiring-soon — SUP-F3 ───────────────────────
+
 
 class _ExpiringLot(BaseModel):
     lot_id: int
@@ -325,11 +380,13 @@ class _ExpiringLot(BaseModel):
     days_until_expiry: int
     quantity: int
 
+
 class _ExpiringGroup(BaseModel):
     location_id: int
     location_label: str
     vehicle_number: Optional[str]
     lots: List[_ExpiringLot]
+
 
 @router.get(
     "/{station_id}/expiring-soon",
@@ -346,8 +403,8 @@ def get_expiring_soon(
     _get_station_or_404(station_id, db)
     require_station_membership(station_id, current_user, db)
 
-    today   = date.today()
-    cutoff  = today + timedelta(days=days)
+    today = date.today()
+    cutoff = today + timedelta(days=days)
 
     lots = (
         db.query(StockLot)
@@ -376,25 +433,105 @@ def get_expiring_soon(
                 lots=[],
             )
         days_left = (lot.expiration_date - today).days
-        groups[loc.location_id].lots.append(_ExpiringLot(
-            lot_id=lot.lot_id,
-            item_name=lot.item.name,
-            lot_number=lot.lot_number,
-            expiration_date=lot.expiration_date,
-            days_until_expiry=days_left,
-            quantity=lot.quantity,
-        ))
+        groups[loc.location_id].lots.append(
+            _ExpiringLot(
+                lot_id=lot.lot_id,
+                item_name=lot.item.name,
+                lot_number=lot.lot_number,
+                expiration_date=lot.expiration_date,
+                days_until_expiry=days_left,
+                quantity=lot.quantity,
+            )
+        )
+
+    # EXPIRY_DATE check-type items: surface last recorded date_value per (vehicle, item)
+    sub = (
+        db.query(
+            DailyInventoryCheck.vehicle_id.label("vehicle_id"),
+            CheckLineItem.item_id.label("item_id"),
+            func.max(DailyInventoryCheck.check_id).label("max_check_id"),
+        )
+        .join(CheckLineItem, CheckLineItem.check_id == DailyInventoryCheck.check_id)
+        .join(Item, Item.item_id == CheckLineItem.item_id)
+        .filter(
+            DailyInventoryCheck.station_id == station_id,
+            DailyInventoryCheck.vehicle_id.isnot(None),
+            Item.check_type == ItemCheckType.EXPIRY_DATE.value,
+            DailyInventoryCheck.deleted_at.is_(None),
+        )
+        .group_by(DailyInventoryCheck.vehicle_id, CheckLineItem.item_id)
+        .subquery()
+    )
+    expiry_rows = (
+        db.query(
+            CheckLineItem.date_value,
+            CheckLineItem.line_item_id,
+            Item.name.label("item_name"),
+            InventoryLocation.location_id.label("veh_location_id"),
+            InventoryLocation.label.label("veh_location_label"),
+            Vehicle.vehicle_number,
+        )
+        .join(
+            DailyInventoryCheck, DailyInventoryCheck.check_id == CheckLineItem.check_id
+        )
+        .join(Item, Item.item_id == CheckLineItem.item_id)
+        .join(Vehicle, Vehicle.vehicle_id == DailyInventoryCheck.vehicle_id)
+        .join(
+            InventoryLocation,
+            and_(
+                InventoryLocation.vehicle_id == DailyInventoryCheck.vehicle_id,
+                InventoryLocation.location_type == LocationType.VEHICLE,
+            ),
+        )
+        .join(
+            sub,
+            and_(
+                DailyInventoryCheck.vehicle_id == sub.c.vehicle_id,
+                CheckLineItem.item_id == sub.c.item_id,
+                DailyInventoryCheck.check_id == sub.c.max_check_id,
+            ),
+        )
+        .filter(
+            CheckLineItem.date_value.isnot(None),
+            CheckLineItem.date_value >= today,
+            CheckLineItem.date_value <= cutoff,
+        )
+        .all()
+    )
+    for row in expiry_rows:
+        loc_id = row.veh_location_id
+        if loc_id not in groups:
+            groups[loc_id] = _ExpiringGroup(
+                location_id=loc_id,
+                location_label=row.veh_location_label,
+                vehicle_number=row.vehicle_number,
+                lots=[],
+            )
+        days_left = (row.date_value - today).days
+        groups[loc_id].lots.append(
+            _ExpiringLot(
+                lot_id=-(
+                    row.line_item_id
+                ),  # negative avoids collision with stock lot IDs
+                item_name=row.item_name,
+                lot_number=None,
+                expiration_date=row.date_value,
+                days_until_expiry=days_left,
+                quantity=1,
+            )
+        )
 
     return list(groups.values())
 
 
 # ── GET /stations/{station_id}/supply-alerts — SR-B3 ─────────────────────────
 
+
 class _SupplyAlertItem(BaseModel):
     item_name: str
-    on_hand:   int
-    par_min:   int
-    unit:      str
+    on_hand: int
+    par_min: int
+    unit: str
 
 
 @router.get(
@@ -415,10 +552,14 @@ def get_supply_alerts(
     _get_station_or_404(station_id, db)
     require_station_membership(station_id, current_user, db)
 
-    supply_room = db.query(InventoryLocation).filter(
-        InventoryLocation.station_id    == station_id,
-        InventoryLocation.location_type == LocationType.STATION_SUPPLY_ROOM,
-    ).first()
+    supply_room = (
+        db.query(InventoryLocation)
+        .filter(
+            InventoryLocation.station_id == station_id,
+            InventoryLocation.location_type == LocationType.STATION_SUPPLY_ROOM,
+        )
+        .first()
+    )
     if not supply_room:
         return []
 
@@ -449,18 +590,19 @@ def get_supply_alerts(
         .filter(
             StockLot.location_id == supply_room.location_id,
             StockLot.item_id.in_(item_ids),
-            StockLot.quantity    >  0,
+            StockLot.quantity > 0,
         )
         .all()
     )
     on_hand_by_item: dict[int, int] = {}
     for lot in lots:
-        on_hand_by_item[lot.item_id] = on_hand_by_item.get(lot.item_id, 0) + lot.quantity
+        on_hand_by_item[lot.item_id] = (
+            on_hand_by_item.get(lot.item_id, 0) + lot.quantity
+        )
 
     # Items
     items = {
-        i.item_id: i
-        for i in db.query(Item).filter(Item.item_id.in_(item_ids)).all()
+        i.item_id: i for i in db.query(Item).filter(Item.item_id.in_(item_ids)).all()
     }
 
     alerts = []
@@ -468,18 +610,21 @@ def get_supply_alerts(
         on_hand = on_hand_by_item.get(item_id, 0)
         if on_hand < par_min:
             item = items.get(item_id)
-            alerts.append(_SupplyAlertItem(
-                item_name = item.name if item else str(item_id),
-                on_hand   = on_hand,
-                par_min   = par_min,
-                unit      = item.unit_of_measure if item else "each",
-            ))
+            alerts.append(
+                _SupplyAlertItem(
+                    item_name=item.name if item else str(item_id),
+                    on_hand=on_hand,
+                    par_min=par_min,
+                    unit=item.unit_of_measure if item else "each",
+                )
+            )
 
     alerts.sort(key=lambda a: a.item_name)
     return alerts
 
 
 # ── GET /stations/{station_id} ─────────────────────────────────────────────────
+
 
 @router.get(
     "/{station_id}",
@@ -493,4 +638,53 @@ def get_station(
 ) -> Station:
     station = _get_station_or_404(station_id, db)
     require_station_membership(station_id, current_user, db)
+    return station
+
+
+# ── GET /stations/{station_id}/settings — CH-B8 ───────────────────────────────
+
+
+@router.get(
+    "/{station_id}/settings",
+    response_model=StationSettingsRead,
+    summary="Read station settings (CH-B8) — Supervisor+",
+)
+def get_station_settings(
+    station_id: int,
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
+    db: Session = Depends(get_db),
+) -> Station:
+    station = _get_station_or_404(station_id, db)
+    require_station_membership(station_id, current_user, db)
+    return station
+
+
+# ── PATCH /stations/{station_id}/settings — CH-B7 ────────────────────────────
+
+
+@router.patch(
+    "/{station_id}/settings",
+    response_model=StationSettingsRead,
+    summary="Update station settings (CH-B7) — Admin only",
+)
+def update_station_settings(
+    station_id: int,
+    payload: StationSettingsPatch,
+    current_user: CurrentUser = Depends(require_role(*ADMIN_ONLY)),
+    db: Session = Depends(get_db),
+) -> Station:
+    station = _get_station_or_404(station_id, db)
+    require_station_membership(station_id, current_user, db)
+    station.allow_check_modification = payload.allow_check_modification
+    db.commit()
+    db.refresh(station)
+    write_audit_event(
+        db,
+        actor=current_user.email or current_user.name,
+        action="STATION_SETTINGS_UPDATED",
+        entity_type="station",
+        entity_id=str(station_id),
+        station_id=station_id,
+        metadata={"allow_check_modification": station.allow_check_modification},
+    )
     return station

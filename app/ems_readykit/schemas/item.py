@@ -144,11 +144,13 @@ class ItemBase(BaseModel):
 
 class ItemCreate(ItemBase):
     """Request body for POST /items."""
+
     pass
 
 
 class ItemRead(ItemBase):
     """Response model for item endpoints."""
+
     model_config = ConfigDict(from_attributes=True)
 
     item_id: int

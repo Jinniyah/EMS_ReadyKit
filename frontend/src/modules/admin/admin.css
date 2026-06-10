@@ -622,3 +622,18 @@
 .csv-import__error-row-num { font-weight: 700; color: var(--color-danger); white-space: nowrap; flex-shrink: 0; }
 .csv-import__error-name { font-weight: 600; color: var(--color-text); }
 .csv-import__error-msg  { color: var(--color-text-secondary); }
+
+/* ── Priority badge on assignment rows (RX-F12) ──────────────────────────── */
+.assignment-priority-badge { color: var(--color-priority); font-size: var(--font-size-sm); }
+.assignment-edit-priority-row { display: flex; align-items: center; gap: var(--space-sm); font-size: var(--font-size-sm); font-weight: 600; color: var(--color-text); min-height: var(--tap-target); }
+.assignment-edit-priority-row input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; }
+.assignment-edit-label--full { width: 100%; }
+.assignment-edit-input--wide { width: 100%; }
+
+/* ── Supply shelf sections (SS-F1, ADMIN-F7) ─────────────────────────────── */
+.supply-shelf-section { border: 1px solid var(--color-border); border-radius: var(--radius-md); margin-bottom: var(--space-md); overflow: hidden; }
+.supply-shelf-section--add { padding: var(--space-md); border-style: dashed; }
+.supply-shelf-section__header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); background: var(--color-surface-raised); border-bottom: 1px solid var(--color-border); min-height: var(--tap-target); }
+.supply-shelf-section__name { font-size: var(--font-size-md); font-weight: 700; color: var(--color-text); flex: 1; }
+.supply-shelf-section__toggle { background: none; border: none; cursor: pointer; text-align: left; padding: 0; flex: 1; font-size: var(--font-size-md); font-weight: 700; color: var(--color-text); display: flex; align-items: center; }
+.supply-shelf-section__rename-row { display: flex; flex-direction: column; gap: var(--space-xs); flex: 1; }

@@ -23,37 +23,37 @@ def _to_utc_str(dt: Optional[datetime]) -> Optional[str]:
 
 
 class UsageItemCreate(BaseModel):
-    item_id:       int = Field(..., gt=0)
+    item_id: int = Field(..., gt=0)
     quantity_used: int = Field(..., ge=1)
 
 
 class UsageEventCreate(BaseModel):
-    station_id: int  = Field(..., gt=0)
+    station_id: int = Field(..., gt=0)
     vehicle_id: Optional[int] = Field(default=None, gt=0)
-    timestamp:  datetime
-    notes:      Optional[str] = Field(default=None, max_length=500)
-    items:      List[UsageItemCreate] = Field(..., min_length=1)
+    timestamp: datetime
+    notes: Optional[str] = Field(default=None, max_length=500)
+    items: List[UsageItemCreate] = Field(..., min_length=1)
 
 
 class UsageItemRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    item_id:       int
-    item_name:     str
+    item_id: int
+    item_name: str
     quantity_used: int
 
 
 class UsageEventRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    event_id:       int
-    station_id:     int
-    vehicle_id:     Optional[int]
+    event_id: int
+    station_id: int
+    vehicle_id: Optional[int]
     vehicle_number: Optional[str]
-    performed_by:   str
-    timestamp:      datetime
-    notes:          Optional[str]
-    items:          List[UsageItemRead]
+    performed_by: str
+    timestamp: datetime
+    notes: Optional[str]
+    items: List[UsageItemRead]
 
     @field_serializer("timestamp")
     def serialize_timestamp(self, v: datetime) -> Optional[str]:
@@ -61,6 +61,6 @@ class UsageEventRead(BaseModel):
 
 
 class FrequentItemRead(BaseModel):
-    item_id:    int
-    item_name:  str
+    item_id: int
+    item_name: str
     total_used: int

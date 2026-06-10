@@ -41,19 +41,24 @@ class StationMember(TimestampMixin, Base):
     # One row per user per station. Soft-deleted rows kept for audit history.
     __table_args__ = (
         UniqueConstraint(
-            "station_id", "user_id",
+            "station_id",
+            "user_id",
             name="uq_station_members_station_user",
         ),
     )
 
-    member_id:      Mapped[int]           = mapped_column(primary_key=True, autoincrement=True)
-    station_id:     Mapped[int]           = mapped_column(ForeignKey("stations.station_id"), nullable=False, index=True)
-    user_id:        Mapped[str]           = mapped_column(String(255), nullable=False, index=True)
+    member_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    station_id: Mapped[int] = mapped_column(
+        ForeignKey("stations.station_id"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     preferred_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    role:           Mapped[str]           = mapped_column(String(50),  nullable=False)
-    assigned_by:    Mapped[str]           = mapped_column(String(255), nullable=False)
-    assigned_at:    Mapped[datetime]      = mapped_column(DateTime(timezone=True), default=_utcnow, nullable=False)
-    active:         Mapped[bool]          = mapped_column(Boolean, default=True, nullable=False)
+    role: Mapped[str] = mapped_column(String(50), nullable=False)
+    assigned_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    assigned_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # ── Relationships ─────────────────────────────────────────────────────────
     station: Mapped["Station"] = relationship("Station", back_populates="members")

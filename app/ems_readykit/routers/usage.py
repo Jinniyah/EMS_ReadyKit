@@ -64,10 +64,14 @@ def _decrement_supply_room_fifo(
     Deplete supply room stock lots FIFO for the given item->quantity map.
     Best-effort: depletes to zero on insufficient stock, never raises.
     """
-    supply_room = db.query(InventoryLocation).filter(
-        InventoryLocation.station_id    == station_id,
-        InventoryLocation.location_type == LocationType.STATION_SUPPLY_ROOM,
-    ).first()
+    supply_room = (
+        db.query(InventoryLocation)
+        .filter(
+            InventoryLocation.station_id == station_id,
+            InventoryLocation.location_type == LocationType.STATION_SUPPLY_ROOM,
+        )
+        .first()
+    )
     if not supply_room:
         return
 
@@ -76,8 +80,8 @@ def _decrement_supply_room_fifo(
             db.query(StockLot)
             .filter(
                 StockLot.location_id == supply_room.location_id,
-                StockLot.item_id     == item_id,
-                StockLot.quantity    >  0,
+                StockLot.item_id == item_id,
+                StockLot.quantity > 0,
             )
             .order_by(StockLot.expiration_date.asc().nulls_last())
             .all()
@@ -86,40 +90,44 @@ def _decrement_supply_room_fifo(
         if available == 0:
             logger.warning(
                 "usage decrement: no supply room stock for item %s (station %s)",
-                item_id, station_id,
+                item_id,
+                station_id,
             )
             continue
         if available < decrement:
             logger.warning(
                 "usage decrement: item %s needs %s but only %s available "
                 "(station %s) — depleting to zero",
-                item_id, decrement, available, station_id,
+                item_id,
+                decrement,
+                available,
+                station_id,
             )
         remaining = min(decrement, available)
         for lot in supply_lots:
             if remaining <= 0:
                 break
-            take          = min(lot.quantity, remaining)
+            take = min(lot.quantity, remaining)
             lot.quantity -= take
-            remaining    -= take
+            remaining -= take
 
     db.flush()
 
 
 def _build_event_read(event: UsageEvent) -> UsageEventRead:
     return UsageEventRead(
-        event_id       = event.event_id,
-        station_id     = event.station_id,
-        vehicle_id     = event.vehicle_id,
-        vehicle_number = event.vehicle.vehicle_number if event.vehicle else None,
-        performed_by   = event.performed_by,
-        timestamp      = event.timestamp,
-        notes          = event.notes,
-        items          = [
+        event_id=event.event_id,
+        station_id=event.station_id,
+        vehicle_id=event.vehicle_id,
+        vehicle_number=event.vehicle.vehicle_number if event.vehicle else None,
+        performed_by=event.performed_by,
+        timestamp=event.timestamp,
+        notes=event.notes,
+        items=[
             UsageItemRead(
-                item_id       = uei.item_id,
-                item_name     = uei.item.name if uei.item else f"Item {uei.item_id}",
-                quantity_used = uei.quantity_used,
+                item_id=uei.item_id,
+                item_name=uei.item.name if uei.item else f"Item {uei.item_id}",
+                quantity_used=uei.quantity_used,
             )
             for uei in event.items
         ],
@@ -176,15 +184,15 @@ def create_usage_event(
     performed_by = current_user.email or current_user.name
 
     event = UsageEvent(
-        station_id   = payload.station_id,
-        vehicle_id   = payload.vehicle_id,
-        performed_by = performed_by,
-        timestamp    = payload.timestamp,
-        notes        = payload.notes,
-        items        = [
+        station_id=payload.station_id,
+        vehicle_id=payload.vehicle_id,
+        performed_by=performed_by,
+        timestamp=payload.timestamp,
+        notes=payload.notes,
+        items=[
             UsageEventItem(
-                item_id       = i.item_id,
-                quantity_used = i.quantity_used,
+                item_id=i.item_id,
+                quantity_used=i.quantity_used,
             )
             for i in payload.items
         ],
@@ -197,13 +205,13 @@ def create_usage_event(
 
     write_audit_event(
         db,
-        actor        = performed_by,
-        action       = "USAGE_LOGGED",
-        entity_type  = "UsageEvent",
-        entity_id    = str(event.event_id),
-        station_id   = payload.station_id,
-        vehicle_id   = payload.vehicle_id,
-        metadata     = {
+        actor=performed_by,
+        action="USAGE_LOGGED",
+        entity_type="UsageEvent",
+        entity_id=str(event.event_id),
+        station_id=payload.station_id,
+        vehicle_id=payload.vehicle_id,
+        metadata={
             "item_count": len(payload.items),
             "total_units": sum(i.quantity_used for i in payload.items),
         },
@@ -272,7 +280,7 @@ def get_frequent_items(
         .join(Item, UsageEventItem.item_id == Item.item_id)
         .filter(
             UsageEvent.station_id == station_id,
-            UsageEvent.timestamp  >= cutoff,
+            UsageEvent.timestamp >= cutoff,
         )
         .group_by(UsageEventItem.item_id, Item.name)
         .order_by(func.sum(UsageEventItem.quantity_used).desc())
@@ -282,9 +290,9 @@ def get_frequent_items(
 
     return [
         FrequentItemRead(
-            item_id    = row.item_id,
-            item_name  = row.item_name,
-            total_used = row.total_used,
+            item_id=row.item_id,
+            item_name=row.item_name,
+            total_used=row.total_used,
         )
         for row in rows
     ]

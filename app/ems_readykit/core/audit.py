@@ -77,12 +77,15 @@ def write_audit_event(
     db.commit()
     logger.info(
         "Audit event written: action=%s entity_type=%s entity_id=%s severity=%s",
-        action, entity_type, entity_id, severity,
+        action,
+        entity_type,
+        entity_id,
+        severity,
         extra={
-            "action":      action,
+            "action": action,
             "entity_type": entity_type,
-            "entity_id":   entity_id,
-            "severity":    severity,
-            "actor":       actor,
+            "entity_id": entity_id,
+            "severity": severity,
+            "actor": actor,
         },
     )

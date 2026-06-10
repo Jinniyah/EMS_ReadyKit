@@ -19,7 +19,8 @@ from ems_readykit.models.repair_request import RepairSeverity, RepairStatus
 
 class RepairRequestCreate(BaseModel):
     """Filed by any authenticated role against a vehicle."""
-    severity:    RepairSeverity = Field(
+
+    severity: RepairSeverity = Field(
         default=RepairSeverity.ROUTINE,
         description="ROUTINE — schedule at next opportunity; URGENT — safety-affecting, take out of service",
     )
@@ -33,7 +34,8 @@ class RepairRequestCreate(BaseModel):
 
 class RepairRequestUpdate(BaseModel):
     """Status update filed by Supervisor+ — advances the repair lifecycle."""
-    status:           RepairStatus = Field(..., description="New status: IN_PROGRESS or RESOLVED")
+
+    status: RepairStatus = Field(..., description="New status: IN_PROGRESS or RESOLVED")
     resolution_notes: Optional[str] = Field(
         default=None,
         max_length=500,
@@ -43,18 +45,19 @@ class RepairRequestUpdate(BaseModel):
 
 class RepairRequestOut(BaseModel):
     """Full repair request — returned by all read and write endpoints."""
+
     model_config = ConfigDict(from_attributes=True)
 
-    repair_id:        int
-    vehicle_id:       int
-    station_id:       int
-    reported_by:      str
-    reported_at:      datetime
-    severity:         RepairSeverity
-    description:      str
-    status:           RepairStatus
-    resolved_by:      Optional[str]
-    resolved_at:      Optional[datetime]
+    repair_id: int
+    vehicle_id: int
+    station_id: int
+    reported_by: str
+    reported_at: datetime
+    severity: RepairSeverity
+    description: str
+    status: RepairStatus
+    resolved_by: Optional[str]
+    resolved_at: Optional[datetime]
     resolution_notes: Optional[str]
-    created_at:       datetime
-    updated_at:       datetime
+    created_at: datetime
+    updated_at: datetime

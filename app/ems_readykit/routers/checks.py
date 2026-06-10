@@ -56,12 +56,12 @@ router = APIRouter(prefix="/checks", tags=["checks"])
 
 
 class LastReadingItem(BaseModel):
-    item_id:           int
-    quantity_found:    Optional[int]
+    item_id: int
+    quantity_found: Optional[int]
     measurement_value: Optional[float]
-    functional_pass:   Optional[bool]
-    date_value:        Optional[date]
-    check_date:        str
+    functional_pass: Optional[bool]
+    date_value: Optional[date]
+    check_date: str
 
 
 # Frontend mirror: deriveDraftItemStatus() in frontend/src/shared/utils/statusCalc.js
@@ -109,7 +109,11 @@ def _compute_line_item_status(
         return LineItemStatus.OK
 
     if check_type == "SUPPLY":
-        if lot is not None and lot.expiration_date is not None and lot.expiration_date <= today:
+        if (
+            lot is not None
+            and lot.expiration_date is not None
+            and lot.expiration_date <= today
+        ):
             return LineItemStatus.EXPIRED
     if found == 0 and needed > 0:
         return LineItemStatus.MISSING
@@ -144,6 +148,7 @@ def _compute_check_status(line_items: List[CheckLineItem]) -> CheckStatus:
 
 # ── SR-B4: Supply room auto-decrement helper ──────────────────────────────────
 
+
 def _auto_decrement_supply_room(
     db: Session,
     station_id: int,
@@ -158,19 +163,23 @@ def _auto_decrement_supply_room(
     Depletion is FIFO. Never raises — insufficient stock depletes to zero and logs a warning.
     Called after the current check is flushed but before audit/commit.
     """
-    supply_room = db.query(InventoryLocation).filter(
-        InventoryLocation.station_id    == station_id,
-        InventoryLocation.location_type == LocationType.STATION_SUPPLY_ROOM,
-    ).first()
+    supply_room = (
+        db.query(InventoryLocation)
+        .filter(
+            InventoryLocation.station_id == station_id,
+            InventoryLocation.location_type == LocationType.STATION_SUPPLY_ROOM,
+        )
+        .first()
+    )
     if not supply_room:
         return
 
     prev_check = (
         db.query(DailyInventoryCheck)
         .filter(
-            DailyInventoryCheck.vehicle_id  == vehicle_id,
+            DailyInventoryCheck.vehicle_id == vehicle_id,
             DailyInventoryCheck.deleted_at.is_(None),
-            DailyInventoryCheck.check_id    != check_id,
+            DailyInventoryCheck.check_id != check_id,
         )
         .order_by(
             DailyInventoryCheck.check_date.desc(),
@@ -191,7 +200,11 @@ def _auto_decrement_supply_room(
         item = items_map.get(li.item_id)
         if not item:
             continue
-        ct = item.check_type.value if hasattr(item.check_type, "value") else str(item.check_type)
+        ct = (
+            item.check_type.value
+            if hasattr(item.check_type, "value")
+            else str(item.check_type)
+        )
         if ct != "SUPPLY":
             continue
         if li.quantity_found is None:
@@ -209,8 +222,8 @@ def _auto_decrement_supply_room(
             db.query(StockLot)
             .filter(
                 StockLot.location_id == supply_room.location_id,
-                StockLot.item_id     == item_id,
-                StockLot.quantity    >  0,
+                StockLot.item_id == item_id,
+                StockLot.quantity > 0,
             )
             .order_by(StockLot.expiration_date.asc().nulls_last())
             .all()
@@ -219,27 +232,32 @@ def _auto_decrement_supply_room(
         if available == 0:
             logger.warning(
                 "SR-B4 auto-decrement: no supply room stock for item %s (station %s)",
-                item_id, station_id,
+                item_id,
+                station_id,
             )
             continue
         if available < decrement:
             logger.warning(
                 "SR-B4 auto-decrement: item %s needs %s but only %s available "
                 "(station %s) — depleting to zero",
-                item_id, decrement, available, station_id,
+                item_id,
+                decrement,
+                available,
+                station_id,
             )
         remaining = min(decrement, available)
         for lot in supply_lots:
             if remaining <= 0:
                 break
-            take          = min(lot.quantity, remaining)
+            take = min(lot.quantity, remaining)
             lot.quantity -= take
-            remaining    -= take
+            remaining -= take
 
     db.flush()
 
 
 # ── Daily Inventory Checks ────────────────────────────────────────────────────
+
 
 @router.post(
     "/daily",
@@ -258,15 +276,21 @@ async def create_daily_check(
     if payload.vehicle_id:
         get_vehicle_or_404(payload.vehicle_id, db)
     else:
-        loc = db.query(InventoryLocation).filter(
-            InventoryLocation.location_id == payload.location_id
-        ).first()
+        loc = (
+            db.query(InventoryLocation)
+            .filter(InventoryLocation.location_id == payload.location_id)
+            .first()
+        )
         if not loc:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Location {payload.location_id} not found.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Location {payload.location_id} not found.",
+            )
         if loc.station_id != payload.station_id:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Location does not belong to the specified station.")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Location does not belong to the specified station.",
+            )
 
     station = db.query(Station).filter(Station.station_id == payload.station_id).first()
     if not station:
@@ -282,9 +306,9 @@ async def create_daily_check(
         compartment_ids = {li.compartment_id for li in payload.line_items}
         found_compartments = {
             c.compartment_id
-            for c in db.query(Compartment).filter(
-                Compartment.compartment_id.in_(compartment_ids)
-            ).all()
+            for c in db.query(Compartment)
+            .filter(Compartment.compartment_id.in_(compartment_ids))
+            .all()
         }
         missing_compartments = compartment_ids - found_compartments
         if missing_compartments:
@@ -297,30 +321,47 @@ async def create_daily_check(
     # active par level explicitly submitted — No Change (omitted item) is not allowed.
     _enforce_location_id: Optional[int] = None
     if payload.vehicle_id:
-        veh_loc = db.query(InventoryLocation).filter(
-            InventoryLocation.vehicle_id    == payload.vehicle_id,
-            InventoryLocation.location_type == LocationType.VEHICLE,
-        ).first()
+        veh_loc = (
+            db.query(InventoryLocation)
+            .filter(
+                InventoryLocation.vehicle_id == payload.vehicle_id,
+                InventoryLocation.location_type == LocationType.VEHICLE,
+            )
+            .first()
+        )
         if veh_loc:
             _enforce_location_id = veh_loc.location_id
     else:
         _enforce_location_id = payload.location_id
 
     if _enforce_location_id:
-        full_check_comps = db.query(Compartment).filter(
-            Compartment.location_id         == _enforce_location_id,
-            Compartment.requires_full_check.is_(True),
-            Compartment.active.is_(True),
-        ).all()
+        full_check_comps = (
+            db.query(Compartment)
+            .filter(
+                Compartment.location_id == _enforce_location_id,
+                Compartment.requires_full_check.is_(True),
+                Compartment.active.is_(True),
+            )
+            .all()
+        )
         if full_check_comps:
-            submitted_pairs = {(li.compartment_id, li.item_id) for li in payload.line_items}
+            submitted_pairs = {
+                (li.compartment_id, li.item_id) for li in payload.line_items
+            }
             for comp in full_check_comps:
-                required = db.query(ParLevel).filter(
-                    ParLevel.compartment_id == comp.compartment_id,
-                    ParLevel.active.is_(True),
-                ).all()
-                missing = [p.item_id for p in required
-                           if (comp.compartment_id, p.item_id) not in submitted_pairs]
+                required = (
+                    db.query(ParLevel)
+                    .filter(
+                        ParLevel.compartment_id == comp.compartment_id,
+                        ParLevel.active.is_(True),
+                    )
+                    .all()
+                )
+                missing = [
+                    p.item_id
+                    for p in required
+                    if (comp.compartment_id, p.item_id) not in submitted_pairs
+                ]
                 if missing:
                     raise HTTPException(
                         status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -386,7 +427,11 @@ async def create_daily_check(
             li.quantity_needed,
             li.quantity_found,
             lot,
-            check_type=item.check_type.value if hasattr(item.check_type, "value") else str(item.check_type),
+            check_type=(
+                item.check_type.value
+                if hasattr(item.check_type, "value")
+                else str(item.check_type)
+            ),
             measurement_value=li.measurement_value,
             measurement_minimum=item.measurement_minimum,
             functional_pass=li.functional_pass,
@@ -427,17 +472,23 @@ async def create_daily_check(
     # SR-B4: auto-decrement supply room for vehicle checks (best-effort, never blocks)
     if payload.vehicle_id:
         _auto_decrement_supply_room(
-            db           = db,
-            station_id   = payload.station_id,
-            vehicle_id   = payload.vehicle_id,
-            check_id     = check.check_id,
-            line_items   = line_item_objects,
-            items_map    = items_map,
+            db=db,
+            station_id=payload.station_id,
+            vehicle_id=payload.vehicle_id,
+            check_id=check.check_id,
+            line_items=line_item_objects,
+            items_map=items_map,
         )
 
-    expired_count = sum(1 for li in line_item_objects if li.status == LineItemStatus.EXPIRED)
-    missing_count = sum(1 for li in line_item_objects if li.status == LineItemStatus.MISSING)
-    short_count   = sum(1 for li in line_item_objects if li.status == LineItemStatus.SHORT)
+    expired_count = sum(
+        1 for li in line_item_objects if li.status == LineItemStatus.EXPIRED
+    )
+    missing_count = sum(
+        1 for li in line_item_objects if li.status == LineItemStatus.MISSING
+    )
+    short_count = sum(
+        1 for li in line_item_objects if li.status == LineItemStatus.SHORT
+    )
 
     audit_severity = "INFO" if overall_status == CheckStatus.PASS else "WARNING"
     if overall_status == CheckStatus.FAIL:
@@ -470,13 +521,15 @@ async def create_daily_check(
     summary="Last recorded readings for each item from the most recent check on a vehicle or location",
 )
 def get_last_readings(
-    vehicle_id:  Optional[int] = Query(None, gt=0),
+    vehicle_id: Optional[int] = Query(None, gt=0),
     location_id: Optional[int] = Query(None, gt=0),
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
 ) -> List[LastReadingItem]:
     if vehicle_id is None and location_id is None:
-        raise HTTPException(status_code=400, detail="vehicle_id or location_id required")
+        raise HTTPException(
+            status_code=400, detail="vehicle_id or location_id required"
+        )
 
     q = db.query(DailyInventoryCheck).filter(DailyInventoryCheck.deleted_at.is_(None))
     if vehicle_id is not None:
@@ -511,12 +564,18 @@ def get_last_readings(
     summary="Get a daily inventory check",
     dependencies=[Depends(require_role(*SUPERVISOR_PLUS))],
 )
-def get_daily_check(check_id: int, db: Session = Depends(get_db)) -> DailyInventoryCheck:
+def get_daily_check(
+    check_id: int, db: Session = Depends(get_db)
+) -> DailyInventoryCheck:
     """Returns a single daily inventory check. Excludes soft-deleted records."""
-    check = db.query(DailyInventoryCheck).filter(
-        DailyInventoryCheck.check_id == check_id,
-        DailyInventoryCheck.deleted_at.is_(None),
-    ).first()
+    check = (
+        db.query(DailyInventoryCheck)
+        .filter(
+            DailyInventoryCheck.check_id == check_id,
+            DailyInventoryCheck.deleted_at.is_(None),
+        )
+        .first()
+    )
     if not check:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -625,7 +684,7 @@ def get_station_checks_date_range(
 
     today_str = datetime.now(timezone.utc).date().isoformat()
     resolved_from = from_date or today_str
-    resolved_to   = to_date   or today_str
+    resolved_to = to_date or today_str
 
     for label, value in (("from", resolved_from), ("to", resolved_to)):
         if not _DATE.match(value):
@@ -641,7 +700,7 @@ def get_station_checks_date_range(
         )
 
     d_from = date.fromisoformat(resolved_from)
-    d_to   = date.fromisoformat(resolved_to)
+    d_to = date.fromisoformat(resolved_to)
     if (d_to - d_from).days > 90:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -663,6 +722,7 @@ def get_station_checks_date_range(
 
 # ── Portable location checks ──────────────────────────────────────────────────
 
+
 @router.get(
     "/daily/location/{location_id}",
     response_model=List[DailyInventoryCheckRead],
@@ -673,12 +733,16 @@ def get_location_checks(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
 ) -> List[DailyInventoryCheck]:
-    loc = db.query(InventoryLocation).filter(
-        InventoryLocation.location_id == location_id
-    ).first()
+    loc = (
+        db.query(InventoryLocation)
+        .filter(InventoryLocation.location_id == location_id)
+        .first()
+    )
     if not loc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Location {location_id} not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Location {location_id} not found.",
+        )
     require_station_membership(loc.station_id, current_user, db)
     return (
         db.query(DailyInventoryCheck)
@@ -693,6 +757,7 @@ def get_location_checks(
 
 # ── Calendar date-range bounds ────────────────────────────────────────────────
 
+
 @router.get(
     "/daily/station/{station_id}/date-range",
     summary="Earliest check date for a station — used to bound calendar navigation",
@@ -704,17 +769,24 @@ def get_station_check_date_range(
 ):
     station = db.query(Station).filter(Station.station_id == station_id).first()
     if not station:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Station {station_id} not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Station {station_id} not found.",
+        )
     require_station_membership(station_id, current_user, db)
-    earliest = db.query(func.min(DailyInventoryCheck.check_date)).filter(
-        DailyInventoryCheck.station_id == station_id,
-        DailyInventoryCheck.deleted_at.is_(None),
-    ).scalar()
+    earliest = (
+        db.query(func.min(DailyInventoryCheck.check_date))
+        .filter(
+            DailyInventoryCheck.station_id == station_id,
+            DailyInventoryCheck.deleted_at.is_(None),
+        )
+        .scalar()
+    )
     return {"earliest": str(earliest) if earliest else None}
 
 
 # ── Controlled Substance Checks ───────────────────────────────────────────────
+
 
 @router.post(
     "/controlled-substance",
@@ -772,9 +844,9 @@ def create_cs_check(
         logger.warning(
             "Controlled substance discrepancy flagged",
             extra={
-                "vehicle_id":     payload.vehicle_id,
+                "vehicle_id": payload.vehicle_id,
                 "primary_signer": primary_signer,
-                "cs_check_id":    check.cs_check_id,
+                "cs_check_id": check.cs_check_id,
             },
         )
 
@@ -789,7 +861,7 @@ def create_cs_check(
         metadata={
             "secondary_signer": payload.secondary_signer,
             "discrepancy_flag": payload.discrepancy_flag,
-            "notes":            payload.notes,
+            "notes": payload.notes,
         },
         severity=severity,
     )
@@ -802,10 +874,14 @@ def create_cs_check(
     summary="Get a controlled substance check",
     dependencies=[Depends(require_role(*SUPERVISOR_PLUS))],
 )
-def get_cs_check(cs_check_id: int, db: Session = Depends(get_db)) -> ControlledSubstanceCheck:
-    check = db.query(ControlledSubstanceCheck).filter(
-        ControlledSubstanceCheck.cs_check_id == cs_check_id
-    ).first()
+def get_cs_check(
+    cs_check_id: int, db: Session = Depends(get_db)
+) -> ControlledSubstanceCheck:
+    check = (
+        db.query(ControlledSubstanceCheck)
+        .filter(ControlledSubstanceCheck.cs_check_id == cs_check_id)
+        .first()
+    )
     if not check:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

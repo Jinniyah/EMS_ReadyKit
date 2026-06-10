@@ -1,7 +1,41 @@
 # EMS ReadyKit — Completed Items
-# Last updated: 2026-06-10 (Session O: Check Wizard UX + Responder Language)
-# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O
+# Last updated: 2026-06-10 (Session Q: Station Settings + Membership)
+# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q
 # Active backlog -> docs/backlog.md
+
+---
+
+## Session Q — Station Settings + Membership (2026-06-10)
+368 tests passing. Migration 0022 applied.
+
+| # | Item | Description | Date |
+|---|------|-------------|------|
+| B-M10 | Alter `stations`: add `allow_check_modification` | Migration 0022 (`app/alembic/versions/0022_station_allow_check_modification.py`). Boolean column, `server_default=true()`, batch mode for SQLite compat. Column added to `Station` model. | 2026-06-10 |
+| CH-B8 | `GET /stations/{id}/settings` — Supervisor+ | New endpoint in `stations.py`. Returns `StationSettingsRead` (station_id, allow_check_modification). Requires station membership. | 2026-06-10 |
+| CH-B7 | `PATCH /stations/{id}/settings` — Admin only | New endpoint in `stations.py`. Accepts `StationSettingsPatch`. Writes STATION_SETTINGS_UPDATED audit event. Returns updated `StationSettingsRead`. | 2026-06-10 |
+| ACC-F1 | Station picker uses `GET /stations/my` | Already implemented. Confirmed `station_members.py` router with GET/POST/PATCH/DELETE `/stations/{id}/members` endpoints and all frontend components in `admin/components/`. | 2026-06-10 |
+| ACC-F2 | Member list view | Already implemented. See ACC-F1 note. | 2026-06-10 |
+| ACC-F3 | Add member form | Already implemented. See ACC-F1 note. | 2026-06-10 |
+| ACC-F4 | Remove member confirmation | Already implemented. See ACC-F1 note. | 2026-06-10 |
+| ACC-F5 | "Pending assignment" screen | Already implemented. See ACC-F1 note. | 2026-06-10 |
+| S-F1 | Settings nav entry | New lazy-loaded `SettingsScreen` module. Nav card added to `HomePage.jsx` (Supervisor+, disabled without station, ⚙️ icon). `modules/settings/index.jsx` orchestrates settings read/write. `modules/settings/settings.css` with token-based design. | 2026-06-10 |
+| S-F3 | Allow check modification toggle | `modules/settings/index.jsx`: Admin sees interactive toggle (On/Off button). Supervisor sees read-only label. Non-supervisor note: "Contact your administrator". Toggle saves via `settingsApi.updateSettings`. | 2026-06-10 |
+
+---
+
+## Session P — Admin + Supply Room (2026-06-10)
+364 tests passing. No new migrations.
+
+| # | Item | Description | Date |
+|---|------|-------------|------|
+| RX-B2 | PATCH /admin/par-levels/{id} priority fields | Already implemented since migration 0015. Endpoint accepts `priority_check` (bool) and `priority_question` (VARCHAR 150). Confirmed and marked done. | 2026-06-10 |
+| RX-F12 | Priority toggle + question in par level edit form | `CompartmentParLevels.jsx`: Edit row now shows "Priority item" checkbox and conditional "Custom check question" text input (max 150 chars). Saves via PATCH /admin/par-levels/{id}. ★ badge shown on assigned items where priority_check=True. | 2026-06-10 |
+| DMG-F3 | Damaged item badge in supply catalog | `SupplyCatalogView.jsx`: Items with `is_damaged=True` show ⚠ Damaged badge. `get_supply_catalog` (SR-B1) extended to return `compartment_id`, `compartment_name`, `is_damaged` per item. Items grouped by shelf in the view. | 2026-06-10 |
+| SS-B1 | PATCH /admin/locations/{id} label rename | New endpoint in `admin.py`. Admin only. Validates station membership. Writes LOCATION_RENAMED audit event. | 2026-06-10 |
+| SS-F1 | Station Supplies admin screen | New `StationSuppliesScreen.jsx`. Fetches supply room → compartments. Shows each shelf with rename button + `CompartmentParLevels` (locationId=supplyRoom.location_id). "+ Add Shelf" adds compartments. Reachable via "Station Supplies" nav card in admin index. | 2026-06-10 |
+| SS-F2 | "+ Add item" per shelf in View Supplies | `SupplyCatalogView.jsx`: Supervisor+ sees embedded `CompartmentParLevels` below each shelf section. Uses `locationId` prop (not vehicleId) for supply room compartments. | 2026-06-10 |
+| ADMIN-F7 | Portable locations full CRUD (Jump Bags) | New `PortableLocationsScreen.jsx`. Lists JUMP_BAG/EQUIPMENT locations. Create / rename locations. Per-location `ShelfManager` with compartment CRUD + par levels. Reachable via "Jump Bags" nav card in admin index. | 2026-06-10 |
+| SUP-F3 | Expiring items from EXPIRY_DATE checks | `get_expiring_soon` in `stations.py` extended with second subquery: finds most recent check per vehicle+item for EXPIRY_DATE items, surfaces those expiring within 30 days. Negative `line_item_id` used as synthetic lot_id to avoid key collision with stock lot IDs. | 2026-06-10 |
 
 ---
 

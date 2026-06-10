@@ -47,17 +47,23 @@ def _get_vehicle_or_404(vehicle_id: int, db: Session) -> Vehicle:
     return vehicle
 
 
-def _station_ids_for_user(current_user: CurrentUser, db: Session) -> Optional[List[int]]:
+def _station_ids_for_user(
+    current_user: CurrentUser, db: Session
+) -> Optional[List[int]]:
     """
     Returns the list of station IDs the current user is a member of.
     Returns None for Administrators (they see everything).
     """
     if current_user.has_role(ROLE_ADMINISTRATOR):
         return None
-    members = db.query(StationMember).filter(
-        StationMember.user_id == current_user.email,
-        StationMember.active,
-    ).all()
+    members = (
+        db.query(StationMember)
+        .filter(
+            StationMember.user_id == current_user.email,
+            StationMember.active,
+        )
+        .all()
+    )
     return [m.station_id for m in members]
 
 
@@ -103,14 +109,23 @@ def create_vehicle(
 ) -> Vehicle:
     station = db.query(Station).filter(Station.station_id == payload.station_id).first()
     if not station:
-        raise HTTPException(status_code=404, detail=f"Station {payload.station_id} not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Station {payload.station_id} not found."
+        )
 
     # ACC-B8: only create vehicles at stations you're a member of
     require_station_membership(payload.station_id, current_user, db)
 
-    existing = db.query(Vehicle).filter(Vehicle.vehicle_number == payload.vehicle_number).first()
+    existing = (
+        db.query(Vehicle)
+        .filter(Vehicle.vehicle_number == payload.vehicle_number)
+        .first()
+    )
     if existing:
-        raise HTTPException(status_code=409, detail=f"Vehicle number '{payload.vehicle_number}' is already in use.")
+        raise HTTPException(
+            status_code=409,
+            detail=f"Vehicle number '{payload.vehicle_number}' is already in use.",
+        )
 
     vehicle = Vehicle(
         station_id=payload.station_id,
@@ -132,12 +147,14 @@ def create_vehicle(
     db.refresh(vehicle)
     logger.info(
         "Vehicle created: vehicle_id=%s number=%r type=%s station_id=%s",
-        vehicle.vehicle_id, vehicle.vehicle_number,
-        vehicle.vehicle_type, vehicle.station_id,
+        vehicle.vehicle_id,
+        vehicle.vehicle_number,
+        vehicle.vehicle_type,
+        vehicle.station_id,
         extra={
-            "action":      "VEHICLE_CREATED",
+            "action": "VEHICLE_CREATED",
             "entity_type": "vehicle",
-            "entity_id":   str(vehicle.vehicle_id),
+            "entity_id": str(vehicle.vehicle_id),
         },
     )
     return vehicle

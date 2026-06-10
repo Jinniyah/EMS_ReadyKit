@@ -49,25 +49,25 @@ def _to_utc_str(dt: Optional[datetime]) -> Optional[str]:
     # If the datetime is naive (no tzinfo), assume it is UTC (as stored by SQLite).
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class DailyInventoryCheckBase(BaseModel):
-    vehicle_id:   Optional[int] = Field(default=None, gt=0)
-    location_id:  Optional[int] = Field(default=None, gt=0)
-    station_id:   int           = Field(..., gt=0)
-    check_date:   Optional[str] = Field(
+    vehicle_id: Optional[int] = Field(default=None, gt=0)
+    location_id: Optional[int] = Field(default=None, gt=0)
+    station_id: int = Field(..., gt=0)
+    check_date: Optional[str] = Field(
         default=None,
         examples=["2026-05-23"],
         description="Accepted for backward compatibility but ignored server-side. "
-                    "check_date is derived from the timestamp field.",
+        "check_date is derived from the timestamp field.",
     )
     performed_by: Optional[str] = Field(default=None, max_length=100)
-    timestamp:    datetime
-    notes:        Optional[str] = Field(default=None, max_length=500)
+    timestamp: datetime
+    notes: Optional[str] = Field(default=None, max_length=500)
 
-    @model_validator(mode='after')
-    def require_vehicle_or_location(self) -> 'DailyInventoryCheckBase':
+    @model_validator(mode="after")
+    def require_vehicle_or_location(self) -> "DailyInventoryCheckBase":
         if self.vehicle_id is None and self.location_id is None:
             raise ValueError("Either vehicle_id or location_id must be provided.")
         return self
@@ -82,11 +82,13 @@ class DailyInventoryCheckBase(BaseModel):
 
 class DailyInventoryCheckCreate(DailyInventoryCheckBase):
     """Request body for POST /checks/daily."""
+
     line_items: List[CheckLineItemCreate] = Field(default_factory=list)
 
 
 class AcknowledgeRequest(BaseModel):
     """Body for PATCH /checks/daily/{id}/acknowledge (Supervisor+)."""
+
     corrective_action: str = Field(
         ...,
         min_length=5,
@@ -97,6 +99,7 @@ class AcknowledgeRequest(BaseModel):
 
 class SoftDeleteRequest(BaseModel):
     """Body for DELETE /checks/daily/{id} (Supervisor+)."""
+
     deletion_reason: str = Field(
         ...,
         min_length=5,
@@ -110,26 +113,28 @@ class DailyInventoryCheckRead(DailyInventoryCheckBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-    check_id:   int
-    status:     CheckStatus
+    check_id: int
+    status: CheckStatus
     line_items: List[CheckLineItemRead] = Field(default_factory=list)
 
     # Acknowledgement (B-M7)
-    reviewed_by:       Optional[str]
-    reviewed_at:       Optional[datetime]
+    reviewed_by: Optional[str]
+    reviewed_at: Optional[datetime]
     corrective_action: Optional[str]
 
     # Soft delete (B-M9)
-    deleted_at:      Optional[datetime]
-    deleted_by:      Optional[str]
+    deleted_at: Optional[datetime]
+    deleted_by: Optional[str]
     deletion_reason: Optional[str]
-    force_deleted:   bool
+    force_deleted: bool
 
     created_at: datetime
     updated_at: datetime
 
     # Ensure all datetime fields are serialized as explicit UTC strings so
     # JavaScript new Date(...) always parses them as UTC, not local time.
-    @field_serializer('timestamp', 'reviewed_at', 'deleted_at', 'created_at', 'updated_at')
+    @field_serializer(
+        "timestamp", "reviewed_at", "deleted_at", "created_at", "updated_at"
+    )
     def serialize_utc(self, dt: Optional[datetime]) -> Optional[str]:
         return _to_utc_str(dt)

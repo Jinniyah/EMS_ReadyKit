@@ -41,6 +41,7 @@ def _utcnow() -> str:
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def membership_setup(db: Session):
     """
@@ -90,29 +91,32 @@ def membership_setup(db: Session):
 
     # Assign test-responder and test-supervisor to Station A only
     for user_email, role in [
-        ("test-responder@ems.local",  "Responder"),
+        ("test-responder@ems.local", "Responder"),
         ("test-supervisor@ems.local", "Supervisor"),
     ]:
-        db.add(StationMember(
-            station_id=station_a.station_id,
-            user_id=user_email,
-            role=role,
-            assigned_by="test-administrator@ems.local",
-            active=True,
-        ))
+        db.add(
+            StationMember(
+                station_id=station_a.station_id,
+                user_id=user_email,
+                role=role,
+                assigned_by="test-administrator@ems.local",
+                active=True,
+            )
+        )
     db.flush()
 
     return {
-        "station_a_id":  station_a.station_id,
-        "station_b_id":  station_b.station_id,
-        "vehicle_a_id":  vehicle_a.vehicle_id,
-        "vehicle_b_id":  vehicle_b.vehicle_id,
+        "station_a_id": station_a.station_id,
+        "station_b_id": station_b.station_id,
+        "vehicle_a_id": vehicle_a.vehicle_id,
+        "vehicle_b_id": vehicle_b.vehicle_id,
         "location_a_id": loc_a.location_id,
         "location_b_id": loc_b.location_id,
     }
 
 
 # ── ACC-B7: Check submission enforcement ──────────────────────────────────────
+
 
 class TestCheckMembershipEnforcement:
 
@@ -121,10 +125,16 @@ class TestCheckMembershipEnforcement:
     ):
         sid = membership_setup["station_a_id"]
         vid = membership_setup["vehicle_a_id"]
-        response = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vid, "station_id": sid,
-            "check_date": "2026-06-01", "timestamp": _utcnow(),
-        }, headers=auth_responder)
+        response = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vid,
+                "station_id": sid,
+                "check_date": "2026-06-01",
+                "timestamp": _utcnow(),
+            },
+            headers=auth_responder,
+        )
         assert response.status_code == 201
 
     def test_responder_cannot_submit_check_for_unassigned_station(
@@ -132,10 +142,16 @@ class TestCheckMembershipEnforcement:
     ):
         sid = membership_setup["station_b_id"]
         vid = membership_setup["vehicle_b_id"]
-        response = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vid, "station_id": sid,
-            "check_date": "2026-06-01", "timestamp": _utcnow(),
-        }, headers=auth_responder)
+        response = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vid,
+                "station_id": sid,
+                "check_date": "2026-06-01",
+                "timestamp": _utcnow(),
+            },
+            headers=auth_responder,
+        )
         assert response.status_code == 403
         # Message should be human-readable
         assert "station" in response.json()["detail"].lower()
@@ -146,10 +162,16 @@ class TestCheckMembershipEnforcement:
     ):
         sid = membership_setup["station_b_id"]
         vid = membership_setup["vehicle_b_id"]
-        response = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vid, "station_id": sid,
-            "check_date": "2026-06-01", "timestamp": _utcnow(),
-        }, headers=auth_supervisor)
+        response = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vid,
+                "station_id": sid,
+                "check_date": "2026-06-01",
+                "timestamp": _utcnow(),
+            },
+            headers=auth_supervisor,
+        )
         assert response.status_code == 403
 
     def test_admin_can_submit_check_for_any_station(
@@ -158,10 +180,16 @@ class TestCheckMembershipEnforcement:
         """Administrator bypasses membership — can submit checks at any station."""
         sid = membership_setup["station_b_id"]
         vid = membership_setup["vehicle_b_id"]
-        response = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vid, "station_id": sid,
-            "check_date": "2026-06-01", "timestamp": _utcnow(),
-        }, headers=auth_admin)
+        response = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vid,
+                "station_id": sid,
+                "check_date": "2026-06-01",
+                "timestamp": _utcnow(),
+            },
+            headers=auth_admin,
+        )
         assert response.status_code == 201
 
     def test_today_compliance_responder_can_access_assigned_station(
@@ -196,6 +224,7 @@ class TestCheckMembershipEnforcement:
 
 
 # ── ACC-B8: Vehicle endpoint enforcement ──────────────────────────────────────
+
 
 class TestVehicleMembershipEnforcement:
 
@@ -234,9 +263,7 @@ class TestVehicleMembershipEnforcement:
         response = client.get(f"/api/v1/vehicles/{vid}", headers=auth_responder)
         assert response.status_code == 403
 
-    def test_admin_can_get_any_vehicle(
-        self, client, membership_setup, auth_admin
-    ):
+    def test_admin_can_get_any_vehicle(self, client, membership_setup, auth_admin):
         vid = membership_setup["vehicle_b_id"]
         response = client.get(f"/api/v1/vehicles/{vid}", headers=auth_admin)
         assert response.status_code == 200
@@ -252,9 +279,7 @@ class TestVehicleMembershipEnforcement:
         assert membership_setup["vehicle_a_id"] in vehicle_ids
         assert membership_setup["vehicle_b_id"] not in vehicle_ids
 
-    def test_admin_list_vehicles_sees_all(
-        self, client, membership_setup, auth_admin
-    ):
+    def test_admin_list_vehicles_sees_all(self, client, membership_setup, auth_admin):
         response = client.get("/api/v1/vehicles", headers=auth_admin)
         assert response.status_code == 200
         vehicle_ids = {v["vehicle_id"] for v in response.json()}
@@ -263,6 +288,7 @@ class TestVehicleMembershipEnforcement:
 
 
 # ── ACC-B8: Inventory endpoint enforcement ────────────────────────────────────
+
 
 class TestInventoryMembershipEnforcement:
 
@@ -359,6 +385,7 @@ class TestInventoryMembershipEnforcement:
 
 # ── Error message quality tests ───────────────────────────────────────────────
 
+
 class TestMembershipErrorMessages:
     """
     Verify that 403 responses contain human-readable messages, not developer jargon.
@@ -371,14 +398,20 @@ class TestMembershipErrorMessages:
         """The message should tell the user who to contact."""
         sid = membership_setup["station_b_id"]
         vid = membership_setup["vehicle_b_id"]
-        response = client.post("/api/v1/checks/daily", json={
-            "vehicle_id": vid, "station_id": sid,
-            "check_date": "2026-06-01", "timestamp": _utcnow(),
-        }, headers=auth_responder)
-        detail = response.json()["detail"]
-        assert "supervisor" in detail.lower(), (
-            f"Error message should mention 'supervisor' so user knows who to contact. Got: {detail!r}"
+        response = client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vid,
+                "station_id": sid,
+                "check_date": "2026-06-01",
+                "timestamp": _utcnow(),
+            },
+            headers=auth_responder,
         )
+        detail = response.json()["detail"]
+        assert (
+            "supervisor" in detail.lower()
+        ), f"Error message should mention 'supervisor' so user knows who to contact. Got: {detail!r}"
 
     def test_station_membership_403_mentions_station(
         self, client, membership_setup, auth_responder
@@ -390,17 +423,21 @@ class TestMembershipErrorMessages:
             headers=auth_responder,
         )
         detail = response.json()["detail"]
-        assert "station" in detail.lower(), (
-            f"Error message should mention 'station' to help user understand the issue. Got: {detail!r}"
-        )
+        assert (
+            "station" in detail.lower()
+        ), f"Error message should mention 'station' to help user understand the issue. Got: {detail!r}"
 
-    def test_role_403_is_human_readable(
-        self, client, auth_responder
-    ):
+    def test_role_403_is_human_readable(self, client, auth_responder):
         """Role-based 403 (not a membership issue) should also be clear."""
-        response = client.post("/api/v1/stations", json={
-            "name": f"S-{_uid()}", "address": "1 St", "region": "R",
-        }, headers=auth_responder)
+        response = client.post(
+            "/api/v1/stations",
+            json={
+                "name": f"S-{_uid()}",
+                "address": "1 St",
+                "region": "R",
+            },
+            headers=auth_responder,
+        )
         assert response.status_code == 403
         detail = response.json()["detail"]
         # Should not be a raw technical string

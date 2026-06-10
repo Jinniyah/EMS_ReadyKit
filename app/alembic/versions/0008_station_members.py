@@ -28,6 +28,7 @@ Changes (B-ACCESS1 / ACC-M1, ACC-M2):
   re-add a removed user should UPSERT the existing row back to active=True
   rather than insert a new row (handled in the router, not the DB).
 """
+
 from __future__ import annotations
 
 from typing import Sequence, Union
@@ -49,20 +50,44 @@ def upgrade() -> None:
     if dialect == "sqlite":
         op.create_table(
             "station_members",
-            sa.Column("member_id",      sa.Integer,                  primary_key=True, autoincrement=True),
-            sa.Column("station_id",     sa.Integer,                  sa.ForeignKey("stations.station_id"), nullable=False),
-            sa.Column("user_id",        sa.String(255),              nullable=False),
-            sa.Column("preferred_name", sa.String(100),              nullable=True),
-            sa.Column("role",           sa.String(50),               nullable=False),
-            sa.Column("assigned_by",    sa.String(255),              nullable=False),
-            sa.Column("assigned_at",    sa.DateTime(timezone=True),  nullable=False, server_default=sa.func.now()),
-            sa.Column("active",         sa.Boolean,                  nullable=False, server_default=sa.true()),
-            sa.Column("created_at",     sa.DateTime(timezone=True),  nullable=False, server_default=sa.func.now()),
-            sa.Column("updated_at",     sa.DateTime(timezone=True),  nullable=False, server_default=sa.func.now()),
-            sa.UniqueConstraint("station_id", "user_id", name="uq_station_members_station_user"),
+            sa.Column("member_id", sa.Integer, primary_key=True, autoincrement=True),
+            sa.Column(
+                "station_id",
+                sa.Integer,
+                sa.ForeignKey("stations.station_id"),
+                nullable=False,
+            ),
+            sa.Column("user_id", sa.String(255), nullable=False),
+            sa.Column("preferred_name", sa.String(100), nullable=True),
+            sa.Column("role", sa.String(50), nullable=False),
+            sa.Column("assigned_by", sa.String(255), nullable=False),
+            sa.Column(
+                "assigned_at",
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.func.now(),
+            ),
+            sa.Column("active", sa.Boolean, nullable=False, server_default=sa.true()),
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.func.now(),
+            ),
+            sa.Column(
+                "updated_at",
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.func.now(),
+            ),
+            sa.UniqueConstraint(
+                "station_id", "user_id", name="uq_station_members_station_user"
+            ),
         )
-        op.create_index("ix_station_members_station_id", "station_members", ["station_id"])
-        op.create_index("ix_station_members_user_id",    "station_members", ["user_id"])
+        op.create_index(
+            "ix_station_members_station_id", "station_members", ["station_id"]
+        )
+        op.create_index("ix_station_members_user_id", "station_members", ["user_id"])
     else:
         # PostgreSQL — idempotent with IF NOT EXISTS guards
         bind.execute(sa.text("""

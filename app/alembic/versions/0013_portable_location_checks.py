@@ -17,10 +17,10 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision   = '0013'
-down_revision = '0012_station_call_sign'
+revision = "0013"
+down_revision = "0012_station_call_sign"
 branch_labels = None
-depends_on    = None
+depends_on = None
 
 
 def upgrade() -> None:
@@ -30,12 +30,8 @@ def upgrade() -> None:
             existing_type=sa.Integer(),
             nullable=True,
         )
-        batch_op.add_column(
-            sa.Column("location_id", sa.Integer(), nullable=True)
-        )
-        batch_op.create_index(
-            "ix_check_location_date", ["location_id", "check_date"]
-        )
+        batch_op.add_column(sa.Column("location_id", sa.Integer(), nullable=True))
+        batch_op.create_index("ix_check_location_date", ["location_id", "check_date"])
 
 
 def downgrade() -> None:
