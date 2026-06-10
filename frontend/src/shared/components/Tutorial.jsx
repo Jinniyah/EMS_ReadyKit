@@ -12,17 +12,17 @@ const SLIDES = [
   {
     icon: '🚑',
     title: 'Welcome to EMS ReadyKit',
-    body: 'This app helps your crew check the truck every day so the right supplies are always on board when you need them.',
+    body: 'Two big buttons on the home screen: "Check the Truck" for your daily walk-through, and "Log Items Used" after a call. That\'s it.',
   },
   {
     icon: '✓',
-    title: 'Check the Truck each day',
-    body: 'Tap "Check the Truck" from the home screen and walk through each compartment. Count what you have — the app keeps track.',
+    title: 'Check the Truck — every shift',
+    body: 'Tap the big green "Check the Truck" button. Walk each compartment, count what\'s there, and tap No Change or enter the new count. Submit when done.',
   },
   {
     icon: '📋',
-    title: 'Found a problem? Report it',
-    body: 'If something is missing, expired, or broken, mark it. Your supervisor will be notified right away and nothing gets missed.',
+    title: 'After a call — Log Items Used',
+    body: 'Tap "Log Items Used." Pick what you used with the + button. Tap Done. The supply room counts update automatically — nothing to restock manually.',
   },
 ]
 

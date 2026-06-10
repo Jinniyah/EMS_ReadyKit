@@ -1,9 +1,37 @@
 # EMS ReadyKit — Completed Items
-# Last updated: 2026-06-09 (Frontend test suite — Vitest + React Testing Library)
-# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L
+# Last updated: 2026-06-10 (Session N: After-Call Reset + Usage Log)
+# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N
 # Active backlog -> docs/backlog.md
 
 ---
+
+## Session N — After-Call Reset + Usage Log (2026-06-10)
+363 tests passing, 1 xfailed. Migration 0020 applied.
+
+| # | Item | Description | Date |
+|---|------|-------------|------|
+| RX-B1 | POST /checks/usage | New `usage_events` + `usage_event_items` tables (migration 0020). FIFO stock lot decrement (best-effort, never blocks). Audit event "USAGE_LOGGED". GET history + GET frequent endpoints. 15 new tests in `test_usage.py`. | 2026-06-10 |
+| RX-F6 | After-Call Reset flow | `modules/usage-log/` — vehicle auto-select if ≤1, item picker with frequency sections (Used most often / Common items / All items), +/− controls, ≤3 taps for typical case. "Log Items Used" hero button on home screen wired. Note shown while frequency data is being collected. | 2026-06-10 |
+| RX-F11 | Tutorial slide updates | Updated all 3 Tutorial.jsx slides to reference "Log Items Used" button name and describe what each button does (Option B — improve existing slide content only, no new overlay UI). | 2026-06-10 |
+
+---
+
+## Session M — Unit 712 Inventory Corrections + Lint Cleanup (2026-06-09)
+
+| Item | Description | Date |
+|------|-------------|------|
+| SEED-M1 | LUCAS Device: SUPPLY → FUNCTIONAL, priority_check=True, priority_question="LUCAS shows READY?" | 2026-06-09 |
+| SEED-M2 | AED Pads Adult + Pediatric: added recurrence_days=730 for OVERDUE expiry tracking | 2026-06-09 |
+| SEED-M3 | Stretcher O2 Tank w/ Regulator SUPPLY par level removed; Stretcher O2 PSI MEASUREMENT is canonical | 2026-06-09 |
+| SEED-M4 | On-Board O2 Tank w/ Regulator 15LPM SUPPLY par level removed; On-Board O2 PSI MEASUREMENT is canonical | 2026-06-09 |
+| SEED-M5 | Passenger Side EC 1 compartment removed from seed (empty on Unit 712); purge_stale_par_levels() cleans existing DBs | 2026-06-09 |
+| SEED-M6 | Under Hood: restriction_note removed (not enforced), requires_full_check=True added | 2026-06-09 |
+| SEED-M7 | get_or_create_item() now updates check_type + recurrence_days + unit_of_measure on re-seed so existing DBs pick up item changes | 2026-06-09 |
+| SEED-M8 | make_compartment() now updates restriction_note on re-seed | 2026-06-09 |
+| SEED-M9 | purge_stale_par_levels() helper added — removes retired par levels and empty compartments idempotently | 2026-06-09 |
+| FE-M1 | Step2Compartments.jsx: readingPars suppressed for requires_full_check compartments — Truck Ops + Under Hood items no longer show inline on outer card | 2026-06-09 |
+| FE-M2 | wizard.css: priority-card__body padding fixed (0 top → var(--space-sm)) — spacing between toggle row and expanded ItemRow | 2026-06-09 |
+| LINT-M1 | ruff check: 117 violations cleared across 15 backend files + roleGuard.test.js; B904 added to pyproject.toml ignore list | 2026-06-09 |
 
 ## Post-Session L — Frontend Test Suite (2026-06-09)
 Vitest + React Testing Library component tests. 10 new test files. No backend changes. Backend remains at 349 passed, 1 xfailed.

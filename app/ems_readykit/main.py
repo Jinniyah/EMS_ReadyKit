@@ -42,6 +42,7 @@ from ems_readykit.routers import (
     repair_requests,
     station_members,
     stations,
+    usage,
     vehicles,
 )
 
@@ -152,6 +153,7 @@ def create_app() -> FastAPI:
     app.include_router(vehicles.router,        prefix=API_PREFIX)
     app.include_router(repair_requests.router, prefix=API_PREFIX)
     app.include_router(check_history.router,   prefix=API_PREFIX)
+    app.include_router(usage.router,           prefix=API_PREFIX)
     app.include_router(checks.router,          prefix=API_PREFIX)
     app.include_router(items.router,           prefix=API_PREFIX)
     app.include_router(inventory.router,       prefix=API_PREFIX)

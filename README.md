@@ -176,7 +176,7 @@ API explorer: http://localhost:8000/docs
 ```powershell
 cd app
 
-# Full suite (349 tests, ~6 seconds)
+# Full suite (363 tests, ~7 seconds)
 pytest tests/ -q
 
 # Verbose with short tracebacks
@@ -207,7 +207,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details on both fixtures.
 Deployment is fully automated via GitHub Actions on every push to `main`:
 
 1. `pip-audit` — 0 known CVEs required to proceed
-2. `pytest` — all 349 tests must pass
+2. `pytest` — all 363 tests must pass
 3. Build zip on Linux (forward-slash paths — required for Azure Oryx)
 4. Deploy API to Azure App Service
 5. Build and deploy frontend to Azure Static Web Apps

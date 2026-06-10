@@ -1,5 +1,5 @@
 # EMS ReadyKit — Active Backlog
-# v1.70 | Updated: 2026-06-09 | Current: Post-session L complete + frontend test suite
+# v1.72 | Updated: 2026-06-10 | Current: Post-session N complete
 # Completed items -> backlog_completed.md
 # Priority: Critical / High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
@@ -22,14 +22,17 @@
 ##   ✓ Priority items configured in admin for Unit 712 (AED, LUCAS, O2, Truck Ops)
 ##   ✓ UAT executed against live Azure deployment with real Unit 712 inventory
 ##   ✓ Physical stock count entered for Unit 712 (not seed quantities — actual counts)
-##   ✓ All tests passing (349 tests green — Session L post-close)
+##   ✓ All tests passing (363 tests green — Session N post-close)
 ##   ✓ Code cleanup complete (dead files deleted, CSS consolidated)
 
 ---
 
 ## UPCOMING SESSIONS
 ##
-## Session M — UX Redesign + Pre-launch Fixes (~5 hrs)
+## Session N — COMPLETE (2026-06-10)
+##   RX-B1/RX-F6/RX-F11 done — see backlog_completed.md
+##
+## Session O — UX Redesign + Pre-launch Fixes (~5 hrs)
 ##   SEED-GAP2    requires_full_check enforcement in router (clears xfail)  ~30 min
 ##   RX-B2        PATCH /admin/par-levels/{id} priority_check/question      ~20 min
 ##   RX-F12       Priority toggle + question in par level edit form (Admin)  ~45 min
@@ -42,12 +45,7 @@
 ##   SUP-F2        Repair count drill-down to V&E Status                     ~15 min
 ##   DMG-F3        Damaged item badge in supply room View Supplies           ~20 min
 ##
-## Session N — After-Call Reset + Tutorial (~4 hrs)
-##   RX-B1        POST /checks/usage                                  ~45 min
-##   RX-F6        After-Call Reset flow — recents + search            ~90 min
-##   RX-F11       First-run tutorial — 3 screens on first login       ~60 min
-##
-## Session O — Dashboard + Station Admin (~4 hrs)
+## Session P — Dashboard + Station Admin (~4 hrs)
 ##   SUP-F3       Expiring items alert on compliance dashboard        ~45 min
 ##   B-M10        Migration: allow_check_modification on stations     ~20 min
 ##   CH-B7/B8     Station settings GET/PATCH endpoints                ~30 min
@@ -55,7 +53,7 @@
 ##   ADMIN-F7     Portable location list view (Jump Bags) in Admin    ~45 min
 ##   ACC-F1-F5    Station membership frontend                         ~60 min
 ##
-## Session P — Retirement + Settings (~4 hrs)
+## Session Q — Retirement + Settings (~4 hrs)
 ##   RET-M1-M3    Migrations: retired_at/by/reason                    ~30 min
 ##   RET-B1-B6    Retire vehicle/location/station endpoints           ~60 min
 ##   RET-F1-F5    Retire actions in UI                                ~60 min
@@ -63,7 +61,7 @@
 ##   I-3          HTTPSRedirectMiddleware (3 lines)                   ~10 min
 ##   SEC-OPS1     Monthly dependency audit workflow                   ~20 min
 ##
-## Session Q — UAT Dress Rehearsal + Launch
+## Session R — UAT Dress Rehearsal + Launch
 ##   LAUNCH-OPS1–9  Operational checklist
 ##   UAT-2–11       Execute all test cases
 
@@ -93,21 +91,10 @@
 | RX-B2 | `PATCH /admin/par-levels/{id}` — accept priority_check + priority_question | High | 📋 | Session M. Verify or extend: endpoint must accept `priority_check` (bool) and `priority_question` (VARCHAR 150). Migration 0015 added these columns. Admin+ only. Uses `write_audit_event()`. ~20 min |
 | RX-F12 | Priority toggle + question in par level edit form (Admin) | High | 📋 | Session M. In `CompartmentParLevels.jsx`: add **"Show as priority at start of check"** toggle and conditional **"Custom check question"** text field (max 150 chars, appears when toggle is on). Save via RX-B2. Gap from SEED-GAP3 — DB columns exist since migration 0015, UI was never built. ~45 min |
 
-### After-Call Reset
-| # | Item | Pri | Status | Notes |
-|---|------|-----|--------|-------|
-| RX-F6 | After-Call Reset flow — recents + search | Critical | 📋 | Session N. Home screen "Log Items Used." Auto-selects truck if only one. Shows last 8-10 items by frequency + search. +/− controls per item. "Done" commits. Target: ≤3 taps for 2-3 item case. |
-| RX-B1 | `POST /checks/usage` — lightweight usage record | Critical | 📋 | Session N. Uses DailyInventoryCheck (Q-11 resolved — reuse existing model). Auto-decrements stock lots FIFO (Q-12 resolved). Accepts: vehicle_id, station_id, timestamp, [{item_id, compartment_id, quantity_used}]. |
-
 ### Responder language + error messages
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
 | RX-F10 | Responder-facing language + error message replacement | Critical | 📋 | Session M. Display strings only. Jargon replacements: "Par level" → "Stock: N / N", "Reconcile" → "Restock list", "Functional check" → custom question text, "Date record" → "Expiration date", "NEEDS_RESTOCK" → "Restock needed", "FAIL" → "Problem found", "Measurement" → "Reading", "Repair request" → "Report a problem". Error replacements: 401 → "Your session expired. Sign out and sign back in.", 403 → "You don't have permission to do that. Ask your supervisor if something seems wrong." No HTTP codes or server terminology visible to responders ever. |
-
-### First-run tutorial
-| # | Item | Pri | Status | Notes |
-|---|------|-----|--------|-------|
-| RX-F11 | First-run tutorial — 3 screens on first login | Critical | 📋 | Session N. Shown exactly once. localStorage flag `ems_tutorial_complete`. Three screens: (1) Home — Check the Truck vs Log Items Used. (2) Check flow — No Change vs Modify vs priority items. (3) After-call — Log Items Used. Each: large text, one illustration, "Got it" button. Skip on screen 1 only. 60px tap targets throughout. |
 
 ---
 
@@ -362,4 +349,4 @@
 *v1.67 — 2026-06-08: Session L post-close. Safety + seed integrity tests: test_seed_integrity.py (32 tests against seeded dev DB via seeded_db fixture), test_safety_checks.py (13 tests + 1 xfail documenting requires_full_check enforcement gap). Total: 349 passed, 1 xfailed.*
 *v1.68 — 2026-06-09: Security/performance improvements partially implemented. Completed: slowapi rate limiting wired (core/limiter.py, main.py), check_date server-derived from timestamp, performed_by uses email, check_history.py ownership checks updated. In progress: test suite broken (60 failures) due to rate limiter firing in tests + conftest/limiter interaction. Continuing in new chat. New backlog items added: PERF-1, PERF-2, TECH-1, TECH-2, TECH-3.*
 *v1.69 — 2026-06-09: Post-session L complete. Tests green (349 passed, 1 xfailed). RATE-FIX done; RATE-CI (ruff in CI), RATE-MIG/PERF-2 (migration 0019 + model), RATE-DOCS (CLAUDE.md) all implemented and moved to completed. Session plan expanded: M–Q now covers all pre-launch items with session labels.*
-*v1.70 — 2026-06-09: Frontend test suite complete. Vitest + React Testing Library: 10 component test files + MSAL mocks. Covers check wizard, supervisor dashboard, vehicles, admin, check history, and all shared utilities. Role-gating regression (Session J canAccess 'admin' alias) now has automated coverage. No backend changes.*
+*v1.71 — 2026-06-09: Session M complete. Unit 712 inventory corrections: LUCAS Device changed SUPPLY→FUNCTIONAL with priority_check=True ("LUCAS shows READY?"), AED Pads Adult/Pediatric gained recurrence_days=730 for OVERDUE tracking, Stretcher O2 Tank w/ Regulator and On-Board O2 Tank w/ Regulator 15LPM SUPPLY par levels removed (PSI MEASUREMENT items are canonical), Passenger Side EC 1 compartment removed (empty on Unit 712), Under Hood restriction note removed + requires_full_check=True added. Step2Compartments.jsx: reading rows suppressed for requires_full_check compartments (Truck Ops + Under Hood). wizard.css: priority card body padding fixed. Ruff lint: 117 violations cleared across 15 backend files + 1 frontend test file; B904 added to ignore list (FastAPI exception translation pattern); pyproject.toml updated.*

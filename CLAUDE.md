@@ -1,6 +1,6 @@
 # CLAUDE.md — AI Development Rules for EMS ReadyKit
-# Last updated: 2026-06-08
-# Updated: Session L post-close — 349 tests; seed integrity + safety check test files; seeded_db fixture
+# Last updated: 2026-06-10
+# Updated: Session N post-close — 363 tests; usage_events migration 0020; usage-log frontend module
 # Load this file at the start of every session alongside CODEBASE_INDEX.md.
 
 ---
@@ -131,7 +131,7 @@ status values from the client. Business rules:
 ### Tests
 - Test DB: SQLite in-memory (conftest.py); no external services needed
 - Run: `cd app; pytest`
-- Test count: **349 tests** (Session L post-close baseline) — all must be green before any commit
+- Test count: **363 tests** (Session N post-close baseline) — all must be green before any commit
 - **Persona test files** (Session L, do not delete):
   - `tests/test_priority_items.py` — AED + LUCAS; runs first; legal audit trail assertions
   - `tests/test_persona_responder.py` — Jamie (tired responder); all 5 check types; FAIL + comment flow
@@ -139,6 +139,7 @@ status values from the client. Business rules:
   - `tests/test_persona_admin.py` — Jennifer (admin); supply room decrement; role alias regression
   - `tests/test_safety_checks.py` — O2 PSI below minimum; date recurrence overdue; requires_full_check (xfail until SEED-GAP2 implemented)
   - `tests/test_seed_integrity.py` — verifies seeded dev DB is correct; uses `seeded_db` fixture (not `db`)
+  - `tests/test_usage.py` — Session N: POST /checks/usage (create, FIFO decrement, 403/404); GET history + frequent items
 - **Two DB fixtures** — do not mix them:
   - `db` — in-memory SQLite, starts empty, rolls back after each test; use for all API/logic tests
   - `seeded_db` — read-only connection to `ems_readykit_dev.db`; use ONLY in `test_seed_integrity.py`;

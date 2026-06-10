@@ -1,5 +1,5 @@
 # EMS ReadyKit — Codebase Index
-# Last updated: 2026-06-09 (Post-session L: rate limiting, ruff CI, migration 0019)
+# Last updated: 2026-06-10 (Post-session N: After-Call Reset — usage_events, usage router, usage-log module)
 # PURPOSE: Load this file at the start of every session to orient quickly.
 # After reading this, load only the sections relevant to the current task.
 # Full project state → docs/project_index.md | Open work → docs/backlog.md
@@ -18,7 +18,7 @@ EMS_ReadyKit/
 │   │   ├── schemas/            # Pydantic request/response schemas
 │   │   └── main.py             # App factory, middleware, router registration
 │   ├── alembic/                # DB migrations (versions/ subdirectory)
-│   ├── tests/                  # pytest suite (349 tests, 1 xfailed)
+│   ├── tests/                  # pytest suite (363 tests, 1 xfailed)
 │   ├── seed.py                 # Dev seed data (Newberg 712 BLS + 712 Jump Bag; Marcellus 540 ALS; TEST station)
 │   ├── initial_stock.csv       # 10 seed stock items — upload via Receive New Stock → CSV
 │   └── pyproject.toml          # Dependencies + pytest config
@@ -60,6 +60,7 @@ All routes are prefixed `/api/v1/`. Router registration order in main.py matters
 | `inventory.py` | 28 KB | `/inventory` | All + membership | Locations, compartments, par levels, lots, stock summary, CSV receive. `GET /supply-catalog?station_id=` (SR-B1). `PATCH /supply-catalog/items/{id}/count` (SR-B2). `PUT /lots/{id}` (SR-F7). `PATCH /inventory/items/{id}/status` marks/clears damaged — uses `actor=`/`metadata=` kwargs on write_audit_event. |
 | `items.py` | 3 KB | `/items` | Supervisor+ (create/edit) / All (read) | Item catalog; `POST /items` is SUPERVISOR_PLUS (not admin-only); deactivation is ADMIN_ONLY via admin router |
 | `admin.py` | 29 KB | `/admin` | Admin (most) / Supervisor+ | Stations (Admin only), vehicles, items, par levels, CSV import. `PATCH /admin/par-levels/{id}` requires `min_quantity` + `max_quantity` + optional `priority_check`/`priority_question`. Item deactivation: `PATCH /admin/items/{id}/deactivate` is ADMIN_ONLY. |
+| `usage.py` | 9 KB | `/checks` | All + membership | `POST /checks/usage` (log items used, FIFO decrement); `GET /checks/usage/station/{id}` (history); `GET /checks/usage/station/{id}/frequent` (top 10 items, 90-day window) |
 | `audit.py` | 2 KB | `/audit` | Supervisor+ | Paginated audit event log |
 
 ### Key shared patterns (deps.py)
@@ -95,6 +96,7 @@ from ems_readykit.routers.deps import (
 | `station_member.py` | `StationMember` | user_id = email (JWT preferred_username) |
 | `audit_event.py` | `AuditEvent` | Immutable; write via `core/audit.py::write_audit_event(actor=, metadata=)` |
 | `stock_lot.py` | `StockLot` | Transfer record: from/to location, item, qty, FIFO lot snapshot |
+| `usage_event.py` | `UsageEvent`, `UsageEventItem` | After-call usage log. UsageEvent → station/vehicle/performed_by/timestamp/notes. UsageEventItem → item_id + quantity_used. Lazy selectin on vehicle + items. |
 
 ### Domain model hierarchy
 ```
@@ -149,8 +151,9 @@ AuditEvent     (immutable log)
 | `test_persona_admin.py` | — | Jennifer (Admin): supply room decrement; FUNCTIONAL items excluded; role alias regression; admin-only deactivation boundary | `db` |
 | `test_safety_checks.py` | — | O2 PSI below minimum → LOW; date recurrence overdue → OVERDUE; requires_full_check enforcement (xfail — not yet in router) | `db` |
 | `test_seed_integrity.py` | — | Verifies seeded dev DB: Unit 712, PC 8, AED/LUCAS items, O2 PSI minimums, Truck Operations, jump bags | `seeded_db` |
+| `test_usage.py` | — | POST /checks/usage happy path, FIFO decrement, non-SUPPLY rejection, 403/404 guards; GET history + frequent items | `db` |
 
-**Run:** `cd app; pytest` — **349 tests passing, 1 xfailed** (requires_full_check enforcement — SEED-GAP2)
+**Run:** `cd app; pytest` — **363 tests passing, 1 xfailed** (requires_full_check enforcement — SEED-GAP2)
 
 **Two DB fixtures — do not mix:**
 - `db` — in-memory SQLite, empty, rolls back after each test. Use for all API/logic tests.
@@ -171,7 +174,7 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 |------|------|---------|
 | `index.jsx` | 15 KB | Wizard orchestration, step routing, draft state |
 | `components/Step1Vehicle.jsx` | 14 KB | Vehicle/location selection + CS check toggle; detects `draft._supplyRoom` for supply room wizard path |
-| `components/Step2Compartments.jsx` | 14 KB | Priority items section (inline confirm) + compartment list with reading confirmations; No Change / Modify / stock preview. Short count based on last check quantity_found. |
+| `components/Step2Compartments.jsx` | 14 KB | Priority items section (inline confirm) + compartment list with reading confirmations; No Change / Modify / stock preview. Short count based on last check quantity_found. Reading confirmation rows are suppressed for `requires_full_check` compartments (Truck Operations, Under Hood) — those items only appear in Step 3. |
 | `components/Step3Items.jsx` | 7 KB | Item counting per compartment |
 | `components/ItemRow.jsx` | 16 KB | Per-item row — all check types (supply/measurement/functional/date) |
 | `components/Step4Reconcile.jsx` | 13 KB | Flagged items review |
@@ -209,13 +212,22 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 ### supply-room/  (Station Supplies — redesigned Session K)
 | File | Size | Purpose |
 |------|------|---------|
-| `index.jsx` | 6 KB | Landing: 2 large cards (View Supplies, Count Supplies). Detects 404 → setup state with "Set Up Supply Room" button (calls POST supply-room). |
+| `index.jsx` | 6 KB | Landing: 3 large cards (View Supplies, Count Supplies, Usage Log). Detects 404 → setup state with "Set Up Supply Room" button (calls POST supply-room). |
 | `supply-room.css` | — | All supply-room CSS using design tokens |
 | `api/supplyApi.js` | 3 KB | getSupplyRoom, createSupplyRoom (POST), catalog (SR-B1), patchCount (SR-B2), putLot (SR-F7), CSV, station locations |
 | `components/SupplyCatalogView.jsx` | — | SR-F3: catalog from SR-B1; "On hand / Par" color-coded; inline count correction (Supervisor+); lot expiry editor (SR-F7) |
 | `components/ReceiveStockPanel.jsx` | 8 KB | Manual add + CSV bulk upload |
 | `components/TransferHistory.jsx` | 4 KB | Inbound/outbound transfer log |
 | `components/RestockVehiclePanel.jsx` | 9 KB | Retired — no longer imported or routed. Kept for historical reference. |
+| `components/UsageLogView.jsx` | — | Session N: Usage history — event rows with date/user/vehicle/items. Uses `.ulh-*` classes from usage-log.css. |
+
+### usage-log/  (After-Call Reset — Session N)
+| File | Size | Purpose |
+|------|------|---------|
+| `index.jsx` | — | Orchestrator: loading → vehicle (if multiple) → item picker → submitting → done. Auto-skips vehicle step for single-vehicle stations. |
+| `api/usageApi.js` | — | logUsage (POST /checks/usage), getHistory (GET), getFrequentItems (GET frequent) |
+| `components/UsageItemPicker.jsx` | — | Item picker with sections: "Used most often" (from history) or "Common items" (hardcoded defaults) + "All items". +/− controls. Selected items highlighted. 60px tap targets. |
+| `usage-log.css` | — | All usage-log + history CSS using design tokens; `.ul-*` screen classes, `.uip-*` picker classes, `.ulh-*` history classes |
 
 ### vehicles/  (V&E Status)
 | File | Size | Purpose |
@@ -306,7 +318,7 @@ Vitest + React Testing Library. Run: `cd frontend && npm test` — **180 tests p
 
 ## Migrations (app/alembic/versions/)
 
-19 migrations applied (0001–0019, plus 0003a branch). Run automatically at startup via `startup.sh`.
+20 migrations applied (0001–0020, plus 0003a branch). Run automatically at startup via `startup.sh`.
 To add a new migration: `cd app && alembic revision --autogenerate -m "description"`
 
 | Migration | Description |
@@ -322,6 +334,7 @@ To add a new migration: `cd app && alembic revision --autogenerate -m "descripti
 | 0017 | `station_supply` (bool NOT NULL DEFAULT TRUE) on items; batch mode; SR-M1 |
 | 0018 | Backfills STATION_SUPPLY_ROOM location + Shelf 1–4 compartments for active stations lacking one |
 | 0019 | `ix_check_station_date` composite index on `daily_inventory_checks(station_id, check_date)` |
+| 0020 | `usage_events` + `usage_event_items` tables; indexes on station_id and timestamp (Session N) |
 
 ---
 
@@ -337,7 +350,15 @@ Idempotent — safe to re-run. Reseed sequence: `Remove-Item ems_readykit_dev.db
 
 **Unit 710 Jump Bag:** removed from seed (v1.66) — Unit 710 has no ambulance yet. Add when Unit 710 ambulance is configured.
 
-**Priority items seeded:** AED Battery (`priority_check=True`, `priority_question="AED shows READY?"`). LUCAS Device Ready Check has priority_check but no question set yet (LAUNCH-OPS1).
+**Priority items seeded:** AED Battery (`priority_check=True`, `priority_question="AED shows READY?"`); LUCAS Device (`priority_check=True`, `priority_question="LUCAS shows READY?"`). Both surface at the top of Step 2 before the compartment walk.
+
+**Under Hood:** `requires_full_check=True`, `restriction_note=None` (restriction not enforced operationally). Inline reading rows suppressed on outer card — same behavior as Truck Operations.
+
+**Passenger Side EC 1:** removed from seed — empty on Unit 712. Existing rows purged by `purge_stale_par_levels()` on reseed.
+
+**Stretcher / Driver Side EC 1:** O2 tank SUPPLY par levels removed; PSI MEASUREMENT items are the canonical check for both. `purge_stale_par_levels()` cleans stale rows on reseed.
+
+**AED Pads Adult / Pediatric:** `recurrence_days=730` — OVERDUE fires when recorded expiry date is past the 2-year window. Same/Different buttons appear once a date has been recorded.
 
 **Non-supply items** (`station_supply=False`): AED/LUCAS items, all medications and drug bags. These are excluded from the supply catalog by SR-B1 and station_supply flag.
 

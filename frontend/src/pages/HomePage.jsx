@@ -32,6 +32,7 @@ const CheckHistoryScreen   = lazy(() => import('../modules/check-history/index.j
 const SupervisorDashboard  = lazy(() => import('../modules/supervisor/index.jsx'))
 const AdminScreen          = lazy(() => import('../modules/admin/index.jsx'))
 const SupplyRoomScreen     = lazy(() => import('../modules/supply-room/index.jsx'))
+const UsageLogScreen       = lazy(() => import('../modules/usage-log/index.jsx'))
 
 const STATION_STORAGE_KEY = 'ems_selected_station_id'  // store ID only, not full object
 
@@ -262,6 +263,19 @@ export default function HomePage() {
     )
   }
 
+  if (activeModule === 'usage-log') {
+    return (
+      <ErrorBoundary moduleName="Log Items Used">
+        <Suspense fallback={<Spinner label="Loading…" />}>
+          <UsageLogScreen
+            station={selectedStation}
+            onBack={() => setActiveModule(null)}
+          />
+        </Suspense>
+      </ErrorBoundary>
+    )
+  }
+
   if (activeModule === 'supply-room') {
     return (
       <ErrorBoundary moduleName="Station Supplies">
@@ -361,13 +375,17 @@ export default function HomePage() {
 
         <button
           className="home-page__hero-btn home-page__hero-btn--secondary"
-          disabled
+          onClick={() => setActiveModule('usage-log')}
+          disabled={!selectedStation}
           type="button"
+          aria-label={selectedStation
+            ? `Log Items Used — record supplies used after a call at ${selectedStation.name}`
+            : 'Log Items Used — select a station first'}
         >
           <span className="home-page__hero-btn__icon" aria-hidden="true">📋</span>
           <span className="home-page__hero-btn__body">
             <span className="home-page__hero-btn__label">Log Items Used</span>
-            <span className="home-page__hero-btn__sublabel">Record what you used on a call</span>
+            <span className="home-page__hero-btn__sublabel">After a call — record what you used</span>
           </span>
         </button>
       </section>

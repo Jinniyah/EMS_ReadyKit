@@ -14,6 +14,7 @@ import { useAuth } from '../../shared/hooks/useAuth.jsx'
 import SupplyCatalogView from './components/SupplyCatalogView.jsx'
 import ReceiveStockPanel  from './components/ReceiveStockPanel.jsx'
 import TransferHistory    from './components/TransferHistory.jsx'
+import UsageLogView       from './components/UsageLogView.jsx'
 import './supply-room.css'
 
 const PRIMARY_SECTIONS = [
@@ -28,6 +29,12 @@ const PRIMARY_SECTIONS = [
     icon:  '✅',
     label: 'Count Supplies',
     hint:  'Walk through each shelf and record what you find',
+  },
+  {
+    key:   'USAGE_LOG',
+    icon:  '📋',
+    label: 'Usage Log',
+    hint:  'Items logged as used after calls',
   },
 ]
 
@@ -96,7 +103,10 @@ export default function SupplyRoomScreen({ station, onBack, onCountSupplies }) {
   const lowCount = catalogItems.filter(i =>
     i.par_min != null && i.on_hand < i.par_min
   ).length
-  const sectionLabel = SECONDARY_SECTIONS.find(s => s.key === activeSection)?.label ?? null
+  const sectionLabel = [
+    ...PRIMARY_SECTIONS,
+    ...SECONDARY_SECTIONS,
+  ].find(s => s.key === activeSection)?.label ?? null
   const onHeaderBack = activeSection ? () => setActiveSection(null) : onBack
 
   function handlePrimaryCard(key) {
@@ -106,6 +116,9 @@ export default function SupplyRoomScreen({ station, onBack, onCountSupplies }) {
       setActiveSection(key)
     }
   }
+
+  // Header title — show section label or default
+  const headerTitle = sectionLabel ?? (activeSection === 'VIEW' ? 'View Supplies' : 'Station Supplies')
 
   return (
     <div className="sr-screen">
@@ -121,9 +134,7 @@ export default function SupplyRoomScreen({ station, onBack, onCountSupplies }) {
           {activeSection ? '← Back' : '← Home'}
         </button>
         <div className="sr-header__text">
-          <h1 className="sr-header__title">
-            {sectionLabel ?? (activeSection === 'VIEW' ? 'View Supplies' : 'Station Supplies')}
-          </h1>
+          <h1 className="sr-header__title">{headerTitle}</h1>
           {station && !activeSection && (
             <p className="sr-header__station">{station.name}</p>
           )}
@@ -233,6 +244,9 @@ export default function SupplyRoomScreen({ station, onBack, onCountSupplies }) {
           )}
           {activeSection === 'HISTORY' && (
             <TransferHistory locationId={supplyRoom.location_id} />
+          )}
+          {activeSection === 'USAGE_LOG' && (
+            <UsageLogView stationId={station?.station_id} />
           )}
         </div>
       )}

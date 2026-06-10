@@ -124,7 +124,7 @@ Key endpoints:
 ```powershell
 cd app
 
-# Full suite (349 tests, ~6 seconds)
+# Full suite (363 tests, ~7 seconds)
 pytest tests/ -q
 
 # Verbose with short tracebacks
@@ -539,7 +539,7 @@ Push to main or PR
 Job 1: test
     ubuntu-latest
     pip install -r requirements.txt
-    pytest tests/ -v --tb=short   (349 tests must pass)
+    pytest tests/ -v --tb=short   (363 tests must pass)
     │
     ▼ (on pass, main branch only)
 Job 2: deploy

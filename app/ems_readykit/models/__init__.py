@@ -18,6 +18,7 @@ from ems_readykit.models.station import Station
 from ems_readykit.models.station_member import StationMember
 from ems_readykit.models.stock_lot import StockLot
 from ems_readykit.models.stock_transfer import StockTransfer
+from ems_readykit.models.usage_event import UsageEvent, UsageEventItem
 from ems_readykit.models.vehicle import Vehicle, VehicleType
 
 __all__ = [
@@ -41,6 +42,8 @@ __all__ = [
     "StationMember",
     "StockLot",
     "StockTransfer",
+    "UsageEvent",
+    "UsageEventItem",
     "Vehicle",
     "VehicleType",
 ]
