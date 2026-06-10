@@ -97,6 +97,7 @@ class ItemCheckType(str, enum.Enum):
     FUNCTIONAL  = "FUNCTIONAL"   # pass/fail operational check (battery OK, runs & starts)
     DATE_RECORD = "DATE_RECORD"  # date recorded (last charge date, last service date)
     DOCUMENT    = "DOCUMENT"     # presence-only paperwork check
+    EXPIRY_DATE = "EXPIRY_DATE"  # expiration date from package label (e.g. AED pads) — EXPIRED when today > date_value
 
 
 class Item(TimestampMixin, Base):

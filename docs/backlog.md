@@ -1,9 +1,9 @@
 # EMS ReadyKit — Active Backlog
-# v1.72 | Updated: 2026-06-10 | Current: Post-session N complete
+# v1.75 | Updated: 2026-06-10 | Current: Post-session O complete
 # Completed items -> backlog_completed.md
 # Priority: Critical / High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
-# ✅ Sessions A–L complete — see backlog_completed.md
+# ✅ Sessions A–O complete — see backlog_completed.md
 
 ---
 
@@ -22,7 +22,7 @@
 ##   ✓ Priority items configured in admin for Unit 712 (AED, LUCAS, O2, Truck Ops)
 ##   ✓ UAT executed against live Azure deployment with real Unit 712 inventory
 ##   ✓ Physical stock count entered for Unit 712 (not seed quantities — actual counts)
-##   ✓ All tests passing (363 tests green — Session N post-close)
+##   ✓ All tests passing (364 tests green — Session O post-close)
 ##   ✓ Code cleanup complete (dead files deleted, CSS consolidated)
 
 ---
@@ -32,36 +32,34 @@
 ## Session N — COMPLETE (2026-06-10)
 ##   RX-B1/RX-F6/RX-F11 done — see backlog_completed.md
 ##
-## Session O — UX Redesign + Pre-launch Fixes (~5 hrs)
-##   SEED-GAP2    requires_full_check enforcement in router (clears xfail)  ~30 min
+## Session O — COMPLETE (2026-06-10)
+##   SEED-GAP2/RX-F3/RX-F4/RX-F5/RX-F9b/RX-F10/RX-F13/SUP-F1/SUP-F2 done — see backlog_completed.md
+##
+## Session P — Admin + Supply Room (~4.5 hrs)
 ##   RX-B2        PATCH /admin/par-levels/{id} priority_check/question      ~20 min
 ##   RX-F12       Priority toggle + question in par level edit form (Admin)  ~45 min
-##   RX-F3        Collapse Step 1 for single-station users                   ~30 min
-##   RX-F4        Simplify Step 5 for clean PASS checks                      ~30 min
-##   RX-F5        Restock list persists on SubmittedScreen                   ~20 min
-##   RX-F9b       Priority "last confirmed" display                          ~30 min
-##   RX-F10       Responder-facing language + error message replacement      ~60 min
-##   SUP-F1        Open repair count on compliance dashboard                 ~20 min
-##   SUP-F2        Repair count drill-down to V&E Status                     ~15 min
-##   DMG-F3        Damaged item badge in supply room View Supplies           ~20 min
+##   DMG-F3       Damaged item badge in supply room View Supplies            ~20 min
+##   SS-B1        PATCH /admin/locations/{id} (label rename)                 ~20 min
+##   SS-F1        Station Supplies tab in Station Administration             ~60 min
+##   SS-F2        "+ Add item" entry point in View Supplies per shelf        ~30 min
+##   ADMIN-F7     Portable location list view (Jump Bags) in Admin           ~45 min
+##   SUP-F3       Expiring items alert on compliance dashboard               ~45 min
 ##
-## Session P — Dashboard + Station Admin (~4 hrs)
-##   SUP-F3       Expiring items alert on compliance dashboard        ~45 min
-##   B-M10        Migration: allow_check_modification on stations     ~20 min
-##   CH-B7/B8     Station settings GET/PATCH endpoints                ~30 min
-##   ADMIN-B14    PATCH /admin/locations/{id} (label rename)          ~20 min
-##   ADMIN-F7     Portable location list view (Jump Bags) in Admin    ~45 min
-##   ACC-F1-F5    Station membership frontend                         ~60 min
+## Session Q — Dashboard + Station Settings (~4 hrs)
+##   B-M10        Migration: allow_check_modification on stations            ~20 min
+##   CH-B7/B8     Station settings GET/PATCH endpoints                       ~30 min
+##   ACC-F1-F5    Station membership frontend                                ~60 min
+##   S-F1/F3      Settings nav + allow_check_modification toggle             ~45 min
 ##
-## Session Q — Retirement + Settings (~4 hrs)
-##   RET-M1-M3    Migrations: retired_at/by/reason                    ~30 min
-##   RET-B1-B6    Retire vehicle/location/station endpoints           ~60 min
-##   RET-F1-F5    Retire actions in UI                                ~60 min
-##   S-F1/F3/F6/F7/F8  Settings module                                ~90 min
-##   I-3          HTTPSRedirectMiddleware (3 lines)                   ~10 min
-##   SEC-OPS1     Monthly dependency audit workflow                   ~20 min
+## Session R — Retirement + Security (~4 hrs)
+##   RET-M1-M3    Migrations: retired_at/by/reason                          ~30 min
+##   RET-B1-B6    Retire vehicle/location/station endpoints                  ~60 min
+##   RET-F1-F5    Retire actions in UI                                       ~60 min
+##   S-F6/F7/F8   Station/vehicle/par level management in Settings           ~60 min
+##   I-3          HTTPSRedirectMiddleware (3 lines)                          ~10 min
+##   SEC-OPS1     Monthly dependency audit workflow                          ~20 min
 ##
-## Session R — UAT Dress Rehearsal + Launch
+## Session S — UAT Dress Rehearsal + Launch
 ##   LAUNCH-OPS1–9  Operational checklist
 ##   UAT-2–11       Execute all test cases
 
@@ -70,51 +68,45 @@
 ## 0. Security
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| I-3 | `HTTPSRedirectMiddleware` in `main.py` | Low | 📋 | Azure App Service enforces HTTPS at platform level. Application-layer enforcement is defence-in-depth. Three lines in main.py. Session P. |
-| SEC-OPS1 | Scheduled monthly dependency audit workflow | Low | 📋 | `.github/workflows/dependency-audit.yml` — runs pip-audit + npm audit on first of each month, opens GitHub issue on findings above moderate. Session P. |
+| I-3 | `HTTPSRedirectMiddleware` in `main.py` | Low | 📋 | Azure App Service enforces HTTPS at platform level. Application-layer enforcement is defence-in-depth. Three lines in main.py. Session R. |
+| SEC-OPS1 | Scheduled monthly dependency audit workflow | Low | 📋 | `.github/workflows/dependency-audit.yml` — runs pip-audit + npm audit on first of each month, opens GitHub issue on findings above moderate. Session R. |
 
 ---
 
 ## 1. Workflow Acceleration — Check Wizard
 
-### Interaction redesign
-| # | Item | Pri | Status | Notes |
-|---|------|-----|--------|-------|
-| RX-F3 | Collapse Step 1 for single-station users | High | 📋 | Session M. Single-station: vehicle picker + "Continue" only. Date and second crew collapse into a disclosure — "Change date or add crew member". Open by default only if date != today or draft has second crew. |
-| RX-F4 | Simplify Step 5 for clean PASS checks | High | 📋 | Session M. PASS: status badge + single "Submit — Unit 712" button. No compartment re-review, no repair toggle, no notes field, no confirmation modal. Repair toggle and notes appear only on NEEDS_RESTOCK or FAIL. |
-| RX-F5 | Restock list persists on SubmittedScreen | High | 📋 | Session M. On NEEDS_RESTOCK: "View restock list" button on SubmittedScreen opens read-only reconcile summary. Currently the list disappears after submission. |
-
 ### Priority items
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| RX-F9b | Priority item "last confirmed" display | Medium | 📋 | Session M. "Last confirmed ready: [date] · [N] days ago" below each priority item. Pulls from most recent PASS line item for that item on that vehicle. Amber if > threshold days (7 amber / 14 red — Q-15 resolved). |
-| RX-B2 | `PATCH /admin/par-levels/{id}` — accept priority_check + priority_question | High | 📋 | Session M. Verify or extend: endpoint must accept `priority_check` (bool) and `priority_question` (VARCHAR 150). Migration 0015 added these columns. Admin+ only. Uses `write_audit_event()`. ~20 min |
-| RX-F12 | Priority toggle + question in par level edit form (Admin) | High | 📋 | Session M. In `CompartmentParLevels.jsx`: add **"Show as priority at start of check"** toggle and conditional **"Custom check question"** text field (max 150 chars, appears when toggle is on). Save via RX-B2. Gap from SEED-GAP3 — DB columns exist since migration 0015, UI was never built. ~45 min |
-
-### Responder language + error messages
-| # | Item | Pri | Status | Notes |
-|---|------|-----|--------|-------|
-| RX-F10 | Responder-facing language + error message replacement | Critical | 📋 | Session M. Display strings only. Jargon replacements: "Par level" → "Stock: N / N", "Reconcile" → "Restock list", "Functional check" → custom question text, "Date record" → "Expiration date", "NEEDS_RESTOCK" → "Restock needed", "FAIL" → "Problem found", "Measurement" → "Reading", "Repair request" → "Report a problem". Error replacements: 401 → "Your session expired. Sign out and sign back in.", 403 → "You don't have permission to do that. Ask your supervisor if something seems wrong." No HTTP codes or server terminology visible to responders ever. |
+| RX-B2 | `PATCH /admin/par-levels/{id}` — accept priority_check + priority_question | High | 📋 | Session P. Verify or extend: endpoint must accept `priority_check` (bool) and `priority_question` (VARCHAR 150). Migration 0015 added these columns. Admin+ only. Uses `write_audit_event()`. ~20 min |
+| RX-F12 | Priority toggle + question in par level edit form (Admin) | High | 📋 | Session P. In `CompartmentParLevels.jsx`: add **"Show as priority at start of check"** toggle and conditional **"Custom check question"** text field (max 150 chars, appears when toggle is on). Save via RX-B2. Gap from SEED-GAP3 — DB columns exist since migration 0015, UI was never built. ~45 min |
 
 ---
 
 ## 2. Damaged Item Status
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| DMG-F3 | Damaged item visibility in supply room | Medium | 📋 | Session M. View Supplies shows damaged items with ⚠ badge. Damaged items excluded from restock suggestions — repair first. |
+| DMG-F3 | Damaged item visibility in supply room | Medium | 📋 | Session P. View Supplies shows damaged items with ⚠ badge. Damaged items excluded from restock suggestions — repair first. |
 
 ---
 
 ## 3. Supervisor Dashboard Enhancements
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| SUP-F1 | Open repair count on compliance dashboard | Critical | 📋 | Session M. "N open repair requests" count line. Tap navigates to V&E Status. Hidden if zero. No new API call. |
-| SUP-F2 | Repair count drill-down to V&E Status | High | 📋 | Session M. Tap navigates to V&E Status filtered to open/in-progress. Uses existing onNavigateToVehicles prop. |
-| SUP-F3 | Expiring items alert on compliance dashboard | High | 📋 | Session O. Query stock_lots expiring within 30 days. Show count in dashboard header. Tap opens list grouped by vehicle: item name, lot number, expiry date, compartment. Amber at 30 days, red at 7 days. No new migration — expiration_date already on StockLot. |
+| SUP-F3 | Expiring items alert on compliance dashboard | High | 📋 | Session P. Query stock_lots expiring within 30 days. Show count in dashboard header. Tap opens list grouped by vehicle: item name, lot number, expiry date, compartment. Amber at 30 days, red at 7 days. No new migration — expiration_date already on StockLot. |
 
 ---
 
-## 4. AI Item Identification — Groundwork
+## 4. Station Supplies Management
+| # | Item | Pri | Status | Notes |
+|---|------|-----|--------|-------|
+| SS-B1 | `PATCH /admin/locations/{id}` — label rename | High | 📋 | Session P. Allows renaming supply room shelves (e.g. "Shelf 1" → "Cabinet 1 - Shelf 1"). Admin only. Replaces old ADMIN-B14. ~20 min |
+| SS-F1 | Station Supplies tab in Station Administration | High | 📋 | Session P. New "Station Supplies" nav card in admin index alongside Vehicles. Points at the station's STATION_SUPPLY_ROOM location. Reuses `CompartmentParLevels.jsx` (and shelf rename via SS-B1) to assign items with min/max qty per shelf — same pattern as vehicle compartment management. Admin only. ~60 min |
+| SS-F2 | "+ Add item" entry point in View Supplies per shelf section | Medium | 📋 | Session P. In `SupplyCatalogView.jsx`: Supervisor+ sees a small "+ Add" button at the bottom of each shelf section. Opens existing item assignment flow (same as CompartmentParLevels). Returns to View Supplies on save. ~30 min |
+
+---
+
+## 5. AI Item Identification — Groundwork
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
 | AI-B1 | `PATCH /admin/items/{id}/ai-fields` | High | 📋 | Admin-only. Sets ai_tags, alternate_names, reference_image_url, barcode. Fields exist in DB since migration 0009. |
@@ -124,16 +116,15 @@
 
 ---
 
-## 5. Seed Data Gaps — Unit 712
+## 6. Seed Data Gaps — Unit 712
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| SEED-GAP2 | Truck Operations — requires_full_check=True enforcement | High | 📋 | Session M. Implement enforcement in router (clears xfail in test_safety_checks.py). Also set `requires_full_check=True` on Truck Operations compartment in seed.py. Q-16 resolved: compartment-level flag. |
 | SEED-GAP4 | O2 PSI items — priority consideration | Medium | 📋 | "On-Board O2 PSI" (DS EC 1) and "Stretcher O2 PSI" — both min 500 PSI. Chief decides whether to mark priority. Stretcher O2 likely priority. |
 | SEED-GAP5 | Jump bag O2 PSI priority consideration | Low | 📋 | "Jump Bag O2 PSI" MEASUREMENT item. Same priority decision as SEED-GAP4. |
 
 ---
 
-## 6. Launch Readiness — Operational Checklist
+## 7. Launch Readiness — Operational Checklist
 | # | Task | Owner | Status | Notes |
 |---|------|-------|--------|-------|
 | LAUNCH-OPS1 | Configure priority items for Unit 712 in production admin | EMS chief | 📋 | After RX-F12 ships: Admin → Vehicles → Unit 712 → Par Levels. Mark AED Battery, LUCAS Device Ready Check, O2 PSI items as priority. Set custom question text. |
@@ -148,7 +139,7 @@
 
 ---
 
-## 7. Backend — Endpoints
+## 8. Backend — Endpoints
 | # | Endpoint | Description | Pri | Status |
 |---|----------|-------------|-----|--------|
 | B-E9 | `PATCH /inventory/par-levels/{id}` | Soft-deactivate par level | Medium | 📋 |
@@ -156,62 +147,62 @@
 
 ---
 
-## 8. Backend — Data Models
+## 9. Backend — Data Models
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
 | B-M6 | Alter `par_levels`: add `active`, `deactivated_at`, `deactivation_reason` | Medium | 📋 | |
-| B-M10 | Alter `stations`: add `allow_check_modification` (default True — Q-7 resolved) | High | 📋 | Session O. |
-| RET-M1 | Alter `vehicles`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 | Session P. |
-| RET-M2 | Alter `locations`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 | Session P. |
-| RET-M3 | Alter `stations`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 | Session P. |
+| B-M10 | Alter `stations`: add `allow_check_modification` (default True — Q-7 resolved) | High | 📋 | Session Q. |
+| RET-M1 | Alter `vehicles`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 | Session R. |
+| RET-M2 | Alter `locations`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 | Session R. |
+| RET-M3 | Alter `stations`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 | Session R. |
 
 ---
 
-## 9. Backend — Check History Endpoints
+## 10. Backend — Check History Endpoints
 | # | Endpoint | Description | Pri | Status | Notes |
 |---|----------|-------------|-----|--------|-------|
 | CH-B4 | `DELETE /checks/daily/{id}/force` | Force hard-delete | High | 📋 | Admin only. Post-launch. |
 | CH-B5 | `GET /checks/daily/deleted?station_id=` | List soft-deleted checks | Medium | 📋 | Supervisor+. Post-launch. |
 | CH-B6 | `PATCH /checks/daily/{id}/restore` | Restore soft-deleted (Q-8: all roles) | Low | 📋 | Post-launch. |
-| CH-B7 | `PATCH /stations/{id}/settings` | Update station settings | High | 📋 | Admin only. Session O. |
-| CH-B8 | `GET /stations/{id}/settings` | Read station settings | High | 📋 | Supervisor+. Session O. |
+| CH-B7 | `PATCH /stations/{id}/settings` | Update station settings | High | 📋 | Admin only. Session Q. |
+| CH-B8 | `GET /stations/{id}/settings` | Read station settings | High | 📋 | Supervisor+. Session Q. |
 
 ---
 
-## 10. Backend — Retirement Endpoints
-| # | Endpoint | Pri | Status |
-|---|----------|-----|--------|
-| RET-B1 | `PATCH /vehicles/{id}/retire` | High | 📋 | Session P. |
-| RET-B2 | `PATCH /locations/{id}/retire` | High | 📋 | Session P. |
-| RET-B3 | `PATCH /stations/{id}/retire` | High | 📋 | Session P. |
-| RET-B4 | `GET /admin/retired?type=&station_id=` | Medium | 📋 | Session P. |
-| RET-B5 | `PATCH /inventory/lots/{id}/retire` | High | 📋 | Session P. |
-| RET-B6 | `GET /inventory/lots/retired?location_id=` | Medium | 📋 | Session P. |
+## 11. Backend — Retirement Endpoints
+| # | Endpoint | Pri | Status | Notes |
+|---|----------|-----|--------|-------|
+| RET-B1 | `PATCH /vehicles/{id}/retire` | High | 📋 | Session R. |
+| RET-B2 | `PATCH /locations/{id}/retire` | High | 📋 | Session R. |
+| RET-B3 | `PATCH /stations/{id}/retire` | High | 📋 | Session R. |
+| RET-B4 | `GET /admin/retired?type=&station_id=` | Medium | 📋 | Session R. |
+| RET-B5 | `PATCH /inventory/lots/{id}/retire` | High | 📋 | Session R. |
+| RET-B6 | `GET /inventory/lots/retired?location_id=` | Medium | 📋 | Session R. |
 
 ---
 
-## 11. Frontend — Help System
+## 12. Frontend — Help System
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
 | F-5C2 | Contextual "?" help — bottom sheet per wizard step | Medium | 📋 | Post-launch. Based on what questions the team actually asks after first month. |
 
 ---
 
-## 12. Frontend — Supervisor Dashboard
+## 13. Frontend — Supervisor Dashboard
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
 | F-5F7 | Supply room stock view on dashboard | Medium | 📋 | Post-launch enhancement |
 
 ---
 
-## 13. Frontend — Supporting Modules
+## 14. Frontend — Supporting Modules
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
 | F-5G3 | Data export — CSV for history, audit, repairs | Medium | 📋 | Q-3 answered: yes, download history. When first compliance report is due. |
 
 ---
 
-## 14. Frontend — Check Wizard UX
+## 15. Frontend — Check Wizard UX
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
 | F-UX10 | Scroll-to-card on return from compartment item list | Low | 📋 | Sticky button handles the common case. Revisit post-launch if team finds it insufficient. ~30 min |
@@ -222,36 +213,36 @@
 
 ---
 
-## 15. Frontend — Check History
+## 16. Frontend — Check History
 | # | Item | Pri | Status | Needs |
 |---|------|-----|--------|-------|
 | CH-F6 | Acknowledgement / corrective note | High | ⛔ | B-M10, CH-B8 |
 
 ---
 
-## 16. Frontend — Settings Module
+## 17. Frontend — Settings Module
 | # | Item | Pri | Status | Needs |
 |---|------|-----|--------|-------|
-| S-F1 | Settings nav entry | High | 📋 | Session P. |
-| S-F3 | Allow check modification toggle (default True) | High | 📋 | Session P. Needs B-M10. |
-| S-F6 | Station management | High | 📋 | Session P. Needs RET-B3/B4. |
-| S-F7 | Vehicle management | High | 📋 | Session P. Needs RET-B1/B2. |
-| S-F8 | Par level management | Medium | 📋 | Session P. Needs B-E9. |
+| S-F1 | Settings nav entry | High | 📋 | Session Q. |
+| S-F3 | Allow check modification toggle (default True) | High | 📋 | Session Q. Needs B-M10. |
+| S-F6 | Station management | High | 📋 | Session R. Needs RET-B3/B4. |
+| S-F7 | Vehicle management | High | 📋 | Session R. Needs RET-B1/B2. |
+| S-F8 | Par level management | Medium | 📋 | Session R. Needs B-E9. |
 
 ---
 
-## 17. Frontend — Retirement Actions
+## 18. Frontend — Retirement Actions
 | # | Item | Pri | Status | Needs |
 |---|------|-----|--------|-------|
-| RET-F1 | Retire vehicle | High | 📋 | Session P. Needs RET-B1. |
-| RET-F2 | Retire jump bag / portable location | High | 📋 | Session P. Needs RET-B2. |
-| RET-F3 | Retire inventory lot | High | 📋 | Session P. Needs RET-B5. |
-| RET-F4 | Retire station | High | 📋 | Session P. Needs RET-B3. |
-| RET-F5 | Retired objects list | Medium | 📋 | Session P. Needs RET-B4. |
+| RET-F1 | Retire vehicle | High | 📋 | Session R. Needs RET-B1. |
+| RET-F2 | Retire jump bag / portable location | High | 📋 | Session R. Needs RET-B2. |
+| RET-F3 | Retire inventory lot | High | 📋 | Session R. Needs RET-B5. |
+| RET-F4 | Retire station | High | 📋 | Session R. Needs RET-B3. |
+| RET-F5 | Retired objects list | Medium | 📋 | Session R. Needs RET-B4. |
 
 ---
 
-## 18. Frontend — Tests
+## 19. Frontend — Tests
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
 | FE-TEST-11 | `UsageItemPicker.test.jsx` — item picker | High | 📋 | Catalog renders; search filters by `item_name`; +/- controls update quantity; selected items highlighted; "Used most often" section shown when frequentItems provided; "Common items" + history note shown when no history. |
@@ -259,7 +250,7 @@
 
 ---
 
-## 19. Infrastructure / Security
+## 20. Infrastructure / Security
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
 | I-1 | Azure Firewall | Medium | 📋 | Before scaling to second service |
@@ -272,28 +263,26 @@
 
 ---
 
-## 19. Equipment & Station Administration
+## 21. Equipment & Station Administration
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| ADMIN-B14 | `PATCH /admin/locations/{id}` | High | 📋 | Session O. Label rename for portable locations. |
-| ADMIN-F7 | Portable location list view (Jump Bags) | High | 📋 | Session O. |
+| ADMIN-F7 | Portable location list view (Jump Bags) | High | 📋 | Session P. |
 | ADMIN-F10 | Member list search | Low | 📋 | Post-launch. |
 
 ---
 
-## 20. Station Membership & Access Control
+## 22. Station Membership & Access Control
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| ACC-F1 | Station picker uses `GET /stations/my` | High | 📋 | Session O. |
-| ACC-F2 | Member list view | High | 📋 | Session O. |
-| ACC-F3 | Add member form | High | 📋 | Session O. |
-| ACC-F4 | Remove member confirmation | High | 📋 | Session O. |
-| ACC-F5 | "Pending assignment" screen | High | 📋 | Session O. |
+| ACC-F1 | Station picker uses `GET /stations/my` | High | 📋 | Session Q. |
+| ACC-F2 | Member list view | High | 📋 | Session Q. |
+| ACC-F3 | Add member form | High | 📋 | Session Q. |
+| ACC-F4 | Remove member confirmation | High | 📋 | Session Q. |
+| ACC-F5 | "Pending assignment" screen | High | 📋 | Session Q. |
 
 ---
 
-
-## 22. User Acceptance Testing
+## 23. User Acceptance Testing
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
 | UAT-2 | Execute Responder test cases | High | 📋 | Against live Azure, real Unit 712 data |
@@ -309,7 +298,7 @@
 
 ---
 
-## 23. Open Questions
+## 24. Open Questions
 | # | Question | Notes |
 |---|----------|-------|
 | Q-3 | Download check history CSV? | Yes — add to F-5G3 scope when first compliance report is due |
@@ -321,15 +310,14 @@
 | Area | 📋 | ⛔ | Total |
 |------|----|----|-------|
 | Security | 2 | 0 | 2 |
-| Workflow — Check Wizard | 3 | 0 | 3 |
-| Workflow — Priority Items | 3 | 0 | 3 |
+| Workflow — Priority Items | 2 | 0 | 2 |
 | Workflow — After-Call Reset | 2 | 0 | 2 |
-| Workflow — Language + Errors | 1 | 0 | 1 |
 | Workflow — Tutorial | 1 | 0 | 1 |
 | Damaged Item Status | 1 | 0 | 1 |
-| Supervisor Dashboard | 3 | 0 | 3 |
+| Supervisor Dashboard | 1 | 0 | 1 |
+| Station Supplies Management | 3 | 0 | 3 |
 | AI Identification — Groundwork | 4 | 0 | 4 |
-| Seed Data Gaps — Unit 712 | 3 | 0 | 3 |
+| Seed Data Gaps — Unit 712 | 2 | 0 | 2 |
 | Launch Readiness — Operational | 8 | 0 | 8 |
 | Backend — Endpoints | 2 | 0 | 2 |
 | Backend — Data Models | 5 | 0 | 5 |
@@ -342,11 +330,12 @@
 | Frontend — Check History | 1 | 1 | 2 |
 | Frontend — Settings | 5 | 0 | 5 |
 | Frontend — Retirement Actions | 5 | 0 | 5 |
+| Frontend — Tests | 2 | 0 | 2 |
 | Infrastructure / Security | 1 | 1 | 2 |
-| Equipment & Station Admin | 3 | 0 | 3 |
+| Equipment & Station Admin | 2 | 0 | 2 |
 | Station Membership Frontend | 5 | 0 | 5 |
 | User Acceptance Testing | 9 | 2 | 11 |
-| **Total open** | **85** | **5** | **90** |
+| **Total open** | **81** | **5** | **86** |
 
 *Completed items — Sessions A–K — are in backlog_completed.md.*
 *v1.62 — 2026-06-06: Backlog cleaned. All ✅ Done items moved to backlog_completed.md.*
@@ -358,3 +347,6 @@
 *v1.68 — 2026-06-09: Security/performance improvements partially implemented. Completed: slowapi rate limiting wired (core/limiter.py, main.py), check_date server-derived from timestamp, performed_by uses email, check_history.py ownership checks updated. In progress: test suite broken (60 failures) due to rate limiter firing in tests + conftest/limiter interaction. Continuing in new chat. New backlog items added: PERF-1, PERF-2, TECH-1, TECH-2, TECH-3.*
 *v1.69 — 2026-06-09: Post-session L complete. Tests green (349 passed, 1 xfailed). RATE-FIX done; RATE-CI (ruff in CI), RATE-MIG/PERF-2 (migration 0019 + model), RATE-DOCS (CLAUDE.md) all implemented and moved to completed. Session plan expanded: M–Q now covers all pre-launch items with session labels.*
 *v1.71 — 2026-06-09: Session M complete. Unit 712 inventory corrections: LUCAS Device changed SUPPLY→FUNCTIONAL with priority_check=True ("LUCAS shows READY?"), AED Pads Adult/Pediatric gained recurrence_days=730 for OVERDUE tracking, Stretcher O2 Tank w/ Regulator and On-Board O2 Tank w/ Regulator 15LPM SUPPLY par levels removed (PSI MEASUREMENT items are canonical), Passenger Side EC 1 compartment removed (empty on Unit 712), Under Hood restriction note removed + requires_full_check=True added. Step2Compartments.jsx: reading rows suppressed for requires_full_check compartments (Truck Ops + Under Hood). wizard.css: priority card body padding fixed. Ruff lint: 117 violations cleared across 15 backend files + 1 frontend test file; B904 added to ignore list (FastAPI exception translation pattern); pyproject.toml updated.*
+*v1.73 — 2026-06-10: Added RX-F13 (Same/Different UX for expiry DATE_RECORD items) to Session O.*
+*v1.74 — 2026-06-10: Split Session O into O (wizard UX ~3.5 hrs) and P (admin + supply room ~4.5 hrs). Sessions Q/R shift down; UAT becomes Session S. Added SS-B1/SS-F1/SS-F2 (Station Supplies management). ADMIN-B14 renamed SS-B1 and moved to Section 4.*
+*v1.75 — 2026-06-10: Session O complete. SEED-GAP2 (requires_full_check enforcement, 364 tests, 0 xfailed), RX-F13 (EXPIRY_DATE check type + Same/Different wizard UX), RX-F9b (priority last-confirmed display), RX-F10 (responder language + error messages) implemented. RX-F3/F4/F5/SUP-F1/SUP-F2 confirmed already implemented from prior sessions. Migration 0021 applied.*

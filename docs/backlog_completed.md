@@ -1,7 +1,24 @@
 # EMS ReadyKit — Completed Items
-# Last updated: 2026-06-10 (Session N: After-Call Reset + Usage Log)
-# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N
+# Last updated: 2026-06-10 (Session O: Check Wizard UX + Responder Language)
+# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O
 # Active backlog -> docs/backlog.md
+
+---
+
+## Session O — Check Wizard UX + Responder Language (2026-06-10)
+364 tests passing (0 xfailed — SEED-GAP2 enforcement cleared). Migration 0021 applied.
+
+| # | Item | Description | Date |
+|---|------|-------------|------|
+| SEED-GAP2 | requires_full_check enforcement | `create_daily_check` now returns 422 if any compartment with `requires_full_check=True` has omitted line items. xfail test promoted to passing. | 2026-06-10 |
+| RX-F3 | Single-station Step 1 collapse | Already implemented: Step1Vehicle.jsx has collapsible date/crew disclosure since Session M. Confirmed and marked done. | 2026-06-10 |
+| RX-F4 | Simplify Step 5 for PASS | Already implemented: Step5Submit.jsx has PASS fast path (status badge + single submit, no compartment review). Confirmed and marked done. | 2026-06-10 |
+| RX-F5 | Restock list persists on SubmittedScreen | Already implemented: SubmittedScreen.jsx has "View restock list" toggle for NEEDS_RESTOCK. Confirmed and marked done. | 2026-06-10 |
+| RX-F9b | Priority "last confirmed" display | Step2Compartments.jsx priority cards now show "Last confirmed: [date] · [N] days ago" (amber >7 days, red >14 days) or "Last check: [date] — FAILED" or "Not yet confirmed". | 2026-06-10 |
+| RX-F10 | Responder language + error messages | "Reconcile →" → "Review flagged items →" in Step2. `checkTypeLabel` updated (EXPIRY_DATE=Expiry date). Error messages updated: 401 → "Your session expired. Sign out and sign back in." / 403 → "You don't have permission to do that. Ask your supervisor if something seems wrong." | 2026-06-10 |
+| RX-F13 | EXPIRY_DATE check type | New `ItemCheckType.EXPIRY_DATE` (stored as VARCHAR, no schema change). `_compute_line_item_status` returns EXPIRED when today > date_value. Migration 0021 updates AED Pads Adult + Pediatric to EXPIRY_DATE (recurrence_days=None). Frontend: deriveDraftItemStatus, checkTypeLabel, Step2 EXPIRY_DATE reading row (Same / Different UX), ItemRow ExpiryDateInput. | 2026-06-10 |
+| SUP-F1 | Open repair count on compliance dashboard | Already implemented: supervisorApi fetches repair requests per vehicle, supervisor/index.jsx shows repair count alert. Confirmed and marked done. | 2026-06-10 |
+| SUP-F2 | Repair count drill-down to V&E Status | Already implemented: repair count alert taps via onNavigateToVehicles. Confirmed and marked done. | 2026-06-10 |
 
 ---
 

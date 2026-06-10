@@ -32,6 +32,7 @@ from ems_readykit.models.controlled_substance_check import ControlledSubstanceCh
 from ems_readykit.models.daily_inventory_check import CheckStatus, DailyInventoryCheck
 from ems_readykit.models.inventory_location import InventoryLocation, LocationType
 from ems_readykit.models.item import Item
+from ems_readykit.models.par_level import ParLevel
 from ems_readykit.models.station import Station
 from ems_readykit.models.stock_lot import StockLot
 from ems_readykit.routers.deps import (
@@ -98,6 +99,13 @@ def _compute_line_item_status(
             days_since = (today - date_value).days
             if days_since > recurrence_days:
                 return LineItemStatus.OVERDUE
+        return LineItemStatus.OK
+
+    if check_type == "EXPIRY_DATE":
+        if date_value is None:
+            return LineItemStatus.MISSING
+        if date_value < today:
+            return LineItemStatus.EXPIRED
         return LineItemStatus.OK
 
     if check_type == "SUPPLY":
@@ -284,6 +292,44 @@ async def create_daily_check(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Compartment(s) not found: {sorted(missing_compartments)}",
             )
+
+    # SEED-GAP2: Compartments with requires_full_check=True must have every
+    # active par level explicitly submitted — No Change (omitted item) is not allowed.
+    _enforce_location_id: Optional[int] = None
+    if payload.vehicle_id:
+        veh_loc = db.query(InventoryLocation).filter(
+            InventoryLocation.vehicle_id    == payload.vehicle_id,
+            InventoryLocation.location_type == LocationType.VEHICLE,
+        ).first()
+        if veh_loc:
+            _enforce_location_id = veh_loc.location_id
+    else:
+        _enforce_location_id = payload.location_id
+
+    if _enforce_location_id:
+        full_check_comps = db.query(Compartment).filter(
+            Compartment.location_id         == _enforce_location_id,
+            Compartment.requires_full_check == True,
+            Compartment.active              == True,
+        ).all()
+        if full_check_comps:
+            submitted_pairs = {(li.compartment_id, li.item_id) for li in payload.line_items}
+            for comp in full_check_comps:
+                required = db.query(ParLevel).filter(
+                    ParLevel.compartment_id == comp.compartment_id,
+                    ParLevel.active         == True,
+                ).all()
+                missing = [p.item_id for p in required
+                           if (comp.compartment_id, p.item_id) not in submitted_pairs]
+                if missing:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        detail=(
+                            f"Compartment '{comp.name}' requires a full check — "
+                            "all items must be submitted. "
+                            f"Missing item IDs: {sorted(missing)}"
+                        ),
+                    )
 
     lot_ids = {li.lot_id for li in payload.line_items if li.lot_id is not None}
     lot_map: Dict[int, StockLot] = {}

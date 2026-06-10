@@ -151,7 +151,7 @@ describe('ItemRow — DATE_RECORD check type', () => {
         onTouched={vi.fn()}
       />
     )
-    expect(screen.getByLabelText(/expiration date/i)).toBeTruthy()
+    expect(screen.getByLabelText(/^date$/i)).toBeTruthy()
   })
 
   it('renders Today button', () => {

@@ -181,7 +181,7 @@ export default function CheckWizard({
   const handleNoChangeCompartment = useCallback((comp, supplyLineItems) => {
     const compKey = String(comp.compartment_id)
     // Merge any pre-confirmed readings (MEASUREMENT/FUNCTIONAL/DATE_RECORD) with SUPPLY items.
-    const readingTypes = new Set(['MEASUREMENT', 'FUNCTIONAL', 'DATE_RECORD'])
+    const readingTypes = new Set(['MEASUREMENT', 'FUNCTIONAL', 'DATE_RECORD', 'EXPIRY_DATE'])
     const existingItems = draft?.compartments?.[compKey]?.line_items ?? []
     const confirmedReadings = existingItems.filter(li => readingTypes.has(li.check_type))
     const mergedItems = [

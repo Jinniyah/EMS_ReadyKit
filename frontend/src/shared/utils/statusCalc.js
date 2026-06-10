@@ -115,6 +115,14 @@ export function deriveDraftItemStatus(draftItem) {
     return draftItem.date_value ? 'OK' : null
   }
 
+  if (checkType === 'EXPIRY_DATE') {
+    if (!draftItem.date_value) return null
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const expiry = new Date(draftItem.date_value + 'T00:00:00')
+    return expiry < today ? 'EXPIRED' : 'OK'
+  }
+
   // SUPPLY and DOCUMENT — count-based
   const found  = draftItem.quantity_found  ?? 0
   const needed = draftItem.quantity_needed ?? 0
@@ -250,6 +258,7 @@ export function checkTypeLabel(checkType) {
     FUNCTIONAL:  'Pass/Fail',
     DATE_RECORD: 'Date',
     DOCUMENT:    'Document',
+    EXPIRY_DATE: 'Expiry date',
   }
   return MAP[checkType] ?? checkType
 }

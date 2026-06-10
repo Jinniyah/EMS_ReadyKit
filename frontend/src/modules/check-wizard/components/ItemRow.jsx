@@ -155,7 +155,7 @@ export default function ItemRow({
   const countLabel = (() => {
     if (checkType === 'MEASUREMENT') return `${draftItem?.measurement_value ?? '—'} ${item.unit_of_measure ?? ''}`
     if (checkType === 'FUNCTIONAL')  return draftItem?.functional_pass === true ? 'Pass' : draftItem?.functional_pass === false ? 'Fail' : '—'
-    if (checkType === 'DATE_RECORD') return draftItem?.date_value ? formatShortDate(draftItem.date_value) : '—'
+    if (checkType === 'DATE_RECORD' || checkType === 'EXPIRY_DATE') return draftItem?.date_value ? formatShortDate(draftItem.date_value) : '—'
     return `${draftItem?.quantity_found ?? 0} / ${quantityNeeded}`
   })()
 
@@ -268,6 +268,14 @@ export default function ItemRow({
             onChange={handleDateChange}
             onBlur={handleDateBlur}
             onToday={handleDateToday}
+          />
+        )}
+
+        {checkType === 'EXPIRY_DATE' && (
+          <ExpiryDateInput
+            value={draftItem?.date_value ?? ''}
+            onChange={handleDateChange}
+            onBlur={handleDateBlur}
           />
         )}
       </div>
@@ -385,16 +393,36 @@ function DateRecordInput({ value, onChange, onBlur, onToday }) {
     <div className="date-record-input">
       <div className="date-record-input__row">
         <div className="date-record-input__picker">
-          <label className="measurement-input__label">Expiration date</label>
+          <label className="measurement-input__label">Date</label>
           <input type="date" className="form-input"
             value={value}
             onChange={e => onChange(e.target.value)}
             onBlur={e => onBlur(e.target.value)}
             max={new Date().toISOString().slice(0, 10)}
-            aria-label="Expiration date" />
+            aria-label="Date" />
         </div>
         <button className="btn btn--today" onClick={onToday} type="button"
           aria-label="Set date to today and confirm">Today</button>
+      </div>
+    </div>
+  )
+}
+
+function ExpiryDateInput({ value, onChange, onBlur }) {
+  const isExpired = value && new Date(value + 'T00:00:00') < new Date()
+  return (
+    <div className="date-record-input">
+      <div className="date-record-input__picker">
+        <label className="measurement-input__label">
+          Expiry date from package
+          {isExpired && <span style={{ color: 'var(--color-status-fail)', marginLeft: '0.5rem' }}>⚠ EXPIRED</span>}
+        </label>
+        <input type="date" className={`form-input${isExpired ? ' measurement-input__field--low' : ''}`}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          onBlur={e => onBlur(e.target.value)}
+          aria-label="Expiry date from package"
+          aria-invalid={isExpired} />
       </div>
     </div>
   )

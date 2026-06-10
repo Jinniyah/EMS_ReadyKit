@@ -1,5 +1,5 @@
 # EMS ReadyKit — Codebase Index
-# Last updated: 2026-06-10 (Post-session N: After-Call Reset — usage_events, usage router, usage-log module)
+# Last updated: 2026-06-10 (Post-session O: EXPIRY_DATE check type, SEED-GAP2 enforcement, RX-F9b/F10/F13)
 # PURPOSE: Load this file at the start of every session to orient quickly.
 # After reading this, load only the sections relevant to the current task.
 # Full project state → docs/project_index.md | Open work → docs/backlog.md
@@ -18,7 +18,7 @@ EMS_ReadyKit/
 │   │   ├── schemas/            # Pydantic request/response schemas
 │   │   └── main.py             # App factory, middleware, router registration
 │   ├── alembic/                # DB migrations (versions/ subdirectory)
-│   ├── tests/                  # pytest suite (363 tests, 1 xfailed)
+│   ├── tests/                  # pytest suite (364 tests, 0 xfailed)
 │   ├── seed.py                 # Dev seed data (Newberg 712 BLS + 712 Jump Bag; Marcellus 540 ALS; TEST station)
 │   ├── initial_stock.csv       # 10 seed stock items — upload via Receive New Stock → CSV
 │   └── pyproject.toml          # Dependencies + pytest config
@@ -88,7 +88,7 @@ from ems_readykit.routers.deps import (
 | `compartment.py` | `Compartment` | sort_order, location_descriptor, `requires_full_check` (bool, migration 0015) — when True, No Change is blocked for that compartment (Truck Operations uses this) |
 | `par_level.py` | `ParLevel` | item ↔ compartment; min/max quantity; active flag (0010); `priority_check` + `priority_question` (0015); `is_damaged` (bool) |
 | `stock_lot.py` | `StockLot` | lot_number, expiration_date, quantity |
-| `item.py` | `Item` | ItemCheckType enum: SUPPLY, MEASUREMENT, FUNCTIONAL, DATE_RECORD, DOCUMENT; `station_supply` bool (migration 0017, default True); `measurement_minimum`/`measurement_maximum`; `recurrence_days` |
+| `item.py` | `Item` | ItemCheckType enum: SUPPLY, MEASUREMENT, FUNCTIONAL, DATE_RECORD, DOCUMENT, EXPIRY_DATE (Session O — stored as VARCHAR, no migration); `station_supply` bool (migration 0017, default True); `measurement_minimum`/`measurement_maximum`; `recurrence_days` |
 | `daily_inventory_check.py` | `DailyInventoryCheck` | CheckStatus: PASS/NEEDS_RESTOCK/FAIL; status computed server-side; vehicle_id nullable + location_id (0013) for portable checks; soft-delete fields (deleted_at/by/reason, force_deleted) |
 | `check_line_item.py` | `CheckLineItem` | LineItemStatus: OK/SHORT/LOW/MISSING/EXPIRED/FAIL/OVERDUE; quantity_found/needed; measurement_value; functional_pass; date_value |
 | `controlled_substance_check.py` | `ControlledSubstanceCheck` | dual-signature; ALS vehicles only |
@@ -149,19 +149,17 @@ AuditEvent     (immutable log)
 | `test_persona_responder.py` | — | Jamie (Responder): all 5 check types; FAIL+comment+continue; multiple checks/day; role boundary | `db` |
 | `test_persona_supervisor.py` | — | Earl (Supervisor): check history; damaged item regression (write_audit_event kwargs); repair requests; station today view | `db` |
 | `test_persona_admin.py` | — | Jennifer (Admin): supply room decrement; FUNCTIONAL items excluded; role alias regression; admin-only deactivation boundary | `db` |
-| `test_safety_checks.py` | — | O2 PSI below minimum → LOW; date recurrence overdue → OVERDUE; requires_full_check enforcement (xfail — not yet in router) | `db` |
+| `test_safety_checks.py` | — | O2 PSI below minimum → LOW; date recurrence overdue → OVERDUE; requires_full_check enforcement (422 on missing items — SEED-GAP2 implemented Session O) | `db` |
 | `test_seed_integrity.py` | — | Verifies seeded dev DB: Unit 712, PC 8, AED/LUCAS items, O2 PSI minimums, Truck Operations, jump bags | `seeded_db` |
 | `test_usage.py` | — | POST /checks/usage happy path, FIFO decrement, non-SUPPLY rejection, 403/404 guards; GET history + frequent items | `db` |
 
-**Run:** `cd app; pytest` — **363 tests passing, 1 xfailed** (requires_full_check enforcement — SEED-GAP2)
+**Run:** `cd app; pytest` — **364 tests passing, 0 xfailed**
 
 **Two DB fixtures — do not mix:**
 - `db` — in-memory SQLite, empty, rolls back after each test. Use for all API/logic tests.
 - `seeded_db` — read-only connection to `ems_readykit_dev.db`. Use ONLY in `test_seed_integrity.py`. Skips if dev DB absent. Never write to it.
 
 **Test isolation note:** Route handlers that call `db.commit()` release the active SQLAlchemy savepoint. Any fixture creating a row with a UNIQUE constraint must use get-or-create semantics. See `test_item` and `vehicle_location` fixtures in `test_supply_room.py`.
-
-**Known xfail:** `test_safety_checks.py::TestRequiresFullCheck::test_requires_full_check_true_blocks_no_change` — documents that the router does not yet enforce `requires_full_check=True` on Truck Operations compartment. Must be fixed before launch (SEED-GAP2).
 
 ---
 
@@ -318,7 +316,7 @@ Vitest + React Testing Library. Run: `cd frontend && npm test` — **180 tests p
 
 ## Migrations (app/alembic/versions/)
 
-20 migrations applied (0001–0020, plus 0003a branch). Run automatically at startup via `startup.sh`.
+21 migrations applied (0001–0021, plus 0003a branch). Run automatically at startup via `startup.sh`.
 To add a new migration: `cd app && alembic revision --autogenerate -m "description"`
 
 | Migration | Description |
@@ -335,6 +333,7 @@ To add a new migration: `cd app && alembic revision --autogenerate -m "descripti
 | 0018 | Backfills STATION_SUPPLY_ROOM location + Shelf 1–4 compartments for active stations lacking one |
 | 0019 | `ix_check_station_date` composite index on `daily_inventory_checks(station_id, check_date)` |
 | 0020 | `usage_events` + `usage_event_items` tables; indexes on station_id and timestamp (Session N) |
+| 0021 | UPDATE items: AED Pads Adult/Pediatric → `check_type = 'EXPIRY_DATE'`, `recurrence_days = NULL` (Session O) |
 
 ---
 
@@ -358,7 +357,7 @@ Idempotent — safe to re-run. Reseed sequence: `Remove-Item ems_readykit_dev.db
 
 **Stretcher / Driver Side EC 1:** O2 tank SUPPLY par levels removed; PSI MEASUREMENT items are the canonical check for both. `purge_stale_par_levels()` cleans stale rows on reseed.
 
-**AED Pads Adult / Pediatric:** `recurrence_days=730` — OVERDUE fires when recorded expiry date is past the 2-year window. Same/Different buttons appear once a date has been recorded.
+**AED Pads Adult / Pediatric:** `check_type=EXPIRY_DATE`, `recurrence_days=None` (migration 0021). `date_value` stores printed expiry date from package label. Status: EXPIRED when `today > date_value`, MISSING when null, OK otherwise. Same/Different buttons in wizard (Session O RX-F13).
 
 **Non-supply items** (`station_supply=False`): AED/LUCAS items, all medications and drug bags. These are excluded from the supply catalog by SR-B1 and station_supply flag.
 
@@ -394,15 +393,11 @@ Idempotent — safe to re-run. Reseed sequence: `Remove-Item ems_readykit_dev.db
 
 | Session | Focus | Key Items |
 |---------|-------|-----------|
-| **M** | UX Redesign + Pre-launch Fixes | SEED-GAP2 (requires_full_check), RX-B2/F12 (priority toggle), RX-F3/F4/F5 (wizard), RX-F10 (language), SUP-F1/F2, DMG-F3 |
-| **N** | After-Call Reset + Tutorial | RX-B1 (`POST /checks/usage`), RX-F6 (After-Call Reset flow), RX-F11 (first-run tutorial) |
-| **O** | Dashboard + Station Admin | SUP-F3, B-M10, CH-B7/B8, ADMIN-B14/F7, ACC-F1-F5 |
-| **P** | Retirement + Settings | RET-M1-M3 migrations, RET-B1-B6 endpoints, RET-F1-F5 UI, S-F1/F3/F6-F8 settings |
-| **Q** | UAT Dress Rehearsal + Launch | LAUNCH-OPS1-9, UAT-2-11 |
+| **P** | Admin + Supply Room (~4.5 hrs) | RX-B2/F12 (priority toggle), DMG-F3, SS-B1/F1/F2, ADMIN-F7, SUP-F3 |
+| **Q** | Dashboard + Station Settings (~4 hrs) | B-M10, CH-B7/B8, ACC-F1-F5, S-F1/F3 |
+| **R** | Retirement + Security (~4 hrs) | RET-M1-M3, RET-B1-B6, RET-F1-F5, S-F6/F7/F8, I-3, SEC-OPS1 |
+| **S** | UAT Dress Rehearsal + Launch | LAUNCH-OPS1-9, UAT-2-11 |
 
-**Pre-launch blockers not yet resolved (all in Session M or N):**
-- SEED-GAP2: `requires_full_check` enforcement in router — Session M (xfailed test documents gap)
-- RX-F12: Priority toggle UI in admin par level form — Session M
-- RX-F10: Responder-facing language replacement — Session M
-- SUP-F1: Open repair count on compliance dashboard — Session M
-- RX-F11: First-run tutorial (3 screens, shown once) — Session N
+**Pre-launch blockers not yet resolved:**
+- RX-F12: Priority toggle UI in admin par level form — Session P
+- RX-F11: First-run tutorial (3 screens, shown once) — not yet scheduled (was Session N scope, skipped)

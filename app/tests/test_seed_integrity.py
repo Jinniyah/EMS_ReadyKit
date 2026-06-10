@@ -256,8 +256,11 @@ class TestPC8Integrity:
         loc = _location_for_vehicle(seeded_db, v)
         comp = _compartment(seeded_db, loc, "PC 8")
         item = _item(seeded_db, "AED Pads Adult")
-        assert item.check_type == ItemCheckType.DATE_RECORD, (
-            f"AED Pads Adult check_type is {item.check_type} -- must be DATE_RECORD"
+        assert item.check_type == ItemCheckType.EXPIRY_DATE, (
+            f"AED Pads Adult check_type is {item.check_type} -- must be EXPIRY_DATE"
+        )
+        assert item.recurrence_days is None, (
+            f"AED Pads Adult recurrence_days={item.recurrence_days} -- must be None (EXPIRY_DATE uses date_value directly)"
         )
         _par_for_item_in_compartment(seeded_db, item, comp)
 

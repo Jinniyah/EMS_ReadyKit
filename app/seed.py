@@ -415,19 +415,17 @@ def build_ambulance_inventory(db: Session, loc: InventoryLocation, is_als: bool)
                                         check_type=ItemCheckType.DATE_RECORD,
                                         unit_of_measure="N/A", recurrence_days=90),
             location=loc, compartment=pc8, min_qty=1)
-    # AED Pads — DATE_RECORD capturing the expiry date printed on the package.
-    # recurrence_days=730 (~2 years) drives an OVERDUE alert when the recorded
-    # expiry date is in the past or within the threshold. Same/Different buttons
-    # appear on the compartment card once a date has been recorded previously.
+    # AED Pads — EXPIRY_DATE: date_value is the printed expiry date on the package.
+    # EXPIRED when today > date_value. Same/Different buttons on compartment card.
     add_par(db, item=get_or_create_item(db, name="AED Pads Adult",
                                         category=ItemCategory.CONSUMABLE,
-                                        check_type=ItemCheckType.DATE_RECORD,
-                                        unit_of_measure="N/A", recurrence_days=730),
+                                        check_type=ItemCheckType.EXPIRY_DATE,
+                                        unit_of_measure="N/A", recurrence_days=None),
             location=loc, compartment=pc8, min_qty=1)
     add_par(db, item=get_or_create_item(db, name="AED Pads Pediatric",
                                         category=ItemCategory.CONSUMABLE,
-                                        check_type=ItemCheckType.DATE_RECORD,
-                                        unit_of_measure="N/A", recurrence_days=730),
+                                        check_type=ItemCheckType.EXPIRY_DATE,
+                                        unit_of_measure="N/A", recurrence_days=None),
             location=loc, compartment=pc8, min_qty=1)
     # LUCAS Device — FUNCTIONAL Pass/Fail, shown as a priority item at check start.
     add_par(db, item=get_or_create_item(db, name="LUCAS Device",

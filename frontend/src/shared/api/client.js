@@ -100,17 +100,14 @@ function _extractMessage(status, detail) {
 
   // Session expired
   if (status === 401) {
-    return 'Your session has expired. Please sign out and sign back in.'
+    return 'Your session expired. Sign out and sign back in.'
   }
 
   // Access denied — use the backend message when available (it's written
   // for EMS users), fall back to a clear generic message
   if (status === 403) {
     if (typeof detail === 'string' && detail.length > 0) return detail
-    return (
-      "You don't have permission to do that. " +
-      'If you think this is wrong, contact your supervisor.'
-    )
+    return "You don't have permission to do that. Ask your supervisor if something seems wrong."
   }
 
   if (status === 404) {

@@ -28,7 +28,7 @@ import StatusBadge from '../../../shared/components/StatusBadge.jsx'
 import Spinner from '../../../shared/components/Spinner.jsx'
 import ItemRow from './ItemRow.jsx'
 
-const READING_TYPES = new Set(['MEASUREMENT', 'FUNCTIONAL', 'DATE_RECORD'])
+const READING_TYPES = new Set(['MEASUREMENT', 'FUNCTIONAL', 'DATE_RECORD', 'EXPIRY_DATE'])
 
 const TODAY = new Date().toISOString().slice(0, 10)
 
@@ -176,6 +176,15 @@ export default function Step2Compartments({
               const isExpanded  = expandedPriorityId === pl.par_id
               const questionText = pl.priority_question || item.name
 
+              const lastReading    = lastReadingMap[pl.item_id]
+              const lastCheckDate  = lastReading?.check_date
+              const lastFuncPass   = lastReading?.functional_pass
+              const daysSinceLast  = lastCheckDate
+                ? Math.floor((Date.now() - new Date(lastCheckDate + 'T00:00:00').getTime()) / 86400000)
+                : null
+              const lastConfirmedAmber = daysSinceLast != null && daysSinceLast > 7
+              const lastConfirmedRed   = daysSinceLast != null && daysSinceLast > 14
+
               return (
                 <div
                   key={pl.par_id}
@@ -190,7 +199,33 @@ export default function Step2Compartments({
                     <span className="priority-card__indicator" aria-hidden="true">
                       {isConfirmed ? '✓' : '!'}
                     </span>
-                    <span className="priority-card__question">{questionText}</span>
+                    <span className="priority-card__question-block">
+                      <span className="priority-card__question">{questionText}</span>
+                      {lastCheckDate && lastFuncPass !== false && (
+                        <span
+                          className="priority-card__last-confirmed"
+                          style={{
+                            color: lastConfirmedRed
+                              ? 'var(--color-status-fail)'
+                              : lastConfirmedAmber
+                              ? 'var(--color-status-warn)'
+                              : 'var(--color-text-muted)',
+                          }}
+                        >
+                          Last confirmed: {fmtDate(lastCheckDate)} · {daysAgo(lastCheckDate)}
+                        </span>
+                      )}
+                      {lastCheckDate && lastFuncPass === false && (
+                        <span className="priority-card__last-confirmed" style={{ color: 'var(--color-status-fail)' }}>
+                          Last check: {fmtDate(lastCheckDate)} — FAILED
+                        </span>
+                      )}
+                      {!lastCheckDate && (
+                        <span className="priority-card__last-confirmed" style={{ color: 'var(--color-text-muted)' }}>
+                          Not yet confirmed
+                        </span>
+                      )}
+                    </span>
                     <span className="priority-card__chevron" aria-hidden="true">
                       {isExpanded ? '∧' : '∨'}
                     </span>
@@ -523,6 +558,68 @@ export default function Step2Compartments({
                       )
                     }
 
+                    if (checkType === 'EXPIRY_DATE') {
+                      const lastDate  = last?.date_value
+                      const curDate   = draftItem?.date_value
+                      const isExpired = lastDate && new Date(lastDate + 'T00:00:00') < new Date()
+                      return (
+                        <div key={pl.par_id} className={`reading-row ${confirmed ? 'reading-row--confirmed' : ''}`}>
+                          <div className="reading-row__info">
+                            <span className="reading-row__name">{item?.name ?? `Item #${pl.item_id}`}</span>
+                            {lastDate && !confirmed && (
+                              <span className={`reading-row__last${isExpired ? ' reading-row__last--fail' : ''}`}>
+                                Expiry: {fmtDate(lastDate)}{isExpired ? ' ⚠ EXPIRED' : ''}
+                              </span>
+                            )}
+                            {!lastDate && !confirmed && (
+                              <span className="reading-row__last reading-row__last--none">No expiry date on file</span>
+                            )}
+                            {confirmed && (
+                              <span className="reading-row__last reading-row__last--pass">✓ Expiry: {fmtDate(curDate)}</span>
+                            )}
+                          </div>
+                          {isEditing ? (
+                            <div className="reading-row__edit">
+                              <input
+                                className="reading-row__input"
+                                type="date"
+                                defaultValue={curDate ?? lastDate ?? ''}
+                                id={`reading-edit-${pl.item_id}`}
+                                autoFocus
+                              />
+                              <button className="btn btn--primary btn--sm" type="button"
+                                onClick={() => {
+                                  const v = document.getElementById(`reading-edit-${pl.item_id}`)?.value
+                                  if (v) onConfirmReadingItem(comp, confirmPayload({ date_value: v }))
+                                  setEditingReadingId(null)
+                                }}>Save</button>
+                              <button className="btn btn--secondary btn--sm" type="button"
+                                onClick={() => setEditingReadingId(null)}>Cancel</button>
+                            </div>
+                          ) : confirmed ? (
+                            <button className="btn btn--secondary btn--sm reading-row__edit-btn" type="button"
+                              onClick={() => setEditingReadingId(pl.item_id)}>Edit</button>
+                          ) : lastDate ? (
+                            <div className="reading-row__actions">
+                              <button className="btn btn--secondary btn--sm" type="button"
+                                onClick={() => onConfirmReadingItem(comp, confirmPayload({ date_value: lastDate }))}>
+                                Same
+                              </button>
+                              <button className="btn btn--secondary btn--sm" type="button"
+                                onClick={() => setEditingReadingId(pl.item_id)}>
+                                Different
+                              </button>
+                            </div>
+                          ) : (
+                            <button className="btn btn--primary btn--sm" type="button"
+                              onClick={() => setEditingReadingId(pl.item_id)}>
+                              Enter date
+                            </button>
+                          )}
+                        </div>
+                      )
+                    }
+
                     return null
                   })}
                 </div>
@@ -628,7 +725,7 @@ export default function Step2Compartments({
         {!allDone
           ? 'Complete all compartments to continue'
           : needsReconcile
-            ? 'Reconcile →'
+            ? 'Review flagged items →'
             : 'Review and Submit →'}
       </button>
     </div>
