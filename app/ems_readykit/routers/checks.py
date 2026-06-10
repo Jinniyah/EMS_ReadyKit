@@ -309,15 +309,15 @@ async def create_daily_check(
     if _enforce_location_id:
         full_check_comps = db.query(Compartment).filter(
             Compartment.location_id         == _enforce_location_id,
-            Compartment.requires_full_check == True,
-            Compartment.active              == True,
+            Compartment.requires_full_check.is_(True),
+            Compartment.active.is_(True),
         ).all()
         if full_check_comps:
             submitted_pairs = {(li.compartment_id, li.item_id) for li in payload.line_items}
             for comp in full_check_comps:
                 required = db.query(ParLevel).filter(
                     ParLevel.compartment_id == comp.compartment_id,
-                    ParLevel.active         == True,
+                    ParLevel.active.is_(True),
                 ).all()
                 missing = [p.item_id for p in required
                            if (comp.compartment_id, p.item_id) not in submitted_pairs]
