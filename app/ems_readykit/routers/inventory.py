@@ -902,7 +902,7 @@ def patch_item_status(
 
     write_audit_event(
         db=db,
-        actor=current_user.email or current_user.oid,
+        actor=current_user.email or current_user.user_id,
         action="ITEM_DAMAGED" if payload.is_damaged else "ITEM_DAMAGE_CLEARED",
         entity_type="par_level",
         entity_id=str(par.par_id),

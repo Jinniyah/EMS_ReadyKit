@@ -43,7 +43,7 @@ ROLE_ADMINISTRATOR = "Administrator"
 ROLE_SUPERVISOR = "Supervisor"
 ROLE_RESPONDER = "Responder"
 
-ALL_ROLES = {ROLE_ADMINISTRATOR, ROLE_SUPERVISOR, ROLE_RESPONDER}
+_KNOWN_ROLES = {ROLE_ADMINISTRATOR, ROLE_SUPERVISOR, ROLE_RESPONDER}
 
 # ── CurrentUser dataclass ─────────────────────────────────────────────────────
 
@@ -188,7 +188,7 @@ def _validate_azure_token(token: str) -> CurrentUser:
         )
 
     roles: list[str] = payload.get("roles", [])
-    unknown = set(roles) - ALL_ROLES
+    unknown = set(roles) - _KNOWN_ROLES
     if unknown:
         logger.warning(
             "Token contained unrecognised roles: %s",
@@ -205,7 +205,7 @@ def _validate_azure_token(token: str) -> CurrentUser:
         user_id=user_id,
         name=payload.get("name", "Unknown"),
         email=payload.get("preferred_username") or payload.get("upn", ""),
-        roles=[r for r in roles if r in ALL_ROLES],
+        roles=[r for r in roles if r in _KNOWN_ROLES],
     )
 
 
