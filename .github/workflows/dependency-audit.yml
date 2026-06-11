@@ -1,0 +1,78 @@
+name: Monthly Dependency Audit
+
+on:
+  schedule:
+    - cron: "0 8 1 * *"  # 08:00 UTC on the 1st of every month
+  workflow_dispatch:       # allow manual trigger
+
+jobs:
+  audit:
+    name: pip-audit + npm audit
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Run pip-audit
+        id: pip_audit
+        run: |
+          pip-audit -r app/requirements.txt --format=markdown --output pip-audit.md \
+            --min-severity moderate || echo "FINDINGS=true" >> "$GITHUB_ENV"
+        continue-on-error: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run npm audit
+        id: npm_audit
+        working-directory: frontend
+        run: |
+          npm ci --prefer-offline
+          npm audit --audit-level=moderate --json > ../npm-audit.json || echo "NPM_FINDINGS=true" >> "$GITHUB_ENV"
+        continue-on-error: true
+
+      - name: Open GitHub issue if findings exist
+        if: env.FINDINGS == 'true' || env.NPM_FINDINGS == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '## Monthly Dependency Audit — Findings\n\n';
+            body += `Run: ${new Date().toISOString().slice(0, 10)}\n\n`;
+
+            if (process.env.FINDINGS === 'true') {
+              try {
+                body += '### Python (pip-audit)\n\n';
+                body += fs.readFileSync('pip-audit.md', 'utf8');
+                body += '\n\n';
+              } catch (e) {
+                body += '### Python (pip-audit)\n\nSee workflow logs.\n\n';
+              }
+            }
+
+            if (process.env.NPM_FINDINGS === 'true') {
+              body += '### Node (npm audit)\n\nSee workflow logs for full npm audit output.\n\n';
+            }
+
+            body += '_Auto-opened by the monthly-dependency-audit workflow._';
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Security: dependency vulnerabilities detected (${new Date().toISOString().slice(0, 10)})`,
+              body,
+              labels: ['security', 'dependencies'],
+            });

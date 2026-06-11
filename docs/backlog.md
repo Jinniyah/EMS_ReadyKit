@@ -1,9 +1,9 @@
 # EMS ReadyKit — Active Backlog
-# v1.79 | Updated: 2026-06-10 | Current: Post-session Q complete + code review fixes
+# v1.80 | Updated: 2026-06-11 | Current: Post-session R complete — retirement + security
 # Completed items -> backlog_completed.md
 # Priority: Critical / High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
-# ✅ Sessions A–Q complete — see backlog_completed.md
+# ✅ Sessions A–R complete — see backlog_completed.md
 
 ---
 
@@ -41,17 +41,10 @@
 ## Session Q — COMPLETE (2026-06-10)
 ##   B-M10/CH-B7/CH-B8/ACC-F1-F5/S-F1/S-F3 done — see backlog_completed.md
 ##
-## Session R — Retirement + Security (~5 hrs)
-##   RET-M1-M3    Migrations: retired_at/by/reason                          ~30 min
-##   RET-B1-B6    Retire vehicle/location/station endpoints                  ~60 min
-##   RET-F1-F5    Retire actions in UI                                       ~60 min
-##   S-F6/F7/F8   Station/vehicle/par level management in Settings           ~60 min
-##   I-3          HTTPSRedirectMiddleware (3 lines)                          ~10 min
-##   SEC-OPS1     Monthly dependency audit workflow                          ~20 min
-##   TECH-1       pytest-cov (1 line in pyproject.toml)                      ~5 min
-##   I-5          Document Azure AD token lifetime                           ~15 min
-##   CQ-B1        check_type coercion → Item model property                  ~30 min
-##   CQ-B2        _DATE regex + or_ import cleanup                           ~10 min
+## Session R — COMPLETE (2026-06-11)
+##   RET-M1-M3/RET-B1-B6/RET-F1-F5/S-F6/S-F7/SEC-OPS1/TECH-1/I-5/CQ-B1/CQ-B2 done
+##   I-3 resolved won't do (Azure handles TLS); S-F8 skipped (needs B-E9, Session T)
+##   381 tests passing; migration 0023 applied — see backlog_completed.md
 ##
 ## Session S — Pre-Launch Polish (~5 hrs)
 ##   CH-F6        Acknowledgement / corrective note on checks                ~60 min
@@ -77,12 +70,6 @@
 ##   UAT-2–11       Execute all test cases
 
 ---
-
-## 0. Security
-| # | Item | Pri | Status | Notes |
-|---|------|-----|--------|-------|
-| I-3 | `HTTPSRedirectMiddleware` in `main.py` | Low | 📋 | Azure App Service enforces HTTPS at platform level. Application-layer enforcement is defence-in-depth. Three lines in main.py. Session R. |
-| SEC-OPS1 | Scheduled monthly dependency audit workflow | Low | 📋 | `.github/workflows/dependency-audit.yml` — runs pip-audit + npm audit on first of each month, opens GitHub issue on findings above moderate. Session R. |
 
 ---
 
@@ -131,9 +118,6 @@
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
 | B-M6 | Alter `par_levels`: add `active`, `deactivated_at`, `deactivation_reason` | Medium | 📋 | Session T. |
-| RET-M1 | Alter `vehicles`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 | Session R. |
-| RET-M2 | Alter `locations`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 | Session R. |
-| RET-M3 | Alter `stations`: add `retired_at`, `retired_by`, `retirement_reason` | High | 📋 | Session R. |
 
 ---
 
@@ -145,16 +129,6 @@
 | CH-B6 | `PATCH /checks/daily/{id}/restore` | Restore soft-deleted (Q-8: all roles) | Low | 📋 | Post-launch. |
 
 ---
-
-## 7. Backend — Retirement Endpoints
-| # | Endpoint | Pri | Status | Notes |
-|---|----------|-----|--------|-------|
-| RET-B1 | `PATCH /vehicles/{id}/retire` | High | 📋 | Session R. |
-| RET-B2 | `PATCH /locations/{id}/retire` | High | 📋 | Session R. |
-| RET-B3 | `PATCH /stations/{id}/retire` | High | 📋 | Session R. |
-| RET-B4 | `GET /admin/retired?type=&station_id=` | Medium | 📋 | Session R. |
-| RET-B5 | `PATCH /inventory/lots/{id}/retire` | High | 📋 | Session R. |
-| RET-B6 | `GET /inventory/lots/retired?location_id=` | Medium | 📋 | Session R. |
 
 ---
 
@@ -200,20 +174,7 @@
 ## 13. Frontend — Settings Module
 | # | Item | Pri | Status | Needs |
 |---|------|-----|--------|-------|
-| S-F6 | Station management | High | 📋 | Session R. Needs RET-B3/B4. |
-| S-F7 | Vehicle management | High | 📋 | Session R. Needs RET-B1/B2. |
-| S-F8 | Par level management | Medium | 📋 | Session R. Needs B-E9. |
-
----
-
-## 14. Frontend — Retirement Actions
-| # | Item | Pri | Status | Needs |
-|---|------|-----|--------|-------|
-| RET-F1 | Retire vehicle | High | 📋 | Session R. Needs RET-B1. |
-| RET-F2 | Retire jump bag / portable location | High | 📋 | Session R. Needs RET-B2. |
-| RET-F3 | Retire inventory lot | High | 📋 | Session R. Needs RET-B5. |
-| RET-F4 | Retire station | High | 📋 | Session R. Needs RET-B3. |
-| RET-F5 | Retired objects list | Medium | 📋 | Session R. Needs RET-B4. |
+| S-F8 | Par level management | Medium | 📋 | Session T. Needs B-E9 (soft-deactivate par level). |
 
 ---
 
@@ -230,9 +191,7 @@
 |---|------|-----|--------|-------|
 | I-1 | Azure Firewall | Medium | 📋 | Post-launch. Before scaling to second service. |
 | I-2 | Re-add route table | Medium | ⛔ | |
-| I-5 | Document Azure AD token lifetime | Low | 📋 | Session R. |
 | PERF-1 | Batch N+1 in `_auto_decrement_supply_room` | Low | 📋 | Session S. One query for all items instead of one per item. Not urgent at 5 calls/week. |
-| TECH-1 | `pytest-cov` coverage reporting | Low | 📋 | Session R. One-line addition to pyproject.toml. Enables accurate coverage badge. |
 | TECH-2 | React Query for frontend data management | Low | 📋 | Post-launch refactor. Eliminates manual useEffect+useState pattern; adds background refetch, request deduplication, cache invalidation. |
 | TECH-3 | Offline submission queue (F-UX9) | Low | 📋 | Post-launch. IndexedDB queue retries on reconnect. Critical for basement/low-signal scenarios. |
 
@@ -264,8 +223,6 @@
 ## 19. Code Quality / Refactoring
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| CQ-B1 | `check_type` enum coercion → `Item` model property | Medium | 📋 | Session R. `hasattr(item.check_type, "value")` guard in `checks.py` and `_auto_decrement_supply_room` signals SQLite returning raw strings instead of the enum. Normalise in the model layer so call sites can trust the type. |
-| CQ-B2 | `_DATE` regex → module-level constant; `or_` import → top of file | Low | 📋 | Session R. `_DATE = re.compile(...)` inside `get_station_checks_date_range` is compiled on every call. `from sqlalchemy import or_` is inside a function body in `inventory.py`. Both are one-line moves. |
 | CQ-F2 | `compartmentList` dead state in `check-wizard/index.jsx` | High | 📋 | Session S. `useState([])` is never set — `setCompartmentList` is never called. `WizardProgress` and `Step5Submit` both receive `compartments={compartmentList}` which is always `[]`. Investigate whether these components silently degrade or are missing data. |
 | CQ-B3 | Extract helpers from `create_daily_check` (~300 lines) | Medium | 📋 | Session S. Separate concerns into `_resolve_check_location`, `_enforce_full_check_compartments`, `_build_lot_map`, `_build_line_items`. No logic changes — readability and testability only. |
 | CQ-F1 | `check-wizard/index.jsx` — `useReducer` refactor | Low | 📋 | Session S or post-launch. 18 `useState` calls → `useReducer`. Group `submitted*` fields as a single `submissionResult` object. No functional change. |
@@ -287,27 +244,24 @@
 ## Summary
 | Area | 📋 | ⛔ | Total |
 |------|----|----|-------|
-| Security | 2 | 0 | 2 |
 | AI Identification — Groundwork | 4 | 0 | 4 |
 | Seed Data Gaps — Unit 712 | 2 | 0 | 2 |
 | Launch Readiness — Operational | 8 | 0 | 8 |
 | Backend — Endpoints | 2 | 0 | 2 |
-| Backend — Data Models | 4 | 0 | 4 |
+| Backend — Data Models | 1 | 0 | 1 |
 | Backend — Check History | 3 | 0 | 3 |
-| Backend — Retirement | 6 | 0 | 6 |
 | Frontend — Help System | 1 | 0 | 1 |
 | Frontend — Supervisor Dashboard | 1 | 0 | 1 |
 | Frontend — Supporting Modules | 1 | 0 | 1 |
 | Frontend — Check Wizard UX | 4 | 1 | 5 |
 | Frontend — Check History | 1 | 0 | 1 |
-| Frontend — Settings | 3 | 0 | 3 |
-| Frontend — Retirement Actions | 5 | 0 | 5 |
+| Frontend — Settings | 1 | 0 | 1 |
 | Frontend — Tests | 2 | 0 | 2 |
-| Infrastructure / Security | 1 | 1 | 2 |
+| Infrastructure / Security | 0 | 1 | 1 |
 | Equipment & Station Admin | 1 | 0 | 1 |
-| Code Quality / Refactoring | 9 | 0 | 9 |
+| Code Quality / Refactoring | 7 | 0 | 7 |
 | User Acceptance Testing | 11 | 0 | 11 |
-| **Total open** | **72** | **2** | **74** |
+| **Total open** | **50** | **2** | **52** |
 
 *Completed items — Sessions A–K — are in backlog_completed.md.*
 *v1.62 — 2026-06-06: Backlog cleaned. All ✅ Done items moved to backlog_completed.md.*
@@ -324,5 +278,6 @@
 *v1.75 — 2026-06-10: Session O complete. SEED-GAP2 (requires_full_check enforcement, 364 tests, 0 xfailed), RX-F13 (EXPIRY_DATE check type + Same/Different wizard UX), RX-F9b (priority last-confirmed display), RX-F10 (responder language + error messages) implemented. RX-F3/F4/F5/SUP-F1/SUP-F2 confirmed already implemented from prior sessions. Migration 0021 applied.*
 *v1.76 — 2026-06-10: Session P complete. RX-B2 confirmed already implemented. RX-F12 (priority toggle+question in CompartmentParLevels), DMG-F3 (damaged badge in SupplyCatalogView + shelf grouping), SS-B1 (PATCH /admin/locations/{id}), SS-F1 (StationSuppliesScreen.jsx), SS-F2 (per-shelf add in SupplyCatalogView), ADMIN-F7 (PortableLocationsScreen.jsx full CRUD), SUP-F3 (EXPIRY_DATE items in get_expiring_soon). 364 tests passing. No new migrations.*
 *v1.78 — 2026-06-10: Session assignments: Sessions S (pre-launch polish), T (admin backend), U (UAT) added. TECH-1/I-5 assigned to R. F-UX10/I-1/TECH-2/TECH-3 explicitly marked post-launch.*
+*v1.80 — 2026-06-11: Session R complete. RET-M1-M3 (migration 0023: retirement fields on vehicles/locations/stations/stock_lots), RET-B1-B6 (retire vehicle/location/station/lot endpoints + list retired endpoints), RET-F1-F5 (retirement UI: VehicleManagementSection + StationManagementSection + RetiredListSection + SupplyCatalogView lot disposal), S-F6/F7 (settings admin sections), CQ-B1/B2 (check_type property + _DATE/or_ cleanup), SEC-OPS1 (dependency audit workflow), TECH-1 (pytest-cov), I-5 (ADR-006 token lifetime doc), I-3 (won't do — Azure handles TLS), S-F8 (skipped — needs B-E9). 381 tests passing. 23 migrations total.*
 *v1.79 — 2026-06-10: Code review (Session R prep). Fixed bug: `current_user.oid` → `current_user.user_id` in `inventory.py:patch_item_status` (AttributeError if email empty). Fixed naming collision: `ALL_ROLES` in `auth.py` renamed to `_KNOWN_ROLES` (was shadowing `deps.py` tuple of same name). Added section 19 (Code Quality/Refactoring) with 9 new items CQ-B1 through CQ-F1 from code review findings. CQ-B1/B2 assigned Session R; CQ-F2/B3/F1 assigned Session S; remainder post-launch.*
 *v1.77 — 2026-06-10: Session Q complete. B-M10 (migration 0022: allow_check_modification on stations), CH-B7 (PATCH /stations/{id}/settings, Admin), CH-B8 (GET /stations/{id}/settings, Supervisor+), ACC-F1-F5 confirmed already implemented (station_members.py + frontend), S-F1 (Settings nav card), S-F3 (allow_check_modification toggle). CH-F6 unblocked (B-M10+CH-B8 done). UAT-7/UAT-8 unblocked (ACC-F1-F5 done). 368 tests passing. 22 migrations total.*

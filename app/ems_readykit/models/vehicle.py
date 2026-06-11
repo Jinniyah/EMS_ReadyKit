@@ -54,6 +54,13 @@ class Vehicle(TimestampMixin, Base):
     # Null = inherit station.primary_color in the frontend.
     vehicle_color: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)
 
+    # RET-M1: permanent retirement (distinct from temporary OOS via active=False).
+    retired_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    retired_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    retirement_reason: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
     # ── Relationships ─────────────────────────────────────────────────────────
     station: Mapped["Station"] = relationship("Station", back_populates="vehicles")
     inventory_location: Mapped["InventoryLocation"] = relationship(

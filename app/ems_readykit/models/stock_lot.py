@@ -7,10 +7,10 @@ This is the primary unit of expiration tracking and recall readiness.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Date, ForeignKey, Integer, String
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ems_readykit.core.database import Base
@@ -33,6 +33,13 @@ class StockLot(TimestampMixin, Base):
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     lot_number: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     expiration_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+
+    # RET-B5: lot retirement — documents disposal of expired or damaged stock.
+    retired_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    retired_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    retirement_reason: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
     # Relationships
     item: Mapped["Item"] = relationship("Item", back_populates="stock_lots")

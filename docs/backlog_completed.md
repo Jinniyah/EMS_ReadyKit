@@ -1,7 +1,38 @@
 # EMS ReadyKit — Completed Items
-# Last updated: 2026-06-10 (Session Q: Station Settings + Membership)
-# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q
+# Last updated: 2026-06-11 (Session R: Retirement + Security)
+# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R
 # Active backlog -> docs/backlog.md
+
+---
+
+## Session R — Retirement + Security (2026-06-11)
+381 tests passing. Migration 0023 applied.
+
+| # | Item | Description | Date |
+|---|------|-------------|------|
+| RET-M1 | Alter `vehicles`: add retirement fields | Migration 0023: `retired_at` (DateTime nullable), `retired_by` (String 255 nullable), `retirement_reason` (String 500 nullable). Batch mode for SQLite compat. Fields added to `Vehicle` model. | 2026-06-11 |
+| RET-M2 | Alter `locations`: add retirement fields | Same 3 fields added to `inventory_locations` table and `InventoryLocation` model. Combined with RET-M1/M3 in single migration 0023. | 2026-06-11 |
+| RET-M3 | Alter `stations` and `stock_lots`: add retirement fields | Same 3 fields added to `stations` and `stock_lots` tables and their models. Combined in migration 0023. | 2026-06-11 |
+| RET-B1 | `PATCH /vehicles/{id}/retire` — Admin only | New endpoint in `vehicles.py`. Sets `retired_at`, `retired_by`, `active=False`. 409 on double-retire. Writes VEHICLE_RETIRED audit event. | 2026-06-11 |
+| RET-B2 | `PATCH /inventory/locations/{id}/retire` — Admin only | New endpoint in `inventory.py`. Same pattern. 409 on double-retire. Writes LOCATION_RETIRED audit event. | 2026-06-11 |
+| RET-B3 | `PATCH /stations/{id}/retire` — Admin only | New endpoint in `stations.py`. Sets station retired and `active=False`. 409 on double-retire. Writes STATION_RETIRED audit event. | 2026-06-11 |
+| RET-B4 | `GET /admin/retired?type=&station_id=` — Admin only | New endpoint in `admin.py`. `type` param validated against `^(vehicles\|locations\|stations)$` (422 otherwise). Returns list with id/name/retired_at/retired_by/reason. | 2026-06-11 |
+| RET-B5 | `PATCH /inventory/lots/{id}/retire` — Supervisor+ | New endpoint in `inventory.py`. Zeros quantity, sets retirement fields. 409 on double-retire. Writes STOCK_LOT_RETIRED audit event. Route registered BEFORE `/lots/{lot_id}` to avoid FastAPI path ambiguity. | 2026-06-11 |
+| RET-B6 | `GET /inventory/lots/retired?location_id=` — Supervisor+ | New endpoint in `inventory.py`. Returns retired lots for a location ordered by retired_at desc. Route registered before `/lots/{lot_id}`. | 2026-06-11 |
+| RET-F1 | Retire vehicle UI | `VehicleManagementSection.jsx`: lists active vehicles with Retire button. `RetireConfirmSheet` sub-component — reason textarea + Retire/Cancel. Calls `retirementApi.retireVehicle()`. | 2026-06-11 |
+| RET-F2 | Retire portable location UI | `VehicleManagementSection.jsx`: separate section lists active portable (JUMP_BAG) locations with Retire button. Same confirm sheet pattern as RET-F1. | 2026-06-11 |
+| RET-F3 | Retire inventory lot UI | `SupplyCatalogView.jsx`: "Dispose" button added to each lot row (beside "Correct expiry"). `sr-confirm-overlay`/`sr-confirm-sheet` confirmation with reason textarea. Calls `supplyApi.retireLot()`. | 2026-06-11 |
+| RET-F4 | Retire station UI | `StationManagementSection.jsx`: shows station info + Retire Station button. If already retired, shows retired badge + reason. Calls `retirementApi.retireStation()`, then `onStationRetired()` (navigates back). | 2026-06-11 |
+| RET-F5 | Retired objects list UI | `RetiredListSection.jsx`: collapsible section (▲/▼ toggle). Three sub-lists: Retired Vehicles, Retired Locations, Retired Stations. Uses `retirementApi.getRetired()`. | 2026-06-11 |
+| S-F6 | Station management section in Settings | `StationManagementSection.jsx` added to `settings/index.jsx` admin block. See RET-F4. | 2026-06-11 |
+| S-F7 | Vehicle management section in Settings | `VehicleManagementSection.jsx` added to `settings/index.jsx` admin block. See RET-F1/F2. | 2026-06-11 |
+| S-F8 | Par level management in Settings | **Skipped** — depends on B-E9 (soft-deactivate par level endpoint, Session T). No code written. | 2026-06-11 |
+| I-3 | `HTTPSRedirectMiddleware` | **Won't do** — Azure App Service terminates TLS at the platform/load balancer level before requests reach the Python process. Adding the middleware would break all requests (double-redirect). Documented in `docs/adr/ADR-006-Azure-AD-Token-Lifetime.md`. | 2026-06-11 |
+| SEC-OPS1 | Monthly dependency audit workflow | New `.github/workflows/dependency-audit.yml`. Cron: 1st of each month at 08:00 UTC. Runs `pip-audit` on `app/requirements.txt` + `npm audit` in frontend. Opens a GitHub issue if findings above moderate severity. Also has `workflow_dispatch` trigger. | 2026-06-11 |
+| TECH-1 | `pytest-cov` coverage reporting | Added `pytest-cov==6.1.0` to `requirements.txt`. Added `[tool.coverage.run]` and `[tool.coverage.report]` sections to `pyproject.toml`. Coverage is opt-in (`pytest --cov`), not forced in `addopts`. | 2026-06-11 |
+| I-5 | Document Azure AD token lifetime | New `docs/adr/ADR-006-Azure-AD-Token-Lifetime.md`. Documents 1-hour access token, 90-day sliding refresh, MSAL silent refresh, and the HTTPSRedirectMiddleware decision. | 2026-06-11 |
+| CQ-B1 | `check_type` coercion → `Item` model property | Added `check_type_value` property to `Item` model. Replaced two `hasattr(item.check_type, "value")` guards in `checks.py` with `item.check_type_value`. | 2026-06-11 |
+| CQ-B2 | `_DATE` regex + `or_` import cleanup | `_DATE = re.compile(...)` moved to module level in `checks.py` (was compiled on every call). `from sqlalchemy import or_` moved from function body to top of `inventory.py`. | 2026-06-11 |
 
 ---
 

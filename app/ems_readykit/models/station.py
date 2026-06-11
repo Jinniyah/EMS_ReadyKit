@@ -6,9 +6,10 @@ One station manages multiple vehicles and a supply room.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Boolean, String
+from sqlalchemy import Boolean, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ems_readykit.core.database import Base
@@ -42,6 +43,13 @@ class Station(TimestampMixin, Base):
     allow_check_modification: Mapped[bool] = mapped_column(
         Boolean, default=True, nullable=False
     )
+
+    # RET-M3: permanent retirement of a station.
+    retired_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    retired_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    retirement_reason: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
     # ── Relationships ─────────────────────────────────────────────────────────
     vehicles: Mapped[List["Vehicle"]] = relationship(

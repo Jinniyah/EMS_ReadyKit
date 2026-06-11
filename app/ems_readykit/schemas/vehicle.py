@@ -117,6 +117,17 @@ class VehicleColorUpdate(BaseModel):
         return _validate_hex_color(v)
 
 
+class VehicleRetire(BaseModel):
+    """Request body for PATCH /vehicles/{id}/retire."""
+
+    retirement_reason: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Why this vehicle is being permanently retired from service",
+    )
+
+
 class VehicleRead(VehicleBase):
     """
     Response model for vehicle endpoints.
@@ -130,6 +141,9 @@ class VehicleRead(VehicleBase):
     inactive_reason: Optional[str]
     inactive_since: Optional[datetime]
     vehicle_color: Optional[str]
+    retired_at: Optional[datetime] = None
+    retired_by: Optional[str] = None
+    retirement_reason: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

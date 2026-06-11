@@ -1,6 +1,6 @@
 # CLAUDE.md — AI Development Rules for EMS ReadyKit
-# Last updated: 2026-06-10
-# Updated: Session N post-close — 363 tests; usage_events migration 0020; usage-log frontend module
+# Last updated: 2026-06-11
+# Updated: Session R post-close — pytest/alembic venv note; Black+Ruff required at session end
 # Load this file at the start of every session alongside CODEBASE_INDEX.md.
 
 ---
@@ -25,6 +25,8 @@ Do not write session handoff files — backlog.md is the single source of truth.
 - **Shell:** PowerShell (not bash)
 - **Path separator:** backslash `\` — always use Windows paths
 - **Command chaining:** use `;` not `&&` (e.g. `cd app; pytest`)
+- **pytest and alembic:** these only work inside the virtual environment. Never
+  attempt to run them yourself — ask the user to run them and paste the output.
 - **grep equivalent:** use `Select-String` or `findstr` in PowerShell,
   OR use `bash_tool` with `grep` when the filesystem MCP is insufficient
 - **Line endings:** CRLF — if `filesystem:edit_file` fails on exact match,
@@ -228,10 +230,12 @@ technology choice), write a new ADR in `docs/adr/` following the existing format
 No handoff files. At the end of every session:
 1. Move completed items to `docs/backlog_completed.md`
 2. Update session complete line + summary table in `docs/backlog.md`
-3. Run `cd app; pytest` and confirm all tests pass
-4. Update `CODEBASE_INDEX.md` — file sizes, new files, migration list, flagged items
-5. Add any new architectural decisions to CLAUDE.md Key Architectural Decisions table
-6. Note incomplete items with 🔄 In progress status in backlog.md
+3. Ask the user to run `cd app; pytest` and confirm all tests pass
+4. Ask the user to run `cd app; ruff check .` and `black --check .` — fix any
+   violations before declaring the session complete
+5. Update `CODEBASE_INDEX.md` — file sizes, new files, migration list, flagged items
+6. Add any new architectural decisions to CLAUDE.md Key Architectural Decisions table
+7. Note incomplete items with 🔄 In progress status in backlog.md
 
 ---
 

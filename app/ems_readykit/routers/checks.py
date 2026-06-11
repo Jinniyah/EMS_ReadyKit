@@ -51,6 +51,8 @@ from ems_readykit.schemas.daily_inventory_check import (
     DailyInventoryCheckRead,
 )
 
+_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/checks", tags=["checks"])
 
@@ -200,12 +202,7 @@ def _auto_decrement_supply_room(
         item = items_map.get(li.item_id)
         if not item:
             continue
-        ct = (
-            item.check_type.value
-            if hasattr(item.check_type, "value")
-            else str(item.check_type)
-        )
-        if ct != "SUPPLY":
+        if item.check_type_value != "SUPPLY":
             continue
         if li.quantity_found is None:
             continue
@@ -427,11 +424,7 @@ async def create_daily_check(
             li.quantity_needed,
             li.quantity_found,
             lot,
-            check_type=(
-                item.check_type.value
-                if hasattr(item.check_type, "value")
-                else str(item.check_type)
-            ),
+            check_type=item.check_type_value,
             measurement_value=li.measurement_value,
             measurement_minimum=item.measurement_minimum,
             functional_pass=li.functional_pass,
@@ -672,8 +665,6 @@ def get_station_checks_date_range(
     Maximum range: 90 days (matches the soft-delete retention window).
     If from/to are omitted, defaults to today only.
     """
-    _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-
     station = db.query(Station).filter(Station.station_id == station_id).first()
     if not station:
         raise HTTPException(

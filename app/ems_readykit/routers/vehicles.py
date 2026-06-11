@@ -13,11 +13,13 @@ Session C (ACC-B8): Station membership enforced on vehicle endpoints.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from ems_readykit.core.audit import write_audit_event
 from ems_readykit.core.auth import ROLE_ADMINISTRATOR, CurrentUser
 from ems_readykit.core.database import get_db
 from ems_readykit.models.inventory_location import InventoryLocation, LocationType
@@ -25,12 +27,13 @@ from ems_readykit.models.station import Station
 from ems_readykit.models.station_member import StationMember
 from ems_readykit.models.vehicle import Vehicle
 from ems_readykit.routers.deps import (
+    ADMIN_ONLY,
     ALL_ROLES,
     SUPERVISOR_PLUS,
     require_role,
     require_station_membership,
 )
-from ems_readykit.schemas.vehicle import VehicleCreate, VehicleRead
+from ems_readykit.schemas.vehicle import VehicleCreate, VehicleRead, VehicleRetire
 
 logger = logging.getLogger(__name__)
 
@@ -204,3 +207,45 @@ def list_station_vehicles(
     if active is not None:
         query = query.filter(Vehicle.active == active)
     return query.all()
+
+
+# ── PATCH /vehicles/{id}/retire — RET-B1 ─────────────────────────────────────
+
+
+@router.patch(
+    "/vehicles/{vehicle_id}/retire",
+    response_model=VehicleRead,
+    summary="Permanently retire a vehicle (RET-B1) — Administrator only",
+)
+def retire_vehicle(
+    vehicle_id: int,
+    payload: VehicleRetire,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*ADMIN_ONLY)),
+) -> Vehicle:
+    vehicle = _get_vehicle_or_404(vehicle_id, db)
+    require_station_membership(vehicle.station_id, current_user, db)
+    if vehicle.retired_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Vehicle {vehicle_id} is already retired.",
+        )
+    vehicle.retired_at = datetime.now(timezone.utc)
+    vehicle.retired_by = current_user.email or current_user.name
+    vehicle.retirement_reason = payload.retirement_reason
+    vehicle.active = False
+    db.commit()
+    db.refresh(vehicle)
+    write_audit_event(
+        db,
+        actor=current_user.email or current_user.name,
+        action="VEHICLE_RETIRED",
+        entity_type="vehicle",
+        entity_id=str(vehicle_id),
+        station_id=vehicle.station_id,
+        metadata={
+            "reason": payload.retirement_reason,
+            "vehicle_number": vehicle.vehicle_number,
+        },
+    )
+    return vehicle

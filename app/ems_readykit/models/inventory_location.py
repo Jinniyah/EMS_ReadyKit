@@ -31,10 +31,11 @@ InventoryLocation — abstract container for stock and equipment.
 from __future__ import annotations
 
 import enum
+from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
+from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ems_readykit.core.database import Base
@@ -80,6 +81,13 @@ class InventoryLocation(TimestampMixin, Base):
     #   "Station 1 Supply Room"
     #   "Jump Bag (Units 710/712)"
     label: Mapped[str] = mapped_column(String(150), nullable=False)
+
+    # RET-M2: permanent retirement of a location (jump bag decommissioned, etc.)
+    retired_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    retired_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    retirement_reason: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
     # ── Relationships ─────────────────────────────────────────────────────────
 

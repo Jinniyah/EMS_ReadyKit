@@ -24,12 +24,13 @@ from __future__ import annotations
 import csv as csv_mod
 import io
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -53,9 +54,15 @@ from ems_readykit.schemas.compartment import CompartmentCreate, CompartmentRead
 from ems_readykit.schemas.inventory_location import (
     InventoryLocationCreate,
     InventoryLocationRead,
+    LocationRetire,
 )
 from ems_readykit.schemas.par_level import ParLevelCreate, ParLevelRead
-from ems_readykit.schemas.stock_lot import StockLotCreate, StockLotRead, StockLotUpdate
+from ems_readykit.schemas.stock_lot import (
+    LotRetire,
+    StockLotCreate,
+    StockLotRead,
+    StockLotUpdate,
+)
 from ems_readykit.schemas.stock_transfer import (
     CsvReceiveResult,
     StockItemSummary,
@@ -196,6 +203,41 @@ def create_location(
             "entity_type": "inventory_location",
             "entity_id": str(location.location_id),
         },
+    )
+    return location
+
+
+@router.patch(
+    "/locations/{location_id}/retire",
+    response_model=InventoryLocationRead,
+    summary="Permanently retire a location (RET-B2) — Administrator only",
+)
+def retire_location(
+    location_id: int,
+    payload: LocationRetire,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*ADMIN_ONLY)),
+) -> InventoryLocation:
+    location = _get_location_or_404(location_id, db)
+    require_station_membership(location.station_id, current_user, db)
+    if location.retired_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Location {location_id} is already retired.",
+        )
+    actor = current_user.email or current_user.name
+    location.retired_at = datetime.now(timezone.utc)
+    location.retired_by = actor
+    location.retirement_reason = payload.retirement_reason
+    db.commit()
+    db.refresh(location)
+    write_audit_event(
+        db,
+        actor=actor,
+        action="LOCATION_RETIRED",
+        entity_type="inventory_location",
+        entity_id=str(location_id),
+        metadata={"reason": payload.retirement_reason, "label": location.label},
     )
     return location
 
@@ -447,6 +489,29 @@ def create_stock_lot(
 
 
 @router.get(
+    "/lots/retired",
+    response_model=List[StockLotRead],
+    summary="List retired stock lots at a location (RET-B6) — Supervisor+",
+)
+def list_retired_lots(
+    location_id: int = Query(..., gt=0, description="Location to query"),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
+) -> List[StockLot]:
+    location = _get_location_or_404(location_id, db)
+    require_station_membership(location.station_id, current_user, db)
+    return (
+        db.query(StockLot)
+        .filter(
+            StockLot.location_id == location_id,
+            StockLot.retired_at.isnot(None),
+        )
+        .order_by(StockLot.retired_at.desc())
+        .all()
+    )
+
+
+@router.get(
     "/lots/{lot_id}",
     response_model=StockLotRead,
     summary="Get a stock lot",
@@ -511,6 +576,52 @@ def update_stock_lot(
             ),
             "old_lot_number": old_lot_number,
             "new_lot_number": lot.lot_number,
+        },
+    )
+    return lot
+
+
+@router.patch(
+    "/lots/{lot_id}/retire",
+    response_model=StockLotRead,
+    summary="Retire (dispose) a stock lot (RET-B5) — Supervisor+",
+)
+def retire_stock_lot(
+    lot_id: int,
+    payload: LotRetire,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
+) -> StockLot:
+    lot = db.query(StockLot).filter(StockLot.lot_id == lot_id).first()
+    if not lot:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Stock lot {lot_id} not found.",
+        )
+    location = _get_location_or_404(lot.location_id, db)
+    require_station_membership(location.station_id, current_user, db)
+    if lot.retired_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Stock lot {lot_id} is already retired.",
+        )
+    actor = current_user.email or current_user.name
+    lot.retired_at = datetime.now(timezone.utc)
+    lot.retired_by = actor
+    lot.retirement_reason = payload.retirement_reason
+    lot.quantity = 0
+    db.commit()
+    db.refresh(lot)
+    write_audit_event(
+        db,
+        actor=actor,
+        action="STOCK_LOT_RETIRED",
+        entity_type="stock_lot",
+        entity_id=str(lot_id),
+        metadata={
+            "reason": payload.retirement_reason,
+            "item_id": lot.item_id,
+            "location_id": lot.location_id,
         },
     )
     return lot
@@ -771,8 +882,6 @@ def list_location_transfers(
     """
     location = _get_location_or_404(location_id, db)
     require_station_membership(location.station_id, current_user, db)
-
-    from sqlalchemy import or_
 
     transfers = (
         db.query(StockTransfer)

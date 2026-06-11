@@ -29,6 +29,17 @@ from pydantic import BaseModel, ConfigDict, Field
 from ems_readykit.models.inventory_location import LocationType
 
 
+class LocationRetire(BaseModel):
+    """Request body for PATCH /inventory/locations/{id}/retire."""
+
+    retirement_reason: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Why this location is being permanently retired",
+    )
+
+
 class InventoryLocationCreate(BaseModel):
     """
     Request body for POST /inventory/locations.
@@ -69,5 +80,8 @@ class InventoryLocationRead(BaseModel):
         description="Set for VEHICLE locations; null for all other types",
     )
     label: str
+    retired_at: Optional[datetime] = None
+    retired_by: Optional[str] = None
+    retirement_reason: Optional[str] = None
     created_at: datetime
     updated_at: datetime

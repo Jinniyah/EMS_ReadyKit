@@ -1,13 +1,19 @@
 /**
  * modules/settings/index.jsx
  * S-F1/S-F3: Station settings — allow_check_modification toggle.
- * Visible to Supervisor+ (read-only). Admin can edit.
+ * S-F6: Station management (Admin) — retire station (RET-F4).
+ * S-F7: Vehicle management (Admin) — retire vehicle/location (RET-F1/F2).
+ * RET-F5: Retired items list (Admin).
+ * Visible to Supervisor+ (read-only for non-admin sections).
  */
 import React, { useState } from 'react'
 import { useAuth } from '../../shared/hooks/useAuth.jsx'
 import { useApi } from '../../shared/hooks/useApi.js'
 import { canAccess } from '../../shared/utils/roleGuard.js'
 import { settingsApi } from './api/settingsApi.js'
+import VehicleManagementSection from './components/VehicleManagementSection.jsx'
+import StationManagementSection from './components/StationManagementSection.jsx'
+import RetiredListSection from './components/RetiredListSection.jsx'
 import Spinner from '../../shared/components/Spinner.jsx'
 import './settings.css'
 
@@ -58,49 +64,69 @@ export default function SettingsScreen({ station, onBack }) {
       ) : error ? (
         <div className="settings-screen__error">Could not load settings.</div>
       ) : settings ? (
-        <div className="settings-screen__body">
-          <div className="settings-section">
-            <h2 className="settings-section__heading">Check Workflow</h2>
+        <>
+          <div className="settings-screen__body">
+            <div className="settings-section">
+              <h2 className="settings-section__heading">Check Workflow</h2>
 
-            <div className="settings-row">
-              <div className="settings-row__content">
-                <div className="settings-row__label">Allow check modification</div>
-                <div className="settings-row__description">
-                  When on, crew can edit a submitted check to add comments or correct errors.
-                  Turn off to make all submitted checks fully locked.
+              <div className="settings-row">
+                <div className="settings-row__content">
+                  <div className="settings-row__label">Allow check modification</div>
+                  <div className="settings-row__description">
+                    When on, crew can edit a submitted check to add comments or correct errors.
+                    Turn off to make all submitted checks fully locked.
+                  </div>
+                </div>
+                <div className="settings-row__control">
+                  {isAdmin ? (
+                    <button
+                      className={`settings-toggle ${settings.allow_check_modification ? 'settings-toggle--on' : 'settings-toggle--off'}`}
+                      onClick={() => handleToggle(!settings.allow_check_modification)}
+                      disabled={saving}
+                      type="button"
+                      aria-pressed={settings.allow_check_modification}
+                      aria-label="Allow check modification"
+                    >
+                      {saving ? '…' : settings.allow_check_modification ? 'On' : 'Off'}
+                    </button>
+                  ) : (
+                    <span className={`settings-value ${settings.allow_check_modification ? 'settings-value--on' : 'settings-value--off'}`}>
+                      {settings.allow_check_modification ? 'On' : 'Off'}
+                    </span>
+                  )}
                 </div>
               </div>
-              <div className="settings-row__control">
-                {isAdmin ? (
-                  <button
-                    className={`settings-toggle ${settings.allow_check_modification ? 'settings-toggle--on' : 'settings-toggle--off'}`}
-                    onClick={() => handleToggle(!settings.allow_check_modification)}
-                    disabled={saving}
-                    type="button"
-                    aria-pressed={settings.allow_check_modification}
-                    aria-label="Allow check modification"
-                  >
-                    {saving ? '…' : settings.allow_check_modification ? 'On' : 'Off'}
-                  </button>
-                ) : (
-                  <span className={`settings-value ${settings.allow_check_modification ? 'settings-value--on' : 'settings-value--off'}`}>
-                    {settings.allow_check_modification ? 'On' : 'Off'}
-                  </span>
-                )}
-              </div>
+
+              {saveError && (
+                <p className="settings-screen__error" role="alert">{saveError}</p>
+              )}
             </div>
 
-            {saveError && (
-              <p className="settings-screen__error" role="alert">{saveError}</p>
+            {!isAdmin && (
+              <p className="settings-screen__readonly-note">
+                Contact your administrator to change these settings.
+              </p>
             )}
           </div>
 
-          {!isAdmin && (
-            <p className="settings-screen__readonly-note">
-              Contact your administrator to change these settings.
-            </p>
+          {isAdmin && (
+            <div className="settings-screen__body" style={{ paddingTop: 0 }}>
+              <StationManagementSection
+                station={station}
+                getToken={getToken}
+                onStationRetired={onBack}
+              />
+              <VehicleManagementSection
+                station={station}
+                getToken={getToken}
+              />
+              <RetiredListSection
+                station={station}
+                getToken={getToken}
+              />
+            </div>
           )}
-        </div>
+        </>
       ) : null}
     </div>
   )

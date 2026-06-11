@@ -73,6 +73,17 @@ class StockLotCreate(StockLotBase):
     pass
 
 
+class LotRetire(BaseModel):
+    """Request body for PATCH /inventory/lots/{lot_id}/retire."""
+
+    retirement_reason: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Why this lot is being disposed (e.g. 'Expired — disposed per protocol')",
+    )
+
+
 class StockLotUpdate(BaseModel):
     """Request body for PUT /inventory/lots/{lot_id} — correct expiry/lot number."""
 
@@ -107,6 +118,9 @@ class StockLotRead(StockLotBase):
     model_config = ConfigDict(from_attributes=True)
 
     lot_id: int
+    retired_at: Optional[datetime] = None
+    retired_by: Optional[str] = None
+    retirement_reason: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

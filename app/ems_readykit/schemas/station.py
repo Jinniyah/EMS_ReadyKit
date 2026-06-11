@@ -100,6 +100,17 @@ class StationCreate(StationBase):
     pass
 
 
+class StationRetire(BaseModel):
+    """Request body for PATCH /stations/{id}/retire."""
+
+    retirement_reason: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Why this station is being permanently retired",
+    )
+
+
 class StationRead(StationBase):
     """
     Response model for station endpoints.
@@ -109,6 +120,9 @@ class StationRead(StationBase):
     model_config = ConfigDict(from_attributes=True)
 
     station_id: int
+    retired_at: Optional[datetime] = None
+    retired_by: Optional[str] = None
+    retirement_reason: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

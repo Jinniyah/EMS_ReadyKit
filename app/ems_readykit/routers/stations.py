@@ -14,7 +14,7 @@ Post-Block-6 additions:
 from __future__ import annotations
 
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -46,6 +46,7 @@ from ems_readykit.schemas.inventory_location import InventoryLocationRead
 from ems_readykit.schemas.station import (
     StationCreate,
     StationRead,
+    StationRetire,
     StationSettingsPatch,
     StationSettingsRead,
 )
@@ -686,5 +687,44 @@ def update_station_settings(
         entity_id=str(station_id),
         station_id=station_id,
         metadata={"allow_check_modification": station.allow_check_modification},
+    )
+    return station
+
+
+# ── PATCH /stations/{station_id}/retire — RET-B3 ─────────────────────────────
+
+
+@router.patch(
+    "/{station_id}/retire",
+    response_model=StationRead,
+    summary="Permanently retire a station (RET-B3) — Administrator only",
+)
+def retire_station(
+    station_id: int,
+    payload: StationRetire,
+    current_user: CurrentUser = Depends(require_role(*ADMIN_ONLY)),
+    db: Session = Depends(get_db),
+) -> Station:
+    station = _get_station_or_404(station_id, db)
+    if station.retired_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Station '{station.name}' is already retired.",
+        )
+    actor = current_user.email or current_user.name
+    station.retired_at = datetime.now(timezone.utc)
+    station.retired_by = actor
+    station.retirement_reason = payload.retirement_reason
+    station.active = False
+    db.commit()
+    db.refresh(station)
+    write_audit_event(
+        db,
+        actor=actor,
+        action="STATION_RETIRED",
+        entity_type="station",
+        entity_id=str(station_id),
+        station_id=station_id,
+        metadata={"reason": payload.retirement_reason, "name": station.name},
     )
     return station

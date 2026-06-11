@@ -63,6 +63,12 @@ export default function SupplyCatalogView({ stationId, locationId, items, loadin
   const [lotSaving, setLotSaving]     = useState(false)
   const [lotError, setLotError]       = useState(null)
 
+  // Lot retirement state (RET-F3)
+  const [retireLotId, setRetireLotId]   = useState(null)
+  const [retireReason, setRetireReason] = useState('')
+  const [retireSaving, setRetireSaving] = useState(false)
+  const [retireError, setRetireError]   = useState(null)
+
   if (loading) {
     return <div className="sr-center">Loading supplies…</div>
   }
@@ -152,10 +158,64 @@ export default function SupplyCatalogView({ stationId, locationId, items, loadin
     }
   }
 
+  async function handleRetireLot() {
+    if (!retireReason.trim()) return
+    setRetireSaving(true)
+    setRetireError(null)
+    try {
+      await supplyApi.retireLot(retireLotId, retireReason, getToken)
+      setRetireLotId(null)
+      setRetireReason('')
+      onRefresh()
+    } catch (e) {
+      setRetireError(e.message ?? 'Could not retire lot. Try again.')
+    } finally {
+      setRetireSaving(false)
+    }
+  }
+
   const shelves = groupByShelf(items)
 
   return (
     <div className="sr-catalog">
+      {/* RET-F3: Lot retirement confirmation sheet */}
+      {retireLotId && (
+        <div className="sr-confirm-overlay" role="dialog" aria-modal="true">
+          <div className="sr-confirm-sheet">
+            <p className="sr-confirm-sheet__title">Dispose this lot?</p>
+            <p className="sr-confirm-sheet__desc">
+              This marks the lot as retired and sets its quantity to zero.
+              Record the reason (e.g. "Expired — disposed per protocol").
+            </p>
+            <textarea
+              placeholder="Reason (required)"
+              value={retireReason}
+              onChange={e => setRetireReason(e.target.value)}
+              maxLength={500}
+            />
+            {retireError && (
+              <p style={{ color: 'var(--color-fail)', fontSize: 'var(--font-size-sm)', margin: 0 }}>{retireError}</p>
+            )}
+            <div className="sr-confirm-sheet__actions">
+              <button
+                className="sr-confirm-sheet__cancel"
+                onClick={() => { setRetireLotId(null); setRetireReason(''); setRetireError(null) }}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="sr-confirm-sheet__confirm"
+                onClick={handleRetireLot}
+                disabled={!retireReason.trim() || retireSaving}
+                type="button"
+              >
+                {retireSaving ? 'Disposing…' : 'Dispose Lot'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {shelves.map(shelf => (
         <div key={shelf.id ?? 'uncatalogued'} className="sr-catalog-shelf">
           {shelf.name && (
@@ -280,14 +340,25 @@ export default function SupplyCatalogView({ stationId, locationId, items, loadin
                           </div>
 
                           {!editingThis ? (
-                            <button
-                              className="sr-lot-row__edit-btn"
-                              onClick={() => handleEditLot(lot)}
-                              type="button"
-                              aria-label={`Correct expiry date for lot ${lot.lot_number ?? lot.lot_id}`}
-                            >
-                              Correct expiry date
-                            </button>
+                            <div style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                              <button
+                                className="sr-lot-row__edit-btn"
+                                onClick={() => handleEditLot(lot)}
+                                type="button"
+                                aria-label={`Correct expiry date for lot ${lot.lot_number ?? lot.lot_id}`}
+                              >
+                                Correct expiry
+                              </button>
+                              <button
+                                className="sr-lot-row__edit-btn"
+                                style={{ color: 'var(--color-fail)', borderColor: 'var(--color-fail)' }}
+                                onClick={() => { setRetireLotId(lot.lot_id); setRetireReason(''); setRetireError(null) }}
+                                type="button"
+                                aria-label={`Dispose lot ${lot.lot_number ?? lot.lot_id}`}
+                              >
+                                Dispose
+                              </button>
+                            </div>
                           ) : (
                             <div className="sr-lot-row__expiry-editor">
                               <input

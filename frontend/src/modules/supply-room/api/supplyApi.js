@@ -68,4 +68,8 @@ export const supplyApi = {
   /** SR-F7: Correct expiry date (and/or lot number) on a stock lot */
   putLot: (lotId, payload, getToken) =>
     apiPut(`${BASE}/inventory/lots/${lotId}`, payload, getToken),
+
+  /** RET-B5: Permanently retire (dispose) a stock lot */
+  retireLot: (lotId, reason, getToken) =>
+    apiPatch(`${BASE}/inventory/lots/${lotId}/retire`, { retirement_reason: reason }, getToken),
 }

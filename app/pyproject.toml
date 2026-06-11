@@ -3,6 +3,13 @@ testpaths = ["tests"]
 # asyncio_mode removed: pytest-asyncio is not installed. All tests are synchronous
 # (TestClient-based). Re-add asyncio_mode when async tests are needed.
 
+[tool.coverage.run]
+source = ["ems_readykit"]
+omit = ["tests/*", "alembic/*", "seed.py"]
+
+[tool.coverage.report]
+show_missing = true
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

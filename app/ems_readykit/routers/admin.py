@@ -38,6 +38,7 @@ from __future__ import annotations
 import csv
 import io
 import logging
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
@@ -1208,3 +1209,89 @@ def rename_location(
         metadata={"new_label": loc.label},
     )
     return loc
+
+
+# ── RET-B4: List retired objects ──────────────────────────────────────────────
+
+
+class _RetiredItem(BaseModel):
+    type: str
+    id: int
+    name: str
+    retired_at: datetime
+    retired_by: Optional[str]
+    retirement_reason: Optional[str]
+    station_id: Optional[int]
+
+
+@router.get(
+    "/retired",
+    response_model=List[_RetiredItem],
+    summary="List retired vehicles, locations, or stations (RET-B4) — Admin only",
+    dependencies=[Depends(require_role(*ADMIN_ONLY))],
+)
+def list_retired(
+    type: str = Query(
+        ...,
+        description="One of: vehicles, locations, stations",
+        pattern="^(vehicles|locations|stations)$",
+    ),
+    station_id: Optional[int] = Query(default=None, gt=0),
+    db: Session = Depends(get_db),
+) -> List[_RetiredItem]:
+    result: List[_RetiredItem] = []
+
+    if type == "vehicles":
+        query = db.query(Vehicle).filter(Vehicle.retired_at.isnot(None))
+        if station_id:
+            query = query.filter(Vehicle.station_id == station_id)
+        for v in query.order_by(Vehicle.retired_at.desc()).all():
+            result.append(
+                _RetiredItem(
+                    type="vehicle",
+                    id=v.vehicle_id,
+                    name=v.vehicle_number,
+                    retired_at=v.retired_at,
+                    retired_by=v.retired_by,
+                    retirement_reason=v.retirement_reason,
+                    station_id=v.station_id,
+                )
+            )
+
+    elif type == "locations":
+        query = db.query(InventoryLocation).filter(
+            InventoryLocation.retired_at.isnot(None)
+        )
+        if station_id:
+            query = query.filter(InventoryLocation.station_id == station_id)
+        for loc in query.order_by(InventoryLocation.retired_at.desc()).all():
+            result.append(
+                _RetiredItem(
+                    type="location",
+                    id=loc.location_id,
+                    name=loc.label,
+                    retired_at=loc.retired_at,
+                    retired_by=loc.retired_by,
+                    retirement_reason=loc.retirement_reason,
+                    station_id=loc.station_id,
+                )
+            )
+
+    elif type == "stations":
+        query = db.query(Station).filter(Station.retired_at.isnot(None))
+        if station_id:
+            query = query.filter(Station.station_id == station_id)
+        for s in query.order_by(Station.retired_at.desc()).all():
+            result.append(
+                _RetiredItem(
+                    type="station",
+                    id=s.station_id,
+                    name=s.name,
+                    retired_at=s.retired_at,
+                    retired_by=s.retired_by,
+                    retirement_reason=s.retirement_reason,
+                    station_id=s.station_id,
+                )
+            )
+
+    return result

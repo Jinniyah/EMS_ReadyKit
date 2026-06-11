@@ -185,6 +185,14 @@ class Item(TimestampMixin, Base):
         "CheckLineItem", back_populates="item"
     )
 
+    @property
+    def check_type_value(self) -> str:
+        """Return check_type as a plain string regardless of whether SQLite returns
+        a raw string or a proper enum instance (CQ-B1)."""
+        if hasattr(self.check_type, "value"):
+            return self.check_type.value
+        return str(self.check_type)
+
     def __repr__(self) -> str:
         return (
             f"<Item id={self.item_id} name={self.name!r} "
