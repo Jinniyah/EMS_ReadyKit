@@ -211,15 +211,68 @@ function AddItemToCompartmentForm({ compartmentId, vehicleId, locationId, onAdde
   )
 }
 
+// ── ConfirmRemoveRow ──────────────────────────────────────────────────────────
+// Inline confirmation shown when the ✕ remove button is clicked.
+
+function ConfirmRemoveRow({ itemName, onConfirm, onCancel }) {
+  const [reason, setReason] = useState('')
+  const [submitting, setSub] = useState(false)
+
+  async function handleConfirm() {
+    setSub(true)
+    await onConfirm(reason.trim() || null)
+  }
+
+  return (
+    <div className="assignment-confirm-remove">
+      <p className="assignment-confirm-remove__label">
+        Remove <strong>{itemName}</strong> from this compartment?
+      </p>
+      <label className="assignment-edit-label assignment-edit-label--full">
+        Reason (optional)
+        <input
+          className="assignment-edit-input assignment-edit-input--wide"
+          type="text"
+          maxLength={200}
+          value={reason}
+          onChange={e => setReason(e.target.value)}
+          placeholder="e.g. No longer stocked on this unit"
+          disabled={submitting}
+          autoFocus
+        />
+      </label>
+      <div className="assignment-edit-actions">
+        <button
+          type="button"
+          className="btn btn--danger btn--sm"
+          onClick={handleConfirm}
+          disabled={submitting}
+        >
+          {submitting ? 'Removing…' : 'Remove'}
+        </button>
+        <button
+          type="button"
+          className="btn btn--secondary btn--sm"
+          onClick={onCancel}
+          disabled={submitting}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── CompartmentParLevels ──────────────────────────────────────────────────────
 
 export default function CompartmentParLevels({ compartmentId, vehicleId, locationId }) {
-  const { getToken }                      = useAuth()
-  const [expanded, setExpanded]           = useState(false)
-  const [listKey, setListKey]             = useState(0)
-  const [editingParId, setEditingParId]   = useState(null)
-  const [showAddForm, setShowAddForm]     = useState(false)
-  const [removingParId, setRemovingParId] = useState(null)
+  const { getToken }                          = useAuth()
+  const [expanded, setExpanded]               = useState(false)
+  const [listKey, setListKey]                 = useState(0)
+  const [editingParId, setEditingParId]       = useState(null)
+  const [showAddForm, setShowAddForm]         = useState(false)
+  const [confirmRemoveId, setConfirmRemoveId] = useState(null)
+  const [removeError, setRemoveError]         = useState(null)
 
   const { data: assignments, isLoading, error } = useApi(
     () => expanded
@@ -232,17 +285,17 @@ export default function CompartmentParLevels({ compartmentId, vehicleId, locatio
     setListKey(k => k + 1)
     setEditingParId(null)
     setShowAddForm(false)
-    setRemovingParId(null)
+    setConfirmRemoveId(null)
+    setRemoveError(null)
   }, [])
 
-  async function handleRemove(parId) {
-    setRemovingParId(parId)
+  async function handleRemoveConfirmed(parId, reason) {
     try {
-      await adminApi.deactivateParLevel(parId, getToken)
+      await adminApi.deactivateParLevelFull(parId, reason, getToken)
       refresh()
     } catch (err) {
-      setRemovingParId(null)
-      alert(err.message)
+      setConfirmRemoveId(null)
+      setRemoveError(err.message)
     }
   }
 
@@ -270,6 +323,7 @@ export default function CompartmentParLevels({ compartmentId, vehicleId, locatio
         <div className="item-assignments__panel">
           {isLoading && <p className="assignment-loading">Loading…</p>}
           {error && <p className="assignment-error" role="alert">Could not load assignments.</p>}
+          {removeError && <p className="assignment-error" role="alert">{removeError}</p>}
 
           {!isLoading && !error && (
             <>
@@ -284,6 +338,12 @@ export default function CompartmentParLevels({ compartmentId, vehicleId, locatio
                           assignment={a}
                           onSaved={refresh}
                           onCancel={() => setEditingParId(null)}
+                        />
+                      ) : confirmRemoveId === a.par_id ? (
+                        <ConfirmRemoveRow
+                          itemName={a.item_name ?? `Item #${a.item_id}`}
+                          onConfirm={reason => handleRemoveConfirmed(a.par_id, reason)}
+                          onCancel={() => { setConfirmRemoveId(null); setRemoveError(null) }}
                         />
                       ) : (
                         <>
@@ -302,18 +362,17 @@ export default function CompartmentParLevels({ compartmentId, vehicleId, locatio
                             <button
                               type="button"
                               className="btn btn--secondary btn--sm"
-                              onClick={() => { setEditingParId(a.par_id); setShowAddForm(false) }}
+                              onClick={() => { setEditingParId(a.par_id); setShowAddForm(false); setConfirmRemoveId(null) }}
                             >
                               Edit
                             </button>
                             <button
                               type="button"
                               className="assignment-remove-btn"
-                              onClick={() => handleRemove(a.par_id)}
-                              disabled={removingParId === a.par_id}
+                              onClick={() => { setConfirmRemoveId(a.par_id); setEditingParId(null); setShowAddForm(false) }}
                               aria-label={`Remove ${a.item_name ?? 'item'} from compartment`}
                             >
-                              {removingParId === a.par_id ? '…' : '✕'}
+                              ✕
                             </button>
                           </div>
                         </>
@@ -335,7 +394,7 @@ export default function CompartmentParLevels({ compartmentId, vehicleId, locatio
                 <button
                   type="button"
                   className="btn btn--secondary btn--sm item-assignments__add-btn"
-                  onClick={() => { setShowAddForm(true); setEditingParId(null) }}
+                  onClick={() => { setShowAddForm(true); setEditingParId(null); setConfirmRemoveId(null) }}
                 >
                   + Add Item
                 </button>

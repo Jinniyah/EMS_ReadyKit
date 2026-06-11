@@ -8,6 +8,7 @@ Refactor (Session B):
 
 from __future__ import annotations
 
+from datetime import date, datetime, time, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -32,6 +33,14 @@ def list_audit_events(
     action: Optional[str] = Query(default=None),
     vehicle_id: Optional[int] = Query(default=None),
     station_id: Optional[int] = Query(default=None),
+    from_date: Optional[date] = Query(
+        default=None,
+        description="Include events on or after this date (YYYY-MM-DD, UTC)",
+    ),
+    to_date: Optional[date] = Query(
+        default=None,
+        description="Include events on or before this date (YYYY-MM-DD, UTC)",
+    ),
     limit: int = Query(default=100, ge=1, le=1000),
     db: Session = Depends(get_db),
 ) -> List[AuditEvent]:
@@ -49,5 +58,15 @@ def list_audit_events(
         query = query.filter(AuditEvent.vehicle_id == vehicle_id)
     if station_id is not None:
         query = query.filter(AuditEvent.station_id == station_id)
+    if from_date is not None:
+        query = query.filter(
+            AuditEvent.timestamp
+            >= datetime.combine(from_date, time.min, tzinfo=timezone.utc)
+        )
+    if to_date is not None:
+        query = query.filter(
+            AuditEvent.timestamp
+            <= datetime.combine(to_date, time.max, tzinfo=timezone.utc)
+        )
 
     return query.order_by(AuditEvent.timestamp.desc()).limit(limit).all()

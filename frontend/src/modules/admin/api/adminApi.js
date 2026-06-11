@@ -66,6 +66,10 @@ export const adminApi = {
   deactivateItem: (itemId, getToken) =>
     apiPatch(`${ADMIN}/items/${itemId}/deactivate`, {}, getToken),
 
+  /** Update AI identification fields only — Admin only (AI-B1). */
+  updateAiFields: (itemId, payload, getToken) =>
+    apiPatch(`${ADMIN}/items/${itemId}/ai-fields`, payload, getToken),
+
   // ── Par level assignments ─────────────────────────────────────────────────
 
   getAssignmentCount: (itemId, getToken) =>
@@ -85,6 +89,10 @@ export const adminApi = {
 
   removeParLevel: (parId, getToken) =>
     apiDelete(`${ADMIN}/par-levels/${parId}`, getToken),
+
+  /** Soft-deactivate a par level with optional reason — hits B-E9 inventory endpoint. */
+  deactivateParLevelFull: (parId, reason, getToken) =>
+    apiPatch(`/api/v1/inventory/par-levels/${parId}`, { reason: reason || null }, getToken),
 
   getVehicleCompartments: (vehicleId, getToken) =>
     apiGet(`${ADMIN}/vehicles/${vehicleId}/compartments`, getToken),

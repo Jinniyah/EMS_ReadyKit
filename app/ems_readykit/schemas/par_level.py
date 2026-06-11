@@ -76,6 +76,8 @@ class ParLevelRead(ParLevelBase):
     par_id: int
     created_at: datetime
     updated_at: datetime
+    deactivated_at: Optional[datetime] = None
+    deactivation_reason: Optional[str] = None
 
 
 class AssignItemRequest(BaseModel):

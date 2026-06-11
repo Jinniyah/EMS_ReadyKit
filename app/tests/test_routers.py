@@ -715,6 +715,97 @@ class TestInventoryEndpoints:
         assert len(response.json()) >= 1
 
 
+# ── Par level deactivation (B-E9) ────────────────────────────────────────────
+
+
+class TestParLevelDeactivate:
+    """PATCH /inventory/par-levels/{id} — soft-deactivate with optional reason (B-E9)."""
+
+    def _setup_par(self, client, auth_admin):
+        sr = client.post(
+            "/api/v1/stations",
+            json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"},
+            headers=auth_admin,
+        )
+        sid = sr.json()["station_id"]
+        vr = client.post(
+            "/api/v1/vehicles",
+            json={
+                "station_id": sid,
+                "vehicle_number": f"V-{_uid()}",
+                "vehicle_type": "ALS",
+            },
+            headers=auth_admin,
+        )
+        vid = vr.json()["vehicle_id"]
+        locs = client.get("/api/v1/inventory/locations", headers=auth_admin).json()
+        loc_id = next(loc["location_id"] for loc in locs if loc["vehicle_id"] == vid)
+        ir = client.post(
+            "/api/v1/items",
+            json={
+                "name": f"Item-{_uid()}",
+                "category": "Consumable",
+                "unit_of_measure": "each",
+            },
+            headers=auth_admin,
+        )
+        item_id = ir.json()["item_id"]
+        pr = client.post(
+            "/api/v1/inventory/par-levels",
+            json={
+                "item_id": item_id,
+                "location_id": loc_id,
+                "min_quantity": 2,
+                "max_quantity": 8,
+            },
+            headers=auth_admin,
+        )
+        return pr.json()["par_id"]
+
+    def test_deactivate_par_level_returns_204(self, client, auth_admin):
+        par_id = self._setup_par(client, auth_admin)
+        resp = client.patch(
+            f"/api/v1/inventory/par-levels/{par_id}",
+            json={},
+            headers=auth_admin,
+        )
+        assert resp.status_code == 204
+
+    def test_deactivate_with_reason_returns_204(self, client, auth_admin):
+        par_id = self._setup_par(client, auth_admin)
+        resp = client.patch(
+            f"/api/v1/inventory/par-levels/{par_id}",
+            json={"reason": "No longer stocked on this unit"},
+            headers=auth_admin,
+        )
+        assert resp.status_code == 204
+
+    def test_deactivate_twice_returns_409(self, client, auth_admin):
+        par_id = self._setup_par(client, auth_admin)
+        client.patch(
+            f"/api/v1/inventory/par-levels/{par_id}", json={}, headers=auth_admin
+        )
+        resp = client.patch(
+            f"/api/v1/inventory/par-levels/{par_id}", json={}, headers=auth_admin
+        )
+        assert resp.status_code == 409
+
+    def test_deactivate_unknown_par_returns_404(self, client, auth_admin):
+        resp = client.patch(
+            "/api/v1/inventory/par-levels/99999999", json={}, headers=auth_admin
+        )
+        assert resp.status_code == 404
+
+    def test_responder_cannot_deactivate_par_returns_403(
+        self, client, auth_admin, auth_responder
+    ):
+        par_id = self._setup_par(client, auth_admin)
+        resp = client.patch(
+            f"/api/v1/inventory/par-levels/{par_id}", json={}, headers=auth_responder
+        )
+        assert resp.status_code == 403
+
+
 # ── Compartment endpoints ─────────────────────────────────────────────────────
 
 
@@ -1726,6 +1817,44 @@ class TestAuditEndpoints:
     def test_list_audit_events_invalid_limit_returns_422(self, client, auth_supervisor):
         response = client.get("/api/v1/audit?limit=0", headers=auth_supervisor)
         assert response.status_code == 422
+
+    def test_audit_from_date_accepts_valid_date(self, client, auth_supervisor):
+        from datetime import date
+
+        today = date.today().isoformat()
+        resp = client.get(f"/api/v1/audit?from_date={today}", headers=auth_supervisor)
+        assert resp.status_code == 200
+        assert isinstance(resp.json(), list)
+
+    def test_audit_to_date_accepts_valid_date(self, client, auth_supervisor):
+        from datetime import date
+
+        today = date.today().isoformat()
+        resp = client.get(f"/api/v1/audit?to_date={today}", headers=auth_supervisor)
+        assert resp.status_code == 200
+        assert isinstance(resp.json(), list)
+
+    def test_audit_from_date_tomorrow_returns_empty(self, client, auth_supervisor):
+        from datetime import date, timedelta
+
+        tomorrow = (date.today() + timedelta(days=1)).isoformat()
+        resp = client.get(
+            f"/api/v1/audit?from_date={tomorrow}", headers=auth_supervisor
+        )
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_audit_to_date_yesterday_returns_empty(self, client, auth_supervisor):
+        from datetime import date, timedelta
+
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        resp = client.get(f"/api/v1/audit?to_date={yesterday}", headers=auth_supervisor)
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_audit_invalid_date_format_returns_422(self, client, auth_supervisor):
+        resp = client.get("/api/v1/audit?from_date=not-a-date", headers=auth_supervisor)
+        assert resp.status_code == 422
 
 
 # ── Schema validation tests ───────────────────────────────────────────────────

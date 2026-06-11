@@ -317,3 +317,78 @@ class TestDeactivateItem:
         client.patch(f"{BASE}/{item_id}/deactivate", headers=auth_admin)
         resp = client.get(BASE, headers=auth_admin)
         assert not any(i["item_id"] == item_id for i in resp.json())
+
+
+class TestAiFieldsEndpoint:
+    """PATCH /admin/items/{id}/ai-fields — AI-B1 (Admin only)."""
+
+    def test_update_ai_fields_returns_updated_item(self, client, auth_admin):
+        r = client.post(BASE, json=_item("AI Fields Target"), headers=auth_admin)
+        item_id = r.json()["item_id"]
+        resp = client.patch(
+            f"{BASE}/{item_id}/ai-fields",
+            json={
+                "ai_tags": "mask,oxygen",
+                "alternate_names": "NRB,non-rebreather",
+                "barcode": "012345600001",
+            },
+            headers=auth_admin,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["ai_tags"] == "mask,oxygen"
+        assert data["alternate_names"] == "NRB,non-rebreather"
+        assert data["barcode"] == "012345600001"
+        assert data["name"] == "AI Fields Target"
+
+    def test_partial_update_preserves_other_fields(self, client, auth_admin):
+        r = client.post(
+            BASE,
+            json=_item("Partial AI Update", ai_tags="existing-tag"),
+            headers=auth_admin,
+        )
+        item_id = r.json()["item_id"]
+        resp = client.patch(
+            f"{BASE}/{item_id}/ai-fields",
+            json={"alternate_names": "alias1"},
+            headers=auth_admin,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["alternate_names"] == "alias1"
+        assert data["ai_tags"] == "existing-tag"
+
+    def test_duplicate_barcode_returns_409(self, client, auth_admin):
+        client.post(
+            BASE,
+            json=_item("Item With Barcode", barcode="BCODE999"),
+            headers=auth_admin,
+        )
+        r = client.post(BASE, json=_item("Other Item"), headers=auth_admin)
+        item_id = r.json()["item_id"]
+        resp = client.patch(
+            f"{BASE}/{item_id}/ai-fields",
+            json={"barcode": "BCODE999"},
+            headers=auth_admin,
+        )
+        assert resp.status_code == 409
+
+    def test_supervisor_cannot_update_ai_fields_returns_403(
+        self, client, auth_admin, auth_supervisor
+    ):
+        r = client.post(BASE, json=_item("AI Supervisor Guard"), headers=auth_admin)
+        item_id = r.json()["item_id"]
+        resp = client.patch(
+            f"{BASE}/{item_id}/ai-fields",
+            json={"ai_tags": "should-fail"},
+            headers=auth_supervisor,
+        )
+        assert resp.status_code == 403
+
+    def test_unknown_item_returns_404(self, client, auth_admin):
+        resp = client.patch(
+            f"{BASE}/99999999/ai-fields",
+            json={"ai_tags": "test"},
+            headers=auth_admin,
+        )
+        assert resp.status_code == 404

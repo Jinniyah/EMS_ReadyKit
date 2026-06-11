@@ -1,7 +1,21 @@
 # EMS ReadyKit — Completed Items
-# Last updated: 2026-06-11 (Session S: Pre-Launch Polish)
-# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S
+# Last updated: 2026-06-11 (Session T: Admin Backend)
+# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T
 # Active backlog -> docs/backlog.md
+
+---
+
+## Session T — Admin Backend (2026-06-11)
+Tests TBD (user to confirm count after running pytest + npm test). Migration 0024 added.
+
+| # | Item | Description | Date |
+|---|------|-------------|------|
+| B-M6 | `par_levels` deactivation fields | Migration 0024: added `deactivated_at` (DateTime) and `deactivation_reason` (String 500) to `par_levels`. Model updated. `ParLevelRead` schema exposes new fields. | 2026-06-11 |
+| B-E9 | `PATCH /inventory/par-levels/{id}` | New endpoint in inventory.py. Supervisor+. Records `active=False`, `deactivated_at=now()`, `deactivation_reason`. Enforces station membership. Writes `PAR_DEACTIVATED` audit event. Existing admin deactivate/delete endpoints also now record `deactivated_at`. | 2026-06-11 |
+| B-E18 | `GET /audit?from_date=&to_date=` | Added `from_date` and `to_date` query params (ISO date strings) to `list_audit_events`. Filters on `AuditEvent.timestamp` using UTC day boundaries. Both params optional; existing filters still work. | 2026-06-11 |
+| AI-B1 | `PATCH /admin/items/{id}/ai-fields` | New admin-only endpoint in admin.py. Updates `ai_tags`, `alternate_names`, `reference_image_url`, `barcode` independently (uses `model_fields_set` — only fields in the request body are updated). Barcode conflict check enforced. Writes `ITEM_AI_FIELDS_UPDATED` audit event. Added `adminApi.updateAiFields()` to frontend. | 2026-06-11 |
+| AI-F1 | AI fields editor — admin-only gate | `ItemForm.jsx` AI section now only shown to admins (`isAdmin` guard). Section remains collapsed by default; auto-expands if item has existing AI fields. Non-admin item saves preserve existing AI field values unchanged (form state initialized from item). | 2026-06-11 |
+| S-F8 | Par level management — confirm+reason flow | `CompartmentParLevels.jsx` replace button → inline `ConfirmRemoveRow` with optional reason text input. Calls new `adminApi.deactivateParLevelFull()` → `PATCH /inventory/par-levels/{id}` (B-E9). CSS for `.assignment-confirm-remove` added to `admin.css`. | 2026-06-11 |
 
 ---
 

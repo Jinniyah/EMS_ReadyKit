@@ -14,6 +14,7 @@ and edit items; only Administrators can deactivate them or create stations.
   GET    /admin/items/{id}                    Get single item
   PATCH  /admin/items/{id}                    Edit item
   PATCH  /admin/items/{id}/deactivate         Soft-deactivate item (Admin only)
+  PATCH  /admin/items/{id}/ai-fields          Update AI identification fields (Admin only, AI-B1)
   GET    /admin/items/search?q=               Typeahead search
   GET    /admin/items/{id}/assignments        List par level assignments (enriched)
   GET    /admin/items/{id}/assignments/count  Active assignment count (lightweight)
@@ -38,7 +39,7 @@ from __future__ import annotations
 import csv
 import io
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
@@ -682,6 +683,52 @@ def deactivate_item(
     return item
 
 
+# ── AI-B1: AI identification fields ──────────────────────────────────────────
+
+
+class _AiFieldsPatch(BaseModel):
+    ai_tags: Optional[str] = Field(default=None, max_length=500)
+    alternate_names: Optional[str] = Field(default=None, max_length=500)
+    reference_image_url: Optional[str] = Field(default=None, max_length=500)
+    barcode: Optional[str] = Field(default=None, max_length=100)
+
+
+@router.patch(
+    "/items/{item_id}/ai-fields",
+    response_model=ItemRead,
+    summary="Update AI identification fields on an item — Admin only (AI-B1)",
+)
+def update_item_ai_fields(
+    item_id: int,
+    payload: _AiFieldsPatch,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*ADMIN_ONLY)),
+) -> Item:
+    item = _get_item_or_404(item_id, db)
+    fields = payload.model_fields_set
+    if "barcode" in fields and payload.barcode:
+        _conflict_on_barcode(payload.barcode, db, exclude_id=item_id)
+    if "ai_tags" in fields:
+        item.ai_tags = payload.ai_tags or None
+    if "alternate_names" in fields:
+        item.alternate_names = payload.alternate_names or None
+    if "reference_image_url" in fields:
+        item.reference_image_url = payload.reference_image_url or None
+    if "barcode" in fields:
+        item.barcode = payload.barcode or None
+    db.commit()
+    db.refresh(item)
+    write_audit_event(
+        db,
+        actor=current_user.email or current_user.name,
+        action="ITEM_AI_FIELDS_UPDATED",
+        entity_type="item",
+        entity_id=str(item_id),
+        metadata={"fields_set": sorted(fields)},
+    )
+    return item
+
+
 # ── ADMIN-F4: Par level assignments ──────────────────────────────────────────
 
 
@@ -878,6 +925,7 @@ def deactivate_par_level(
     if not par.active:
         raise HTTPException(status_code=409, detail="Par level is already inactive.")
     par.active = False
+    par.deactivated_at = datetime.now(timezone.utc)
     db.commit()
     logger.info(
         "Par level deactivated: par_id=%s",
@@ -904,6 +952,7 @@ def remove_par_level(
     if not par.active:
         raise HTTPException(status_code=409, detail="Par level is already inactive.")
     par.active = False
+    par.deactivated_at = datetime.now(timezone.utc)
     db.commit()
     logger.info(
         "Par level removed (DELETE): par_id=%s",

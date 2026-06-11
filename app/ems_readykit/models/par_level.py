@@ -11,10 +11,11 @@ and PC18 on the same truck).
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 import sqlalchemy as sa
-from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ems_readykit.core.database import Base
@@ -61,6 +62,14 @@ class ParLevel(TimestampMixin, Base):
     # Damaged flag — responder marks item as damaged/unavailable at this compartment.
     is_damaged: Mapped[bool] = mapped_column(
         sa.Boolean, nullable=False, default=False, server_default=sa.false()
+    )
+
+    # Soft-deactivation tracking — recorded when a par level is removed.
+    deactivated_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    deactivation_reason: Mapped[Optional[str]] = mapped_column(
+        String(500), nullable=True
     )
 
     # Relationships

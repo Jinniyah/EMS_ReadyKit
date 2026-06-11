@@ -1,5 +1,5 @@
 # EMS ReadyKit — Codebase Index
-# Last updated: 2026-06-11 (Post-session S: compartmentList fix, expired prompts, O2 PSI priority, PERF-1, CQ-B3, usage tests)
+# Last updated: 2026-06-11 (Post-session T: par_level deactivation fields, B-E9, B-E18, AI-B1, AI-F1, S-F8)
 # PURPOSE: Load this file at the start of every session to orient quickly.
 # After reading this, load only the sections relevant to the current task.
 # Full project state → docs/project_index.md | Open work → docs/backlog.md
@@ -57,11 +57,11 @@ All routes are prefixed `/api/v1/`. Router registration order in main.py matters
 | `checks.py` | 24 KB | `/checks/daily` | All + membership | Check wizard: create with embedded line_items; `_compute_line_item_status`; `_auto_decrement_supply_room` (SR-B4, N+1 batched PERF-1); helpers: `_resolve_check_location`, `_enforce_full_check_compartments`, `_build_lot_map`, `_build_line_items` (CQ-B3); `GET /daily/last-readings` |
 | `check_history.py` | 7 KB | `/checks/daily` | All / Supervisor+ | Read-only history; soft-delete; acknowledgement; hard-delete (Admin only); `my-history` accepts optional `station_id` filter |
 | `repair_requests.py` | 9 KB | `/vehicles/{id}/repair-requests` | All roles | File, update, resolve repair requests; `resolution_notes` required on RESOLVED |
-| `inventory.py` | 28 KB | `/inventory` | All + membership | Locations, compartments, par levels, lots, stock summary, CSV receive. `GET /supply-catalog?station_id=` (SR-B1). `PATCH /supply-catalog/items/{id}/count` (SR-B2). `PUT /lots/{id}` (SR-F7). `PATCH /inventory/items/{id}/status` marks/clears damaged. `PATCH /locations/{id}/retire` (Admin, RET-B2). `GET /lots/retired?location_id=` (Supervisor+, RET-B6). `PATCH /lots/{id}/retire` (Supervisor+, RET-B5) — registered BEFORE `/lots/{lot_id}` to avoid path ambiguity. |
+| `inventory.py` | 28 KB | `/inventory` | All + membership | Locations, compartments, par levels, lots, stock summary, CSV receive. `GET /supply-catalog?station_id=` (SR-B1). `PATCH /supply-catalog/items/{id}/count` (SR-B2). `PUT /lots/{id}` (SR-F7). `PATCH /inventory/items/{id}/status` marks/clears damaged. `PATCH /locations/{id}/retire` (Admin, RET-B2). `GET /lots/retired?location_id=` (Supervisor+, RET-B6). `PATCH /lots/{id}/retire` (Supervisor+, RET-B5) — registered BEFORE `/lots/{lot_id}` to avoid path ambiguity. `PATCH /par-levels/{id}` soft-deactivate with reason + membership check (B-E9). |
 | `items.py` | 3 KB | `/items` | Supervisor+ (create/edit) / All (read) | Item catalog; `POST /items` is SUPERVISOR_PLUS (not admin-only); deactivation is ADMIN_ONLY via admin router |
-| `admin.py` | 30 KB | `/admin` | Admin (most) / Supervisor+ | Stations (Admin only), vehicles, items, par levels, CSV import. `PATCH /admin/par-levels/{id}` accepts `min_quantity`/`max_quantity`/`priority_check`/`priority_question`. `PATCH /admin/locations/{id}` renames a location label (Admin only, SS-B1). Item deactivation: `PATCH /admin/items/{id}/deactivate` is ADMIN_ONLY. `GET /admin/retired?type=&station_id=` lists retired vehicles/locations/stations (Admin, RET-B4). |
+| `admin.py` | 30 KB | `/admin` | Admin (most) / Supervisor+ | Stations (Admin only), vehicles, items, par levels, CSV import. `PATCH /admin/par-levels/{id}` accepts `min_quantity`/`max_quantity`/`priority_check`/`priority_question`. `PATCH /admin/locations/{id}` renames a location label (Admin only, SS-B1). Item deactivation: `PATCH /admin/items/{id}/deactivate` is ADMIN_ONLY. `PATCH /admin/items/{id}/ai-fields` updates AI identification fields — Admin only (AI-B1). `GET /admin/retired?type=&station_id=` lists retired vehicles/locations/stations (Admin, RET-B4). |
 | `usage.py` | 9 KB | `/checks` | All + membership | `POST /checks/usage` (log items used, FIFO decrement); `GET /checks/usage/station/{id}` (history); `GET /checks/usage/station/{id}/frequent` (top 10 items, 90-day window) |
-| `audit.py` | 2 KB | `/audit` | Supervisor+ | Paginated audit event log |
+| `audit.py` | 2 KB | `/audit` | Supervisor+ | Paginated audit event log; `GET /audit?from_date=&to_date=` date-range filter (B-E18) |
 
 ### Key shared patterns (deps.py)
 ```python
@@ -86,7 +86,7 @@ from ems_readykit.routers.deps import (
 | `vehicle.py` | `Vehicle` | vehicle_color (0011); status ACTIVE/OOS; retired_at/by/reason (0023); `check_type_value` property normalises enum→str (CQ-B1) |
 | `inventory_location.py` | `InventoryLocation` | LocationType: VEHICLE, JUMP_BAG, STATION_SUPPLY_ROOM; retired_at/by/reason (0023) |
 | `compartment.py` | `Compartment` | sort_order, location_descriptor, `requires_full_check` (bool, migration 0015) — when True, No Change is blocked for that compartment (Truck Operations uses this) |
-| `par_level.py` | `ParLevel` | item ↔ compartment; min/max quantity; active flag (0010); `priority_check` + `priority_question` (0015); `is_damaged` (bool) |
+| `par_level.py` | `ParLevel` | item ↔ compartment; min/max quantity; active flag (0010); `priority_check` + `priority_question` (0015); `is_damaged` (bool); `deactivated_at` + `deactivation_reason` (0024) |
 | `stock_lot.py` | `StockLot` | lot_number, expiration_date, quantity; retired_at/by/reason (0023) |
 | `item.py` | `Item` | ItemCheckType enum: SUPPLY, MEASUREMENT, FUNCTIONAL, DATE_RECORD, DOCUMENT, EXPIRY_DATE (Session O — stored as VARCHAR, no migration); `station_supply` bool (migration 0017, default True); `measurement_minimum`/`measurement_maximum`; `recurrence_days`; `check_type_value` property (CQ-B1) |
 | `daily_inventory_check.py` | `DailyInventoryCheck` | CheckStatus: PASS/NEEDS_RESTOCK/FAIL; status computed server-side; vehicle_id nullable + location_id (0013) for portable checks; soft-delete fields (deleted_at/by/reason, force_deleted) |
@@ -154,7 +154,7 @@ AuditEvent     (immutable log)
 | `test_usage.py` | — | POST /checks/usage happy path, FIFO decrement, non-SUPPLY rejection, 403/404 guards; GET history + frequent items | `db` |
 | `test_retirement.py` | — | RET-B1–B6: retire vehicle/location/station/lot; list retired; 403/409 enforcement. Fixtures use uuid suffix for unique vehicle numbers; item fixture uses get-or-create. | `db` |
 
-**Run:** `cd app; pytest` — **381 tests passing, 0 xfailed** (Session R baseline; Session S added no backend tests)
+**Run:** `cd app; pytest` — **381 tests passing, 0 xfailed** (Session R baseline; Session T adds ~11 new backend tests)
 
 **Two DB fixtures — do not mix:**
 - `db` — in-memory SQLite, empty, rolls back after each test. Use for all API/logic tests.
@@ -332,7 +332,7 @@ Vitest + React Testing Library. Run: `cd frontend && npm test` — **180 tests p
 
 ## Migrations (app/alembic/versions/)
 
-23 migrations applied (0001–0023, plus 0003a branch). Run automatically at startup via `startup.sh`.
+24 migrations applied (0001–0024, plus 0003a branch). Run automatically at startup via `startup.sh`.
 To add a new migration: `cd app && alembic revision --autogenerate -m "description"`
 
 | Migration | Description |
@@ -352,6 +352,7 @@ To add a new migration: `cd app && alembic revision --autogenerate -m "descripti
 | 0021 | UPDATE items: AED Pads Adult/Pediatric → `check_type = 'EXPIRY_DATE'`, `recurrence_days = NULL` (Session O) |
 | 0022 | `allow_check_modification` Boolean column on `stations` (NOT NULL, server_default=True). Batch mode. (Session Q, B-M10) |
 | 0023 | `retired_at`, `retired_by`, `retirement_reason` columns on `vehicles`, `inventory_locations`, `stations`, `stock_lots`. All nullable. Batch mode. (Session R, RET-M1/M2/M3) |
+| 0024 | `deactivated_at` (DateTime, nullable) and `deactivation_reason` (String 500, nullable) on `par_levels`. Batch mode. (Session T, B-M6) |
 
 ---
 
@@ -411,5 +412,4 @@ Idempotent — safe to re-run. Reseed sequence: `Remove-Item ems_readykit_dev.db
 
 | Session | Focus | Key Items |
 |---------|-------|-----------|
-| **T** | Admin Backend (~3 hrs) | B-M6, B-E9, B-E18, AI-B1, AI-F1, S-F8 |
 | **U** | UAT Dress Rehearsal + Launch | LAUNCH-OPS1-9, UAT-2-11 |

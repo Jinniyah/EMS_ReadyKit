@@ -759,6 +759,52 @@ def get_par_level(
     return par
 
 
+class _ParLevelDeactivate(BaseModel):
+    reason: Optional[str] = None
+
+
+@router.patch(
+    "/par-levels/{par_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Soft-deactivate a par level (B-E9) — Supervisor+",
+)
+def deactivate_par_level(
+    par_id: int,
+    payload: _ParLevelDeactivate,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
+) -> None:
+    par = db.query(ParLevel).filter(ParLevel.par_id == par_id).first()
+    if not par:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Par level {par_id} not found.",
+        )
+    location = _get_location_or_404(par.location_id, db)
+    require_station_membership(location.station_id, current_user, db)
+    if not par.active:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Par level is already inactive.",
+        )
+    par.active = False
+    par.deactivated_at = datetime.now(timezone.utc)
+    par.deactivation_reason = payload.reason or None
+    db.commit()
+    write_audit_event(
+        db,
+        actor=current_user.email or current_user.user_id,
+        action="PAR_DEACTIVATED",
+        entity_type="par_level",
+        entity_id=str(par_id),
+        metadata={
+            "item_id": par.item_id,
+            "compartment_id": par.compartment_id,
+            "reason": payload.reason,
+        },
+    )
+
+
 # ── SUPPLY-B2: Stock summary ──────────────────────────────────────────────────
 
 

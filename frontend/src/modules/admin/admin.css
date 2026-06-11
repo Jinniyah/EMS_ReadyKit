@@ -596,6 +596,8 @@
 .assignment-field__select { padding: var(--space-sm) var(--space-md); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-md); min-height: var(--tap-target); width: 100%; background: var(--color-surface); color: var(--color-text); box-sizing: border-box; }
 .assignment-field__select:focus { outline: 3px solid var(--color-brand); border-color: var(--color-brand); }
 .item-assignments__add-btn { align-self: flex-start; }
+.assignment-confirm-remove { display: flex; flex-direction: column; gap: var(--space-sm); width: 100%; padding: var(--space-sm) 0; }
+.assignment-confirm-remove__label { font-size: var(--font-size-sm); color: var(--color-text); margin: 0; }
 
 /* ── CSV Import ────────────────────────────────────────────────────────────── */
 

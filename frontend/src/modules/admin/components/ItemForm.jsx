@@ -303,78 +303,80 @@ export default function ItemForm({ item, onSaved, onCancel }) {
         </div>
       )}
 
-      {/* ── AI identification fields ─────────────────────────────────────── */}
+      {/* ── AI identification fields — Admin only ────────────────────────── */}
 
-      <div className="item-form__ai-section">
-        <button
-          type="button"
-          className="item-form__ai-toggle"
-          onClick={() => setShowAI(v => !v)}
-          aria-expanded={showAI}
-        >
-          <span>🤖 AI &amp; Scanner fields</span>
-          <span className="item-form__ai-toggle-hint">
-            {showAI ? 'Hide' : 'For future AI image identification and barcode scanning'}
-          </span>
-          <span aria-hidden="true">{showAI ? '▲' : '▼'}</span>
-        </button>
+      {isAdmin && (
+        <div className="item-form__ai-section">
+          <button
+            type="button"
+            className="item-form__ai-toggle"
+            onClick={() => setShowAI(v => !v)}
+            aria-expanded={showAI}
+          >
+            <span>AI &amp; Scanner fields</span>
+            <span className="item-form__ai-toggle-hint">
+              {showAI ? 'Hide' : 'Alternate names, barcode, AI tags — for future scanner/AI features'}
+            </span>
+            <span aria-hidden="true">{showAI ? '▲' : '▼'}</span>
+          </button>
 
-        {showAI && (
-          <div className="item-form__ai-fields">
-            <Field
-              label="Alternate names"
-              hint="Other names crews use. Comma-separated. e.g. NRB, non-rebreather, O2 mask"
-            >
-              <input
-                className="item-form__input"
-                value={form.alternate_names}
-                onChange={e => set('alternate_names', e.target.value)}
-                placeholder="e.g. NRB, non-rebreather"
-                maxLength={500}
-              />
-            </Field>
+          {showAI && (
+            <div className="item-form__ai-fields">
+              <Field
+                label="Alternate names"
+                hint="Other names crews use. Comma-separated. e.g. NRB, non-rebreather, O2 mask"
+              >
+                <input
+                  className="item-form__input"
+                  value={form.alternate_names}
+                  onChange={e => set('alternate_names', e.target.value)}
+                  placeholder="e.g. NRB, non-rebreather"
+                  maxLength={500}
+                />
+              </Field>
 
-            <Field
-              label="AI tags"
-              hint="Keywords an AI classifier might return. Comma-separated."
-            >
-              <input
-                className="item-form__input"
-                value={form.ai_tags}
-                onChange={e => set('ai_tags', e.target.value)}
-                placeholder="e.g. mask,oxygen,NRB"
-                maxLength={500}
-              />
-            </Field>
+              <Field
+                label="AI tags"
+                hint="Keywords an AI classifier might return. Comma-separated."
+              >
+                <input
+                  className="item-form__input"
+                  value={form.ai_tags}
+                  onChange={e => set('ai_tags', e.target.value)}
+                  placeholder="e.g. mask,oxygen,NRB"
+                  maxLength={500}
+                />
+              </Field>
 
-            <Field
-              label="Barcode (UPC / GS1)"
-              hint="Unique barcode for scanner identification."
-            >
-              <input
-                className="item-form__input"
-                value={form.barcode}
-                onChange={e => set('barcode', e.target.value)}
-                placeholder="e.g. 012345678901"
-                maxLength={100}
-              />
-            </Field>
+              <Field
+                label="Barcode (UPC / GS1)"
+                hint="Unique barcode for scanner identification."
+              >
+                <input
+                  className="item-form__input"
+                  value={form.barcode}
+                  onChange={e => set('barcode', e.target.value)}
+                  placeholder="e.g. 012345678901"
+                  maxLength={100}
+                />
+              </Field>
 
-            <Field
-              label="Reference image URL"
-              hint="Azure Blob Storage URL of a reference photo. Used by the AI pipeline to verify a visual match."
-            >
-              <input
-                className="item-form__input"
-                value={form.reference_image_url}
-                onChange={e => set('reference_image_url', e.target.value)}
-                placeholder="https://storage.blob.core.windows.net/…"
-                maxLength={500}
-              />
-            </Field>
-          </div>
-        )}
-      </div>
+              <Field
+                label="Reference image URL"
+                hint="Azure Blob Storage URL of a reference photo. Used by the AI pipeline to verify a visual match."
+              >
+                <input
+                  className="item-form__input"
+                  value={form.reference_image_url}
+                  onChange={e => set('reference_image_url', e.target.value)}
+                  placeholder="https://storage.blob.core.windows.net/…"
+                  maxLength={500}
+                />
+              </Field>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Actions ──────────────────────────────────────────────────────── */}
 
