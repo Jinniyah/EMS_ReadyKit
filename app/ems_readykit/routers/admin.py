@@ -163,6 +163,9 @@ def _enrich_par(
         min_quantity=par.min_quantity,
         max_quantity=par.max_quantity,
         active=par.active,
+        priority_check=par.priority_check,
+        priority_question=par.priority_question,
+        is_damaged=par.is_damaged,
         created_at=par.created_at,
         updated_at=par.updated_at,
         vehicle_id=vehicle.vehicle_id if vehicle else None,
@@ -186,7 +189,7 @@ def _enrich_par(
 def list_items(
     category: Optional[ItemCategory] = Query(default=None),
     check_type: Optional[ItemCheckType] = Query(default=None),
-    active: Optional[bool] = Query(default=True),
+    active: Optional[bool] = Query(default=None),
     db: Session = Depends(get_db),
     _: None = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> List[Dict]:

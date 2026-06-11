@@ -12,10 +12,10 @@ import Spinner from '../../../shared/components/Spinner.jsx'
 function RetireConfirmSheet({ name, onConfirm, onCancel, saving, error }) {
   const [reason, setReason] = useState('')
   return (
-    <div className="settings-confirm-overlay" role="dialog" aria-modal="true">
-      <div className="settings-confirm-sheet">
-        <p className="settings-confirm-sheet__title">Retire {name}?</p>
-        <p className="settings-confirm-sheet__desc">
+    <div className="ems-confirm-overlay" role="dialog" aria-modal="true">
+      <div className="ems-confirm-sheet">
+        <p className="ems-confirm-sheet__title">Retire {name}?</p>
+        <p className="ems-confirm-sheet__desc">
           This permanently marks the item as retired. It will be hidden from active lists.
           This action cannot be undone.
         </p>
@@ -25,13 +25,13 @@ function RetireConfirmSheet({ name, onConfirm, onCancel, saving, error }) {
           onChange={e => setReason(e.target.value)}
           maxLength={500}
         />
-        {error && <p style={{ color: 'var(--color-fail)', fontSize: 'var(--font-size-sm)', margin: 0 }}>{error}</p>}
-        <div className="settings-confirm-sheet__actions">
-          <button className="settings-confirm-sheet__cancel" onClick={onCancel} type="button">
+        {error && <p className="ems-confirm-sheet__error">{error}</p>}
+        <div className="ems-confirm-sheet__actions">
+          <button className="ems-confirm-sheet__cancel" onClick={onCancel} type="button">
             Cancel
           </button>
           <button
-            className="settings-confirm-sheet__confirm"
+            className="ems-confirm-sheet__confirm"
             onClick={() => onConfirm(reason)}
             disabled={!reason.trim() || saving}
             type="button"

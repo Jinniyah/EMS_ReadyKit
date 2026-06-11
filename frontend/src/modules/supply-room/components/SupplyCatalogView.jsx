@@ -180,10 +180,10 @@ export default function SupplyCatalogView({ stationId, locationId, items, loadin
     <div className="sr-catalog">
       {/* RET-F3: Lot retirement confirmation sheet */}
       {retireLotId && (
-        <div className="sr-confirm-overlay" role="dialog" aria-modal="true">
-          <div className="sr-confirm-sheet">
-            <p className="sr-confirm-sheet__title">Dispose this lot?</p>
-            <p className="sr-confirm-sheet__desc">
+        <div className="ems-confirm-overlay" role="dialog" aria-modal="true">
+          <div className="ems-confirm-sheet">
+            <p className="ems-confirm-sheet__title">Dispose this lot?</p>
+            <p className="ems-confirm-sheet__desc">
               This marks the lot as retired and sets its quantity to zero.
               Record the reason (e.g. "Expired — disposed per protocol").
             </p>
@@ -194,18 +194,18 @@ export default function SupplyCatalogView({ stationId, locationId, items, loadin
               maxLength={500}
             />
             {retireError && (
-              <p style={{ color: 'var(--color-fail)', fontSize: 'var(--font-size-sm)', margin: 0 }}>{retireError}</p>
+              <p className="ems-confirm-sheet__error">{retireError}</p>
             )}
-            <div className="sr-confirm-sheet__actions">
+            <div className="ems-confirm-sheet__actions">
               <button
-                className="sr-confirm-sheet__cancel"
+                className="ems-confirm-sheet__cancel"
                 onClick={() => { setRetireLotId(null); setRetireReason(''); setRetireError(null) }}
                 type="button"
               >
                 Cancel
               </button>
               <button
-                className="sr-confirm-sheet__confirm"
+                className="ems-confirm-sheet__confirm"
                 onClick={handleRetireLot}
                 disabled={!retireReason.trim() || retireSaving}
                 type="button"
@@ -351,7 +351,7 @@ export default function SupplyCatalogView({ stationId, locationId, items, loadin
                               </button>
                               <button
                                 className="sr-lot-row__edit-btn"
-                                style={{ color: 'var(--color-fail)', borderColor: 'var(--color-fail)' }}
+                                style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}
                                 onClick={() => { setRetireLotId(lot.lot_id); setRetireReason(''); setRetireError(null) }}
                                 type="button"
                                 aria-label={`Dispose lot ${lot.lot_number ?? lot.lot_id}`}

@@ -54,7 +54,7 @@
 
 .settings-screen__error {
   padding: var(--space-md);
-  color: var(--color-fail);
+  color: var(--color-danger);
   font-size: var(--font-size-sm);
 }
 
@@ -138,7 +138,7 @@
   padding: var(--space-xs) var(--space-sm);
 }
 
-.settings-value--on  { color: var(--color-pass); }
+.settings-value--on  { color: var(--color-status-pass); }
 .settings-value--off { color: var(--color-text-muted); }
 
 .settings-screen__readonly-note {
@@ -148,7 +148,8 @@
   padding: var(--space-sm) 0;
 }
 
-/* ── Retirement UI ───────────────────────────────────────────────────────── */
+/* -- Retirement UI --------------------------------------------------------- */
+/* Confirm sheet uses shared .ems-confirm-* classes from index.css           */
 
 .settings-retire-btn {
   min-height: var(--tap-target);
@@ -176,85 +177,6 @@
   padding: 2px var(--space-xs);
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
-}
-
-.settings-confirm-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  z-index: 200;
-}
-
-.settings-confirm-sheet {
-  background: var(--color-surface-raised);
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-  padding: var(--space-md);
-  width: 100%;
-  max-width: 480px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-
-.settings-confirm-sheet__title {
-  font-size: var(--font-size-md);
-  font-weight: 700;
-  color: var(--color-fail);
-  margin: 0;
-}
-
-.settings-confirm-sheet__desc {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  margin: 0;
-}
-
-.settings-confirm-sheet textarea {
-  width: 100%;
-  min-height: 80px;
-  padding: var(--space-sm);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-md);
-  font-family: inherit;
-  resize: vertical;
-  box-sizing: border-box;
-}
-
-.settings-confirm-sheet__actions {
-  display: flex;
-  gap: var(--space-sm);
-}
-
-.settings-confirm-sheet__cancel {
-  flex: 1;
-  min-height: var(--tap-target);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-md);
-  cursor: pointer;
-  color: var(--color-text);
-}
-
-.settings-confirm-sheet__confirm {
-  flex: 1;
-  min-height: var(--tap-target);
-  background: var(--color-fail);
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-md);
-  font-weight: 700;
-  color: #fff;
-  cursor: pointer;
-}
-
-.settings-confirm-sheet__confirm:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .settings-retired-list {

@@ -37,7 +37,7 @@ class TestListItems:
 
     def test_list_returns_active_by_default(self, client, auth_admin):
         client.post(BASE, json=_item("Kerlix Large"), headers=auth_admin)
-        resp = client.get(BASE, headers=auth_admin)
+        resp = client.get(f"{BASE}?active=true", headers=auth_admin)
         assert resp.status_code == 200
         names = [i["name"] for i in resp.json()]
         assert "Kerlix Large" in names
@@ -75,11 +75,11 @@ class TestListItems:
         r = client.post(BASE, json=_item("Soon Inactive Item"), headers=auth_admin)
         item_id = r.json()["item_id"]
         client.patch(f"{BASE}/{item_id}/deactivate", headers=auth_admin)
-        # Default (active=true) should exclude it
-        resp_active = client.get(BASE, headers=auth_admin)
+        # active=true should exclude it
+        resp_active = client.get(f"{BASE}?active=true", headers=auth_admin)
         assert not any(i["item_id"] == item_id for i in resp_active.json())
-        # active=false should include it
-        resp_all = client.get(f"{BASE}?active=false", headers=auth_admin)
+        # no active param returns all items including inactive
+        resp_all = client.get(BASE, headers=auth_admin)
         assert any(i["item_id"] == item_id for i in resp_all.json())
 
     def test_responder_cannot_list(self, client, auth_responder):
@@ -315,7 +315,7 @@ class TestDeactivateItem:
         r = client.post(BASE, json=_item("Will Be Deactivated"), headers=auth_admin)
         item_id = r.json()["item_id"]
         client.patch(f"{BASE}/{item_id}/deactivate", headers=auth_admin)
-        resp = client.get(BASE, headers=auth_admin)
+        resp = client.get(f"{BASE}?active=true", headers=auth_admin)
         assert not any(i["item_id"] == item_id for i in resp.json())
 
 

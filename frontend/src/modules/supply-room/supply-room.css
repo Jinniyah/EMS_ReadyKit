@@ -1,8 +1,8 @@
 /* supply-room.css
-   Design tokens match admin.css / index.css — do not use raw px values.
+   Design tokens match admin.css / index.css -- do not use raw px values.
 */
 
-/* ── Screen layout ─────────────────────────────────────────────────────────── */
+/* -- Screen layout --------------------------------------------------------- */
 
 .sr-screen {
   display: flex;
@@ -11,7 +11,7 @@
   background: var(--color-surface-raised);
 }
 
-/* ── Sticky header ─────────────────────────────────────────────────────────── */
+/* -- Sticky header --------------------------------------------------------- */
 
 .sr-header {
   background: var(--color-surface);
@@ -55,7 +55,7 @@
   flex-shrink: 0;
 }
 
-/* ── Body wrapper (nav card landing) ───────────────────────────────────────── */
+/* -- Body wrapper (nav card landing) --------------------------------------- */
 
 .sr-body {
   flex: 1;
@@ -65,7 +65,7 @@
   gap: var(--space-sm);
 }
 
-/* ── Status messages ───────────────────────────────────────────────────────── */
+/* -- Status messages ------------------------------------------------------- */
 
 .sr-center {
   padding: 40px;
@@ -84,7 +84,7 @@
   font-weight: 600;
 }
 
-/* ── Supply room not-set-up state ──────────────────────────────────────────── */
+/* -- Supply room not-set-up state ------------------------------------------ */
 
 .sr-setup {
   display: flex;
@@ -116,7 +116,7 @@
 }
 .sr-setup__btn { min-width: 240px; }
 
-/* ── Nav cards — mirrors .admin-nav-card exactly ───────────────────────────── */
+/* -- Nav cards ------------------------------------------------------------- */
 
 .sr-nav-cards {
   display: flex;
@@ -165,7 +165,7 @@
   color: #92400e;
 }
 
-/* ── Secondary text links (below primary nav cards) ─────────────────────────── */
+/* -- Secondary text links -------------------------------------------------- */
 
 .sr-secondary-links {
   display: flex;
@@ -203,15 +203,13 @@
   font-size: var(--font-size-sm);
 }
 
-/* ── Section content (full-screen when active) ─────────────────────────────── */
+/* -- Section content ------------------------------------------------------- */
 
 .sr-section {
   flex: 1;
   overflow-y: auto;
   padding-bottom: 80px;
 }
-
-/* Empty / all-good states */
 
 .sr-empty {
   text-align: center;
@@ -234,7 +232,7 @@
 
 .sr-all-good__icon { font-size: 40px; }
 
-/* Item transfer rows */
+/* -- Item transfer rows ---------------------------------------------------- */
 
 .sr-transfer-list {
   display: flex;
@@ -288,9 +286,9 @@
 
 .sr-stat__value--low  { color: var(--color-status-fail, #dc2626); }
 .sr-stat__value--warn { color: #856404; }
-.sr-stat__value--ok   { color: var(--color-status-pass, #166534); }
+.sr-stat__value--ok   { color: var(--color-status-pass, #166634); }
 
-/* Quantity stepper */
+/* -- Quantity stepper ------------------------------------------------------ */
 
 .sr-qty-row {
   display: flex;
@@ -333,7 +331,7 @@
   text-align: center;
 }
 
-/* At-par items (collapsed) */
+/* -- At-par items (collapsed) ---------------------------------------------- */
 
 .sr-at-par-toggle {
   background: none;
@@ -366,9 +364,9 @@
 }
 
 .sr-at-par-row__name  { font-size: var(--font-size-sm); font-weight: 600; color: var(--color-text); }
-.sr-at-par-row__count { font-size: var(--font-size-sm); color: var(--color-status-pass, #166534); font-weight: 700; }
+.sr-at-par-row__count { font-size: var(--font-size-sm); color: var(--color-status-pass, #166634); font-weight: 700; }
 
-/* Success box */
+/* -- Success box ----------------------------------------------------------- */
 
 .sr-success-box {
   display: flex;
@@ -383,7 +381,7 @@
 }
 
 .sr-success-box__icon    { font-size: 48px; line-height: 1; }
-.sr-success-box__heading { font-size: var(--font-size-h2); font-weight: 700; color: #166534; margin: 0; }
+.sr-success-box__heading { font-size: var(--font-size-h2); font-weight: 700; color: #166634; margin: 0; }
 .sr-success-box__detail  { font-size: var(--font-size-sm); color: var(--color-text-secondary); margin: 0; }
 
 .sr-transfer-errors {
@@ -408,7 +406,7 @@
   color: var(--color-status-fail);
 }
 
-/* ── Supply catalog view (SR-F3) ─────────────────────────────────────────────── */
+/* -- Supply catalog view (SR-F3) ------------------------------------------- */
 
 .sr-catalog {
   display: flex;
@@ -462,11 +460,7 @@
   flex-shrink: 0;
 }
 
-.sr-catalog-item__qty {
-  font-size: var(--font-size-h2);
-  font-weight: 700;
-}
-
+.sr-catalog-item__qty { font-size: var(--font-size-h2); font-weight: 700; }
 .sr-catalog-item__qty--out  { color: var(--color-status-fail); }
 .sr-catalog-item__qty--low  { color: var(--color-status-warn, #92400e); }
 .sr-catalog-item__qty--ok   { color: var(--color-status-pass); }
@@ -552,7 +546,7 @@
   justify-content: flex-end;
 }
 
-/* ── Lot list and expiry editor (SR-F7) ──────────────────────────────────────── */
+/* -- Lot list and expiry editor (SR-F7) ------------------------------------- */
 
 .sr-lot-list {
   border-top: 1px solid var(--color-border);
@@ -636,9 +630,7 @@
   font-family: inherit;
 }
 
-/* ── Receive Stock Panel (.rsp-*) ────────────────────────────────────────────── */
-/* Matches item-catalog / item-card formatting from admin.css.              */
-/* All values use design tokens -- no hardcoded hex, rem, or px.            */
+/* -- Receive Stock Panel (.rsp-*) ------------------------------------------ */
 
 .rsp {
   display: flex;
@@ -647,7 +639,6 @@
   padding: var(--space-md);
 }
 
-/* Form card -- matches item-card surface pattern */
 .rsp__form {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -666,7 +657,6 @@
   margin: 0;
 }
 
-/* Field -- matches item-form__field pattern */
 .rsp__field {
   display: flex;
   flex-direction: column;
@@ -698,21 +688,18 @@
   border-color: var(--color-brand);
 }
 
-/* Quantity input -- larger numerals for fast entry */
 .rsp__input--qty {
   font-size: var(--font-size-xl);
   font-weight: 700;
   text-align: center;
 }
 
-/* Two-column row for lot + expiry */
 .rsp__row-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-md);
 }
 
-/* Status messages -- match item-catalog__error pattern */
 .rsp__success {
   background: var(--color-status-pass-bg);
   color: var(--color-status-pass);
@@ -731,91 +718,12 @@
   font-weight: 600;
 }
 
-/* ── Shelf grouping (SS-F2) ──────────────────────────────────────────────── */
+/* -- Shelf grouping (SS-F2) ------------------------------------------------ */
 .sr-catalog-shelf { margin-bottom: var(--space-md); }
 .sr-catalog-shelf__heading { font-size: var(--font-size-sm); font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; padding: var(--space-xs) 0; margin-bottom: var(--space-xs); }
 
-/* ── Damaged badge (DMG-F3) ──────────────────────────────────────────────── */
+/* -- Damaged badge (DMG-F3) ------------------------------------------------ */
 .sr-catalog-item__damaged { color: var(--color-damaged); font-size: var(--font-size-sm); font-weight: 700; }
 
-/* ── Lot retirement confirmation overlay (RET-F3) ────────────────────────── */
-.sr-confirm-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  z-index: 200;
-}
-
-.sr-confirm-sheet {
-  background: var(--color-surface-raised);
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-  padding: var(--space-md);
-  width: 100%;
-  max-width: 480px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-
-.sr-confirm-sheet__title {
-  font-size: var(--font-size-md);
-  font-weight: 700;
-  color: var(--color-fail);
-  margin: 0;
-}
-
-.sr-confirm-sheet__desc {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  margin: 0;
-}
-
-.sr-confirm-sheet textarea {
-  width: 100%;
-  min-height: 80px;
-  padding: var(--space-sm);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-md);
-  font-family: inherit;
-  resize: vertical;
-  box-sizing: border-box;
-}
-
-.sr-confirm-sheet__actions {
-  display: flex;
-  gap: var(--space-sm);
-}
-
-.sr-confirm-sheet__cancel {
-  flex: 1;
-  min-height: var(--tap-target);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-md);
-  cursor: pointer;
-  color: var(--color-text);
-}
-
-.sr-confirm-sheet__confirm {
-  flex: 1;
-  min-height: var(--tap-target);
-  background: var(--color-fail);
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-md);
-  font-weight: 700;
-  color: #fff;
-  cursor: pointer;
-}
-
-.sr-confirm-sheet__confirm:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-
+/* -- Lot retirement confirmation (RET-F3) ---------------------------------- */
+/* Uses shared .ems-confirm-* classes from index.css                        */

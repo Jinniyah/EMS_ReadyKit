@@ -672,6 +672,93 @@ h3 { font-size: var(--font-size-md); font-weight: 600; }
   font-size: var(--font-size-sm);
 }
 
+/* ── Shared confirm bottom sheet ───────────────────────────────────────────── */
+/* Used by settings, supply-room, and any other module needing a danger confirm */
+.ems-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 200;
+}
+
+.ems-confirm-sheet {
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  padding: var(--space-md);
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.ems-confirm-sheet__title {
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  color: var(--color-danger);
+  margin: 0;
+}
+
+.ems-confirm-sheet__desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.ems-confirm-sheet textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.ems-confirm-sheet__actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.ems-confirm-sheet__cancel {
+  flex: 1;
+  min-height: var(--tap-target);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+  color: var(--color-text);
+}
+
+.ems-confirm-sheet__confirm {
+  flex: 1;
+  min-height: var(--tap-target);
+  background: var(--color-danger);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+}
+
+.ems-confirm-sheet__confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ems-confirm-sheet__error {
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+  margin: 0;
+}
+
 /* ── Print styles ──────────────────────────────────────────────────────────── */
 @media print {
   .app-header, .dev-banner, .user-pill, .btn { display: none !important; }
