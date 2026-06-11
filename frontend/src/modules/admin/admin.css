@@ -632,6 +632,32 @@
 .assignment-edit-label--full { width: 100%; }
 .assignment-edit-input--wide { width: 100%; }
 
+/* ── Save confirmation flash (ADM-35 UAT fix) ────────────────────────────── */
+.assignment-saved-flash {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-status-pass);
+  padding: var(--space-xs) 0;
+  margin: 0;
+  animation: fade-out 2.5s ease forwards;
+}
+
+@keyframes fade-out {
+  0%   { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Prominent inline error -- used when validation blocks a save (ADM-31 UAT fix) */
+.assignment-error--prominent {
+  background: var(--color-status-fail-bg);
+  color: var(--color-status-fail);
+  border: 1px solid var(--color-status-fail);
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs) var(--space-sm);
+  font-weight: 700;
+}
+
 /* ── Supply shelf sections (SS-F1, ADMIN-F7) ─────────────────────────────── */
 .supply-shelf-section { border: 1px solid var(--color-border); border-radius: var(--radius-md); margin-bottom: var(--space-md); overflow: hidden; }
 .supply-shelf-section--add { padding: var(--space-md); border-style: dashed; }

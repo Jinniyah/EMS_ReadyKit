@@ -66,7 +66,7 @@ export default function ItemCatalog({ stationId }) {
     isLoading,
     error,
   } = useApi(
-    () => adminApi.listItems(getToken, { active: showInactive ? undefined : true }),
+    () => adminApi.listItems(getToken, { active: showInactive ? null : true }),
     [catalogKey, showInactive]
   )
 

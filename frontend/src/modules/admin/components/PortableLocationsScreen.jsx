@@ -175,7 +175,7 @@ export default function PortableLocationsScreen({ station, onBack }) {
   )
 
   const portableLocations = (allLocations ?? []).filter(
-    l => l.location_type === 'JUMP_BAG' || l.location_type === 'EQUIPMENT'
+    l => (l.location_type === 'JUMP_BAG' || l.location_type === 'EQUIPMENT') && !l.retired_at
   )
 
   const refresh = useCallback(() => setLocKey(k => k + 1), [])

@@ -119,7 +119,10 @@ def list_locations(
         require_station_membership(station_id, current_user, db)
         return (
             db.query(InventoryLocation)
-            .filter(InventoryLocation.station_id == station_id)
+            .filter(
+                InventoryLocation.station_id == station_id,
+                InventoryLocation.retired_at.is_(None),
+            )
             .all()
         )
 

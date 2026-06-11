@@ -53,7 +53,7 @@ function EditCompartmentParRow({ assignment, onSaved, onCancel }) {
         priority_check:    isPriority,
         priority_question: isPriority ? (question.trim() || null) : null,
       }, getToken)
-      onSaved()
+      onSaved(assignment.par_id)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -109,7 +109,7 @@ function EditCompartmentParRow({ assignment, onSaved, onCancel }) {
         </label>
       )}
 
-      {error && <p className="assignment-error" role="alert">{error}</p>}
+      {error && <p className="assignment-error assignment-error--prominent" role="alert">{error}</p>}
       <div className="assignment-edit-actions">
         <button type="submit" className="btn btn--primary btn--sm" disabled={submitting}>
           {submitting ? 'Saving…' : 'Save'}
@@ -273,6 +273,7 @@ export default function CompartmentParLevels({ compartmentId, vehicleId, locatio
   const [showAddForm, setShowAddForm]         = useState(false)
   const [confirmRemoveId, setConfirmRemoveId] = useState(null)
   const [removeError, setRemoveError]         = useState(null)
+  const [savedParId, setSavedParId]           = useState(null)
 
   const { data: assignments, isLoading, error } = useApi(
     () => expanded
@@ -281,12 +282,16 @@ export default function CompartmentParLevels({ compartmentId, vehicleId, locatio
     [expanded, listKey, compartmentId]
   )
 
-  const refresh = useCallback(() => {
+  const refresh = useCallback((savedId = null) => {
     setListKey(k => k + 1)
     setEditingParId(null)
     setShowAddForm(false)
     setConfirmRemoveId(null)
     setRemoveError(null)
+    if (savedId != null) {
+      setSavedParId(savedId)
+      setTimeout(() => setSavedParId(null), 2500)
+    }
   }, [])
 
   async function handleRemoveConfirmed(parId, reason) {
@@ -358,6 +363,11 @@ export default function CompartmentParLevels({ compartmentId, vehicleId, locatio
                             </span>
                             <QtyBadge min={a.min_quantity} max={a.max_quantity} />
                           </div>
+                          {savedParId === a.par_id && (
+                            <p className="assignment-saved-flash" role="status">
+                              ✓ Saved
+                            </p>
+                          )}
                           <div className="assignment-row__actions">
                             <button
                               type="button"
