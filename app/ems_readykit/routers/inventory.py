@@ -475,6 +475,21 @@ def create_stock_lot(
         expiration_date=payload.expiration_date,
     )
     db.add(lot)
+
+    # Write an inbound transfer record so Transfer History shows the receipt.
+    # from_location_id=None means external (received from outside the system).
+    transfer = StockTransfer(
+        from_location_id=None,
+        to_location_id=payload.location_id,
+        item_id=payload.item_id,
+        quantity=payload.quantity,
+        transferred_by=current_user.email or current_user.name,
+        lot_number=payload.lot_number,
+        lot_expiration_date=payload.expiration_date,
+        notes="Received into supply room",
+    )
+    db.add(transfer)
+
     db.commit()
     db.refresh(lot)
     logger.info(
@@ -1186,6 +1201,22 @@ async def receive_stock_csv(
         for lot in lots_created:
             db.refresh(lot)
 
+        # Write inbound transfer records for each lot so Transfer History shows the receipt.
+        for lot in lots_created:
+            db.add(
+                StockTransfer(
+                    from_location_id=None,
+                    to_location_id=location_id,
+                    item_id=lot.item_id,
+                    quantity=lot.quantity,
+                    transferred_by=current_user.email or current_user.name,
+                    lot_number=lot.lot_number,
+                    lot_expiration_date=lot.expiration_date,
+                    notes="Received via CSV import",
+                )
+            )
+        db.commit()
+
         logger.info(
             "Bulk CSV stock receive: location_id=%s rows_imported=%s rows_skipped=%s",
             location_id,
@@ -1269,7 +1300,7 @@ def get_supply_catalog(
     for lot in lots:
         lots_by_item.setdefault(lot.item_id, []).append(lot)
 
-    # Par levels at supply room — join compartments for shelf grouping (SS-F2) and is_damaged (DMG-F3)
+    # Par levels at supply room -- join compartments for shelf grouping (SS-F2)
     par_rows = (
         db.query(ParLevel, Compartment)
         .outerjoin(Compartment, Compartment.compartment_id == ParLevel.compartment_id)
@@ -1288,7 +1319,6 @@ def get_supply_catalog(
     compartment_by_item: Dict[int, tuple] = (
         {}
     )  # item_id -> (compartment_id, compartment_name)
-    damaged_items: set = set()
     for par, comp in par_rows:
         if (
             par.item_id not in par_min_by_item
@@ -1297,8 +1327,25 @@ def get_supply_catalog(
             par_min_by_item[par.item_id] = par.min_quantity
         if par.item_id not in compartment_by_item and comp is not None:
             compartment_by_item[par.item_id] = (comp.compartment_id, comp.name)
-        if par.is_damaged:
-            damaged_items.add(par.item_id)
+
+    # is_damaged: check ALL vehicle compartment par levels for this station,
+    # not supply room par levels (DMG-B1 marks vehicle compartments, not shelf rows)
+    vehicle_location_ids = db.query(InventoryLocation.location_id).filter(
+        InventoryLocation.station_id == station_id,
+        InventoryLocation.location_type == LocationType.VEHICLE,
+        InventoryLocation.retired_at.is_(None),
+    )
+    damaged_pars = (
+        db.query(ParLevel.item_id)
+        .filter(
+            ParLevel.location_id.in_(vehicle_location_ids),
+            ParLevel.item_id.in_(item_ids),
+            ParLevel.is_damaged.is_(True),
+        )
+        .distinct()
+        .all()
+    )
+    damaged_items: set = {row.item_id for row in damaged_pars}
 
     return [
         SupplyCatalogItem(

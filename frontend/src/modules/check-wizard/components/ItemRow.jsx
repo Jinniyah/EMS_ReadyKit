@@ -38,6 +38,14 @@ export default function ItemRow({
   const minValue       = parLevel?.min_value ?? item.measurement_minimum ?? null
   const touchedRef     = useRef(false)
 
+  // Local qty state prevents stale-closure bug where rapid +/- taps
+  // read the same stale draftItem prop and collapse into a single increment.
+  const [localQty, setLocalQty] = useState(draftItem?.quantity_found ?? 0)
+  // Sync from prop when the parent re-renders with fresh draft data
+  useEffect(() => {
+    setLocalQty(draftItem?.quantity_found ?? 0)
+  }, [draftItem?.quantity_found])
+
   const isFailing = checkType === 'FUNCTIONAL' &&
     draftItem?.functional_pass === false &&
     !draftItem?.confirmed
@@ -55,13 +63,11 @@ export default function ItemRow({
     touch()
     onUpdate({
       item_id:           item.item_id,
-      // item_name persisted so Step 4 Reconcile can display it
       item_name:         item.name ?? '',
       check_type:        checkType,
       quantity_needed:   quantityNeeded,
-      // min_value persisted so deriveDraftItemStatus can detect LOW readings
       min_value:         minValue,
-      quantity_found:    draftItem?.quantity_found    ?? 0,
+      quantity_found:    localQty,
       measurement_value: draftItem?.measurement_value ?? null,
       functional_pass:   draftItem?.functional_pass   ?? null,
       date_value:        draftItem?.date_value         ?? null,
@@ -69,19 +75,21 @@ export default function ItemRow({
       confirmed:         draftItem?.confirmed          ?? false,
       ...fields,
     })
-  }, [touch, onUpdate, item.item_id, item.name, checkType, quantityNeeded, minValue, draftItem])
+  }, [touch, onUpdate, item.item_id, item.name, checkType, quantityNeeded, minValue, localQty, draftItem])
 
-  const currentQty = draftItem?.quantity_found ?? 0
+  const currentQty = localQty
 
   const handleIncrement  = useCallback(() => {
     const newQty = currentQty + 1
     const atPar  = quantityNeeded > 0 && newQty === quantityNeeded
+    setLocalQty(newQty)
     persist({ quantity_found: newQty, confirmed: atPar })
     if (atPar && navigator.vibrate) navigator.vibrate([40])
   }, [persist, currentQty, quantityNeeded])
   const handleDecrement  = useCallback(() => {
     const newQty = Math.max(0, currentQty - 1)
     const atPar  = quantityNeeded > 0 && newQty === quantityNeeded
+    setLocalQty(newQty)
     persist({ quantity_found: newQty, confirmed: atPar })
     if (atPar && navigator.vibrate) navigator.vibrate([40])
   }, [persist, currentQty, quantityNeeded])
@@ -89,11 +97,16 @@ export default function ItemRow({
     const n = parseInt(val, 10)
     if (!isNaN(n) && n >= 0) {
       const atPar = quantityNeeded > 0 && n === quantityNeeded
+      setLocalQty(n)
       persist({ quantity_found: n, confirmed: atPar })
       if (atPar && navigator.vibrate) navigator.vibrate([40])
     }
   }, [persist, quantityNeeded])
-  const handleAllPresent = useCallback(() => { persist({ quantity_found: quantityNeeded, confirmed: true }); if (navigator.vibrate) navigator.vibrate([40]) }, [persist, quantityNeeded])
+  const handleAllPresent = useCallback(() => {
+    setLocalQty(quantityNeeded)
+    persist({ quantity_found: quantityNeeded, confirmed: true })
+    if (navigator.vibrate) navigator.vibrate([40])
+  }, [persist, quantityNeeded])
   const handleSubmitCount = useCallback(() => {
     persist({ confirmed: true })
     if (navigator.vibrate) {

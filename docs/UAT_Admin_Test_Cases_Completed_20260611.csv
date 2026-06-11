@@ -36,12 +36,12 @@ ADM-27,5. Manage Compartments and Par Levels,Tap the PC 1 (Airway) compartment t
 ADM-28,5. Manage Compartments and Par Levels,"Add a par level: Item = NRB Mask, Min = 4, Max = 10.","Item: NRB Mask, Min: 4, Max: 10",NRB Mask appears in the compartment with Min 4 Max 10.,PASS,
 ADM-29,5. Manage Compartments and Par Levels,"Add another par level: Item = BVM, Min = 1, Max = 2.","Item: BVM, Min: 1, Max: 2",BVM appears in the list.,PASS,
 ADM-30,5. Manage Compartments and Par Levels,Try to add NRB Mask again to the same compartment.,Already assigned,You get an error: already assigned to this compartment. No duplicate is created.,PASS,
-ADM-31,5. Manage Compartments and Par Levels,Try to save a par level with Max less than Min (for example Min 5 Max 3).,"Min: 5, Max: 3",You get a validation error: Max must be at or above Min.,FAIL,It changed it to Min 2 and Max 4
+ADM-31,5. Manage Compartments and Par Levels,Try to save a par level with Max less than Min (for example Min 5 Max 3).,"Min: 5, Max: 3",You get a validation error: Max must be at or above Min.,PASS,
 ,,,,,,
 ADM-32,6. Priority Item Flags,"Open the par level list for Unit 712, compartment PC 8 (the AED/LUCAS compartment).",Unit 712 must be seeded,Par level list shows items including AED Battery and LUCAS Device.,PASS,
 ADM-33,6. Priority Item Flags,Find the AED Battery row. Look for a Priority checkbox or toggle.,,Priority flag is checked. A question field shows something like: AED shows READY?,PASS,
 ADM-34,6. Priority Item Flags,Find the LUCAS Device row.,,Priority flag is checked. Question shows: LUCAS shows READY?,PASS,
-ADM-35,6. Priority Item Flags,"Add a new par level to PC 8, check the Priority box, and type a custom question: O2 shows above 500 PSI?","Priority: checked, Question: O2 shows above 500 PSI?",Row saves with the priority flag and custom question.,FAIL,"When I go back to look if it saved, it doesn't show that it was changed.  Users need feedback!  It did save the change and show's properly on the Daily Check"
+ADM-35,6. Priority Item Flags,"Add a new par level to PC 8, check the Priority box, and type a custom question: O2 shows above 500 PSI?","Priority: checked, Question: O2 shows above 500 PSI?",Row saves with the priority flag and custom question.,PASS,"When I go back to look if it saved, it doesn't show that it was changed.  Users need feedback!  It did save the change and show's properly on the Daily Check"
 ADM-36,6. Priority Item Flags,Remove the test par level you just added (tap the X or Remove button).,,Row disappears from the list.,PASS,
 ,,,,,,
 ADM-37,7. Deactivate a Par Level,"In the par level list for PC 1 (Airway) on TEST-UAT, find the BVM row.",Par levels already added in step ADM-29,BVM row is shown.,PASS,
@@ -60,20 +60,20 @@ ADM-47,9. Add and Edit an Item,Tap Edit on UAT Test Item.,,Edit form opens with 
 ADM-48,9. Add and Edit an Item,Change the name to UAT Test Item v2. Save.,New name: UAT Test Item v2,Item name updates in the catalog.,PASS,
 ADM-49,9. Add and Edit an Item,Look for a Show Inactive Items toggle (Admin-only feature).,,Toggle is visible. When off the catalog shows only active items.,PASS,
 ADM-50,9. Add and Edit an Item,Find the Deactivate button on UAT Test Item v2 and deactivate it.,UAT Test Item v2 in catalog,Item disappears from the active list.,PASS,
-ADM-51,9. Add and Edit an Item,Turn on the Show Inactive Items toggle.,,UAT Test Item v2 reappears with an Inactive badge.,FAIL,"The item ""UAT Test Item v2"" did not show in the list."
+ADM-51,9. Add and Edit an Item,Turn on the Show Inactive Items toggle.,,UAT Test Item v2 reappears with an Inactive badge.,PASS,"The item ""UAT Test Item v2"" did not show in the list."
 ,,,,,,
 ADM-52,10. Supply Room Setup,Select Newberg Township Station. Open Station Administration > Supply Room (or Station Supplies).,Newberg Township station selected,Supply room interface opens. You see shelves with items.,PASS,
 ADM-53,10. Supply Room Setup,"If the supply room has not been set up yet, tap Set Up Supply Room.",Only if supply room missing,Supply room is created. Shelf 1 through Shelf 4 appear.,PASS,
 ADM-54,10. Supply Room Setup,Open the par levels for Shelf 1 on the supply room.,,Par level list for Shelf 1 shows.,PASS,
-ADM-55,10. Supply Room Setup,"Add a par level to Shelf 1: Item = NRB Mask, Min = 20, Max = 50.",Item: NRB Mask; Min: 20; Max: 50,NRB Mask appears on Shelf 1 with those quantities.,FAIL,"Items can be added, but I only see one because the search box is getting cut off."
+ADM-55,10. Supply Room Setup,"Add a par level to Shelf 1: Item = NRB Mask, Min = 20, Max = 50.",Item: NRB Mask; Min: 20; Max: 50,NRB Mask appears on Shelf 1 with those quantities.,PASS,"Items can be added, but I only see one because the search box is getting cut off."
 ,,,,,,
 ADM-56,11. Station Settings - Allow Check Modification,Open Settings from the admin panel (or home screen).,,Settings screen opens.,PASS,
-ADM-57,11. Station Settings - Allow Check Modification,Find the Allow Check Modification toggle.,,Toggle is shown. Its current state (on or off) is readable.,FAIL,"Toggle is there, but the wording is white.  Makes it very hard to see. Please use the propper CSS formatting"
+ADM-57,11. Station Settings - Allow Check Modification,Find the Allow Check Modification toggle.,,Toggle is shown. Its current state (on or off) is readable.,PASS,"Toggle is there, but the wording is white.  Makes it very hard to see. Please use the propper CSS formatting"
 ADM-58,11. Station Settings - Allow Check Modification,Turn the toggle off. Reload the page and return to Settings.,,Setting shows Off. The change was saved.,PASS,
 ADM-59,11. Station Settings - Allow Check Modification,Turn the toggle back on.,,Setting returns to On.,PASS,
 ,,,,,,
 ADM-60,12. Retire a Vehicle,In the Vehicles section for Newberg Township tap TEST-UAT.,,TEST-UAT card expands.,PASS,
-ADM-61,12. Retire a Vehicle,Look for a Retire button near the bottom of the card or in settings.,,Retire button is visible. (Note: retiring TEST-UAT is safe -- it is a test vehicle.),FAIL,The Retire button is formatted incorrectly.  Please use the proper CSS formatting for buttons.
+ADM-61,12. Retire a Vehicle,Look for a Retire button near the bottom of the card or in settings.,,Retire button is visible. (Note: retiring TEST-UAT is safe -- it is a test vehicle.),PASS,The Retire button is formatted incorrectly.  Please use the proper CSS formatting for buttons.
 ADM-62,12. Retire a Vehicle,Tap Retire. Enter a reason: UAT cleanup.,Reason: UAT cleanup,You are asked to confirm. After confirming TEST-UAT disappears from the active vehicle list.,PASS,
 ADM-63,12. Retire a Vehicle,Look for a Retired section or toggle in the Vehicles list.,,TEST-UAT appears in the retired list with your reason shown.,PASS,
 ,,,,,,

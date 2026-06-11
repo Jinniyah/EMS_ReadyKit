@@ -408,6 +408,105 @@
 
 /* -- Supply catalog view (SR-F3) ------------------------------------------- */
 
+/* Search bar */
+.sr-catalog-search {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-surface);
+  padding: var(--space-sm) 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.sr-catalog-search__input {
+  flex: 1;
+  min-height: var(--tap-target);
+  padding: 0 var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  font-family: inherit;
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+}
+
+.sr-catalog-search__input:focus {
+  outline: 3px solid var(--color-brand);
+  outline-offset: 1px;
+  border-color: var(--color-brand);
+}
+
+.sr-catalog-search__count {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Filter chips */
+.sr-catalog-chips {
+  display: flex;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-sm);
+}
+
+.sr-catalog-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 6px var(--space-md);
+  border: 1.5px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  min-height: var(--tap-target);
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+
+.sr-catalog-chip__count {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  background: var(--color-surface-raised);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+
+/* Active state: All chip */
+.sr-catalog-chip--active {
+  background: var(--color-brand);
+  border-color: var(--color-brand);
+  color: #fff;
+}
+.sr-catalog-chip--active .sr-catalog-chip__count {
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+}
+
+/* Out chip */
+.sr-catalog-chip--out { border-color: var(--color-status-fail); color: var(--color-status-fail); }
+.sr-catalog-chip--out .sr-catalog-chip__count { background: var(--color-status-fail-bg); color: var(--color-status-fail); }
+.sr-catalog-chip--out.sr-catalog-chip--active { background: var(--color-status-fail); border-color: var(--color-status-fail); color: #fff; }
+.sr-catalog-chip--out.sr-catalog-chip--active .sr-catalog-chip__count { background: rgba(255,255,255,0.25); color: #fff; }
+
+/* Low chip */
+.sr-catalog-chip--low { border-color: var(--color-status-warn); color: var(--color-status-warn); }
+.sr-catalog-chip--low .sr-catalog-chip__count { background: var(--color-status-warn-bg); color: var(--color-status-warn); }
+.sr-catalog-chip--low.sr-catalog-chip--active { background: var(--color-status-warn); border-color: var(--color-status-warn); color: #fff; }
+.sr-catalog-chip--low.sr-catalog-chip--active .sr-catalog-chip__count { background: rgba(255,255,255,0.25); color: #fff; }
+
+/* Damaged chip */
+.sr-catalog-chip--damaged { border-color: var(--color-damaged); color: var(--color-damaged); }
+.sr-catalog-chip--damaged .sr-catalog-chip__count { background: var(--color-status-warn-bg); color: var(--color-damaged); }
+.sr-catalog-chip--damaged.sr-catalog-chip--active { background: var(--color-damaged); border-color: var(--color-damaged); color: #fff; }
+.sr-catalog-chip--damaged.sr-catalog-chip--active .sr-catalog-chip__count { background: rgba(255,255,255,0.25); color: #fff; }
+
 .sr-catalog {
   display: flex;
   flex-direction: column;

@@ -69,6 +69,28 @@ export default function SupplyCatalogView({ stationId, locationId, items, loadin
   const [retireSaving, setRetireSaving] = useState(false)
   const [retireError, setRetireError]   = useState(null)
 
+  // Search + filter state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [activeChip, setActiveChip]   = useState('all') // 'all' | 'out' | 'low' | 'damaged'
+
+  const hasDamagedItems = (items ?? []).some(i => i.is_damaged)
+  const outCount        = (items ?? []).filter(i => i.on_hand === 0).length
+  const lowCount        = (items ?? []).filter(i => i.on_hand > 0 && i.par_min != null && i.on_hand < i.par_min).length
+  const damagedCount    = (items ?? []).filter(i => i.is_damaged).length
+
+  const q = searchQuery.trim().toLowerCase()
+  const filteredItems = (items ?? []).filter(item => {
+    const matchesSearch  = !q || item.item_name.toLowerCase().includes(q)
+    const matchesChip    =
+      activeChip === 'all'     ? true :
+      activeChip === 'out'     ? item.on_hand === 0 :
+      activeChip === 'low'     ? item.on_hand > 0 && item.par_min != null && item.on_hand < item.par_min :
+      activeChip === 'damaged' ? item.is_damaged :
+      true
+    return matchesSearch && matchesChip
+  })
+  const isSearching = q.length > 0 || activeChip !== 'all'
+
   if (loading) {
     return <div className="sr-center">Loading supplies…</div>
   }
@@ -174,10 +196,54 @@ export default function SupplyCatalogView({ stationId, locationId, items, loadin
     }
   }
 
-  const shelves = groupByShelf(items)
+  const shelves = isSearching
+    ? [{ id: '__search__', name: null, items: filteredItems }]
+    : groupByShelf(filteredItems)
 
   return (
     <div className="sr-catalog">
+      {/* Search bar */}
+      <div className="sr-catalog-search">
+        <input
+          className="sr-catalog-search__input"
+          type="search"
+          placeholder="Search items…"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          aria-label="Search supply items"
+        />
+        {q && (
+          <span className="sr-catalog-search__count" aria-live="polite">
+            {filteredItems.length} result{filteredItems.length !== 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+      {/* Filter chips */}
+      <div className="sr-catalog-chips" role="group" aria-label="Filter items">
+        {[
+          { id: 'all',     label: 'All',     count: (items ?? []).length },
+          { id: 'out',     label: 'Out',     count: outCount,     hide: outCount === 0 },
+          { id: 'low',     label: 'Low',     count: lowCount,     hide: lowCount === 0 },
+          { id: 'damaged', label: 'Damaged', count: damagedCount, hide: !hasDamagedItems },
+        ].filter(c => !c.hide).map(chip => (
+          <button
+            key={chip.id}
+            className={`sr-catalog-chip ${
+              activeChip === chip.id ? 'sr-catalog-chip--active' : ''
+            } ${
+              chip.id === 'out'     ? 'sr-catalog-chip--out'     :
+              chip.id === 'low'     ? 'sr-catalog-chip--low'     :
+              chip.id === 'damaged' ? 'sr-catalog-chip--damaged'  : ''
+            }`}
+            onClick={() => setActiveChip(chip.id)}
+            type="button"
+            aria-pressed={activeChip === chip.id}
+          >
+            {chip.label}
+            <span className="sr-catalog-chip__count">{chip.count}</span>
+          </button>
+        ))}
+      </div>
       {/* RET-F3: Lot retirement confirmation sheet */}
       {retireLotId && (
         <div className="ems-confirm-overlay" role="dialog" aria-modal="true">
@@ -214,6 +280,11 @@ export default function SupplyCatalogView({ stationId, locationId, items, loadin
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {filteredItems.length === 0 && (
+        <div className="sr-center">
+          {q ? `No items match "${searchQuery}"` : 'No items match the current filter.'}
         </div>
       )}
       {shelves.map(shelf => (
@@ -403,8 +474,8 @@ export default function SupplyCatalogView({ stationId, locationId, items, loadin
         )
       })}
 
-          {/* SS-F2: Add item to this shelf (Supervisor+ only, shelf must have a compartment_id) */}
-          {isSupervisor && shelf.id != null && (
+          {/* SS-F2: Add item to this shelf — hidden during search */}
+          {isSupervisor && shelf.id != null && !isSearching && (
             <CompartmentParLevels
               compartmentId={shelf.id}
               locationId={locationId}
