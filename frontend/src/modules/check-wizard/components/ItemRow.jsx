@@ -230,6 +230,11 @@ export default function ItemRow({
           )}
         </div>
       )}
+      {lot && isExpired(lot.expiration_date) && (
+        <div className="item-row__replace-prompt" role="alert">
+          ⚠ Lot expired — count any replacement stock and enter that quantity below
+        </div>
+      )}
 
       {(checkType === 'SUPPLY' || checkType === 'DOCUMENT') && (
         <div className="item-row__need">Need: <strong>{quantityNeeded}</strong></div>
@@ -409,20 +414,25 @@ function DateRecordInput({ value, onChange, onBlur, onToday }) {
 }
 
 function ExpiryDateInput({ value, onChange, onBlur }) {
-  const isExpired = value && new Date(value + 'T00:00:00') < new Date()
+  const isExpiredDate = value && new Date(value + 'T00:00:00') < new Date()
   return (
     <div className="date-record-input">
+      {isExpiredDate && (
+        <div className="item-row__replace-prompt" role="alert">
+          ⚠ This item is expired — replace it and enter the new expiry date from the package
+        </div>
+      )}
       <div className="date-record-input__picker">
         <label className="measurement-input__label">
           Expiry date from package
-          {isExpired && <span style={{ color: 'var(--color-status-fail)', marginLeft: '0.5rem' }}>⚠ EXPIRED</span>}
+          {isExpiredDate && <span style={{ color: 'var(--color-status-fail)', marginLeft: '0.5rem' }}>⚠ EXPIRED</span>}
         </label>
-        <input type="date" className={`form-input${isExpired ? ' measurement-input__field--low' : ''}`}
+        <input type="date" className={`form-input${isExpiredDate ? ' measurement-input__field--low' : ''}`}
           value={value}
           onChange={e => onChange(e.target.value)}
           onBlur={e => onBlur(e.target.value)}
           aria-label="Expiry date from package"
-          aria-invalid={isExpired} />
+          aria-invalid={isExpiredDate} />
       </div>
     </div>
   )

@@ -42,6 +42,7 @@ from ems_readykit.routers.deps import (
     require_role,
     require_station_membership,
 )
+from ems_readykit.schemas.check_line_item import CheckLineItemCreate
 from ems_readykit.schemas.controlled_substance_check import (
     ControlledSubstanceCheckCreate,
     ControlledSubstanceCheckRead,
@@ -214,17 +215,23 @@ def _auto_decrement_supply_room(
             continue
         item_decrements[li.item_id] = item_decrements.get(li.item_id, 0) + topped_off
 
-    for item_id, decrement in item_decrements.items():
-        supply_lots = (
-            db.query(StockLot)
-            .filter(
-                StockLot.location_id == supply_room.location_id,
-                StockLot.item_id == item_id,
-                StockLot.quantity > 0,
-            )
-            .order_by(StockLot.expiration_date.asc().nulls_last())
-            .all()
+    # Batch-load all relevant lots in one query (avoids N+1 per item).
+    all_supply_lots = (
+        db.query(StockLot)
+        .filter(
+            StockLot.location_id == supply_room.location_id,
+            StockLot.item_id.in_(list(item_decrements.keys())),
+            StockLot.quantity > 0,
         )
+        .order_by(StockLot.item_id, StockLot.expiration_date.asc().nulls_last())
+        .all()
+    )
+    lots_by_item: Dict[int, List[StockLot]] = {}
+    for lot in all_supply_lots:
+        lots_by_item.setdefault(lot.item_id, []).append(lot)
+
+    for item_id, decrement in item_decrements.items():
+        supply_lots = lots_by_item.get(item_id, [])
         available = sum(lot.quantity for lot in supply_lots)
         if available == 0:
             logger.warning(
@@ -253,6 +260,186 @@ def _auto_decrement_supply_room(
     db.flush()
 
 
+def _resolve_check_location(
+    vehicle_id: Optional[int],
+    location_id: Optional[int],
+    station_id: int,
+    db: Session,
+) -> None:
+    """Validate that the vehicle or portable location exists and belongs to the station."""
+    if vehicle_id:
+        get_vehicle_or_404(vehicle_id, db)
+    else:
+        loc = (
+            db.query(InventoryLocation)
+            .filter(InventoryLocation.location_id == location_id)
+            .first()
+        )
+        if not loc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Location {location_id} not found.",
+            )
+        if loc.station_id != station_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Location does not belong to the specified station.",
+            )
+
+
+def _enforce_full_check_compartments(
+    vehicle_id: Optional[int],
+    location_id: Optional[int],
+    line_items: List[CheckLineItemCreate],
+    db: Session,
+) -> None:
+    """
+    Validate submitted compartment IDs exist, then enforce requires_full_check constraints.
+    Compartments with requires_full_check=True must have every active par level submitted.
+    """
+    if line_items:
+        compartment_ids = {li.compartment_id for li in line_items}
+        found_compartments = {
+            c.compartment_id
+            for c in db.query(Compartment)
+            .filter(Compartment.compartment_id.in_(compartment_ids))
+            .all()
+        }
+        missing_compartments = compartment_ids - found_compartments
+        if missing_compartments:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Compartment(s) not found: {sorted(missing_compartments)}",
+            )
+
+    enforce_location_id: Optional[int] = None
+    if vehicle_id:
+        veh_loc = (
+            db.query(InventoryLocation)
+            .filter(
+                InventoryLocation.vehicle_id == vehicle_id,
+                InventoryLocation.location_type == LocationType.VEHICLE,
+            )
+            .first()
+        )
+        if veh_loc:
+            enforce_location_id = veh_loc.location_id
+    else:
+        enforce_location_id = location_id
+
+    if not enforce_location_id:
+        return
+
+    full_check_comps = (
+        db.query(Compartment)
+        .filter(
+            Compartment.location_id == enforce_location_id,
+            Compartment.requires_full_check.is_(True),
+            Compartment.active.is_(True),
+        )
+        .all()
+    )
+    if not full_check_comps:
+        return
+
+    submitted_pairs = {(li.compartment_id, li.item_id) for li in line_items}
+    for comp in full_check_comps:
+        required = (
+            db.query(ParLevel)
+            .filter(
+                ParLevel.compartment_id == comp.compartment_id,
+                ParLevel.active.is_(True),
+            )
+            .all()
+        )
+        missing = [
+            p.item_id
+            for p in required
+            if (comp.compartment_id, p.item_id) not in submitted_pairs
+        ]
+        if missing:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=(
+                    f"Compartment '{comp.name}' requires a full check — "
+                    "all items must be submitted. "
+                    f"Missing item IDs: {sorted(missing)}"
+                ),
+            )
+
+
+def _build_lot_map(
+    line_items: List[CheckLineItemCreate],
+    db: Session,
+) -> Dict[int, StockLot]:
+    """Fetch and validate stock lots referenced by line items. Returns lot_id → StockLot map."""
+    lot_ids = {li.lot_id for li in line_items if li.lot_id is not None}
+    if not lot_ids:
+        return {}
+
+    lots = db.query(StockLot).filter(StockLot.lot_id.in_(lot_ids)).all()
+    lot_map = {lot.lot_id: lot for lot in lots}
+
+    missing_lots = lot_ids - set(lot_map.keys())
+    if missing_lots:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Stock lot(s) not found: {sorted(missing_lots)}",
+        )
+
+    for li in line_items:
+        if li.lot_id is not None:
+            lot = lot_map[li.lot_id]
+            if lot.item_id != li.item_id:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail=(
+                        f"Stock lot {li.lot_id} belongs to item {lot.item_id}, "
+                        f"not item {li.item_id}."
+                    ),
+                )
+
+    return lot_map
+
+
+def _build_line_items(
+    line_items: List[CheckLineItemCreate],
+    lot_map: Dict[int, StockLot],
+    items_map: Dict[int, Item],
+) -> List[CheckLineItem]:
+    """Build CheckLineItem ORM objects from the payload, computing status server-side."""
+    objects: List[CheckLineItem] = []
+    for li in line_items:
+        lot = lot_map.get(li.lot_id) if li.lot_id else None
+        item = items_map[li.item_id]
+        li_status = _compute_line_item_status(
+            li.quantity_needed,
+            li.quantity_found,
+            lot,
+            check_type=item.check_type_value,
+            measurement_value=li.measurement_value,
+            measurement_minimum=item.measurement_minimum,
+            functional_pass=li.functional_pass,
+            date_value=li.date_value,
+            recurrence_days=item.recurrence_days,
+        )
+        objects.append(
+            CheckLineItem(
+                compartment_id=li.compartment_id,
+                item_id=li.item_id,
+                lot_id=li.lot_id,
+                quantity_needed=li.quantity_needed,
+                quantity_found=li.quantity_found,
+                measurement_value=li.measurement_value,
+                functional_pass=li.functional_pass,
+                date_value=li.date_value,
+                status=li_status,
+                notes=li.notes,
+            )
+        )
+    return objects
+
+
 # ── Daily Inventory Checks ────────────────────────────────────────────────────
 
 
@@ -269,25 +456,9 @@ async def create_daily_check(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
 ) -> DailyInventoryCheck:
-    # Validate vehicle or portable location
-    if payload.vehicle_id:
-        get_vehicle_or_404(payload.vehicle_id, db)
-    else:
-        loc = (
-            db.query(InventoryLocation)
-            .filter(InventoryLocation.location_id == payload.location_id)
-            .first()
-        )
-        if not loc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Location {payload.location_id} not found.",
-            )
-        if loc.station_id != payload.station_id:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Location does not belong to the specified station.",
-            )
+    _resolve_check_location(
+        payload.vehicle_id, payload.location_id, payload.station_id, db
+    )
 
     station = db.query(Station).filter(Station.station_id == payload.station_id).first()
     if not station:
@@ -299,108 +470,15 @@ async def create_daily_check(
     # ACC-B7: Station membership enforcement
     require_station_membership(payload.station_id, current_user, db)
 
-    if payload.line_items:
-        compartment_ids = {li.compartment_id for li in payload.line_items}
-        found_compartments = {
-            c.compartment_id
-            for c in db.query(Compartment)
-            .filter(Compartment.compartment_id.in_(compartment_ids))
-            .all()
-        }
-        missing_compartments = compartment_ids - found_compartments
-        if missing_compartments:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Compartment(s) not found: {sorted(missing_compartments)}",
-            )
+    _enforce_full_check_compartments(
+        payload.vehicle_id, payload.location_id, payload.line_items, db
+    )
 
-    # SEED-GAP2: Compartments with requires_full_check=True must have every
-    # active par level explicitly submitted — No Change (omitted item) is not allowed.
-    _enforce_location_id: Optional[int] = None
-    if payload.vehicle_id:
-        veh_loc = (
-            db.query(InventoryLocation)
-            .filter(
-                InventoryLocation.vehicle_id == payload.vehicle_id,
-                InventoryLocation.location_type == LocationType.VEHICLE,
-            )
-            .first()
-        )
-        if veh_loc:
-            _enforce_location_id = veh_loc.location_id
-    else:
-        _enforce_location_id = payload.location_id
-
-    if _enforce_location_id:
-        full_check_comps = (
-            db.query(Compartment)
-            .filter(
-                Compartment.location_id == _enforce_location_id,
-                Compartment.requires_full_check.is_(True),
-                Compartment.active.is_(True),
-            )
-            .all()
-        )
-        if full_check_comps:
-            submitted_pairs = {
-                (li.compartment_id, li.item_id) for li in payload.line_items
-            }
-            for comp in full_check_comps:
-                required = (
-                    db.query(ParLevel)
-                    .filter(
-                        ParLevel.compartment_id == comp.compartment_id,
-                        ParLevel.active.is_(True),
-                    )
-                    .all()
-                )
-                missing = [
-                    p.item_id
-                    for p in required
-                    if (comp.compartment_id, p.item_id) not in submitted_pairs
-                ]
-                if missing:
-                    raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                        detail=(
-                            f"Compartment '{comp.name}' requires a full check — "
-                            "all items must be submitted. "
-                            f"Missing item IDs: {sorted(missing)}"
-                        ),
-                    )
-
-    lot_ids = {li.lot_id for li in payload.line_items if li.lot_id is not None}
-    lot_map: Dict[int, StockLot] = {}
-    if lot_ids:
-        lots = db.query(StockLot).filter(StockLot.lot_id.in_(lot_ids)).all()
-        lot_map = {lot.lot_id: lot for lot in lots}
-
-        missing_lots = lot_ids - set(lot_map.keys())
-        if missing_lots:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Stock lot(s) not found: {sorted(missing_lots)}",
-            )
-
-        for li in payload.line_items:
-            if li.lot_id is not None:
-                lot = lot_map[li.lot_id]
-                if lot.item_id != li.item_id:
-                    raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                        detail=(
-                            f"Stock lot {li.lot_id} belongs to item {lot.item_id}, "
-                            f"not item {li.item_id}."
-                        ),
-                    )
+    lot_map = _build_lot_map(payload.line_items, db)
 
     performed_by = current_user.email or current_user.name
 
-    # Derive check_date server-side from the submitted timestamp.
-    # The client may send a check_date but we override it — this prevents
-    # backdating and ensures the audit trail reflects when the check
-    # actually occurred, not a client-supplied date.
-    # check_date is stored as YYYY-MM-DD string in UTC.
+    # check_date is derived server-side from the submitted timestamp — not from the client.
     check_date = payload.timestamp.astimezone(timezone.utc).date().isoformat()
 
     item_ids = {li.item_id for li in payload.line_items}
@@ -416,35 +494,7 @@ async def create_daily_check(
             detail=f"Item(s) not found: {sorted(missing_items)}",
         )
 
-    line_item_objects: List[CheckLineItem] = []
-    for li in payload.line_items:
-        lot = lot_map.get(li.lot_id) if li.lot_id else None
-        item = items_map[li.item_id]
-        li_status = _compute_line_item_status(
-            li.quantity_needed,
-            li.quantity_found,
-            lot,
-            check_type=item.check_type_value,
-            measurement_value=li.measurement_value,
-            measurement_minimum=item.measurement_minimum,
-            functional_pass=li.functional_pass,
-            date_value=li.date_value,
-            recurrence_days=item.recurrence_days,
-        )
-        line_item_objects.append(
-            CheckLineItem(
-                compartment_id=li.compartment_id,
-                item_id=li.item_id,
-                lot_id=li.lot_id,
-                quantity_needed=li.quantity_needed,
-                quantity_found=li.quantity_found,
-                measurement_value=li.measurement_value,
-                functional_pass=li.functional_pass,
-                date_value=li.date_value,
-                status=li_status,
-                notes=li.notes,
-            )
-        )
+    line_item_objects = _build_line_items(payload.line_items, lot_map, items_map)
 
     overall_status = _compute_check_status(line_item_objects)
 

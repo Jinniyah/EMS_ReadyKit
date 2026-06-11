@@ -311,6 +311,7 @@ export default function CheckWizard({
     setLocationId(null)
     setSelectionLabel('')
     setActiveCompartment(null)
+    setCompartmentList([])
     setSubmittedCheckId(null)
     setSubmittedAt(null)
     setSubmittedStatus(null)
@@ -401,6 +402,7 @@ export default function CheckWizard({
             onNoChangeCompartment={handleNoChangeCompartment}
             onUndoCompartment={handleUndoCompartment}
             onConfirmReadingItem={handleConfirmReadingItem}
+            onCompartmentsLoaded={setCompartmentList}
           />
         </ErrorBoundary>
       )}

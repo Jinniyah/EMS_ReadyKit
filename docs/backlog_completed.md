@@ -1,7 +1,25 @@
 # EMS ReadyKit — Completed Items
-# Last updated: 2026-06-11 (Session R: Retirement + Security)
-# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R
+# Last updated: 2026-06-11 (Session S: Pre-Launch Polish)
+# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S
 # Active backlog -> docs/backlog.md
+
+---
+
+## Session S — Pre-Launch Polish (2026-06-11)
+Tests TBD (user to confirm count after running pytest + npm test). No new migrations.
+
+| # | Item | Description | Date |
+|---|------|-------------|------|
+| CQ-F2 | `compartmentList` dead state fix | Added `onCompartmentsLoaded` callback prop to `Step2Compartments`; fires `useEffect` when compartments load, populating `setCompartmentList` in wizard index. Fixes: progress bar never showing, Step3 prev/next arrows always disabled, Step5 compartment summary empty on FAIL checks. Also resets on `handleStartNew`. | 2026-06-11 |
+| F-UX6 | Compartment location descriptor on cards | Already implemented in prior sessions — `location_descriptor` displays on all Step2 compartment card states and Step3 header. CSS class `.compartment-card__location` present. Confirmed done, no changes needed. | 2026-06-11 |
+| CH-F6 | Acknowledgement / corrective note on checks | Already implemented in prior sessions — `CheckDetail.jsx` (check-history module) has `CommentPanel` with Add/Update Note flow using `acknowledgeCheck` endpoint; displays `reviewed_by` + timestamp. `CheckDetailPanel.jsx` (supervisor module) has equivalent. Confirmed done. | 2026-06-11 |
+| SEED-GAP4 | Stretcher O2 PSI priority flag | Added `priority_check=True, priority_question="Stretcher O2 above 500 PSI?"` to Stretcher O2 PSI `add_par()` call in `seed.py`. `add_par` updates existing par levels on re-seed. | 2026-06-11 |
+| SEED-GAP5 | Jump Bag O2 PSI priority flag | Added `priority_check=True, priority_question="Jump Bag O2 above 500 PSI?"` to Jump Bag O2 PSI `add_par()` call in `seed.py`. On-Board O2 PSI (DS EC 1) left non-priority — exterior compartment, less directly patient-facing. | 2026-06-11 |
+| PERF-1 | Batch N+1 in `_auto_decrement_supply_room` | Replaced N per-item `db.query(StockLot)` calls with one batch query filtered by `StockLot.item_id.in_(...)`, grouped in Python. Ordering: `item_id, expiration_date asc` preserves FIFO correctness within each item group. | 2026-06-11 |
+| F-UX4 | Expired item replacement prompt | Added `.item-row__replace-prompt` alert div in `ItemRow.jsx`: (1) below lot info when `isExpired(lot.expiration_date)` — "Lot expired — count any replacement stock and enter that quantity below"; (2) in `ExpiryDateInput` when entered date is past — "This item is expired — replace it and enter the new expiry date from the package". CSS added to `wizard.css`. | 2026-06-11 |
+| FE-TEST-11 | `UsageItemPicker.test.jsx` | 13 tests: catalog renders; search filters by item_name + empty state; +/- controls call onQuantityChange; decrement disabled at 0; selected class applied; "Used most often" section + no history note when frequentItems provided; "Common items" section + history note when no history. | 2026-06-11 |
+| FE-TEST-12 | `UsageLogScreen.test.jsx` | 6 tests: vehicle picker shown for multi-vehicle; auto-skipped for single vehicle; catalog items rendered in picker; Done calls logUsage with correct payload + shows done screen; "Nothing used" calls onBack without submitting; submit error shows alert. | 2026-06-11 |
+| CQ-B3 | Extract helpers from `create_daily_check` | Extracted 4 helpers in `checks.py`: `_resolve_check_location` (vehicle/location validation), `_enforce_full_check_compartments` (compartment ID existence + requires_full_check enforcement), `_build_lot_map` (lot fetch + validate), `_build_line_items` (CheckLineItem ORM construction). No logic changes. Added `CheckLineItemCreate` import. `create_daily_check` reduced to ~35 lines of orchestration. | 2026-06-11 |
 
 ---
 

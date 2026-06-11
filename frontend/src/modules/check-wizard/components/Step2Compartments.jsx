@@ -19,7 +19,7 @@
  * inProgress = cd?.status === 'in_progress' — only true after entering Step 3.
  * Confirming readings on the card keeps status as 'not_started'.
  */
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useAuth } from '../../../shared/hooks/useAuth.jsx'
 import { useApi } from '../../../shared/hooks/useApi.js'
 import { checkApi } from '../api/checkApi.js'
@@ -78,6 +78,7 @@ export default function Step2Compartments({
   onNoChangeCompartment,
   onUndoCompartment,
   onConfirmReadingItem,
+  onCompartmentsLoaded,
 }) {
   const { getToken } = useAuth()
   const [expandedPriorityId, setExpandedPriorityId] = useState(null)
@@ -87,6 +88,10 @@ export default function Step2Compartments({
   const { data: compartments,  isLoading: loadingComps  } = useApi(
     () => checkApi.getCompartments(locationId, getToken), [locationId]
   )
+
+  useEffect(() => {
+    if (compartments && onCompartmentsLoaded) onCompartmentsLoaded(compartments)
+  }, [compartments, onCompartmentsLoaded])
   const { data: parLevels,    isLoading: loadingPar   } = useApi(
     () => checkApi.getParLevels(locationId, getToken), [locationId]
   )

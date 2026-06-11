@@ -1155,6 +1155,8 @@ def build_ambulance_inventory(
         location=loc,
         compartment=stretcher,
         min_qty=1,
+        priority_check=True,
+        priority_question="Stretcher O2 above 500 PSI?",
     )
     add_par(
         db,
@@ -1504,6 +1506,8 @@ def build_jump_bag(db: Session, jb: InventoryLocation) -> None:
         location=jb,
         compartment=jb_main,
         min_qty=1,
+        priority_check=True,
+        priority_question="Jump Bag O2 above 500 PSI?",
     )
     for name, qty in [
         ("Kerlix Large JB", 3),

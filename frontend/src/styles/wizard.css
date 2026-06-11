@@ -268,7 +268,8 @@
 .item-row__type-badge  { font-size: 13px; background: var(--color-surface-raised); color: var(--color-text-secondary); padding: 1px 6px; border-radius: var(--radius-sm); font-weight: 600; }
 .item-row__lot         { font-size: 14px; color: var(--color-text-muted); }
 .item-row__lot--expired{ color: var(--color-status-fail); font-weight: 600; }
-.item-row__expired-tag { font-weight: 800; }
+.item-row__expired-tag    { font-weight: 800; }
+.item-row__replace-prompt { font-size: 15px; font-weight: 600; color: var(--color-status-fail); background: var(--color-status-fail-bg); border-left: 3px solid var(--color-status-fail); border-radius: var(--radius-sm); padding: var(--space-xs) var(--space-sm); margin-top: var(--space-xs); }
 .item-row__actions     { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); margin-top: var(--space-xs); }
 .item-row__actions-right { display: flex; align-items: center; gap: var(--space-sm); }
 .item-row__submitted-inner { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); }

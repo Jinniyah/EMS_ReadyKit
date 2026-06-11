@@ -1,5 +1,5 @@
 # EMS ReadyKit — Codebase Index
-# Last updated: 2026-06-11 (Post-session R: retirement endpoints, migration 0023, retirement UI, settings admin sections)
+# Last updated: 2026-06-11 (Post-session S: compartmentList fix, expired prompts, O2 PSI priority, PERF-1, CQ-B3, usage tests)
 # PURPOSE: Load this file at the start of every session to orient quickly.
 # After reading this, load only the sections relevant to the current task.
 # Full project state → docs/project_index.md | Open work → docs/backlog.md
@@ -54,7 +54,7 @@ All routes are prefixed `/api/v1/`. Router registration order in main.py matters
 | `stations.py` | 11 KB | `/stations` | All / Admin | CRUD; GET /my; GET supply-room (404 if missing); POST supply-room (get-or-create + Shelf 1–4); `GET /stations/{id}/expiring-soon` includes EXPIRY_DATE check-type items (SUP-F3); `GET /stations/{id}/settings` (Supervisor+, CH-B8); `PATCH /stations/{id}/settings` (Admin only, CH-B7); `PATCH /stations/{id}/retire` (Admin, RET-B3). |
 | `station_members.py` | 8 KB | `/stations/{id}/members` | Supervisor+ | Membership management |
 | `vehicles.py` | 6 KB | `/vehicles` | All + membership | Vehicle CRUD; OOS/RTS status toggle; `PATCH /vehicles/{id}/retire` (Admin, RET-B1) |
-| `checks.py` | 20 KB | `/checks/daily` | All + membership | Check wizard: create with embedded line_items; `_compute_line_item_status`; `_auto_decrement_supply_room` (SR-B4); `GET /daily/last-readings` returns last quantity_found + readings per item for vehicle/location |
+| `checks.py` | 24 KB | `/checks/daily` | All + membership | Check wizard: create with embedded line_items; `_compute_line_item_status`; `_auto_decrement_supply_room` (SR-B4, N+1 batched PERF-1); helpers: `_resolve_check_location`, `_enforce_full_check_compartments`, `_build_lot_map`, `_build_line_items` (CQ-B3); `GET /daily/last-readings` |
 | `check_history.py` | 7 KB | `/checks/daily` | All / Supervisor+ | Read-only history; soft-delete; acknowledgement; hard-delete (Admin only); `my-history` accepts optional `station_id` filter |
 | `repair_requests.py` | 9 KB | `/vehicles/{id}/repair-requests` | All roles | File, update, resolve repair requests; `resolution_notes` required on RESOLVED |
 | `inventory.py` | 28 KB | `/inventory` | All + membership | Locations, compartments, par levels, lots, stock summary, CSV receive. `GET /supply-catalog?station_id=` (SR-B1). `PATCH /supply-catalog/items/{id}/count` (SR-B2). `PUT /lots/{id}` (SR-F7). `PATCH /inventory/items/{id}/status` marks/clears damaged. `PATCH /locations/{id}/retire` (Admin, RET-B2). `GET /lots/retired?location_id=` (Supervisor+, RET-B6). `PATCH /lots/{id}/retire` (Supervisor+, RET-B5) — registered BEFORE `/lots/{lot_id}` to avoid path ambiguity. |
@@ -154,7 +154,7 @@ AuditEvent     (immutable log)
 | `test_usage.py` | — | POST /checks/usage happy path, FIFO decrement, non-SUPPLY rejection, 403/404 guards; GET history + frequent items | `db` |
 | `test_retirement.py` | — | RET-B1–B6: retire vehicle/location/station/lot; list retired; 403/409 enforcement. Fixtures use uuid suffix for unique vehicle numbers; item fixture uses get-or-create. | `db` |
 
-**Run:** `cd app; pytest` — **381 tests passing, 0 xfailed**
+**Run:** `cd app; pytest` — **381 tests passing, 0 xfailed** (Session R baseline; Session S added no backend tests)
 
 **Two DB fixtures — do not mix:**
 - `db` — in-memory SQLite, empty, rolls back after each test. Use for all API/logic tests.
@@ -173,7 +173,7 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 |------|------|---------|
 | `index.jsx` | 15 KB | Wizard orchestration, step routing, draft state |
 | `components/Step1Vehicle.jsx` | 14 KB | Vehicle/location selection + CS check toggle; detects `draft._supplyRoom` for supply room wizard path |
-| `components/Step2Compartments.jsx` | 14 KB | Priority items section (inline confirm) + compartment list with reading confirmations; No Change / Modify / stock preview. Short count based on last check quantity_found. Reading confirmation rows are suppressed for `requires_full_check` compartments (Truck Operations, Under Hood) — those items only appear in Step 3. |
+| `components/Step2Compartments.jsx` | 14 KB | Priority items section (inline confirm) + compartment list with reading confirmations; No Change / Modify / stock preview. Short count based on last check quantity_found. Reading confirmation rows are suppressed for `requires_full_check` compartments. Calls `onCompartmentsLoaded(compartments)` via `useEffect` so wizard index can populate `compartmentList` for progress bar, Step3 nav, and Step5 summary. |
 | `components/Step3Items.jsx` | 7 KB | Item counting per compartment |
 | `components/ItemRow.jsx` | 16 KB | Per-item row — all check types (supply/measurement/functional/date) |
 | `components/Step4Reconcile.jsx` | 13 KB | Flagged items review |
@@ -259,7 +259,7 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 
 ## Frontend — Tests (frontend/src/)
 
-Vitest + React Testing Library. Run: `cd frontend && npm test` — **180 tests passing**.
+Vitest + React Testing Library. Run: `cd frontend && npm test` — **180 tests passing** (Session R baseline) + **19 new tests in Session S** (FE-TEST-11/12).
 
 | File | Tests | Coverage |
 |------|-------|----------|
@@ -276,6 +276,8 @@ Vitest + React Testing Library. Run: `cd frontend && npm test` — **180 tests p
 | `modules/vehicles/__tests__/VehicleCard.test.jsx` | 8 | OOS badge, repair count, RTS/OOS role-gating |
 | `modules/admin/__tests__/ItemCatalog.test.jsx` | 11 | Item list, search, Add button role-gating |
 | `modules/check-history/__tests__/CheckHistory.test.jsx` | 9 | My Checks, All Checks tab (Supervisor+), Deleted tab |
+| `modules/usage-log/__tests__/UsageItemPicker.test.jsx` | 13 | Catalog renders; search + empty state; +/- controls; selected highlight; Used most often / Common items sections |
+| `modules/usage-log/__tests__/UsageLogScreen.test.jsx` | 6 | Multi-vehicle picker; single-vehicle skip; item step; Done payload; Nothing used; error alert |
 
 **Mock infrastructure:**
 - `src/shared/hooks/__mocks__/useAuth.jsx` — configurable useAuth with Jamie/Earl/Jennifer personas
@@ -409,6 +411,5 @@ Idempotent — safe to re-run. Reseed sequence: `Remove-Item ems_readykit_dev.db
 
 | Session | Focus | Key Items |
 |---------|-------|-----------|
-| **S** | Pre-Launch Polish (~5 hrs) | CH-F6, F-UX4, F-UX6, SEED-GAP4/5, FE-TEST-11/12, PERF-1, CQ-F2/B3/F1 |
 | **T** | Admin Backend (~3 hrs) | B-M6, B-E9, B-E18, AI-B1, AI-F1, S-F8 |
 | **U** | UAT Dress Rehearsal + Launch | LAUNCH-OPS1-9, UAT-2-11 |

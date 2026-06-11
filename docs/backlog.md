@@ -1,9 +1,9 @@
 # EMS ReadyKit — Active Backlog
-# v1.80 | Updated: 2026-06-11 | Current: Post-session R complete — retirement + security
+# v1.81 | Updated: 2026-06-11 | Current: Post-session S complete — pre-launch polish
 # Completed items -> backlog_completed.md
 # Priority: Critical / High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
-# ✅ Sessions A–R complete — see backlog_completed.md
+# ✅ Sessions A–S complete — see backlog_completed.md
 
 ---
 
@@ -28,36 +28,6 @@
 ---
 
 ## UPCOMING SESSIONS
-##
-## Session N — COMPLETE (2026-06-10)
-##   RX-B1/RX-F6/RX-F11 done — see backlog_completed.md
-##
-## Session O — COMPLETE (2026-06-10)
-##   SEED-GAP2/RX-F3/RX-F4/RX-F5/RX-F9b/RX-F10/RX-F13/SUP-F1/SUP-F2 done — see backlog_completed.md
-##
-## Session P — COMPLETE (2026-06-10)
-##   RX-B2/RX-F12/DMG-F3/SS-B1/SS-F1/SS-F2/ADMIN-F7/SUP-F3 done — see backlog_completed.md
-##
-## Session Q — COMPLETE (2026-06-10)
-##   B-M10/CH-B7/CH-B8/ACC-F1-F5/S-F1/S-F3 done — see backlog_completed.md
-##
-## Session R — COMPLETE (2026-06-11)
-##   RET-M1-M3/RET-B1-B6/RET-F1-F5/S-F6/S-F7/SEC-OPS1/TECH-1/I-5/CQ-B1/CQ-B2 done
-##   I-3 resolved won't do (Azure handles TLS); S-F8 skipped (needs B-E9, Session T)
-##   381 tests passing; migration 0023 applied — see backlog_completed.md
-##
-## Session S — Pre-Launch Polish (~5 hrs)
-##   CH-F6        Acknowledgement / corrective note on checks                ~60 min
-##   F-UX4        Expired item replacement prompt                            ~45 min
-##   F-UX6        Compartment location descriptor on cards                   ~30 min
-##   SEED-GAP4/5  O2 PSI priority flags in seed.py                          ~20 min
-##   FE-TEST-11   UsageItemPicker.test.jsx                                   ~45 min
-##   FE-TEST-12   UsageLogScreen.test.jsx                                    ~45 min
-##   PERF-1       Batch N+1 in _auto_decrement_supply_room                   ~30 min
-##   CQ-F2        compartmentList dead state investigation (HIGH)            ~30 min
-##   CQ-B3        create_daily_check extract helpers                         ~60 min
-##   CQ-F1        check-wizard useReducer refactor                           ~60 min
-##
 ## Session T — Admin Backend (~3 hrs)
 ##   B-M6         Migration: par_level active/deactivated fields             ~30 min
 ##   B-E9         PATCH /inventory/par-levels/{id} soft-deactivate           ~45 min
@@ -84,10 +54,7 @@
 ---
 
 ## 2. Seed Data Gaps — Unit 712
-| # | Item | Pri | Status | Notes |
-|---|------|-----|--------|-------|
-| SEED-GAP4 | O2 PSI items — priority consideration | Medium | 📋 | Session S. "On-Board O2 PSI" (DS EC 1) and "Stretcher O2 PSI" — both min 500 PSI. Chief decides whether to mark priority. Stretcher O2 likely priority. |
-| SEED-GAP5 | Jump bag O2 PSI priority consideration | Low | 📋 | Session S. "Jump Bag O2 PSI" MEASUREMENT item. Same priority decision as SEED-GAP4. |
+*(All seed gaps resolved — moved to backlog_completed.md)*
 
 ---
 
@@ -157,9 +124,7 @@
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
 | F-UX10 | Scroll-to-card on return from compartment item list | Low | 📋 | Post-launch. Sticky button handles the common case. Revisit if team finds it insufficient. |
-| F-UX4 | Expired item replacement prompt | Medium | 📋 | Session S. |
 | F-UX5 | Check handoff support | Medium | ⛔ | B-M8 (started_by field) — post-launch |
-| F-UX6 | Compartment location descriptor on cards | Medium | 📋 | Session S. Already in seed data, just needs display. |
 | F-UX9 | Two-state submit with offline queue | Low | 📋 | Post-launch |
 
 ---
@@ -167,7 +132,7 @@
 ## 12. Frontend — Check History
 | # | Item | Pri | Status | Needs |
 |---|------|-----|--------|-------|
-| CH-F6 | Acknowledgement / corrective note | High | 📋 | Session S. |
+*(CH-F6 confirmed already implemented — moved to backlog_completed.md)*
 
 ---
 
@@ -181,8 +146,7 @@
 ## 15. Frontend — Tests
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| FE-TEST-11 | `UsageItemPicker.test.jsx` — item picker | High | 📋 | Session S. Catalog renders; search filters by `item_name`; +/- controls update quantity; selected items highlighted; "Used most often" section shown when frequentItems provided; "Common items" + history note shown when no history. |
-| FE-TEST-12 | `UsageLogScreen.test.jsx` — full flow | High | 📋 | Session S. Vehicle picker shown for multi-vehicle stations; auto-skipped for single vehicle; item step renders picker; Done submits correct payload; "Nothing used" calls onBack; submit error displayed. |
+*(FE-TEST-11 and FE-TEST-12 implemented — moved to backlog_completed.md)*
 
 ---
 
@@ -191,7 +155,7 @@
 |---|------|-----|--------|-------|
 | I-1 | Azure Firewall | Medium | 📋 | Post-launch. Before scaling to second service. |
 | I-2 | Re-add route table | Medium | ⛔ | |
-| PERF-1 | Batch N+1 in `_auto_decrement_supply_room` | Low | 📋 | Session S. One query for all items instead of one per item. Not urgent at 5 calls/week. |
+*(PERF-1 implemented — moved to backlog_completed.md)*
 | TECH-2 | React Query for frontend data management | Low | 📋 | Post-launch refactor. Eliminates manual useEffect+useState pattern; adds background refetch, request deduplication, cache invalidation. |
 | TECH-3 | Offline submission queue (F-UX9) | Low | 📋 | Post-launch. IndexedDB queue retries on reconnect. Critical for basement/low-signal scenarios. |
 
@@ -223,9 +187,7 @@
 ## 19. Code Quality / Refactoring
 | # | Item | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| CQ-F2 | `compartmentList` dead state in `check-wizard/index.jsx` | High | 📋 | Session S. `useState([])` is never set — `setCompartmentList` is never called. `WizardProgress` and `Step5Submit` both receive `compartments={compartmentList}` which is always `[]`. Investigate whether these components silently degrade or are missing data. |
-| CQ-B3 | Extract helpers from `create_daily_check` (~300 lines) | Medium | 📋 | Session S. Separate concerns into `_resolve_check_location`, `_enforce_full_check_compartments`, `_build_lot_map`, `_build_line_items`. No logic changes — readability and testability only. |
-| CQ-F1 | `check-wizard/index.jsx` — `useReducer` refactor | Low | 📋 | Session S or post-launch. 18 `useState` calls → `useReducer`. Group `submitted*` fields as a single `submissionResult` object. No functional change. |
+| CQ-F1 | `check-wizard/index.jsx` — `useReducer` refactor | Low | 📋 | Post-launch. 18 `useState` calls → `useReducer`. Group `submitted*` fields as a single `submissionResult` object. No functional change. |
 | CQ-B4 | Inline Pydantic schemas → `schemas/` | Low | 📋 | Post-launch. `LastReadingItem` in `checks.py` and `_ItemStatusPatch` in `inventory.py` belong in `schemas/checks.py` and `schemas/inventory.py`. |
 | CQ-B5 | `admin.py` (30KB) — split into sub-routers | Low | 📋 | Post-launch. Split into `admin_items.py`, `admin_vehicles.py`, `admin_stations.py`. Also flagged in CODEBASE_INDEX debt table. |
 | CQ-B6 | `check_date` column: `String(10)` → `Date` type | Low | 📋 | Post-launch. Requires migration. ISO string comparison works but loses type safety. Range queries become proper date comparisons. |
@@ -245,7 +207,7 @@
 | Area | 📋 | ⛔ | Total |
 |------|----|----|-------|
 | AI Identification — Groundwork | 4 | 0 | 4 |
-| Seed Data Gaps — Unit 712 | 2 | 0 | 2 |
+| Seed Data Gaps — Unit 712 | 0 | 0 | 0 |
 | Launch Readiness — Operational | 8 | 0 | 8 |
 | Backend — Endpoints | 2 | 0 | 2 |
 | Backend — Data Models | 1 | 0 | 1 |
@@ -253,15 +215,15 @@
 | Frontend — Help System | 1 | 0 | 1 |
 | Frontend — Supervisor Dashboard | 1 | 0 | 1 |
 | Frontend — Supporting Modules | 1 | 0 | 1 |
-| Frontend — Check Wizard UX | 4 | 1 | 5 |
-| Frontend — Check History | 1 | 0 | 1 |
+| Frontend — Check Wizard UX | 2 | 1 | 3 |
+| Frontend — Check History | 0 | 0 | 0 |
 | Frontend — Settings | 1 | 0 | 1 |
-| Frontend — Tests | 2 | 0 | 2 |
+| Frontend — Tests | 0 | 0 | 0 |
 | Infrastructure / Security | 0 | 1 | 1 |
 | Equipment & Station Admin | 1 | 0 | 1 |
-| Code Quality / Refactoring | 7 | 0 | 7 |
+| Code Quality / Refactoring | 5 | 0 | 5 |
 | User Acceptance Testing | 11 | 0 | 11 |
-| **Total open** | **50** | **2** | **52** |
+| **Total open** | **41** | **2** | **43** |
 
 *Completed items — Sessions A–K — are in backlog_completed.md.*
 *v1.62 — 2026-06-06: Backlog cleaned. All ✅ Done items moved to backlog_completed.md.*
@@ -278,6 +240,7 @@
 *v1.75 — 2026-06-10: Session O complete. SEED-GAP2 (requires_full_check enforcement, 364 tests, 0 xfailed), RX-F13 (EXPIRY_DATE check type + Same/Different wizard UX), RX-F9b (priority last-confirmed display), RX-F10 (responder language + error messages) implemented. RX-F3/F4/F5/SUP-F1/SUP-F2 confirmed already implemented from prior sessions. Migration 0021 applied.*
 *v1.76 — 2026-06-10: Session P complete. RX-B2 confirmed already implemented. RX-F12 (priority toggle+question in CompartmentParLevels), DMG-F3 (damaged badge in SupplyCatalogView + shelf grouping), SS-B1 (PATCH /admin/locations/{id}), SS-F1 (StationSuppliesScreen.jsx), SS-F2 (per-shelf add in SupplyCatalogView), ADMIN-F7 (PortableLocationsScreen.jsx full CRUD), SUP-F3 (EXPIRY_DATE items in get_expiring_soon). 364 tests passing. No new migrations.*
 *v1.78 — 2026-06-10: Session assignments: Sessions S (pre-launch polish), T (admin backend), U (UAT) added. TECH-1/I-5 assigned to R. F-UX10/I-1/TECH-2/TECH-3 explicitly marked post-launch.*
+*v1.81 — 2026-06-11: Session S complete. CQ-F2 (compartmentList fix — Step3 nav arrows, WizardProgress bar, Step5 compartment summary), F-UX4 (expired item replacement prompts), SEED-GAP4/5 (Stretcher + Jump Bag O2 PSI priority flags), PERF-1 (batch N+1 fix in _auto_decrement_supply_room), CQ-B3 (create_daily_check helpers), FE-TEST-11/12 (usage log tests). F-UX6 + CH-F6 confirmed already implemented. CQ-F1 deferred post-launch. Tests TBD — user to confirm.*
 *v1.80 — 2026-06-11: Session R complete. RET-M1-M3 (migration 0023: retirement fields on vehicles/locations/stations/stock_lots), RET-B1-B6 (retire vehicle/location/station/lot endpoints + list retired endpoints), RET-F1-F5 (retirement UI: VehicleManagementSection + StationManagementSection + RetiredListSection + SupplyCatalogView lot disposal), S-F6/F7 (settings admin sections), CQ-B1/B2 (check_type property + _DATE/or_ cleanup), SEC-OPS1 (dependency audit workflow), TECH-1 (pytest-cov), I-5 (ADR-006 token lifetime doc), I-3 (won't do — Azure handles TLS), S-F8 (skipped — needs B-E9). 381 tests passing. 23 migrations total.*
 *v1.79 — 2026-06-10: Code review (Session R prep). Fixed bug: `current_user.oid` → `current_user.user_id` in `inventory.py:patch_item_status` (AttributeError if email empty). Fixed naming collision: `ALL_ROLES` in `auth.py` renamed to `_KNOWN_ROLES` (was shadowing `deps.py` tuple of same name). Added section 19 (Code Quality/Refactoring) with 9 new items CQ-B1 through CQ-F1 from code review findings. CQ-B1/B2 assigned Session R; CQ-F2/B3/F1 assigned Session S; remainder post-launch.*
 *v1.77 — 2026-06-10: Session Q complete. B-M10 (migration 0022: allow_check_modification on stations), CH-B7 (PATCH /stations/{id}/settings, Admin), CH-B8 (GET /stations/{id}/settings, Supervisor+), ACC-F1-F5 confirmed already implemented (station_members.py + frontend), S-F1 (Settings nav card), S-F3 (allow_check_modification toggle). CH-F6 unblocked (B-M10+CH-B8 done). UAT-7/UAT-8 unblocked (ACC-F1-F5 done). 368 tests passing. 22 migrations total.*
