@@ -112,7 +112,7 @@ export function useDraft(vehicleOrLocationId, startedAt, explicitKey = null) {
 
   const clearDraft = discardDraft
 
-  return { draft, savedAt, hasDraft: draft !== null, saveDraft, saveLineItem, discardDraft, clearDraft }
+  return { draft, savedAt, hasDraft: draft !== null, saveDraft, saveLineItem, discardDraft, clearDraft, draftRef }
 }
 
 const LAST_STATION_KEY = 'ems_last_station_id'

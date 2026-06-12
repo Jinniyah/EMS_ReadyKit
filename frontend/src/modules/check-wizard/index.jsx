@@ -72,7 +72,7 @@ export default function CheckWizard({
   const [submitError, setSubmitError]             = useState(null)
   const [showDiscardModal, setShowDiscardModal]   = useState(false)
 
-  const { draft, savedAt, saveDraft, saveLineItem, clearDraft } =
+  const { draft, savedAt, saveDraft, saveLineItem, clearDraft, draftRef } =
     useDraft(vehicleId ?? locationId, startedAt, initialDraftKey)
 
   useEffect(() => {
@@ -211,19 +211,22 @@ export default function CheckWizard({
 
   const handleSaveCompartment = useCallback((compartmentId) => {
     const compKey = String(compartmentId)
-    const cd      = draft?.compartments?.[compKey]
-    const confirmedItems = (cd?.line_items ?? []).map(li =>
-      li.confirmed ? li : { ...li, confirmed: true }
-    )
+    // saveDraft merges against draftRef.current (always up-to-date), so we
+    // only need to flip status to 'complete'. Line items written via
+    // saveLineItem are already in draftRef.current — reading them from the
+    // stale `draft` closure would overwrite those writes with old data.
     saveDraft({
       compartments: {
-        ...(draft?.compartments ?? {}),
-        [compKey]: { ...(cd ?? {}), status: 'complete', line_items: confirmedItems },
+        ...(draftRef.current?.compartments ?? {}),
+        [compKey]: {
+          ...(draftRef.current?.compartments?.[compKey] ?? {}),
+          status: 'complete',
+        },
       },
     })
     setStep(STEP.COMPARTMENTS)
     setActiveCompartment(null)
-  }, [draft, saveDraft])
+  }, [saveDraft])
 
   const handleBackToList = useCallback(() => {
     setStep(STEP.COMPARTMENTS)

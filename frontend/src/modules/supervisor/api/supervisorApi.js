@@ -46,9 +46,13 @@ export const supervisorApi = {
       ),
       Promise.allSettled(
         vehicles.filter(v => v.active).map(v =>
-          vehicleApi.getRepairRequests(v.vehicle_id, getToken, 'OPEN')
-            .then(reqs => ({ vehicle_id: v.vehicle_id, count: reqs.length }))
-            .catch(() => ({ vehicle_id: v.vehicle_id, count: 0 }))
+          vehicleApi.getRepairRequests(v.vehicle_id, getToken)
+            .then(reqs => ({
+              vehicle_id: v.vehicle_id,
+              openCount: reqs.filter(r => r.status === 'OPEN' || r.status === 'IN_PROGRESS').length,
+              hasResolved: reqs.some(r => r.status === 'RESOLVED'),
+            }))
+            .catch(() => ({ vehicle_id: v.vehicle_id, openCount: 0, hasResolved: false }))
         )
       ),
     ])
@@ -85,8 +89,21 @@ export const supervisorApi = {
     })
 
     const openRepairCount = repairResults.reduce((sum, r) =>
-      sum + (r.status === 'fulfilled' ? r.value.count : 0), 0
+      sum + (r.status === 'fulfilled' ? r.value.openCount : 0), 0
     )
+
+    // Per-vehicle repair state — used by VehicleComplianceCard to show
+    // 'Fixed' when issues were resolved via V&E Status (not just via
+    // the supervisor dashboard "I fixed this" flow).
+    const repairStateByVehicle = {}
+    repairResults.forEach((result, i) => {
+      const vid = vehicles.filter(v => v.active)[i]?.vehicle_id
+      if (vid) {
+        repairStateByVehicle[vid] = result.status === 'fulfilled'
+          ? { openCount: result.value.openCount, hasResolved: result.value.hasResolved }
+          : { openCount: 0, hasResolved: false }
+      }
+    })
 
     return {
       vehicles,
@@ -94,6 +111,7 @@ export const supervisorApi = {
       portables,
       checksByLocation,
       openRepairCount,
+      repairStateByVehicle,
       summary: {
         total:     activeVehicles.length + portables.length,
         pass:      passCount,

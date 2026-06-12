@@ -31,19 +31,29 @@ function formatTime(isoString) {
 
 /**
  * Determine the resolution state of a check.
- * 'fixed'      — supervisor used "I Fixed This"
- * 'noted'      — supervisor added a note only
- * 'unresolved' — not yet acknowledged
+ * 'fixed'      -- supervisor used "I Fixed This", or all repairs resolved via V&E
+ * 'noted'      -- supervisor added a note only
+ * 'unresolved' -- not yet acknowledged
  */
-function getResolutionState(check) {
-  if (!check.reviewed_at) return 'unresolved'
-  if (check.corrective_action?.startsWith('Items fixed by supervisor:')) return 'fixed'
-  return 'noted'
+function makeGetResolutionState(repairState) {
+  return function getResolutionState(check) {
+    if (!check.reviewed_at) {
+      // Resolved via V&E repair request flow: no open repairs and at least one resolved
+      if (repairState && repairState.openCount === 0 && repairState.hasResolved) {
+        return 'fixed'
+      }
+      return 'unresolved'
+    }
+    if (check.corrective_action?.startsWith('Items fixed by supervisor:')) return 'fixed'
+    return 'noted'
+  }
 }
 
-export default function VehicleComplianceCard({ vehicle, checks, station, onSelectCheck }) {
+export default function VehicleComplianceCard({ vehicle, checks, station, repairState, onSelectCheck }) {
   const latestCheck = checks?.[0] ?? null
   const statusMeta  = latestCheck ? (STATUS_META[latestCheck.status] ?? STATUS_META.PASS) : null
+
+  const getResolutionState = makeGetResolutionState(repairState ?? null)
 
   const latestResolution  = latestCheck ? getResolutionState(latestCheck) : null
   const latestNeedsAction = latestCheck &&

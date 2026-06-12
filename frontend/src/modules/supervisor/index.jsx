@@ -68,6 +68,7 @@ export default function SupervisorDashboard({ station, onBack, onNavigateToVehic
   const portables       = data?.portables         ?? []
   const byLocation      = data?.checksByLocation  ?? {}
   const openRepairCount = data?.openRepairCount   ?? 0
+  const repairStateByVehicle = data?.repairStateByVehicle ?? {}
   const summary         = data?.summary ?? { total: 0, pass: 0, fail: 0, restock: 0, unchecked: 0 }
 
   const filteredVehicles = vehicles.filter(v => {
@@ -192,6 +193,7 @@ export default function SupervisorDashboard({ station, onBack, onNavigateToVehic
                     <VehicleComplianceCard
                       vehicle={vehicle}
                       checks={byVehicle[vehicle.vehicle_id] ?? []}
+                      repairState={repairStateByVehicle[vehicle.vehicle_id] ?? null}
                       onSelectCheck={check => setSelectedCheck({
                         check,
                         vehicleId: vehicle.vehicle_id,
