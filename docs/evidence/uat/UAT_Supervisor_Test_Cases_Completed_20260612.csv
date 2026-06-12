@@ -21,10 +21,10 @@ SUP-14,3. Receive New Stock (Add to Supply Room),Look for a Transfer History or 
 ,,,,,,
 SUP-15,4. Count Supplies (Supply Room Check),From the Supply Room screen tap Count Supplies to start a supply count check.,,The check wizard opens. Step 1 shows the supply room location (not a vehicle picker).,PASS,
 SUP-16,4. Count Supplies (Supply Room Check),Proceed to the shelf list (Step 2).,,Shelves appear as compartments. Each shelf shows items to count.,PASS,
-SUP-17,4. Count Supplies (Supply Room Check),For NRB Mask enter the quantity you see on the shelf (use 25 since you just received them).,Quantity: 25,NRB Mask row shows green OK or the quantity is accepted.,FAIL,"I can't update the numbers.  The buttons don't work.  The - and + or the number or the ""All 1 present"".  The ""# item not yet reviewed"" does show that it is being decremented.  Just the screen isn't being updated for the counts.  6/12 - now it just errors"
-SUP-18,4. Count Supplies (Supply Room Check),For one item enter a quantity below the minimum (for example 1 when the minimum is 20).,Intentionally low count,That item row turns amber or red to indicate a shortage.,,
-SUP-19,4. Count Supplies (Supply Room Check),Complete all shelves and proceed to review and submit.,,Check submits. You return to the supply room home or a confirmation screen.,,
-SUP-20,4. Count Supplies (Supply Room Check),Check the Compliance Dashboard after submitting.,,The supply room check appears as a completed check for today.,,
+SUP-17,4. Count Supplies (Supply Room Check),For NRB Mask enter the quantity you see on the shelf (use 25 since you just received them).,Quantity: 25,NRB Mask row shows green OK or the quantity is accepted.,PASS,
+SUP-18,4. Count Supplies (Supply Room Check),For one item enter a quantity below the minimum (for example 1 when the minimum is 20).,Intentionally low count,That item row turns amber or red to indicate a shortage.,PASS,
+SUP-19,4. Count Supplies (Supply Room Check),Complete all shelves and proceed to review and submit.,,Check submits. You return to the supply room home or a confirmation screen.,PASS,
+SUP-20,4. Count Supplies (Supply Room Check),Check the Compliance Dashboard after submitting.,,The supply room check appears as a completed check for today.,PASS,
 ,,,,,,
 SUP-21,5. Expiring Items Panel,Return to the Compliance Dashboard. Look for an Expiring Items or Expiring Soon panel.,,"Panel is visible, even if collapsed. If items are expiring in the next 30-90 days they are listed.",PASS,
 SUP-22,5. Expiring Items Panel,Expand the panel if it is collapsed.,,You see a list of items with their expiry dates and locations.,PASS,I can't change or edit or see expiry dates.
@@ -85,7 +85,7 @@ SUP-66,15. After-Call Usage Log,Select Unit 712 and proceed to the item picker.,
 SUP-67,15. After-Call Usage Log,Tap the + button next to NRB Mask. Set quantity to 2. Tap + next to BVM. Set quantity to 1.,NRB Mask qty: 2; BVM qty: 1,Both items appear in the selected section with their counts.,PASS,
 SUP-68,15. After-Call Usage Log,Look for a way to add a note for the whole usage event (optional notes field).,,A notes field is available.,NA,
 SUP-69,15. After-Call Usage Log,Tap Done or Submit Usage.,,Usage log submits. A confirmation screen or success message appears.,PASS,
-SUP-70,15. After-Call Usage Log,Go to the Supply Room. Check the NRB Mask on-hand quantity.,,Quantity has decreased by 2 from what it was before the usage log (FIFO decrement happened).,,Working to change how the decrement works.  Should decrement the ambulance - and then the station when the EMS  during the reconcile
+SUP-70,15. After-Call Usage Log,Go to the Supply Room. Check the NRB Mask on-hand quantity.,,Quantity has decreased by 2 from what it was before the usage log (FIFO decrement happened).,PASS,Working to change how the decrement works.  Should decrement the ambulance - and then the station when the EMS  during the reconcile
 ,,,,,,
 SUP-71,16. Usage History,Return to the After-Call Usage Log. Look for a History or Previous Logs section.,,Usage history is viewable.,PASS,
 SUP-72,16. Usage History,Find the event you just submitted.,,"Event appears with date, your name, vehicle, and items used.",PASS,

@@ -272,7 +272,14 @@ def list_location_par_levels(
 ) -> List[ParLevel]:
     location = _get_location_or_404(location_id, db)
     require_station_membership(location.station_id, current_user, db)
-    return db.query(ParLevel).filter(ParLevel.location_id == location_id).all()
+    return (
+        db.query(ParLevel)
+        .filter(
+            ParLevel.location_id == location_id,
+            ParLevel.active,
+        )
+        .all()
+    )
 
 
 # ── Compartments ──────────────────────────────────────────────────────────────
