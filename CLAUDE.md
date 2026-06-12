@@ -194,6 +194,7 @@ event handlers instead. (Causes submit behavior issues in the PWA.)
 3. **Station color is always `var(--station-primary)` / `var(--station-text)`.** Vehicle color is `var(--vehicle-primary)` which inherits station color by default; override via inline style on the component root.
 4. **Semantic color tokens for new Session H/I/J features:** `--color-damaged`/`--color-damaged-bg`, `--color-priority`/`--color-priority-bg`, `--color-no-change`/`--color-no-change-bg`.
 5. **Module CSS placement.** New styles go in the relevant module CSS file (e.g. `supervisor.css`, `supply-room.css`). Never create a new patch/fix CSS file — if a module doesn't have a CSS file yet, create one. Never create new root-level CSS files in `src/`.
+6. **Shared component CSS belongs in `index.css`.** Any CSS class used by a component in `src/shared/components/` — or reused across two or more modules — must live in `index.css`, not in a single module's CSS file. If it lives in e.g. `admin.css`, it will be missing whenever the admin module is not loaded. Confirmed victims moved to `index.css`: `.item-combobox` (ItemSearchCombobox), `.csv-import` (CsvImport / ReceiveStockPanel). If you spot an unstyled shared component during UAT, check whether its CSS class is scoped to a module file.
 
 ### UX constraints — these are non-negotiable
 - Minimum tap target: **60px**

@@ -660,3 +660,5 @@
 .sup-supply-row__name  { font-size: var(--font-size-sm); font-weight: 600; color: var(--color-text); }
 .sup-supply-row__count { font-size: var(--font-size-sm); font-weight: 700; color: var(--color-text-secondary); }
 .sup-supply-row__count--out { color: var(--color-status-fail); }
+
+.sup-supply-panel__go-btn { margin-top: var(--space-sm); width: 100%; }

@@ -759,6 +759,59 @@ h3 { font-size: var(--font-size-md); font-weight: 600; }
   margin: 0;
 }
 
+/* ── ItemSearchCombobox ────────────────────────────────────────────────────── */
+/* Shared component used in admin, supply-room, and any future module.     */
+
+.item-combobox { position: relative; width: 100%; }
+.item-combobox__input { width: 100%; padding: var(--space-sm) var(--space-md); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-md); color: var(--color-text); background: var(--color-surface-raised); min-height: var(--tap-target); box-sizing: border-box; }
+.item-combobox__input:focus { outline: 3px solid var(--color-brand); outline-offset: 1px; border-color: var(--color-brand); }
+.item-combobox__input--selected { border-color: #86efac; background: #f0fdf4; }
+.item-combobox__selected-detail { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-xs) var(--space-sm); background: #f0fdf4; border: 1px solid #86efac; border-top: none; border-radius: 0 0 var(--radius-md) var(--radius-md); font-size: var(--font-size-sm); }
+.item-combobox__unit { color: var(--color-text-muted); }
+.item-combobox__clear { margin-left: auto; background: none; border: none; cursor: pointer; font-size: var(--font-size-sm); color: var(--color-text-muted); padding: 0 var(--space-xs); min-height: 28px; }
+.item-combobox__list { position: absolute; top: 100%; left: 0; right: 0; z-index: 200; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-md); max-height: 300px; overflow-y: auto; list-style: none; padding: var(--space-xs) 0; margin: 4px 0 0; }
+.item-combobox__row { display: flex; flex-direction: column; gap: 2px; padding: var(--space-sm) var(--space-md); min-height: 48px; justify-content: center; cursor: pointer; transition: background var(--transition); }
+.item-combobox__row:not(:last-child) { border-bottom: 1px solid var(--color-border); }
+.item-combobox__row--active, .item-combobox__row:hover { background: var(--color-surface-raised); }
+.item-combobox__row-main { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); }
+.item-combobox__row-name { font-size: var(--font-size-md); font-weight: 600; color: var(--color-text); }
+.item-combobox__highlight { background: #fef9c3; color: var(--color-text); border-radius: 2px; font-style: normal; }
+.item-combobox__row-meta { display: flex; gap: var(--space-xs); font-size: 12px; color: var(--color-text-muted); align-items: center; }
+.item-combobox__cs-flag { font-size: 11px; font-weight: 800; padding: 1px 5px; border-radius: 3px; background: #fef3c7; color: #92400e; }
+.item-combobox__badge { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+.item-combobox__check-type { font-size: var(--font-size-sm); color: var(--color-text-secondary); font-weight: 600; }
+.item-combobox__badge--medication { background: #fef3c7; color: #92400e; }
+.item-combobox__badge--consumable { background: #dcfce7; color: #166534; }
+.item-combobox__badge--equipment  { background: #dbeafe; color: #1e40af; }
+.item-combobox__badge--document   { background: #f3f4f6; color: #374151; }
+
+/* ── CSV Import ────────────────────────────────────────────────────────────── */
+/* Shared component used in admin (ItemCatalog) and supply-room (ReceiveStockPanel). */
+
+.csv-import { border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; background: var(--color-surface); }
+.csv-import__toggle { display: flex; align-items: center; gap: var(--space-sm); width: 100%; padding: var(--space-md); background: none; border: none; cursor: pointer; font-size: var(--font-size-sm); font-weight: 700; color: var(--color-text-secondary); min-height: var(--tap-target); text-align: left; transition: background var(--transition); }
+.csv-import__toggle:hover { background: var(--color-surface-raised); }
+.csv-import__toggle-hint  { flex: 1; font-weight: 400; font-size: 12px; color: var(--color-text-muted); }
+.csv-import__panel { border-top: 1px solid var(--color-border); padding: var(--space-lg); display: flex; flex-direction: column; gap: var(--space-lg); background: var(--color-surface-raised); }
+.csv-import__step { display: flex; flex-direction: column; gap: var(--space-xs); }
+.csv-import__step-label { font-size: var(--font-size-sm); font-weight: 700; color: var(--color-text); margin: 0; }
+.csv-import__hint { font-size: 13px; color: var(--color-text-muted); line-height: 1.5; margin: 0; }
+.csv-import__file-input { font-size: var(--font-size-sm); color: var(--color-text); padding: var(--space-sm) 0; cursor: pointer; width: 100%; }
+.csv-import__filename { font-size: var(--font-size-sm); color: var(--color-text-secondary); margin: 0; padding: var(--space-xs) 0; }
+.csv-import__error { background: var(--color-status-fail-bg); color: var(--color-status-fail); border-radius: var(--radius-md); padding: var(--space-sm) var(--space-md); font-size: var(--font-size-sm); font-weight: 600; }
+.csv-import__results { display: flex; flex-direction: column; gap: var(--space-sm); }
+.csv-import__result { border-radius: var(--radius-md); padding: var(--space-sm) var(--space-md); font-size: var(--font-size-sm); font-weight: 600; }
+.csv-import__result--success { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+.csv-import__result--warning { background: #fefce8; color: #854d0e; border: 1px solid #fde68a; }
+.csv-import__result--error   { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; }
+.csv-import__result-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); }
+.csv-import__show-errors { background: none; border: none; cursor: pointer; font-size: 12px; font-weight: 700; color: var(--color-danger); text-decoration: underline; padding: 0; min-height: var(--tap-target); }
+.csv-import__error-list { list-style: none; margin-top: var(--space-sm); display: flex; flex-direction: column; gap: 6px; padding: 0; }
+.csv-import__error-row { display: flex; gap: var(--space-sm); flex-wrap: wrap; font-size: 12px; font-weight: 400; align-items: baseline; }
+.csv-import__error-row-num { font-weight: 700; color: var(--color-danger); white-space: nowrap; flex-shrink: 0; }
+.csv-import__error-name { font-weight: 600; color: var(--color-text); }
+.csv-import__error-msg  { color: var(--color-text-secondary); }
+
 /* ── Print styles ──────────────────────────────────────────────────────────── */
 @media print {
   .app-header, .dev-banner, .user-pill, .btn { display: none !important; }

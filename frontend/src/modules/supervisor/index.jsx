@@ -27,7 +27,7 @@ function vehicleWeight(vehicle, checks) {
   return SORT_WEIGHT[checks[0].status] ?? SORT_WEIGHT.PASS
 }
 
-export default function SupervisorDashboard({ station, onBack, onNavigateToVehicles }) {
+export default function SupervisorDashboard({ station, onBack, onNavigateToVehicles, onNavigateToSupplyRoom }) {
   const { getToken } = useAuth()
   const [activeFilter, setActiveFilter]   = useState('all')
   const [selectedCheck, setSelectedCheck] = useState(null) // { check, vehicleId, vehicleNumber }
@@ -174,7 +174,7 @@ export default function SupervisorDashboard({ station, onBack, onNavigateToVehic
                 urgentCount={expiryUrgent}
               />
             )}
-            <SupplyLowStockPanel alerts={supplyLow} />
+            <SupplyLowStockPanel alerts={supplyLow} onGoToSupplyRoom={onNavigateToSupplyRoom} />
             {allClear && openRepairCount === 0 && expiryTotal === 0 && (
               <div className="sup-alert sup-alert--all-clear">
                 ✓ All vehicles and equipment checked — no issues today

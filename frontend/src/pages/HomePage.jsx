@@ -271,6 +271,7 @@ export default function HomePage() {
             station={selectedStation}
             onBack={() => setActiveModule(null)}
             onNavigateToVehicles={() => setActiveModule('vehicles')}
+            onNavigateToSupplyRoom={() => setActiveModule('supply-room')}
           />
         </Suspense>
       </ErrorBoundary>

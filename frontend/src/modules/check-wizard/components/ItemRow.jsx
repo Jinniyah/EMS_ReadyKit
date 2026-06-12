@@ -20,7 +20,7 @@
  * item_name is persisted so Step 4 Reconcile can display it without
  * needing to re-fetch the item catalog.
  */
-import React, { useState, useRef, useCallback } from 'react'
+import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { checkTypeLabel } from '../../../shared/utils/statusCalc.js'
 import { formatShortDate, isExpired, todayIso } from '../../../shared/utils/dateHelpers.js'
 

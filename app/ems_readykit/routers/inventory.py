@@ -1285,13 +1285,14 @@ def get_supply_catalog(
 
     item_ids = [i.item_id for i in items]
 
-    # Lots at supply room, FIFO order
+    # Lots at supply room, FIFO order (include zero-quantity lots so expiry
+    # editing is available even when on_hand = 0; exclude retired lots only)
     lots = (
         db.query(StockLot)
         .filter(
             StockLot.location_id == supply_room.location_id,
             StockLot.item_id.in_(item_ids),
-            StockLot.quantity > 0,
+            StockLot.retired_at.is_(None),
         )
         .order_by(StockLot.expiration_date.asc().nulls_last())
         .all()

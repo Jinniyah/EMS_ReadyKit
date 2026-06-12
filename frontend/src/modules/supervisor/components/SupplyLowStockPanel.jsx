@@ -5,7 +5,7 @@
  */
 import React, { useState } from 'react'
 
-export default function SupplyLowStockPanel({ alerts }) {
+export default function SupplyLowStockPanel({ alerts, onGoToSupplyRoom }) {
   const [open, setOpen] = useState(false)
 
   if (!alerts?.length) return null
@@ -48,6 +48,15 @@ export default function SupplyLowStockPanel({ alerts }) {
               </div>
             )
           })}
+          {onGoToSupplyRoom && (
+            <button
+              className="sup-supply-panel__go-btn btn btn--primary"
+              onClick={onGoToSupplyRoom}
+              type="button"
+            >
+              → Go to Station Supplies
+            </button>
+          )}
         </div>
       )}
     </div>
