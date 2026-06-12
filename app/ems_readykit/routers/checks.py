@@ -3,11 +3,16 @@ routers/checks.py
 Daily inventory check and controlled substance check endpoints.
 
 Session C (ACC-B7): Station membership enforced on all check endpoints.
-  - POST /checks/daily        — user must be a member of payload.station_id
-  - POST /checks/controlled-substance — user must be a member of vehicle.station_id
-  - GET  /checks/daily/vehicle/{id}   — user must be a member of vehicle.station_id
-  - GET  /checks/daily/station/{id}/today — user must be a member of station_id;
+  - POST /checks/daily        -- user must be a member of payload.station_id
+  - POST /checks/controlled-substance -- user must be a member of vehicle.station_id
+  - GET  /checks/daily/vehicle/{id}   -- user must be a member of vehicle.station_id
+  - GET  /checks/daily/station/{id}/today -- user must be a member of station_id;
           changed from SUPERVISOR_PLUS to ALL_ROLES (responders also need today's status)
+
+USAGE-B1: get_last_readings subtracts post-check UsageEventItem quantities so the
+check wizard pre-fills the correct post-call on-hand quantities and automatically
+flags items as short. Supply room stock is NOT decremented by usage logging --
+only by _auto_decrement_supply_room during check wizard reconcile (SR-B4).
 """
 
 from __future__ import annotations
@@ -35,6 +40,7 @@ from ems_readykit.models.item import Item
 from ems_readykit.models.par_level import ParLevel
 from ems_readykit.models.station import Station
 from ems_readykit.models.stock_lot import StockLot
+from ems_readykit.models.usage_event import UsageEvent, UsageEventItem
 from ems_readykit.routers.deps import (
     ALL_ROLES,
     SUPERVISOR_PLUS,
@@ -149,7 +155,7 @@ def _compute_check_status(line_items: List[CheckLineItem]) -> CheckStatus:
     return CheckStatus.PASS
 
 
-# ── SR-B4: Supply room auto-decrement helper ──────────────────────────────────
+# -- SR-B4: Supply room auto-decrement helper ----------------------------------
 
 
 def _auto_decrement_supply_room(
@@ -163,7 +169,7 @@ def _auto_decrement_supply_room(
     """
     SR-B4: Best-effort deduction from the station supply room when a vehicle check
     shows items were topped off (quantity_found > previous check's quantity_found).
-    Depletion is FIFO. Never raises — insufficient stock depletes to zero and logs a warning.
+    Depletion is FIFO. Never raises -- insufficient stock depletes to zero and logs a warning.
     Called after the current check is flushed but before audit/commit.
     """
     supply_room = (
@@ -191,7 +197,7 @@ def _auto_decrement_supply_room(
         .first()
     )
     if not prev_check:
-        return  # first check — no baseline to compare against
+        return  # first check -- no baseline to compare against
 
     last_qty: Dict[tuple, Optional[int]] = {
         (li.item_id, li.compartment_id): li.quantity_found
@@ -243,7 +249,7 @@ def _auto_decrement_supply_room(
         if available < decrement:
             logger.warning(
                 "SR-B4 auto-decrement: item %s needs %s but only %s available "
-                "(station %s) — depleting to zero",
+                "(station %s) -- depleting to zero",
                 item_id,
                 decrement,
                 available,
@@ -361,7 +367,7 @@ def _enforce_full_check_compartments(
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=(
-                    f"Compartment '{comp.name}' requires a full check — "
+                    f"Compartment '{comp.name}' requires a full check -- "
                     "all items must be submitted. "
                     f"Missing item IDs: {sorted(missing)}"
                 ),
@@ -372,7 +378,7 @@ def _build_lot_map(
     line_items: List[CheckLineItemCreate],
     db: Session,
 ) -> Dict[int, StockLot]:
-    """Fetch and validate stock lots referenced by line items. Returns lot_id → StockLot map."""
+    """Fetch and validate stock lots referenced by line items. Returns lot_id -> StockLot map."""
     lot_ids = {li.lot_id for li in line_items if li.lot_id is not None}
     if not lot_ids:
         return {}
@@ -440,7 +446,39 @@ def _build_line_items(
     return objects
 
 
-# ── Daily Inventory Checks ────────────────────────────────────────────────────
+def _get_post_check_usage(
+    db: Session,
+    vehicle_id: Optional[int],
+    location_id: Optional[int],
+    since_timestamp: datetime,
+) -> Dict[int, int]:
+    """
+    USAGE-B1: Returns {item_id: total_quantity_used} for all usage events
+    logged against this vehicle or location AFTER the given timestamp.
+    Used by get_last_readings to subtract post-call usage from quantity_found
+    so the check wizard pre-fills accurately.
+    """
+    q = (
+        db.query(
+            UsageEventItem.item_id,
+            func.sum(UsageEventItem.quantity_used).label("total"),
+        )
+        .join(UsageEvent, UsageEventItem.event_id == UsageEvent.event_id)
+        .filter(UsageEvent.timestamp > since_timestamp)
+    )
+
+    if vehicle_id is not None:
+        q = q.filter(UsageEvent.vehicle_id == vehicle_id)
+    elif location_id is not None:
+        q = q.filter(UsageEvent.location_id == location_id)
+    else:
+        return {}
+
+    rows = q.group_by(UsageEventItem.item_id).all()
+    return {row.item_id: int(row.total) for row in rows}
+
+
+# -- Daily Inventory Checks ----------------------------------------------------
 
 
 @router.post(
@@ -478,7 +516,7 @@ async def create_daily_check(
 
     performed_by = current_user.email or current_user.name
 
-    # check_date is derived server-side from the submitted timestamp — not from the client.
+    # check_date is derived server-side from the submitted timestamp -- not from the client.
     check_date = payload.timestamp.astimezone(timezone.utc).date().isoformat()
 
     item_ids = {li.item_id for li in payload.line_items}
@@ -561,7 +599,7 @@ async def create_daily_check(
 @router.get(
     "/daily/last-readings",
     response_model=List[LastReadingItem],
-    summary="Last recorded readings for each item from the most recent check on a vehicle or location",
+    summary="Last recorded readings for each item, adjusted for post-check usage (USAGE-B1)",
 )
 def get_last_readings(
     vehicle_id: Optional[int] = Query(None, gt=0),
@@ -569,6 +607,18 @@ def get_last_readings(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
 ) -> List[LastReadingItem]:
+    """
+    Returns the most recent check readings for each item on a vehicle or location.
+
+    USAGE-B1: For SUPPLY items, quantity_found is reduced by any usage events
+    logged against this vehicle/location AFTER the check timestamp. This means
+    the check wizard pre-fills the post-call quantity, automatically flagging
+    items as short without requiring a fresh eyes-on discovery check.
+
+    quantity_found is floored at 0 -- never returned as negative.
+    Non-supply items (FUNCTIONAL, MEASUREMENT, DATE_RECORD, EXPIRY_DATE) are
+    returned as-is; usage events do not apply to them.
+    """
     if vehicle_id is None and location_id is None:
         raise HTTPException(
             status_code=400, detail="vehicle_id or location_id required"
@@ -588,17 +638,51 @@ def get_last_readings(
     if not last_check:
         return []
 
-    return [
-        LastReadingItem(
-            item_id=li.item_id,
-            quantity_found=li.quantity_found,
-            measurement_value=li.measurement_value,
-            functional_pass=li.functional_pass,
-            date_value=li.date_value,
-            check_date=str(last_check.check_date),
+    # USAGE-B1: fetch post-check usage to subtract from quantity_found
+    check_ts = last_check.timestamp
+    if check_ts.tzinfo is None:
+        check_ts = check_ts.replace(tzinfo=timezone.utc)
+
+    usage_since: Dict[int, int] = _get_post_check_usage(
+        db,
+        vehicle_id=vehicle_id,
+        location_id=location_id,
+        since_timestamp=check_ts,
+    )
+
+    # Batch-load items to check check_type without N+1
+    item_ids = {li.item_id for li in last_check.line_items}
+    items_map: Dict[int, Item] = {
+        item.item_id: item
+        for item in db.query(Item).filter(Item.item_id.in_(item_ids)).all()
+    }
+
+    results: List[LastReadingItem] = []
+    for li in last_check.line_items:
+        item = items_map.get(li.item_id)
+        adjusted_qty = li.quantity_found
+
+        # Only subtract usage for SUPPLY items -- others have no quantity to adjust
+        if (
+            adjusted_qty is not None
+            and item is not None
+            and item.check_type_value == "SUPPLY"
+            and li.item_id in usage_since
+        ):
+            adjusted_qty = max(0, adjusted_qty - usage_since[li.item_id])
+
+        results.append(
+            LastReadingItem(
+                item_id=li.item_id,
+                quantity_found=adjusted_qty,
+                measurement_value=li.measurement_value,
+                functional_pass=li.functional_pass,
+                date_value=li.date_value,
+                check_date=str(last_check.check_date),
+            )
         )
-        for li in last_check.line_items
-    ]
+
+    return results
 
 
 @router.get(
@@ -761,7 +845,7 @@ def get_station_checks_date_range(
     )
 
 
-# ── Portable location checks ──────────────────────────────────────────────────
+# -- Portable location checks --------------------------------------------------
 
 
 @router.get(
@@ -796,12 +880,12 @@ def get_location_checks(
     )
 
 
-# ── Calendar date-range bounds ────────────────────────────────────────────────
+# -- Calendar date-range bounds ------------------------------------------------
 
 
 @router.get(
     "/daily/station/{station_id}/date-range",
-    summary="Earliest check date for a station — used to bound calendar navigation",
+    summary="Earliest check date for a station -- used to bound calendar navigation",
 )
 def get_station_check_date_range(
     station_id: int,
@@ -826,7 +910,7 @@ def get_station_check_date_range(
     return {"earliest": str(earliest) if earliest else None}
 
 
-# ── Controlled Substance Checks ───────────────────────────────────────────────
+# -- Controlled Substance Checks -----------------------------------------------
 
 
 @router.post(
@@ -856,7 +940,7 @@ def create_cs_check(
 
     primary_signer = current_user.name
 
-    # OWASP A04 — Known limitation: secondary_signer is free-text and compared
+    # OWASP A04 -- Known limitation: secondary_signer is free-text and compared
     # by name string only. The structural fix is F-UX34. See backlog.md SEC-6.
     if primary_signer.strip().lower() == payload.secondary_signer.strip().lower():
         raise HTTPException(

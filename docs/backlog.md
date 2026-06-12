@@ -68,6 +68,11 @@
 
 *(B-E9 and B-E18 implemented — see backlog_completed.md)*
 
+| # | Endpoint | Description | Pri | Status | Notes |
+|---|----------|-------------|-----|--------|-------|
+| USAGE-B1 | `POST /checks/usage` — fix stock decrement | High | 📋 | **Bug:** usage logging currently decrements station supply room immediately, which is wrong. Items are consumed from the vehicle/jump bag, not the supply room. Fix: (1) remove `_decrement_supply_room_fifo()` call from `create_usage_event` in `usage.py` — supply room only decrements during check wizard reconcile (SR-B4, already correct). (2) `get_last_readings` in `checks.py` must subtract post-check usage events from `quantity_found` so the check wizard pre-fills correctly and flags shortages. Formula: `effective_qty = last_check.quantity_found - sum(UsageEventItems for this vehicle/location+item since last check timestamp)`. Never goes below 0. Edge case: no prior check → usage events are audit-only, no quantity effect. |
+| USAGE-B2 | `POST /checks/usage` — add location_id support | High | 📋 | **Gap:** `UsageEvent` model has `vehicle_id` but no `location_id`. Jump bag usage cannot be logged against a portable location. Fix requires: (1) migration to add nullable `location_id` FK on `usage_events` table; (2) `UsageEventCreate` schema to accept either `vehicle_id` or `location_id` (exactly one required, validated); (3) `get_last_readings` already accepts `location_id` param — the usage subtraction logic (USAGE-B1) must also handle location-scoped queries; (4) update usage history and frequent-items endpoints to filter by location when relevant. Depends on USAGE-B1 being done first. |
+
 ---
 
 ## 5. Backend — Data Models
@@ -166,7 +171,7 @@
 | UAT-7 | Pending assignment test case | High | 📋 | |
 | UAT-8 | Multi-station test case | Medium | 📋 | |
 | UAT-9 | Unit 712 full shift-start check — cold run | Critical | 📋 | Chief + one volunteer, no coaching, production. Pass: zero calls for help, check submitted, dashboard reflects it. |
-| UAT-10 | After-call usage log — cold run | Critical | 📋 | Log 2-3 items used. Verify restock list updates. Pass: completed in under 60 seconds without explanation. |
+| UAT-10 | After-call usage log — cold run | Critical | 📋 | Log 2-3 items used on vehicle AND jump bag. Verify: (1) no supply room stock change at time of logging; (2) next check wizard pre-fills flagged short for those items; (3) compliance dashboard shows restock needed. Pass: under 60 seconds without explanation. Blocked on USAGE-B1 + USAGE-B2. |
 | UAT-11 | Damaged item scenario — cold run | High | 📋 | Simulate discovering a damaged item during UAT-9. Verify in-context path, repair request created, chief sees it on dashboard. |
 
 ---
@@ -196,7 +201,7 @@
 | AI Identification — Groundwork | 2 | 0 | 2 |
 | Seed Data Gaps — Unit 712 | 0 | 0 | 0 |
 | Launch Readiness — Operational | 8 | 0 | 8 |
-| Backend — Endpoints | 0 | 0 | 0 |
+| Backend — Endpoints | 2 | 0 | 2 |
 | Backend — Data Models | 0 | 0 | 0 |
 | Backend — Check History | 3 | 0 | 3 |
 | Frontend — Help System | 1 | 0 | 1 |
@@ -210,7 +215,7 @@
 | Equipment & Station Admin | 1 | 0 | 1 |
 | Code Quality / Refactoring | 5 | 0 | 5 |
 | User Acceptance Testing | 11 | 0 | 11 |
-| **Total open** | **35** | **2** | **37** |
+| **Total open** | **37** | **2** | **39** |
 
 *Completed items — Sessions A–K — are in backlog_completed.md.*
 *v1.62 — 2026-06-06: Backlog cleaned. All ✅ Done items moved to backlog_completed.md.*
@@ -227,6 +232,7 @@
 *v1.75 — 2026-06-10: Session O complete. SEED-GAP2 (requires_full_check enforcement, 364 tests, 0 xfailed), RX-F13 (EXPIRY_DATE check type + Same/Different wizard UX), RX-F9b (priority last-confirmed display), RX-F10 (responder language + error messages) implemented. RX-F3/F4/F5/SUP-F1/SUP-F2 confirmed already implemented from prior sessions. Migration 0021 applied.*
 *v1.76 — 2026-06-10: Session P complete. RX-B2 confirmed already implemented. RX-F12 (priority toggle+question in CompartmentParLevels), DMG-F3 (damaged badge in SupplyCatalogView + shelf grouping), SS-B1 (PATCH /admin/locations/{id}), SS-F1 (StationSuppliesScreen.jsx), SS-F2 (per-shelf add in SupplyCatalogView), ADMIN-F7 (PortableLocationsScreen.jsx full CRUD), SUP-F3 (EXPIRY_DATE items in get_expiring_soon). 364 tests passing. No new migrations.*
 *v1.78 — 2026-06-10: Session assignments: Sessions S (pre-launch polish), T (admin backend), U (UAT) added. TECH-1/I-5 assigned to R. F-UX10/I-1/TECH-2/TECH-3 explicitly marked post-launch.*
+*v1.84 — 2026-06-12: Session U UAT in progress. Bugs found and fixed: SUP-DMG-FIX1 (FAIL banner persisted after repair resolved), SUP-DMG1 (damaged items not surfaced on compliance dashboard — new endpoint + frontend panel + 13 tests, 410 passing). New backlog: USAGE-B1 (usage logging incorrectly decrements supply room instead of vehicle on-hand), USAGE-B2 (UsageEvent has no location_id — jump bag usage unsupported). UAT-10 acceptance criteria updated to reflect correct usage flow and block on USAGE-B1/B2.*
 *v1.82 — 2026-06-11: Session T complete. B-M6 (migration 0024: deactivated_at/deactivation_reason on par_levels), B-E9 (PATCH /inventory/par-levels/{id} soft-deactivate with reason + membership check), B-E18 (GET /audit date-range from_date/to_date params), AI-B1 (PATCH /admin/items/{id}/ai-fields, admin-only), AI-F1 (ItemForm.jsx AI section admin-gated), S-F8 (CompartmentParLevels confirm+reason remove flow). Tests TBD — user to confirm count after running pytest + npm test.*
 *v1.81 — 2026-06-11: Session S complete. CQ-F2 (compartmentList fix — Step3 nav arrows, WizardProgress bar, Step5 compartment summary), F-UX4 (expired item replacement prompts), SEED-GAP4/5 (Stretcher + Jump Bag O2 PSI priority flags), PERF-1 (batch N+1 fix in _auto_decrement_supply_room), CQ-B3 (create_daily_check helpers), FE-TEST-11/12 (usage log tests). F-UX6 + CH-F6 confirmed already implemented. CQ-F1 deferred post-launch. Tests TBD — user to confirm.*
 *v1.80 — 2026-06-11: Session R complete. RET-M1-M3 (migration 0023: retirement fields on vehicles/locations/stations/stock_lots), RET-B1-B6 (retire vehicle/location/station/lot endpoints + list retired endpoints), RET-F1-F5 (retirement UI: VehicleManagementSection + StationManagementSection + RetiredListSection + SupplyCatalogView lot disposal), S-F6/F7 (settings admin sections), CQ-B1/B2 (check_type property + _DATE/or_ cleanup), SEC-OPS1 (dependency audit workflow), TECH-1 (pytest-cov), I-5 (ADR-006 token lifetime doc), I-3 (won't do — Azure handles TLS), S-F8 (skipped — needs B-E9). 381 tests passing. 23 migrations total.*
