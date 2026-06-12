@@ -30,7 +30,7 @@ import './usage-log.css'
  */
 function buildUnits(vehicles, locations) {
   const vehicleUnits = vehicles
-    .filter(v => v.status === 'ACTIVE')
+    .filter(v => v.active === true && !v.retired_at)
     .map(v => ({
       id:    v.vehicle_id,
       kind:  'vehicle',
@@ -66,7 +66,7 @@ export default function UsageLogScreen({ station, onBack }) {
   useEffect(() => {
     if (!station?.station_id) return
     Promise.all([
-      vehicleApi.getStationVehicles(station.station_id, getToken),
+      vehicleApi.getActiveStationVehicles(station.station_id, getToken),
       checkApi.getStationLocations(station.station_id, getToken).catch(() => []),
       supplyApi.getCatalog(station.station_id, getToken),
       usageApi.getFrequentItems(station.station_id, getToken),

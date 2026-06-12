@@ -13,6 +13,11 @@ USAGE-B1: get_last_readings subtracts post-check UsageEventItem quantities so th
 check wizard pre-fills the correct post-call on-hand quantities and automatically
 flags items as short. Supply room stock is NOT decremented by usage logging --
 only by _auto_decrement_supply_room during check wizard reconcile (SR-B4).
+
+SR-B5: _reconcile_supply_room_check() is called after a STATION_SUPPLY_ROOM
+check submission. quantity_found for each SUPPLY item is treated as the new
+absolute on-hand truth and applied to the stock lots (FIFO deduct for decreases,
+adjustment lot for increases). This keeps View Supplies in sync with physical counts.
 """
 
 from __future__ import annotations
@@ -262,6 +267,101 @@ def _auto_decrement_supply_room(
             take = min(lot.quantity, remaining)
             lot.quantity -= take
             remaining -= take
+
+    db.flush()
+
+
+def _reconcile_supply_room_check(
+    db: Session,
+    location_id: int,
+    line_items: List[CheckLineItem],
+    items_map: Dict[int, Item],
+) -> None:
+    """
+    SR-B5: When a STATION_SUPPLY_ROOM check is submitted, reconcile stock lot
+    quantities to match the physical count recorded in quantity_found.
+
+    For each SUPPLY line item, treat quantity_found as the new absolute
+    on-hand truth and adjust the stock lots using the same FIFO logic as
+    patch_supply_catalog_count (SR-B2):
+      - quantity_found < current on_hand: deduct FIFO (oldest lot first)
+      - quantity_found > current on_hand: create an adjustment lot (no number/expiry)
+      - quantity_found == current on_hand: no change
+
+    Never raises -- mismatches are logged and skipped so the check always
+    saves even if a lot adjustment fails.
+    """
+    # Build item -> quantity_found map (sum across compartments for same item)
+    item_counts: Dict[int, int] = {}
+    for li in line_items:
+        item = items_map.get(li.item_id)
+        if not item or item.check_type_value != "SUPPLY":
+            continue
+        if li.quantity_found is None:
+            continue
+        item_counts[li.item_id] = item_counts.get(li.item_id, 0) + li.quantity_found
+
+    if not item_counts:
+        return
+
+    # Batch-load all lots for this location and the items we need to reconcile
+    lots = (
+        db.query(StockLot)
+        .filter(
+            StockLot.location_id == location_id,
+            StockLot.item_id.in_(list(item_counts.keys())),
+            StockLot.retired_at.is_(None),
+        )
+        .order_by(StockLot.item_id, StockLot.expiration_date.asc().nulls_last())
+        .all()
+    )
+    lots_by_item: Dict[int, List[StockLot]] = {}
+    for lot in lots:
+        lots_by_item.setdefault(lot.item_id, []).append(lot)
+
+    for item_id, new_qty in item_counts.items():
+        current_lots = lots_by_item.get(item_id, [])
+        old_qty = sum(lot.quantity for lot in current_lots)
+
+        if new_qty == old_qty:
+            continue
+
+        if new_qty < old_qty:
+            # Physical count is lower -- deduct FIFO
+            to_deduct = old_qty - new_qty
+            for lot in current_lots:
+                if to_deduct <= 0:
+                    break
+                take = min(lot.quantity, to_deduct)
+                lot.quantity -= take
+                to_deduct -= take
+            logger.info(
+                "SR-B5 supply room reconcile: item %s deducted %s (was %s, now %s, location %s)",
+                item_id,
+                old_qty - new_qty,
+                old_qty,
+                new_qty,
+                location_id,
+            )
+        else:
+            # Physical count is higher -- add adjustment lot
+            db.add(
+                StockLot(
+                    item_id=item_id,
+                    location_id=location_id,
+                    quantity=new_qty - old_qty,
+                    lot_number=None,
+                    expiration_date=None,
+                )
+            )
+            logger.info(
+                "SR-B5 supply room reconcile: item %s increased by %s (was %s, now %s, location %s)",
+                item_id,
+                new_qty - old_qty,
+                old_qty,
+                new_qty,
+                location_id,
+            )
 
     db.flush()
 
@@ -560,6 +660,21 @@ async def create_daily_check(
             line_items=line_item_objects,
             items_map=items_map,
         )
+
+    # SR-B5: reconcile stock lot quantities for supply room checks
+    if payload.location_id and not payload.vehicle_id:
+        loc = (
+            db.query(InventoryLocation)
+            .filter(InventoryLocation.location_id == payload.location_id)
+            .first()
+        )
+        if loc and loc.location_type == LocationType.STATION_SUPPLY_ROOM:
+            _reconcile_supply_room_check(
+                db=db,
+                location_id=payload.location_id,
+                line_items=line_item_objects,
+                items_map=items_map,
+            )
 
     expired_count = sum(
         1 for li in line_item_objects if li.status == LineItemStatus.EXPIRED
