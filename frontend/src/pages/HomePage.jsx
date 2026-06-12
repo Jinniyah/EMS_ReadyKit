@@ -304,10 +304,11 @@ export default function HomePage() {
               setActiveModule(null)
               setActiveDraftKey(srDraftKey)
               setActiveWizard({
-                _supplyRoom:  true,
-                location_id:  locationId,
-                station_id:   selectedStation?.station_id,
-                started_at:   now,
+                _supplyRoom:     true,
+                location_id:     locationId,
+                station_id:      selectedStation?.station_id,
+                started_at:      now,
+                selection_label: 'Station Supply Room',
               })
             }}
           />

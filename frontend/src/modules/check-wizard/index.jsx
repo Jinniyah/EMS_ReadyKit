@@ -376,7 +376,7 @@ export default function CheckWizard({
       </Modal>
 
       {step !== STEP.SUBMITTED && (
-        <WizardProgress step={progressStep} draft={draft} compartments={compartmentList} />
+        <WizardProgress step={progressStep} draft={draft} compartments={compartmentList} selectionLabel={selectionLabel} />
       )}
 
       {step === STEP.VEHICLE && (

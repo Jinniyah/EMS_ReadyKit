@@ -1,48 +1,80 @@
 /**
  * modules/usage-log/index.jsx
- * After-Call Reset — "Log Items Used" flow.
+ * After-Call Reset -- "Log Items Used" flow.
  *
  * Steps:
- *   1. Vehicle picker (auto-skipped when station has exactly one active vehicle)
+ *   1. Unit picker -- vehicles AND portable locations (jump bags).
+ *      Auto-skipped when station has exactly one active unit total.
  *   2. Item picker (frequent items first, search, +/- per item)
  *   3. Confirmation screen after submit
  *
- * Target: ≤3 taps for single-vehicle stations with 1–3 items.
+ * Target: <=3 taps for single-unit stations with 1-3 items.
+ *
+ * USAGE-B1/B2: Submits vehicle_id OR location_id (never both, never neither
+ * when a unit is selected) so the backend can subtract usage from the correct
+ * unit's last-readings pre-fill, flagging shortages on the next check.
  */
 import React, { useEffect, useState, useMemo } from 'react'
 import { useAuth } from '../../shared/hooks/useAuth.jsx'
 import { vehicleApi } from '../vehicles/api/vehicleApi.js'
+import { checkApi } from '../check-wizard/api/checkApi.js'
 import { supplyApi } from '../supply-room/api/supplyApi.js'
 import { usageApi } from './api/usageApi.js'
 import Spinner from '../../shared/components/Spinner.jsx'
 import UsageItemPicker from './components/UsageItemPicker.jsx'
 import './usage-log.css'
 
+/**
+ * Build a unified unit list from vehicles + portable locations.
+ * Each entry has: { id, kind: 'vehicle'|'location', label, icon }
+ */
+function buildUnits(vehicles, locations) {
+  const vehicleUnits = vehicles
+    .filter(v => v.status === 'ACTIVE')
+    .map(v => ({
+      id:    v.vehicle_id,
+      kind:  'vehicle',
+      label: v.vehicle_number || `Vehicle ${v.vehicle_id}`,
+      icon:  '🚑',
+    }))
+
+  const locationUnits = locations
+    .filter(loc => !loc.retired_at)
+    .map(loc => ({
+      id:    loc.location_id,
+      kind:  'location',
+      label: loc.label || loc.location_type,
+      icon:  '🎒',
+    }))
+
+  return [...vehicleUnits, ...locationUnits]
+}
+
 export default function UsageLogScreen({ station, onBack }) {
   const { getToken } = useAuth()
 
-  const [step, setStep]                   = useState('loading')  // loading | vehicle | items | submitting | done | error
-  const [vehicles, setVehicles]           = useState([])
-  const [selectedVehicle, setSelectedVehicle] = useState(null)
-  const [catalogItems, setCatalogItems]   = useState([])
-  const [frequentItems, setFrequentItems] = useState([])
-  const [quantities, setQuantities]       = useState({})
-  const [loadError, setLoadError]         = useState(null)
-  const [submitError, setSubmitError]     = useState(null)
+  const [step, setStep]                     = useState('loading')
+  const [units, setUnits]                   = useState([])          // unified vehicle+location list
+  const [selectedUnit, setSelectedUnit]     = useState(null)        // { id, kind, label, icon }
+  const [catalogItems, setCatalogItems]     = useState([])
+  const [frequentItems, setFrequentItems]   = useState([])
+  const [quantities, setQuantities]         = useState({})
+  const [loadError, setLoadError]           = useState(null)
+  const [submitError, setSubmitError]       = useState(null)
   const [submittedCount, setSubmittedCount] = useState(0)
 
   useEffect(() => {
     if (!station?.station_id) return
     Promise.all([
       vehicleApi.getStationVehicles(station.station_id, getToken),
+      checkApi.getStationLocations(station.station_id, getToken).catch(() => []),
       supplyApi.getCatalog(station.station_id, getToken),
       usageApi.getFrequentItems(station.station_id, getToken),
     ])
-      .then(([vList, catalog, frequent]) => {
-        const active = vList.filter(v => v.status === 'ACTIVE')
-        setVehicles(active)
-        // Supply catalog includes all items; keep only SUPPLY type with station_supply
-        // The getCatalog endpoint (SR-B1) already filters to station_supply=true.
+      .then(([vList, locList, catalog, frequent]) => {
+        const allUnits = buildUnits(vList, locList)
+        setUnits(allUnits)
+
         setCatalogItems(
           catalog
             .filter(i => i.check_type === 'SUPPLY' || !i.check_type)
@@ -50,14 +82,13 @@ export default function UsageLogScreen({ station, onBack }) {
         )
         setFrequentItems(frequent)
 
-        if (active.length === 1) {
-          setSelectedVehicle(active[0])
-          setStep('items')
-        } else if (active.length === 0) {
-          setSelectedVehicle(null)
+        if (allUnits.length === 1) {
+          // Single unit -- skip the picker entirely
+          setSelectedUnit(allUnits[0])
           setStep('items')
         } else {
-          setStep('vehicle')
+          // Multiple units (or none) -- show the picker
+          setStep('unit')
         }
       })
       .catch(e => {
@@ -66,8 +97,8 @@ export default function UsageLogScreen({ station, onBack }) {
       })
   }, [station, getToken])
 
-  function handleVehicleSelect(vehicle) {
-    setSelectedVehicle(vehicle)
+  function handleUnitSelect(unit) {
+    setSelectedUnit(unit)
     setStep('items')
   }
 
@@ -87,15 +118,14 @@ export default function UsageLogScreen({ station, onBack }) {
     setStep('submitting')
     setSubmitError(null)
     try {
-      await usageApi.logUsage(
-        {
-          station_id: station.station_id,
-          vehicle_id: selectedVehicle?.vehicle_id ?? null,
-          timestamp:  new Date().toISOString(),
-          items:      selectedItems,
-        },
-        getToken
-      )
+      const payload = {
+        station_id:  station.station_id,
+        vehicle_id:  selectedUnit?.kind === 'vehicle'  ? selectedUnit.id : null,
+        location_id: selectedUnit?.kind === 'location' ? selectedUnit.id : null,
+        timestamp:   new Date().toISOString(),
+        items:       selectedItems,
+      }
+      await usageApi.logUsage(payload, getToken)
       setSubmittedCount(selectedItems.length)
       setStep('done')
     } catch (e) {
@@ -138,31 +168,23 @@ export default function UsageLogScreen({ station, onBack }) {
         </div>
       )}
 
-      {/* Step 1: Vehicle picker */}
-      {step === 'vehicle' && (
+      {/* Step 1: Unit picker (vehicles + portable locations) */}
+      {step === 'unit' && (
         <div className="ul-body">
-          <p className="ul-prompt">Which vehicle was on the call?</p>
+          <p className="ul-prompt">Which unit was on the call?</p>
           <div className="ul-vehicle-list">
-            {vehicles.map(v => (
+            {units.map(unit => (
               <button
-                key={v.vehicle_id}
+                key={`${unit.kind}-${unit.id}`}
                 className="ul-vehicle-btn"
-                onClick={() => handleVehicleSelect(v)}
+                onClick={() => handleUnitSelect(unit)}
                 type="button"
               >
-                <span className="ul-vehicle-btn__icon" aria-hidden="true">🚑</span>
-                <span className="ul-vehicle-btn__name">{v.vehicle_number || `Vehicle ${v.vehicle_id}`}</span>
+                <span className="ul-vehicle-btn__icon" aria-hidden="true">{unit.icon}</span>
+                <span className="ul-vehicle-btn__name">{unit.label}</span>
                 <span className="ul-vehicle-btn__arrow" aria-hidden="true">›</span>
               </button>
             ))}
-            <button
-              className="ul-vehicle-btn ul-vehicle-btn--skip"
-              onClick={() => handleVehicleSelect(null)}
-              type="button"
-            >
-              <span className="ul-vehicle-btn__name ul-vehicle-btn__name--muted">Not vehicle-specific</span>
-              <span className="ul-vehicle-btn__arrow" aria-hidden="true">›</span>
-            </button>
           </div>
         </div>
       )}
@@ -170,14 +192,14 @@ export default function UsageLogScreen({ station, onBack }) {
       {/* Step 2: Item picker */}
       {step === 'items' && (
         <div className="ul-body ul-body--items">
-          {selectedVehicle && (
+          {selectedUnit && (
             <div className="ul-vehicle-badge">
-              🚑 {selectedVehicle.vehicle_number || `Vehicle ${selectedVehicle.vehicle_id}`}
+              {selectedUnit.icon} {selectedUnit.label}
               <button
                 className="ul-vehicle-badge__change"
-                onClick={() => vehicles.length > 1 ? setStep('vehicle') : null}
+                onClick={() => units.length > 1 ? setStep('unit') : null}
                 type="button"
-                style={{ display: vehicles.length > 1 ? undefined : 'none' }}
+                style={{ display: units.length > 1 ? undefined : 'none' }}
               >
                 Change
               </button>
@@ -229,7 +251,7 @@ export default function UsageLogScreen({ station, onBack }) {
           <h2 className="ul-done__heading">Logged!</h2>
           <p className="ul-done__detail">
             {submittedCount} item{submittedCount !== 1 ? 's' : ''} recorded.
-            Supply room counts updated.
+            {selectedUnit ? ` ${selectedUnit.label} quantities updated.` : ''}
           </p>
           <button
             className="btn btn--primary btn--large"

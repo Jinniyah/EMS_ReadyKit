@@ -15,9 +15,13 @@
  */
 import React from 'react'
 
-const STEPS = ['Vehicle', 'Compartments', 'Items', 'Restock', 'Submit']
+const DEFAULT_STEPS = ['Vehicle', 'Compartments', 'Items', 'Restock', 'Submit']
 
-export default function WizardProgress({ step, draft, compartments }) {
+export default function WizardProgress({ step, draft, compartments, selectionLabel }) {
+  const steps = [
+    selectionLabel || 'Vehicle',
+    ...DEFAULT_STEPS.slice(1),
+  ]
   const compDrafts        = Object.values(draft?.compartments ?? {})
   const totalCompartments = compartments?.length ?? 0
   const doneCompartments  = compDrafts.filter(c => c.status === 'complete').length
@@ -34,7 +38,7 @@ export default function WizardProgress({ step, draft, compartments }) {
   return (
     <div className="wizard-progress" role="navigation" aria-label="Check progress">
       <div className="wizard-progress__steps">
-        {STEPS.map((label, i) => (
+        {steps.map((label, i) => (
           <div
             key={label}
             className={[

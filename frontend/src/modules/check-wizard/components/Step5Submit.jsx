@@ -18,7 +18,7 @@ import {
   collectFailItems,
   buildAutoRepairNotes,
 } from '../../../shared/utils/statusCalc.js'
-import { formatCheckDate } from '../../../shared/utils/dateHelpers.js'
+import { formatCheckDate, todayIso } from '../../../shared/utils/dateHelpers.js'
 import StatusBadge from '../../../shared/components/StatusBadge.jsx'
 import Modal from '../../../shared/components/Modal.jsx'
 
@@ -65,7 +65,7 @@ export default function Step5Submit({
   })()
 
   const isPass = overallStatusKey === 'PASS'
-  const displayDate  = checkDate ?? draft?.check_date
+  const displayDate  = checkDate ?? draft?.check_date ?? todayIso()
   const checkSubject = vehicle
     ? `Unit ${vehicle.vehicle_number}`
     : selectionLabel || 'This check'
