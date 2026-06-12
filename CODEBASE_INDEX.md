@@ -219,7 +219,6 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 | `components/SupplyCatalogView.jsx` | — | SR-F3: catalog from SR-B1 (now returns compartment_id/name + is_damaged); items grouped by shelf; ⚠ Damaged badge (DMG-F3); per-shelf CompartmentParLevels add button for Supervisor+ (SS-F2). |
 | `components/ReceiveStockPanel.jsx` | 8 KB | Manual add + CSV bulk upload |
 | `components/TransferHistory.jsx` | 4 KB | Inbound/outbound transfer log |
-| `components/RestockVehiclePanel.jsx` | 9 KB | Retired — no longer imported or routed. Kept for historical reference. |
 | `components/UsageLogView.jsx` | — | Session N: Usage history — event rows with date/user/vehicle/items. Uses `.ulh-*` classes from usage-log.css. |
 
 ### usage-log/  (After-Call Reset — Session N)
@@ -402,9 +401,7 @@ Idempotent — safe to re-run. Reseed sequence: `Remove-Item ems_readykit_dev.db
 | `deploy.zip` | Build artifact in repo root; add to .gitignore + `git rm --cached deploy.zip` |
 | `app/tests/test_routers.py` | 67 KB — split by domain when it next needs major additions |
 | `frontend/src/modules/admin/components/VehiclesScreen.jsx` | 25 KB — extract sub-components when next modified |
-| CSS patch files | `module-card-fix.css`, `submitted-screen-patch.css`, `wizard-station.css`, `wizard.css` in src root — consolidate into module CSS files |
-| `frontend/src/styles/wizard.css` | Should be in `modules/check-wizard/` — move when next modified |
-| `Step3Items.jsx` `_damagedOverrides` comment | Abandoned approach — remove on next touch |
+| `frontend/src/styles/wizard.css` | Consolidated from 3 old patch files; ideally moves to `modules/check-wizard/` — defer until next modification |
 
 ---
 

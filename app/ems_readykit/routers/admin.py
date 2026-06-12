@@ -914,6 +914,32 @@ def update_par_level(
     return _enrich_par(par, db)
 
 
+class _ParLevelDeactivateRequest(BaseModel):
+    reason: Optional[str] = None
+
+
+def _do_deactivate_par_level(
+    par_id: int,
+    actor: str,
+    db: Session,
+    reason: Optional[str] = None,
+) -> None:
+    par = _get_par_or_404(par_id, db)
+    if not par.active:
+        raise HTTPException(status_code=409, detail="Par level is already inactive.")
+    par.active = False
+    par.deactivated_at = datetime.now(timezone.utc)
+    par.deactivation_reason = reason or None
+    write_audit_event(
+        db,
+        actor=actor,
+        action="PAR_DEACTIVATED",
+        entity_type="par_level",
+        entity_id=str(par_id),
+        metadata={"reason": reason},
+    )
+
+
 @router.patch(
     "/par-levels/{par_id}/deactivate",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -921,23 +947,12 @@ def update_par_level(
 )
 def deactivate_par_level(
     par_id: int,
+    payload: _ParLevelDeactivateRequest,
     db: Session = Depends(get_db),
-    _: None = Depends(require_role(*SUPERVISOR_PLUS)),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> None:
-    par = _get_par_or_404(par_id, db)
-    if not par.active:
-        raise HTTPException(status_code=409, detail="Par level is already inactive.")
-    par.active = False
-    par.deactivated_at = datetime.now(timezone.utc)
-    db.commit()
-    logger.info(
-        "Par level deactivated: par_id=%s",
-        par_id,
-        extra={
-            "action": "PAR_DEACTIVATED",
-            "entity_type": "par_level",
-            "entity_id": str(par_id),
-        },
+    _do_deactivate_par_level(
+        par_id, current_user.email or current_user.user_id, db, payload.reason
     )
 
 
@@ -949,23 +964,9 @@ def deactivate_par_level(
 def remove_par_level(
     par_id: int,
     db: Session = Depends(get_db),
-    _: None = Depends(require_role(*SUPERVISOR_PLUS)),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> None:
-    par = _get_par_or_404(par_id, db)
-    if not par.active:
-        raise HTTPException(status_code=409, detail="Par level is already inactive.")
-    par.active = False
-    par.deactivated_at = datetime.now(timezone.utc)
-    db.commit()
-    logger.info(
-        "Par level removed (DELETE): par_id=%s",
-        par_id,
-        extra={
-            "action": "PAR_DEACTIVATED",
-            "entity_type": "par_level",
-            "entity_id": str(par_id),
-        },
-    )
+    _do_deactivate_par_level(par_id, current_user.email or current_user.user_id, db)
 
 
 @router.get(

@@ -31,13 +31,6 @@ export const checkHistoryApi = {
     return apiGet(`${BASE}/checks/daily/station/${stationId}${qs}`, getToken)
   },
 
-  /**
-   * @deprecated Use getStationChecks() — kept for any callers still on the
-   * today-only path until the compliance calendar is built (F-5F2).
-   */
-  getStationChecksToday: (stationId, getToken) =>
-    apiGet(`${BASE}/checks/daily/station/${stationId}/today`, getToken),
-
   /** CH-B2: Full check detail — Responders own only, Supervisor+ any */
   getCheckDetail: (checkId, getToken) =>
     apiGet(`${BASE}/checks/daily/${checkId}/detail`, getToken),

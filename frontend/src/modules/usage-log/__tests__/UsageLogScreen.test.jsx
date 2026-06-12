@@ -45,7 +45,7 @@ function setupMocks({ vehicles = [VEHICLE_712, VEHICLE_540], locations = [] } = 
     login:           vi.fn(),
     logout:          vi.fn(),
   })
-  vehicleApi.getStationVehicles     = vi.fn().mockResolvedValue(vehicles)
+  vehicleApi.getActiveStationVehicles = vi.fn().mockResolvedValue(vehicles)
   checkApi.getStationLocations      = vi.fn().mockResolvedValue(locations)
   supplyApi.getCatalog              = vi.fn().mockResolvedValue(CATALOG)
   usageApi.getFrequentItems         = vi.fn().mockResolvedValue([])
