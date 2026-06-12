@@ -30,7 +30,7 @@ import './usage-log.css'
  */
 function buildUnits(vehicles, locations) {
   const vehicleUnits = vehicles
-    .filter(v => v.status === 'ACTIVE' && !v.retired_at)
+    .filter(v => v.active === true && !v.retired_at)
     .map(v => ({
       id:    v.vehicle_id,
       kind:  'vehicle',

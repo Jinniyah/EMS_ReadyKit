@@ -1,6 +1,6 @@
 # CLAUDE.md — AI Development Rules for EMS ReadyKit
-# Last updated: 2026-06-11
-# Updated: Session R post-close — pytest/alembic venv note; Black+Ruff required at session end
+# Last updated: 2026-06-12
+# Updated: Session U — filesystem:edit_file permanently banned; write_file is the only safe edit tool
 # Load this file at the start of every session alongside CODEBASE_INDEX.md.
 
 ---
@@ -29,9 +29,6 @@ Do not write session handoff files — backlog.md is the single source of truth.
   attempt to run them yourself — ask the user to run them and paste the output.
 - **grep equivalent:** use `Select-String` or `findstr` in PowerShell,
   OR use `bash_tool` with `grep` when the filesystem MCP is insufficient
-- **Line endings:** CRLF — if `filesystem:edit_file` fails on exact match,
-  CRLF in the file may be the cause; use `filesystem:write_file` to rewrite
-  the whole file as a fallback
 
 ---
 
@@ -50,13 +47,26 @@ Do not write session handoff files — backlog.md is the single source of truth.
 3. Use `filesystem:read_multiple_files` to read related files simultaneously
    (e.g., router + schema + model when adding an endpoint).
 
-### Editing
-- Use `filesystem:edit_file` for surgical edits within existing files.
-- `filesystem:edit_file` requires **exact whitespace matching** in `oldText`.
-  If it fails silently, use `bash_tool` with `grep -n` to find exact line content.
-- Use `filesystem:write_file` to create new files or fully replace a file.
+### Editing — CRITICAL RULE
+**NEVER use `filesystem:edit_file` in this repo. Use `filesystem:write_file` for ALL file changes.**
+
+`filesystem:edit_file` silently fails on Windows CRLF line endings — it reports
+success, shows a valid-looking diff, but the file on disk is unchanged. This has
+caused bugs being committed that appeared fixed. The failure mode is invisible:
+the tool returns no error, the diff looks correct, and the bug ships anyway.
+
+**The only safe workflow:**
+1. Read the full file with `filesystem:read_text_file`
+2. Make the change in memory
+3. Write the entire file back with `filesystem:write_file`
+
+This applies to every file in the repo — .py, .jsx, .js, .css, .md, everything.
+Never use `filesystem:edit_file` regardless of how small the change is.
+
+### New files
+- Use `filesystem:write_file` to create new files.
 - **Never use the sandbox `create_file` tool** — it writes to the container,
-  not the repo. All file creation must use `filesystem:write_file`.
+  not the repo.
 
 ### The `filesystem:read_text_file` view_range parameter
 Has been unreliable in past sessions — if it returns from line 1 regardless
@@ -75,11 +85,11 @@ from ems_readykit.routers.deps import (
 )
 ```
 **Never** define local `_ALL_ROLES`, `_SUPERVISOR_PLUS`, or `_get_vehicle_or_404()`
-in a router. Those were consolidated into deps.py in Session B (REF-1–REF-7).
+in a router. Those were consolidated into deps.py in Session B (REF-1--REF-7).
 
 ### Audit events
 Always use `core/audit.py::write_audit_event()`. Never write `AuditEvent(...)`
-inline in a router — the helper includes the required `logger.info` call.
+inline in a router -- the helper includes the required `logger.info` call.
 
 ### Role enforcement pattern
 ```python
@@ -100,7 +110,7 @@ operation that touches station-scoped data. Administrators bypass automatically.
 or `current_user.oid`). Never trust a client-supplied user identity field.
 
 ### Rate limiting
-Rate limiter lives in `core/limiter.py` (not `main.py` — avoids circular import).
+Rate limiter lives in `core/limiter.py` (not `main.py` -- avoids circular import).
 Import the singleton in route handlers:
 ```python
 from ems_readykit.core.limiter import limiter, DAILY_CHECK_RATE_LIMIT
@@ -111,17 +121,17 @@ async def create_daily_check(request: Request, ...):
     ...
 ```
 - `TESTING=true` (set by `conftest.py` before `main.py` loads) makes the limiter
-  use a very high limit — it never fires during the test suite.
-- `check_date` is always server-derived from the `timestamp` field — never
+  use a very high limit -- it never fires during the test suite.
+- `check_date` is always server-derived from the `timestamp` field -- never
   accepted from the client directly.
-- `performed_by` always uses `current_user.email or current_user.name` — never
+- `performed_by` always uses `current_user.email or current_user.name` -- never
   a client-supplied value.
 
 ### Status computation
 Check and line-item status are **computed server-side only**. Never accept
 status values from the client. Business rules:
 - `EXPIRED` beats `MISSING` (conservative compliance)
-- One `FAIL` line item → whole check is `FAIL`
+- One `FAIL` line item -> whole check is `FAIL`
 - `NEEDS_RESTOCK` is second-worst
 
 ### Migrations
@@ -133,28 +143,28 @@ status values from the client. Business rules:
 ### Tests
 - Test DB: SQLite in-memory (conftest.py); no external services needed
 - Run: `cd app; pytest`
-- Test count: **363 tests** (Session N post-close baseline) — all must be green before any commit
+- Test count: **363 tests** (Session N post-close baseline) -- all must be green before any commit
 - **Persona test files** (Session L, do not delete):
-  - `tests/test_priority_items.py` — AED + LUCAS; runs first; legal audit trail assertions
-  - `tests/test_persona_responder.py` — Jamie (tired responder); all 5 check types; FAIL + comment flow
-  - `tests/test_persona_supervisor.py` — Earl (non-tech supervisor); damaged item regression; repair requests
-  - `tests/test_persona_admin.py` — Jennifer (admin); supply room decrement; role alias regression
-  - `tests/test_safety_checks.py` — O2 PSI below minimum; date recurrence overdue; requires_full_check (xfail until SEED-GAP2 implemented)
-  - `tests/test_seed_integrity.py` — verifies seeded dev DB is correct; uses `seeded_db` fixture (not `db`)
-  - `tests/test_usage.py` — Session N: POST /checks/usage (create, FIFO decrement, 403/404); GET history + frequent items
-- **Two DB fixtures** — do not mix them:
-  - `db` — in-memory SQLite, starts empty, rolls back after each test; use for all API/logic tests
-  - `seeded_db` — read-only connection to `ems_readykit_dev.db`; use ONLY in `test_seed_integrity.py`;
+  - `tests/test_priority_items.py` -- AED + LUCAS; runs first; legal audit trail assertions
+  - `tests/test_persona_responder.py` -- Jamie (tired responder); all 5 check types; FAIL + comment flow
+  - `tests/test_persona_supervisor.py` -- Earl (non-tech supervisor); damaged item regression; repair requests
+  - `tests/test_persona_admin.py` -- Jennifer (admin); supply room decrement; role alias regression
+  - `tests/test_safety_checks.py` -- O2 PSI below minimum; date recurrence overdue; requires_full_check (xfail until SEED-GAP2 implemented)
+  - `tests/test_seed_integrity.py` -- verifies seeded dev DB is correct; uses `seeded_db` fixture (not `db`)
+  - `tests/test_usage.py` -- Session N: POST /checks/usage (create, FIFO decrement, 403/404); GET history + frequent items
+- **Two DB fixtures** -- do not mix them:
+  - `db` -- in-memory SQLite, starts empty, rolls back after each test; use for all API/logic tests
+  - `seeded_db` -- read-only connection to `ems_readykit_dev.db`; use ONLY in `test_seed_integrity.py`;
     skips automatically if dev DB does not exist; never write to it in tests
-- `test_routers.py` is 67 KB — prefer adding to domain-specific files when one exists
-- **TestClient.delete() body** — Starlette TestClient does not support `json=` or `content=` on DELETE;
+- `test_routers.py` is 67 KB -- prefer adding to domain-specific files when one exists
+- **TestClient.delete() body** -- Starlette TestClient does not support `json=` or `content=` on DELETE;
   use `client.request("DELETE", url, content=json.dumps(body), headers={..."Content-Type": "application/json"})` instead
-- **write_audit_event kwargs** — always `actor=` and `metadata=`; never `performed_by=` or `detail=` (Session J bug)
+- **write_audit_event kwargs** -- always `actor=` and `metadata=`; never `performed_by=` or `detail=` (Session J bug)
 - When adding a new endpoint, add tests to the appropriate persona or domain test file
 
 ---
 
-## Code Rules — Frontend (React / Vite PWA)
+## Code Rules -- Frontend (React / Vite PWA)
 
 ### Module structure
 Each module in `src/modules/` is self-contained:
@@ -188,20 +198,29 @@ Check `shared/api/client.js` for how it's consumed. The dev banner
 Never use `<form>` elements in React components. Use `onClick`/`onChange`
 event handlers instead. (Causes submit behavior issues in the PWA.)
 
-### CSS and theming — mandatory rules
-1. **Tokens only.** All CSS values must use tokens from `index.css :root` — no hardcoded hex colors, raw rem values, or raw px sizes except for `0`, `1px` borders, and media query breakpoints.
+### Vehicle API response shape
+The Vehicle model returns `active: boolean` and `retired_at: string|null`.
+There is NO `status` field. When filtering vehicles in frontend code always use:
+```js
+v.active === true && !v.retired_at   // active and not retired
+```
+Never `v.status === 'ACTIVE'` -- that field does not exist and will silently
+filter out all vehicles (learned from Session U UAT bug).
+
+### CSS and theming -- mandatory rules
+1. **Tokens only.** All CSS values must use tokens from `index.css :root` -- no hardcoded hex colors, raw rem values, or raw px sizes except for `0`, `1px` borders, and media query breakpoints.
 2. **Shared utility classes first.** Before writing custom CSS, check if `index.css` already has a class that does the job: `.ems-card`, `.ems-card--warn/fail/pass`, `.ems-section-head`, `.ems-preview-row`.
 3. **Station color is always `var(--station-primary)` / `var(--station-text)`.** Vehicle color is `var(--vehicle-primary)` which inherits station color by default; override via inline style on the component root.
 4. **Semantic color tokens for new Session H/I/J features:** `--color-damaged`/`--color-damaged-bg`, `--color-priority`/`--color-priority-bg`, `--color-no-change`/`--color-no-change-bg`.
-5. **Module CSS placement.** New styles go in the relevant module CSS file (e.g. `supervisor.css`, `supply-room.css`). Never create a new patch/fix CSS file — if a module doesn't have a CSS file yet, create one. Never create new root-level CSS files in `src/`.
-6. **Shared component CSS belongs in `index.css`.** Any CSS class used by a component in `src/shared/components/` — or reused across two or more modules — must live in `index.css`, not in a single module's CSS file. If it lives in e.g. `admin.css`, it will be missing whenever the admin module is not loaded. Confirmed victims moved to `index.css`: `.item-combobox` (ItemSearchCombobox), `.csv-import` (CsvImport / ReceiveStockPanel). If you spot an unstyled shared component during UAT, check whether its CSS class is scoped to a module file.
+5. **Module CSS placement.** New styles go in the relevant module CSS file (e.g. `supervisor.css`, `supply-room.css`). Never create a new patch/fix CSS file -- if a module doesn't have a CSS file yet, create one. Never create new root-level CSS files in `src/`.
+6. **Shared component CSS belongs in `index.css`.** Any CSS class used by a component in `src/shared/components/` -- or reused across two or more modules -- must live in `index.css`, not in a single module's CSS file. If it lives in e.g. `admin.css`, it will be missing whenever the admin module is not loaded. Confirmed victims moved to `index.css`: `.item-combobox` (ItemSearchCombobox), `.csv-import` (CsvImport / ReceiveStockPanel). If you spot an unstyled shared component during UAT, check whether its CSS class is scoped to a module file.
 
-### UX constraints — these are non-negotiable
+### UX constraints -- these are non-negotiable
 - Minimum tap target: **60px**
 - Design for **60+ year old users** with limited tech comfort (primary persona:
   68-year-old retired police chief on iPhone)
-- One task at a time — no multi-panel or multi-step actions on one screen
-- Plain English labels — no jargon
+- One task at a time -- no multi-panel or multi-step actions on one screen
+- Plain English labels -- no jargon
 - High contrast for bright sunlight readability
 - Large text wherever possible
 
@@ -232,11 +251,11 @@ No handoff files. At the end of every session:
 1. Move completed items to `docs/backlog_completed.md`
 2. Update session complete line + summary table in `docs/backlog.md`
 3. Ask the user to run `cd app; pytest` and confirm all tests pass
-4. Ask the user to run `cd app; ruff check .` and `black --check .` — fix any
+4. Ask the user to run `cd app; ruff check .` and `black --check .` -- fix any
    violations before declaring the session complete
-5. Update `CODEBASE_INDEX.md` — file sizes, new files, migration list, flagged items
+5. Update `CODEBASE_INDEX.md` -- file sizes, new files, migration list, flagged items
 6. Add any new architectural decisions to CLAUDE.md Key Architectural Decisions table
-7. Note incomplete items with 🔄 In progress status in backlog.md
+7. Note incomplete items with In progress status in backlog.md
 
 ---
 
@@ -247,22 +266,24 @@ No handoff files. At the end of every session:
 | Status computation | Server-side only, never from client |
 | Identity binding | JWT-bound server-side only |
 | Audit writes | Always via `core/audit.py::write_audit_event()` |
-| Role constants | Always from `deps.py` — never re-declare locally |
+| Role constants | Always from `deps.py` -- never re-declare locally |
 | Station scoping | Always call `require_station_membership()` |
 | Rate limiter | Lives in `core/limiter.py`; `TESTING=true` disables it in tests; `check_date` server-derived; `performed_by` = email |
-| Draft key | Includes `started_at` — supports multi-draft |
-| StationMember.user_id | Email (preferred_username), not OID — see station_members.py |
-| Supply room | Uses `LocationType.STATION_SUPPLY_ROOM` — not a fake vehicle |
-| Build zip | Always on Linux in CI — Windows paths break Oryx extraction |
+| Draft key | Includes `started_at` -- supports multi-draft |
+| StationMember.user_id | Email (preferred_username), not OID -- see station_members.py |
+| Supply room | Uses `LocationType.STATION_SUPPLY_ROOM` -- not a fake vehicle |
+| Build zip | Always on Linux in CI -- Windows paths break Oryx extraction |
 | OpenAPI docs | Disabled in production (SEC-2) |
-| X-Frame-Options | NOT set on API — set in staticwebapp.config.json (SWA only) |
-| Migration booleans | Always use Python `True`/`False` in raw SQL parameters — never `0`/`1`. PostgreSQL rejects integer literals for boolean columns; SQLite accepts them silently. |
+| X-Frame-Options | NOT set on API -- set in staticwebapp.config.json (SWA only) |
+| Migration booleans | Always use Python `True`/`False` in raw SQL parameters -- never `0`/`1`. PostgreSQL rejects integer literals for boolean columns; SQLite accepts them silently. |
 | Vehicle on-hand | Computed from last check `quantity_found`, not stock lots. Once items leave the supply room the stock room doesn't track them on the vehicle. `stockQtyMap` removed from compartment card calculations. |
-| No Change line items | `buildNoChangeLineItems` skips ALL reading types (MEASUREMENT, FUNCTIONAL, DATE_RECORD). Submitting null reading values → MISSING → FAIL on backend. Reading items must be confirmed inline and merged separately. Mirror: `_compute_line_item_status` in checks.py. |
+| No Change line items | `buildNoChangeLineItems` skips ALL reading types (MEASUREMENT, FUNCTIONAL, DATE_RECORD). Submitting null reading values -> MISSING -> FAIL on backend. Reading items must be confirmed inline and merged separately. Mirror: `_compute_line_item_status` in checks.py. |
 | Supply room wizard | Pass `{ _supplyRoom: true, location_id, station_id }` as `activeWizard` to launch wizard for supply room. `Step1Vehicle` detects `draft._supplyRoom` and auto-calls `onSelect` with the supply room location, skipping vehicle selection entirely. |
 | `station_supply` flag | `Item.station_supply = False` excludes item from supply catalog (SR-B1). Set in seed.py for AED, LUCAS, drug items. FUNCTIONAL items are also excluded by SR-B1 query regardless of flag. |
-| Auto-decrement supply room | `_auto_decrement_supply_room` fires in `create_daily_check` only when `payload.vehicle_id` is set — supply room checks (vehicle_id=None) do NOT trigger auto-decrement. Best-effort: depletes to zero, never blocks submission. |
-| Supply room creation | `POST /stations/{id}/supply-room` is get-or-create (Supervisor+). Frontend detects 404 from `getSupplyRoom` via `e.status === 404`, shows setup state. `TimestampMixin` uses Python-side `default=` only — raw SQL INSERTs must include `CURRENT_TIMESTAMP` for `created_at`/`updated_at`. |
+| Auto-decrement supply room | `_auto_decrement_supply_room` fires in `create_daily_check` only when `payload.vehicle_id` is set -- supply room checks (vehicle_id=None) do NOT trigger auto-decrement. Best-effort: depletes to zero, never blocks submission. |
+| Supply room creation | `POST /stations/{id}/supply-room` is get-or-create (Supervisor+). Frontend detects 404 from `getSupplyRoom` via `e.status === 404`, shows setup state. `TimestampMixin` uses Python-side `default=` only -- raw SQL INSERTs must include `CURRENT_TIMESTAMP` for `created_at`/`updated_at`. |
+| File editing | ALWAYS use `filesystem:write_file` -- NEVER `filesystem:edit_file`. The edit tool silently fails on Windows CRLF files, reports success, shows a valid diff, but leaves the file unchanged on disk. |
+| Vehicle API shape | No `status` field exists. Filter active vehicles with `v.active === true && !v.retired_at`. Never `v.status === 'ACTIVE'`. |
 
 ---
 
@@ -274,8 +295,8 @@ Address these when touching the relevant area:
 |------|----------|--------|
 | `ems_readykit_dev.db` committed | `app/` | `git rm --cached app/ems_readykit_dev.db` |
 | `deploy.zip` committed | repo root | Add to .gitignore; `git rm --cached deploy.zip` |
-| `test_routers.py` | `app/tests/` | 67 KB — split by domain when it next needs major additions |
-| `admin/components/VehiclesScreen.jsx` | frontend | 25 KB — extract sub-components when next modified |
-| CSS patch files | `frontend/src/` | `module-card-fix.css`, `submitted-screen-patch.css`, `wizard-station.css`, `wizard.css` in src root — consolidate into module CSS files |
-| `wizard.css` location | `frontend/src/styles/` | Should be in `modules/check-wizard/` — move when next modified |
-| `_damagedOverrides` comment | `modules/check-wizard/components/Step3Items.jsx` | Abandoned approach left as comment artifact — remove on next touch |
+| `test_routers.py` | `app/tests/` | 67 KB -- split by domain when it next needs major additions |
+| `admin/components/VehiclesScreen.jsx` | frontend | 25 KB -- extract sub-components when next modified |
+| CSS patch files | `frontend/src/` | `module-card-fix.css`, `submitted-screen-patch.css`, `wizard-station.css`, `wizard.css` in src root -- consolidate into module CSS files |
+| `wizard.css` location | `frontend/src/styles/` | Should be in `modules/check-wizard/` -- move when next modified |
+| `_damagedOverrides` comment | `modules/check-wizard/components/Step3Items.jsx` | Abandoned approach left as comment artifact -- remove on next touch |

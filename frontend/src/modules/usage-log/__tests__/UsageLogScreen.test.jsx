@@ -27,8 +27,10 @@ import UsageLogScreen from '../index.jsx'
 
 const STATION = { station_id: 1, name: 'Test Station' }
 
-const VEHICLE_712 = { vehicle_id: 10, vehicle_number: '712', status: 'ACTIVE' }
-const VEHICLE_540 = { vehicle_id: 11, vehicle_number: '540', status: 'ACTIVE' }
+// Vehicle fixtures use the real API shape: active (boolean), retired_at (null|string).
+// There is NO status field -- the backend returns active:true, not status:'ACTIVE'.
+const VEHICLE_712 = { vehicle_id: 10, vehicle_number: '712', active: true, retired_at: null }
+const VEHICLE_540 = { vehicle_id: 11, vehicle_number: '540', active: true, retired_at: null }
 const JUMP_BAG    = { location_id: 20, label: 'Jump Bag', location_type: 'JUMP_BAG', retired_at: null }
 
 const CATALOG = [
