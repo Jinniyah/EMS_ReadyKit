@@ -14,7 +14,7 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { useAuth } from '../shared/hooks/useAuth.jsx'
 import { useApi } from '../shared/hooks/useApi.js'
-import { useDraftIndex } from '../shared/hooks/useDraft.js'
+import { useDraftIndex, draftKey } from '../shared/hooks/useDraft.js'
 import { canAccess } from '../shared/utils/roleGuard.js'
 import { useRoleMode } from '../shared/hooks/useRoleMode.jsx'
 import { stationColor } from '../shared/utils/stationColors.js'
@@ -299,11 +299,15 @@ export default function HomePage() {
             station={selectedStation}
             onBack={() => setActiveModule(null)}
             onCountSupplies={(locationId) => {
+              const now = new Date().toISOString()
+              const srDraftKey = draftKey(locationId, now)
               setActiveModule(null)
+              setActiveDraftKey(srDraftKey)
               setActiveWizard({
-                _supplyRoom: true,
-                location_id: locationId,
-                station_id:  selectedStation?.station_id,
+                _supplyRoom:  true,
+                location_id:  locationId,
+                station_id:   selectedStation?.station_id,
+                started_at:   now,
               })
             }}
           />
