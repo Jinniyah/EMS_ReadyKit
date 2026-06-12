@@ -237,6 +237,7 @@ export default function SupervisorDashboard({ station, onBack, onNavigateToVehic
             <ComplianceCalendar
               station={station}
               vehicles={vehicles}
+              portables={portables}
               onViewCheck={handleCalendarCheckClick}
             />
           </ErrorBoundary>

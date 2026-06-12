@@ -115,6 +115,7 @@ class DailyInventoryCheckRead(DailyInventoryCheckBase):
 
     check_id: int
     status: CheckStatus
+    subject_label: str  # computed from vehicle or location relationship
     line_items: List[CheckLineItemRead] = Field(default_factory=list)
 
     # Acknowledgement (B-M7)

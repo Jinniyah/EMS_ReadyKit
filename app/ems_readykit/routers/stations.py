@@ -257,6 +257,7 @@ def list_station_locations(
                     LocationType.EQUIPMENT,
                 ]
             ),
+            InventoryLocation.retired_at.is_(None),
         )
         .order_by(InventoryLocation.label)
         .all()

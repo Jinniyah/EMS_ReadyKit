@@ -37,6 +37,7 @@ from ems_readykit.models.base import TimestampMixin
 
 if TYPE_CHECKING:
     from ems_readykit.models.check_line_item import CheckLineItem
+    from ems_readykit.models.inventory_location import InventoryLocation
     from ems_readykit.models.vehicle import Vehicle
 
 
@@ -90,7 +91,14 @@ class DailyInventoryCheck(TimestampMixin, Base):
     force_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # ── Relationships ─────────────────────────────────────────────────────────
-    vehicle: Mapped["Vehicle"] = relationship("Vehicle", back_populates="daily_checks")
+    vehicle: Mapped[Optional["Vehicle"]] = relationship(
+        "Vehicle", back_populates="daily_checks"
+    )
+    location: Mapped[Optional["InventoryLocation"]] = relationship(
+        "InventoryLocation",
+        foreign_keys=[location_id],
+        lazy="select",
+    )
     line_items: Mapped[List["CheckLineItem"]] = relationship(
         "CheckLineItem",
         back_populates="check",
@@ -101,6 +109,15 @@ class DailyInventoryCheck(TimestampMixin, Base):
     @property
     def is_deleted(self) -> bool:
         return self.deleted_at is not None
+
+    @property
+    def subject_label(self) -> str:
+        """Human-readable label for what was checked -- shown in check history rows."""
+        if self.vehicle is not None:
+            return f"Unit {self.vehicle.vehicle_number}"
+        if self.location is not None:
+            return self.location.label
+        return "Unknown"
 
     def __repr__(self) -> str:
         return (

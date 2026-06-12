@@ -101,9 +101,9 @@ function MonthCalendar({ todayIso, days, index, vehicles, selectedVehicleId, onV
 
   function checksForDay(dateIso) {
     if (selectedVehicleId) {
-      return index[selectedVehicleId]?.[dateIso] ?? []
+      return index[`v:${selectedVehicleId}`]?.[dateIso] ?? []
     }
-    return vehicles.flatMap(v => index[v.vehicle_id]?.[dateIso] ?? [])
+    return vehicles.flatMap(v => index[`v:${v.vehicle_id}`]?.[dateIso] ?? [])
   }
 
   function handleCellClick(dateIso) {
@@ -187,7 +187,7 @@ function MonthCalendar({ todayIso, days, index, vehicles, selectedVehicleId, onV
 
 // ── ComplianceCalendar ────────────────────────────────────────────────────────
 
-export default function ComplianceCalendar({ station, vehicles, onViewCheck }) {
+export default function ComplianceCalendar({ station, vehicles, portables = [], onViewCheck }) {
   const { getToken } = useAuth()
   const today    = useMemo(() => new Date(), [])
   const todayIso = useMemo(() => localIso(today), [today])
@@ -197,7 +197,10 @@ export default function ComplianceCalendar({ station, vehicles, onViewCheck }) {
   const [viewedYear,  setViewedYear]  = useState(today.getFullYear())
   const [viewedMonth, setViewedMonth] = useState(today.getMonth()) // 0-indexed
 
-  const activeVehicles = vehicles.filter(v => v.active)
+  const activeVehicles  = vehicles.filter(v => v.active)
+  // Portable locations are shown in the calendar regardless of retirement status
+  // (retired ones are already excluded upstream by the dashboard data fetch).
+  const activePortables = portables
 
   // ── Earliest check date — bounds backwards navigation ────────────────────
 
@@ -255,21 +258,22 @@ export default function ComplianceCalendar({ station, vehicles, onViewCheck }) {
     [station.station_id, fromIso, toIso]
   )
 
-  // Index: vehicleId → date → checks[]
+  // Index: 'v:{vehicle_id}' → date → checks[]  for vehicles
+  //         'l:{location_id}' → date → checks[]  for portable locations
   const index = useMemo(() => {
     if (!checks) return {}
     const map = {}
     for (const chk of checks) {
-      const vid = chk.vehicle_id
+      const key = chk.vehicle_id != null ? `v:${chk.vehicle_id}` : `l:${chk.location_id}`
       const dt  = chk.check_date
-      if (!map[vid]) map[vid] = {}
-      if (!map[vid][dt]) map[vid][dt] = []
-      map[vid][dt].push(chk)
+      if (!map[key]) map[key] = {}
+      if (!map[key][dt]) map[key][dt] = []
+      map[key][dt].push(chk)
     }
     return map
   }, [checks])
 
-  // Week mode: vehicles × days grid — show all vehicles
+  // Week mode: all active vehicles + all active portables as rows
   const displayVehicles = useMemo(() => {
     if (mode === 'week') return activeVehicles
     if (selectedVehicleId === null) return activeVehicles
@@ -278,8 +282,8 @@ export default function ComplianceCalendar({ station, vehicles, onViewCheck }) {
 
   // ── Cell click (week view) ────────────────────────────────────────────────
 
-  function handleWeekCellClick(vehicleId, dateIso) {
-    const dayChecks = index[vehicleId]?.[dateIso]
+  function handleWeekCellClick(key, dateIso) {
+    const dayChecks = index[key]?.[dateIso]
     if (!dayChecks?.length) return
     const order  = { FAIL: 0, NEEDS_RESTOCK: 1, PASS: 2 }
     const sorted = [...dayChecks].sort((a, b) => (order[a.status] ?? 3) - (order[b.status] ?? 3))
@@ -296,8 +300,8 @@ export default function ComplianceCalendar({ station, vehicles, onViewCheck }) {
     return `${MONTH_NAMES[from.getMonth()]} ${from.getDate()} – ${MONTH_NAMES[to.getMonth()]} ${to.getDate()}, ${to.getFullYear()}`
   }
 
-  if (!activeVehicles.length) {
-    return <div className="cal-empty">No active vehicles to display.</div>
+  if (!activeVehicles.length && !activePortables.length) {
+    return <div className="cal-empty">No active vehicles or equipment to display.</div>
   }
 
   return (
@@ -401,6 +405,7 @@ export default function ComplianceCalendar({ station, vehicles, onViewCheck }) {
             {/* Vehicle rows */}
             {displayVehicles.map(vehicle => {
               const color = vehicleColor(vehicle, station)
+              const vkey  = `v:${vehicle.vehicle_id}`
               return (
                 <div key={vehicle.vehicle_id} className="cal__row" role="row">
                   <div
@@ -416,7 +421,7 @@ export default function ComplianceCalendar({ station, vehicles, onViewCheck }) {
                     const iso       = localIso(d)
                     const isToday   = iso === todayIso
                     const isPast    = iso < todayIso
-                    const dayChecks = index[vehicle.vehicle_id]?.[iso] ?? []
+                    const dayChecks = index[vkey]?.[iso] ?? []
                     const status    = worstStatus(dayChecks.map(c => c.status))
                     const isMissed  = isPast && !status
                     const isClickable = !!status
@@ -433,11 +438,62 @@ export default function ComplianceCalendar({ station, vehicles, onViewCheck }) {
                         ].filter(Boolean).join(' ')}
                         aria-label={`${vehicle.vehicle_number} ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}: ${label}`}
                         tabIndex={isClickable ? 0 : -1}
-                        onClick={() => isClickable && handleWeekCellClick(vehicle.vehicle_id, iso)}
+                        onClick={() => isClickable && handleWeekCellClick(vkey, iso)}
                         onKeyDown={e => {
                           if (isClickable && (e.key === 'Enter' || e.key === ' ')) {
                             e.preventDefault()
-                            handleWeekCellClick(vehicle.vehicle_id, iso)
+                            handleWeekCellClick(vkey, iso)
+                          }
+                        }}
+                      >
+                        <span aria-hidden="true">{glyph}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })}
+
+            {/* Portable location rows (jump bags, equipment) */}
+            {mode === 'week' && activePortables.map(loc => {
+              const lkey = `l:${loc.location_id}`
+              const icon = loc.location_type === 'JUMP_BAG' ? '🎒' : '🔧'
+              return (
+                <div key={`loc-${loc.location_id}`} className="cal__row" role="row">
+                  <div
+                    className="cal__vehicle-label"
+                    role="rowheader"
+                    title={loc.label}
+                  >
+                    <span style={{ fontSize: '0.85rem', marginRight: '4px' }} aria-hidden="true">{icon}</span>
+                    <span className="cal__vehicle-num" style={{ fontSize: '0.75rem' }}>{loc.label}</span>
+                  </div>
+                  {days.map(d => {
+                    const iso       = localIso(d)
+                    const isToday   = iso === todayIso
+                    const isPast    = iso < todayIso
+                    const dayChecks = index[lkey]?.[iso] ?? []
+                    const status    = worstStatus(dayChecks.map(c => c.status))
+                    const isMissed  = isPast && !status
+                    const isClickable = !!status
+                    const { glyph, label, cls } = STATUS_GLYPH[status] ?? { glyph: '—', label: 'No check', cls: '' }
+                    return (
+                      <div
+                        key={iso}
+                        role="gridcell"
+                        className={[
+                          'cal-cell', cls,
+                          isToday    && 'cal-cell--today',
+                          isMissed   && 'cal-cell--missed',
+                          isClickable && 'cal-cell--clickable',
+                        ].filter(Boolean).join(' ')}
+                        aria-label={`${loc.label} ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}: ${label}`}
+                        tabIndex={isClickable ? 0 : -1}
+                        onClick={() => isClickable && handleWeekCellClick(lkey, iso)}
+                        onKeyDown={e => {
+                          if (isClickable && (e.key === 'Enter' || e.key === ' ')) {
+                            e.preventDefault()
+                            handleWeekCellClick(lkey, iso)
                           }
                         }}
                       >

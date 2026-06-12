@@ -301,3 +301,36 @@ def test_list_retired_lots(
     lots = resp.json()
     assert len(lots) >= 1
     assert any(lot["lot_id"] == stock_lot.lot_id for lot in lots)
+
+
+# ── RET-B2b: Retired location excluded from check wizard ─────────────────────
+
+
+def test_retired_location_excluded_from_station_locations(
+    client, auth_admin, station, admin_member, jump_bag
+):
+    """A retired jump bag must not appear in GET /stations/{id}/locations."""
+    # Verify it shows before retirement
+    resp = client.get(
+        f"/api/v1/stations/{station.station_id}/locations",
+        headers=auth_admin,
+    )
+    assert resp.status_code == 200
+    ids_before = [loc["location_id"] for loc in resp.json()]
+    assert jump_bag.location_id in ids_before
+
+    # Retire it
+    client.patch(
+        f"/api/v1/inventory/locations/{jump_bag.location_id}/retire",
+        json={"retirement_reason": "Worn out."},
+        headers=auth_admin,
+    )
+
+    # Must not appear after retirement
+    resp = client.get(
+        f"/api/v1/stations/{station.station_id}/locations",
+        headers=auth_admin,
+    )
+    assert resp.status_code == 200
+    ids_after = [loc["location_id"] for loc in resp.json()]
+    assert jump_bag.location_id not in ids_after

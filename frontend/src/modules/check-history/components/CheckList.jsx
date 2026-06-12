@@ -77,12 +77,12 @@ export default function CheckList({ checks, onSelectCheck, showPerformedBy = fal
                       </span>
                       <div className="check-list__row-info">
                         <span className="check-list__row-title">
-                          {showPerformedBy ? check.performed_by : formatTime(check.timestamp)}
+                          {showPerformedBy ? check.performed_by : check.subject_label ?? formatTime(check.timestamp)}
                         </span>
                         <span className="check-list__row-sub">
                           {showPerformedBy
-                            ? formatTime(check.timestamp)
-                            : `${check.line_items?.length ?? 0} items`}
+                            ? `${check.subject_label ?? ''}  ·  ${formatTime(check.timestamp)}`
+                            : formatTime(check.timestamp)}
                         </span>
                       </div>
                     </div>
