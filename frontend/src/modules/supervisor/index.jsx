@@ -47,6 +47,11 @@ export default function SupervisorDashboard({ station, onBack, onNavigateToVehic
     [station.station_id]
   )
 
+  const { data: damagedItems } = useApi(
+    () => supervisorApi.getDamagedItems(station.station_id, getToken),
+    [station.station_id]
+  )
+
   // If a check detail is requested (either from today's cards or from the calendar),
   // push to CheckDetailPanel
   if (selectedCheck) {
@@ -93,8 +98,9 @@ export default function SupervisorDashboard({ station, onBack, onNavigateToVehic
   const expiryUrgent  = expiryGroups.reduce((n, g) => n + g.lots.filter(l => l.days_until_expiry <= 7).length, 0)
 
   const supplyLow = supplyAlerts ?? []
+  const damaged   = damagedItems ?? []
 
-  const allClear = summary.fail === 0 && summary.unchecked === 0 && summary.total > 0 && expiryUrgent === 0 && supplyLow.length === 0
+  const allClear = summary.unresolvedFail === 0 && summary.unchecked === 0 && summary.total > 0 && expiryUrgent === 0 && supplyLow.length === 0 && damaged.length === 0
 
   const dateLabel = new Date().toLocaleDateString(undefined, {
     weekday: 'long', month: 'long', day: 'numeric',
@@ -145,9 +151,9 @@ export default function SupervisorDashboard({ station, onBack, onNavigateToVehic
           </ErrorBoundary>
 
           <div className="sup-dashboard__alerts">
-            {summary.fail > 0 && (
+            {summary.unresolvedFail > 0 && (
               <div className="sup-alert sup-alert--fail" role="alert">
-                ✗ {summary.fail} {summary.fail !== 1 ? 'items' : 'item'} failed today's check
+                ✗ {summary.unresolvedFail} {summary.unresolvedFail !== 1 ? 'items' : 'item'} failed today's check
                 — tap to review and fix
               </div>
             )}
@@ -176,6 +182,23 @@ export default function SupervisorDashboard({ station, onBack, onNavigateToVehic
               />
             )}
             <SupplyLowStockPanel alerts={supplyLow} onGoToSupplyRoom={onNavigateToSupplyRoom} />
+            {damaged.length > 0 && (
+              <details className="sup-alert sup-alert--damaged">
+                <summary>
+                  ⚠ {damaged.length} damaged item{damaged.length !== 1 ? 's' : ''} on equipment — tap to see
+                </summary>
+                <ul className="sup-alert__damaged-list">
+                  {damaged.map((d, i) => (
+                    <li key={i}>
+                      <strong>{d.item_name}</strong>
+                      <span className="sup-alert__damaged-location">
+                        {d.vehicle_number ?? d.location_label} · {d.compartment_name}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
             {allClear && openRepairCount === 0 && expiryTotal === 0 && (
               <div className="sup-alert sup-alert--all-clear">
                 ✓ All vehicles and equipment checked — no issues today

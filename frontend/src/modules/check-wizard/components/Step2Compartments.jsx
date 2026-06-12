@@ -410,7 +410,12 @@ export default function Step2Compartments({
                   )}
                   {damagedCount > 0 && (
                     <div className="compartment-card__damaged-badge" role="note">
-                      ⚠ {damagedCount} damaged item{damagedCount !== 1 ? 's' : ''}
+                      <span>⚠ {damagedCount} damaged item{damagedCount !== 1 ? 's' : ''}:</span>
+                      {compPars.filter(pl => pl.is_damaged).map(pl => (
+                        <span key={pl.par_id} className="compartment-card__damaged-name">
+                          {itemMap[pl.item_id]?.name ?? `Item #${pl.item_id}`}
+                        </span>
+                      ))}
                     </div>
                   )}
                 </div>

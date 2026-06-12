@@ -625,6 +625,70 @@ def get_supply_alerts(
     return alerts
 
 
+# ── GET /stations/{station_id}/damaged-items — SUP-DMG1 ─────────────────────────
+
+
+class _DamagedItem(BaseModel):
+    item_name: str
+    vehicle_number: Optional[str]
+    location_label: str
+    compartment_name: str
+
+
+@router.get(
+    "/{station_id}/damaged-items",
+    response_model=List[_DamagedItem],
+    summary="Items currently marked damaged at this station (SUP-DMG1)",
+    dependencies=[Depends(require_role(*SUPERVISOR_PLUS))],
+)
+def get_damaged_items(
+    station_id: int,
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
+    db: Session = Depends(get_db),
+) -> List[_DamagedItem]:
+    """
+    Returns all par level entries flagged is_damaged=True at active vehicle
+    and portable locations for this station. Used by the compliance dashboard
+    to surface damaged items to the supervisor without requiring a check tap.
+    """
+    _get_station_or_404(station_id, db)
+    require_station_membership(station_id, current_user, db)
+
+    rows = (
+        db.query(
+            Item.name.label("item_name"),
+            Vehicle.vehicle_number,
+            InventoryLocation.label.label("location_label"),
+            Compartment.name.label("compartment_name"),
+        )
+        .join(ParLevel, ParLevel.item_id == Item.item_id)
+        .join(
+            InventoryLocation,
+            InventoryLocation.location_id == ParLevel.location_id,
+        )
+        .outerjoin(Vehicle, Vehicle.vehicle_id == InventoryLocation.vehicle_id)
+        .join(Compartment, Compartment.compartment_id == ParLevel.compartment_id)
+        .filter(
+            InventoryLocation.station_id == station_id,
+            InventoryLocation.retired_at.is_(None),
+            ParLevel.is_damaged == True,  # noqa: E712
+            ParLevel.active == True,  # noqa: E712
+        )
+        .order_by(Item.name)
+        .all()
+    )
+
+    return [
+        _DamagedItem(
+            item_name=row.item_name,
+            vehicle_number=row.vehicle_number,
+            location_label=row.location_label,
+            compartment_name=row.compartment_name,
+        )
+        for row in rows
+    ]
+
+
 # ── GET /stations/{station_id} ─────────────────────────────────────────────────
 
 

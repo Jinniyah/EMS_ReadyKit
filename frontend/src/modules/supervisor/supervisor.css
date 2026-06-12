@@ -662,3 +662,17 @@
 .sup-supply-row__count--out { color: var(--color-status-fail); }
 
 .sup-supply-panel__go-btn { margin-top: var(--space-sm); width: 100%; }
+
+/* ── Damaged items panel (SUP-DMG1) ─────────────────────────────────────────── */
+
+.sup-alert--damaged { background: var(--color-status-fail-bg); border: 2px solid var(--color-status-fail); color: #7f1d1d; cursor: pointer; width: 100%; border-radius: var(--radius-md); padding: var(--space-sm) var(--space-md); }
+.sup-alert--damaged summary { font-size: var(--font-size-sm); font-weight: 600; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+.sup-alert--damaged summary::-webkit-details-marker { display: none; }
+.sup-alert--damaged summary::after { content: '▼'; font-size: var(--font-size-xs); margin-left: var(--space-sm); }
+.sup-alert--damaged[open] summary::after { content: '▲'; }
+
+.sup-alert__damaged-list { margin: var(--space-sm) 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-xs); }
+.sup-alert__damaged-list li { display: flex; flex-direction: column; padding: 6px 0; border-top: 1px solid rgba(127,29,29,0.15); font-size: var(--font-size-sm); }
+.sup-alert__damaged-list li:first-child { border-top: none; }
+.sup-alert__damaged-list strong { font-weight: 600; color: #7f1d1d; }
+.sup-alert__damaged-location { font-size: var(--font-size-xs); color: #9a3535; margin-top: 2px; }

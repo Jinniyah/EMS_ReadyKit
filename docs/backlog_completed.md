@@ -475,3 +475,7 @@ Vitest + React Testing Library component tests. 10 new test files. No backend ch
 | F-UX35 | Draft banner station fallback — localStorage cache | 2026-05-25 |
 | F-5H1–F-5H4 | Azure Static Web Apps provisioning and CI/CD 4-job pipeline | 2026-05-24 |
 | I-7 | Azure deployment healthy — App Service B1, VNet, CI/CD green | 2026-05-24 |
+| SUP-DMG-FIX1 | Compliance dashboard FAIL banner persisted after fix — switched to unresolvedFail count (vehicles with open repairs resolved) | 2026-06-12 |
+| SUP-DMG1 | GET /stations/{id}/damaged-items endpoint — returns is_damaged=True par levels with item name, vehicle, compartment; Supervisor+ + membership enforced | 2026-06-12 |
+| SUP-DMG1-FE | Damaged items banner on compliance dashboard — collapsible details panel listing item + vehicle + compartment; allClear accounts for damaged items | 2026-06-12 |
+| SUP-DMG1-TEST | test_damaged_items.py — 13 tests covering happy path, portable locations, retired locations, inactive par levels, station isolation, RBAC, 404; 410 total passing | 2026-06-12 |

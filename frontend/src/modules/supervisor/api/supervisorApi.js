@@ -69,13 +69,31 @@ export const supervisorApi = {
         result.status === 'fulfilled' ? result.value.checks : []
     })
 
+    // Build repairStateByVehicle first so we can use it for unresolvedFailCount
+    const repairStateByVehicleTemp = {}
+    repairResults.forEach((result, i) => {
+      const vid = vehicles.filter(v => v.active)[i]?.vehicle_id
+      if (vid) {
+        repairStateByVehicleTemp[vid] = result.status === 'fulfilled'
+          ? { openCount: result.value.openCount, hasResolved: result.value.hasResolved }
+          : { openCount: 0, hasResolved: false }
+      }
+    })
+
     const activeVehicles = vehicles.filter(v => v.active)
     let passCount = 0, failCount = 0, restockCount = 0, uncheckedCount = 0
+    let unresolvedFailCount = 0
 
     activeVehicles.forEach(v => {
       const checks = checksByVehicle[v.vehicle_id] ?? []
       if (checks.length === 0)                      uncheckedCount++
-      else if (checks[0].status === 'FAIL')          failCount++
+      else if (checks[0].status === 'FAIL') {
+        failCount++
+        // A FAIL is resolved when all repair requests are closed and at least one was resolved
+        const rs = repairStateByVehicleTemp[v.vehicle_id]
+        const isResolved = rs && rs.openCount === 0 && rs.hasResolved
+        if (!isResolved) unresolvedFailCount++
+      }
       else if (checks[0].status === 'NEEDS_RESTOCK') restockCount++
       else                                           passCount++
     })
@@ -83,7 +101,10 @@ export const supervisorApi = {
     portables.forEach(loc => {
       const checks = checksByLocation[loc.location_id] ?? []
       if (checks.length === 0)                      uncheckedCount++
-      else if (checks[0].status === 'FAIL')          failCount++
+      else if (checks[0].status === 'FAIL') {
+        failCount++
+        unresolvedFailCount++ // portables don't have repair state; always show
+      }
       else if (checks[0].status === 'NEEDS_RESTOCK') restockCount++
       else                                           passCount++
     })
@@ -95,15 +116,7 @@ export const supervisorApi = {
     // Per-vehicle repair state — used by VehicleComplianceCard to show
     // 'Fixed' when issues were resolved via V&E Status (not just via
     // the supervisor dashboard "I fixed this" flow).
-    const repairStateByVehicle = {}
-    repairResults.forEach((result, i) => {
-      const vid = vehicles.filter(v => v.active)[i]?.vehicle_id
-      if (vid) {
-        repairStateByVehicle[vid] = result.status === 'fulfilled'
-          ? { openCount: result.value.openCount, hasResolved: result.value.hasResolved }
-          : { openCount: 0, hasResolved: false }
-      }
-    })
+    const repairStateByVehicle = repairStateByVehicleTemp
 
     return {
       vehicles,
@@ -113,11 +126,12 @@ export const supervisorApi = {
       openRepairCount,
       repairStateByVehicle,
       summary: {
-        total:     activeVehicles.length + portables.length,
-        pass:      passCount,
-        fail:      failCount,
-        restock:   restockCount,
-        unchecked: uncheckedCount,
+        total:          activeVehicles.length + portables.length,
+        pass:           passCount,
+        fail:           failCount,
+        restock:        restockCount,
+        unchecked:      uncheckedCount,
+        unresolvedFail: unresolvedFailCount,
       },
     }
   },
@@ -139,6 +153,9 @@ export const supervisorApi = {
 
   getSupplyAlerts: (stationId, getToken) =>
     apiGet(`${BASE}/stations/${stationId}/supply-alerts`, getToken).catch(() => []),
+
+  getDamagedItems: (stationId, getToken) =>
+    apiGet(`${BASE}/stations/${stationId}/damaged-items`, getToken).catch(() => []),
 
   getCheckDetail: (checkId, getToken) =>
     checkHistoryApi.getCheckDetail(checkId, getToken),
