@@ -54,7 +54,7 @@ RES-41,8. Step 4 - Reconcile Flagged Items,"For one flagged item add a comment: 
 RES-42,9. Step 4 Review and Step 5 Submit,Proceed to the Review step.,,A summary appears showing all compartments and their status.,PASS,
 RES-43,9. Step 4 Review and Step 5 Submit,Look at the overall status shown.,,"Status is PASS, NEEDS_RESTOCK, or FAIL based on what you entered.",PASS,
 RES-44,9. Step 4 Review and Step 5 Submit,Tap Submit.,,A Submitted confirmation screen appears with the status and timestamp.,PASS,
-RES-45,9. Step 4 Review and Step 5 Submit,Tap Start New Check.,,You are returned to Step 1 - vehicle selection. The wizard is fresh.,PASS,
+RES-45,9. Step 4 Review and Step 5 Submit,Tap Start New Check.,,You are returned to Step 1 - vehicle selection. The wizard is fresh.,,"If an item was deactivated, it is still counted in the Daily Check."
 ,,,,,,
 RES-46,10. Priority Items in Check - O2 PSI,Start a new check on Unit 712. Get to Step 2.,,Priority items section shows AED and LUCAS at the top.,PASS,
 RES-47,10. Priority Items in Check - O2 PSI,Scroll down to find the O2 PSI items (Stretcher O2 or On-Board O2). Open those compartments.,,Compartments containing O2 tank items appear in the list.,,

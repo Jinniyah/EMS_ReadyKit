@@ -1,6 +1,6 @@
 # CLAUDE.md — AI Development Rules for EMS ReadyKit
 # Last updated: 2026-06-12
-# Updated: Session U — filesystem:edit_file permanently banned; write_file is the only safe edit tool
+# Updated: Session V — SR-B5 supply room reconcile documented; Session U — filesystem:edit_file permanently banned
 # Load this file at the start of every session alongside CODEBASE_INDEX.md.
 
 ---
@@ -143,15 +143,16 @@ status values from the client. Business rules:
 ### Tests
 - Test DB: SQLite in-memory (conftest.py); no external services needed
 - Run: `cd app; pytest`
-- Test count: **363 tests** (Session N post-close baseline) -- all must be green before any commit
+- Test count: **418+ tests** (Session U post-close baseline) -- all must be green before any commit
 - **Persona test files** (Session L, do not delete):
   - `tests/test_priority_items.py` -- AED + LUCAS; runs first; legal audit trail assertions
   - `tests/test_persona_responder.py` -- Jamie (tired responder); all 5 check types; FAIL + comment flow
   - `tests/test_persona_supervisor.py` -- Earl (non-tech supervisor); damaged item regression; repair requests
   - `tests/test_persona_admin.py` -- Jennifer (admin); supply room decrement; role alias regression
-  - `tests/test_safety_checks.py` -- O2 PSI below minimum; date recurrence overdue; requires_full_check (xfail until SEED-GAP2 implemented)
+  - `tests/test_safety_checks.py` -- O2 PSI below minimum; date recurrence overdue; requires_full_check enforcement
   - `tests/test_seed_integrity.py` -- verifies seeded dev DB is correct; uses `seeded_db` fixture (not `db`)
   - `tests/test_usage.py` -- Session N: POST /checks/usage (create, FIFO decrement, 403/404); GET history + frequent items
+  - `tests/test_damaged_items.py` -- Session U: GET /stations/{id}/damaged-items; RBAC + station isolation; 13 tests
 - **Two DB fixtures** -- do not mix them:
   - `db` -- in-memory SQLite, starts empty, rolls back after each test; use for all API/logic tests
   - `seeded_db` -- read-only connection to `ems_readykit_dev.db`; use ONLY in `test_seed_integrity.py`;
@@ -278,9 +279,10 @@ No handoff files. At the end of every session:
 | Migration booleans | Always use Python `True`/`False` in raw SQL parameters -- never `0`/`1`. PostgreSQL rejects integer literals for boolean columns; SQLite accepts them silently. |
 | Vehicle on-hand | Computed from last check `quantity_found`, not stock lots. Once items leave the supply room the stock room doesn't track them on the vehicle. `stockQtyMap` removed from compartment card calculations. |
 | No Change line items | `buildNoChangeLineItems` skips ALL reading types (MEASUREMENT, FUNCTIONAL, DATE_RECORD). Submitting null reading values -> MISSING -> FAIL on backend. Reading items must be confirmed inline and merged separately. Mirror: `_compute_line_item_status` in checks.py. |
-| Supply room wizard | Pass `{ _supplyRoom: true, location_id, station_id }` as `activeWizard` to launch wizard for supply room. `Step1Vehicle` detects `draft._supplyRoom` and auto-calls `onSelect` with the supply room location, skipping vehicle selection entirely. |
+| Supply room wizard | Pass `{ _supplyRoom: true, location_id, station_id, selection_label: 'Station Supply Room' }` as `activeWizard` to launch wizard for supply room. `Step1Vehicle` detects `draft._supplyRoom` and auto-calls `onSelect`. `selection_label` must be in initialDraft so Step 5 check subject and WizardProgress step 1 label are correct on both fresh start and resume. |
 | `station_supply` flag | `Item.station_supply = False` excludes item from supply catalog (SR-B1). Set in seed.py for AED, LUCAS, drug items. FUNCTIONAL items are also excluded by SR-B1 query regardless of flag. |
-| Auto-decrement supply room | `_auto_decrement_supply_room` fires in `create_daily_check` only when `payload.vehicle_id` is set -- supply room checks (vehicle_id=None) do NOT trigger auto-decrement. Best-effort: depletes to zero, never blocks submission. |
+| Auto-decrement supply room | `_auto_decrement_supply_room` (SR-B4) fires in `create_daily_check` only when `payload.vehicle_id` is set -- vehicle checks only. Best-effort: depletes to zero, never blocks submission. |
+| Supply room check reconcile | `_reconcile_supply_room_check` (SR-B5) fires in `create_daily_check` when `payload.location_id` is set AND location type is `STATION_SUPPLY_ROOM`. Treats `quantity_found` as new absolute on-hand truth; adjusts StockLot quantities FIFO (deduct for decrease, new adjustment lot for increase). This keeps View Supplies in sync after a supply room check is submitted. Best-effort: never raises. |
 | Supply room creation | `POST /stations/{id}/supply-room` is get-or-create (Supervisor+). Frontend detects 404 from `getSupplyRoom` via `e.status === 404`, shows setup state. `TimestampMixin` uses Python-side `default=` only -- raw SQL INSERTs must include `CURRENT_TIMESTAMP` for `created_at`/`updated_at`. |
 | File editing | ALWAYS use `filesystem:write_file` -- NEVER `filesystem:edit_file`. The edit tool silently fails on Windows CRLF files, reports success, shows a valid diff, but leaves the file unchanged on disk. |
 | Vehicle API shape | No `status` field exists. Filter active vehicles with `v.active === true && !v.retired_at`. Never `v.status === 'ACTIVE'`. |

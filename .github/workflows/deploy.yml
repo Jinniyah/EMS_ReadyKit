@@ -72,10 +72,12 @@ jobs:
         run: npm ci
 
       # SEC-PRE2: Dependency vulnerability audit (mirrors backend pip-audit pattern).
-      # Fails build on high/critical severity only.
+      # Fails build on high/critical production dependency vulnerabilities.
+      # --omit=dev excludes dev tooling (vite/esbuild) — those only run during
+      # the build step and are never present in the deployed static bundle.
       - name: Security audit
         working-directory: ${{ env.FRONTEND_DIR }}
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=high --omit=dev
 
       # SEC-PRE4: Lint check (catches undefined vars, hook violations).
       - name: Lint
