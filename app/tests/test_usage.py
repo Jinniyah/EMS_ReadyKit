@@ -23,6 +23,7 @@ Covers:
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 
 import pytest
 
@@ -541,10 +542,16 @@ class TestLastReadingsUsageSubtraction:
     """
 
     def _make_setup(self, db, station):
-        """Create vehicle + location + compartment + SUPPLY item + par level."""
+        """Create vehicle + location + compartment + SUPPLY item + par level.
+
+        Uses uuid4 for vehicle_number to guarantee uniqueness across all calls
+        within the same test session. id(station) was previously used but is
+        identical for all tests sharing the same fixture instance, causing a
+        UNIQUE constraint violation on the second _make_setup call.
+        """
         vehicle = Vehicle(
             station_id=station.station_id,
-            vehicle_number=f"LR-{id(station)}",
+            vehicle_number=f"LR-{uuid4().hex[:12]}",
             vehicle_type=VehicleType.BLS,
             active=True,
         )
@@ -570,7 +577,7 @@ class TestLastReadingsUsageSubtraction:
         db.flush()
 
         item = Item(
-            name=f"LR-Supply-Item-{id(vehicle)}",
+            name=f"LR-Supply-Item-{uuid4().hex[:12]}",
             category=ItemCategory.CONSUMABLE,
             check_type=ItemCheckType.SUPPLY,
             unit_of_measure="each",
@@ -715,7 +722,7 @@ class TestLastReadingsUsageSubtraction:
         vehicle, _location, comp, _ = self._make_setup(db, station)
 
         func_item = Item(
-            name=f"LR-Func-Item-{id(vehicle)}",
+            name=f"LR-Func-Item-{uuid4().hex[:12]}",
             category=ItemCategory.EQUIPMENT,
             check_type=ItemCheckType.FUNCTIONAL,
             unit_of_measure="N/A",

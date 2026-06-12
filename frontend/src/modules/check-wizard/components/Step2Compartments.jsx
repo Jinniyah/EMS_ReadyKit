@@ -5,18 +5,20 @@
  * Priority items (priority_check=true) are pulled above the compartment list.
  *
  * Each compartment card (not-started state) shows:
- *   • Reading confirmations — MEASUREMENT/FUNCTIONAL/DATE_RECORD items with
+ *   - Reading confirmations -- MEASUREMENT/FUNCTIONAL/DATE_RECORD items with
  *     last recorded value. Responder confirms inline; readings pre-populate Step 3.
- *   • Stock preview — first 3 SUPPLY items with current stock vs par.
- *   • No Change — enabled once all readings confirmed; attests SUPPLY items at par.
- *   • Modify  — opens Step 3 (readings pre-filled if already confirmed).
+ *   - Stock preview -- first 3 SUPPLY items with current stock vs par.
+ *   - No Change -- enabled once all readings confirmed. Records actual last-known
+ *     quantities (not par). If any item is short, the draft will flag it and
+ *     the wizard routes through Reconcile before Submit.
+ *   - Modify -- opens Step 3 (readings pre-filled if already confirmed).
  *
  * No Change is BLOCKED (hidden) when:
- *   • comp.requires_full_check === true
- *   • the compartment contains a priority item
+ *   - comp.requires_full_check === true
+ *   - the compartment contains a priority item
  * No Change is DISABLED (grayed) when readings exist but are not all confirmed.
  *
- * inProgress = cd?.status === 'in_progress' — only true after entering Step 3.
+ * inProgress = cd?.status === 'in_progress' -- only true after entering Step 3.
  * Confirming readings on the card keeps status as 'not_started'.
  */
 import React, { useState, useMemo, useEffect } from 'react'
@@ -42,22 +44,33 @@ function daysAgo(d) {
   return n === 0 ? 'today' : n === 1 ? 'yesterday' : `${n} days ago`
 }
 
-/** Build SUPPLY/DOCUMENT "No Change" line items — readings are merged separately. */
-function buildNoChangeLineItems(compParLevels, itemMap) {
+/**
+ * Build SUPPLY/DOCUMENT "No Change" line items -- readings are merged separately.
+ *
+ * quantity_found uses the actual last-known quantity from lastQtyMap so that
+ * short items remain flagged in the draft. Without this, every item would be
+ * recorded at par and draftNeedsReconcile() would never fire, silently burying
+ * shortages. Falls back to pl.min_quantity when no prior check exists (first
+ * check on a vehicle -- treat as at par since there is no evidence of shortage).
+ */
+function buildNoChangeLineItems(compParLevels, itemMap, lastQtyMap) {
   return compParLevels
     .filter(pl => pl.active !== false)
     .reduce((acc, pl) => {
       const item = itemMap[pl.item_id]
       const checkType = item?.check_type ?? 'SUPPLY'
-      // Reading types are confirmed inline on the card — skip here.
+      // Reading types are confirmed inline on the card -- skip here.
       if (READING_TYPES.has(checkType)) return acc
+      const quantityFound = lastQtyMap[pl.item_id] != null
+        ? lastQtyMap[pl.item_id]
+        : pl.min_quantity
       acc.push({
         item_id:           pl.item_id,
         item_name:         item?.name ?? '',
         check_type:        checkType,
         quantity_needed:   pl.min_quantity,
         min_value:         pl.min_value ?? item?.measurement_minimum ?? null,
-        quantity_found:    pl.min_quantity,
+        quantity_found:    quantityFound,
         measurement_value: null,
         functional_pass:   null,
         date_value:        null,
@@ -122,7 +135,7 @@ export default function Step2Compartments({
     return m
   }, [lastReadings])
 
-  // Last check quantity per item — source of truth for vehicle on-hand counts.
+  // Last check quantity per item -- source of truth for vehicle on-hand counts.
   // Stock lots track supply room inventory; once items leave the room they are
   // no longer the room's concern. Vehicle on-hand = what was last counted here.
   const lastQtyMap = useMemo(() => {
@@ -161,7 +174,7 @@ export default function Step2Compartments({
     <div className="wizard-step">
       <h2 className="wizard-step__title">Step 2 — Compartments</h2>
 
-      {/* ── Priority items — confirmed inline before compartment walk ─────── */}
+      {/* -- Priority items -- confirmed inline before compartment walk --------- */}
       {priorityItems.length > 0 && (
         <section className="priority-section" aria-label="Priority items">
           <div className="priority-section__header">
@@ -259,7 +272,7 @@ export default function Step2Compartments({
         Tap a compartment to check its items. Yellow means restock needed; red flags for supervisor.
       </p>
 
-      {/* ── Compartment list ─────────────────────────────────────────────── */}
+      {/* -- Compartment list ------------------------------------------------- */}
       <div className="compartment-list" role="list">
         {compartments?.map((comp) => {
           const compKey    = String(comp.compartment_id)
@@ -394,7 +407,7 @@ export default function Step2Compartments({
             )
           }
 
-          // Not started — show reading confirmations + preview + No Change / Modify
+          // Not started -- show reading confirmations + preview + No Change / Modify
           return (
             <div key={comp.compartment_id} id={`comp-${comp.compartment_id}`} role="listitem" className="compartment-card compartment-card--actions">
               <div className="compartment-card__header-row">
@@ -421,7 +434,7 @@ export default function Step2Compartments({
                 </div>
               </div>
 
-              {/* ── Reading confirmations ───────────────────────────────── */}
+              {/* -- Reading confirmations --------------------------------------- */}
               {readingPars.length > 0 && (
                 <div className="reading-checks">
                   {readingPars.map(pl => {
@@ -669,7 +682,7 @@ export default function Step2Compartments({
                   <button
                     className="btn btn--secondary compartment-card__no-change-btn"
                     onClick={() => {
-                      const lineItems = buildNoChangeLineItems(compPars, itemMap)
+                      const lineItems = buildNoChangeLineItems(compPars, itemMap, lastQtyMap)
                       onNoChangeCompartment(comp, lineItems)
                     }}
                     disabled={!allReadingsConfirmed}
@@ -699,7 +712,7 @@ export default function Step2Compartments({
         })}
       </div>
 
-      {/* Sticky jump button — scrolls to first unchecked compartment */}
+      {/* Sticky jump button -- scrolls to first unchecked compartment */}
       {(() => {
         if (allDone) return null
         const firstUnchecked = compartments?.find(c =>
