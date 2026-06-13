@@ -7,13 +7,13 @@
  *   - submitted-screen-patch.css (status variants, repair prompt, restock note)
  *
  * The originals in src/ can now be deleted.
- * module-card-fix.css was a placeholder comment only — also deleted.
+ * module-card-fix.css was a placeholder comment only -- also deleted.
  *
  * Import in main.jsx:
  *   import './styles/wizard.css'
  */
 
-/* ── Check wizard ──────────────────────────────────────────────────────────── */
+/* -- Check wizard ---------------------------------------------------------- */
 .check-wizard { display: flex; flex-direction: column; gap: var(--space-md); padding-bottom: var(--space-xxl); }
 
 .wizard-header { display: flex; align-items: center; gap: var(--space-sm); min-height: var(--tap-target); }
@@ -76,7 +76,7 @@
 .vehicle-card--portable { border-style: dashed; }
 .vehicle-card--portable.vehicle-card--selected { border-style: solid; }
 
-/* ── Priority items section (RX-F9) ─────────────────────────────────────── */
+/* -- Priority items section (RX-F9) --------------------------------------- */
 .priority-section {
   display: flex;
   flex-direction: column;
@@ -147,12 +147,12 @@
 .compartment-card__status-stack       { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .compartment-card__in-progress-label  { font-size: 12px; color: var(--color-text-muted); }
 
-/* Compartment card — actions variant (not started, RX-F8) */
+/* Compartment card -- actions variant (not started, RX-F8) */
 .compartment-card--actions  { flex-direction: column; align-items: stretch; gap: var(--space-sm); padding: var(--space-md); }
 .compartment-card--actions:hover { background: var(--color-surface); }
 .compartment-card__header-row { display: flex; align-items: flex-start; gap: var(--space-md); }
 
-/* Compartment card — No Change confirmed variant */
+/* Compartment card -- No Change confirmed variant */
 .compartment-card--no-change { border-color: var(--color-no-change); background: var(--color-no-change-bg); }
 .compartment-card__number--done {
   background: var(--color-no-change-bg);
@@ -169,7 +169,7 @@
 .preview-row--short .preview-row__stock { color: var(--color-status-warn); }
 .preview-row--more  { color: var(--color-text-muted); font-size: var(--font-size-xs); }
 
-/* Action row — No Change + Modify buttons */
+/* Action row -- No Change + Modify buttons */
 .compartment-card__action-row {
   display: flex;
   gap: var(--space-sm);
@@ -195,7 +195,7 @@
 }
 .btn--warn:hover { background: var(--color-status-warn); color: #fff; }
 
-/* ── Reading confirmation rows ─────────────────────────────────────────────── */
+/* -- Reading confirmation rows --------------------------------------------- */
 .reading-checks {
   border-top: 1px solid var(--color-border);
   padding: var(--space-sm) 0 0;
@@ -226,12 +226,15 @@
 .reading-row__last--none  { font-style: italic; }
 .reading-row__actions { display: flex; gap: var(--space-xs); flex-shrink: 0; }
 .reading-row__edit    { display: flex; align-items: center; gap: var(--space-xs); flex-shrink: 0; }
+/* Numeric reading input (O2 PSI, vitals, etc.) */
 .reading-row__input   { width: 80px; padding: var(--space-xs) var(--space-sm); font-size: var(--font-size-md); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+/* Date reading input needs more room for MM/DD/YYYY + calendar icon */
+.reading-row__input--date { width: 160px; min-width: 160px; }
 .reading-row__unit    { font-size: var(--font-size-sm); color: var(--color-text-secondary); white-space: nowrap; }
 .reading-row__edit-btn { flex-shrink: 0; }
 .btn--sm { min-height: 44px; padding: var(--space-xs) var(--space-sm); font-size: var(--font-size-sm); }
 
-/* Step 1 — collapsible date/crew disclosure */
+/* Step 1 -- collapsible date/crew disclosure */
 .step1-details-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 60px; padding: var(--space-sm) var(--space-md); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-md); color: var(--color-text-secondary); text-align: left; cursor: pointer; }
 .step1-details-toggle:hover { background: var(--color-surface-raised); }
 .step1-details-toggle__chevron { font-size: var(--font-size-sm); color: var(--color-text-muted); margin-left: var(--space-sm); flex-shrink: 0; }
@@ -354,7 +357,7 @@
 .toggle-btn--warn.toggle-btn--active { border-color: var(--color-status-fail); background: var(--color-status-fail-bg); color: var(--color-status-fail); }
 .step4-actions { display: flex; gap: var(--space-md); justify-content: space-between; flex-wrap: wrap; }
 
-/* ── Submitted screen ─────────────────────────────────────────────────────── */
+/* -- Submitted screen ------------------------------------------------------- */
 .submitted-screen { display: flex; flex-direction: column; align-items: center; gap: var(--space-lg); padding: var(--space-xl) 0; text-align: center; }
 .submitted-screen__checkmark { width: 96px; height: 96px; border-radius: 50%; background: var(--color-status-pass-bg); color: var(--color-status-pass); font-size: 56px; display: flex; align-items: center; justify-content: center; font-weight: 700; }
 .submitted-screen__title     { font-size: var(--font-size-h1); color: var(--color-status-pass); }
@@ -401,7 +404,7 @@
 .badge     { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700; }
 .badge--als{ background: var(--color-status-fail-bg); color: var(--color-status-fail); }
 
-/* ── Reconcile (Step 4) ───────────────────────────────────────────────────── */
+/* -- Reconcile (Step 4) ---------------------------------------------------- */
 .reconcile-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); flex-wrap: wrap; }
 .reconcile-header .wizard-step__title { margin: 0; }
 .reconcile-share-btn { flex-shrink: 0; font-size: var(--font-size-sm); white-space: nowrap; }
@@ -423,7 +426,7 @@
 .reconcile-row--short { background: var(--color-status-warn-bg); }
 .reconcile-row--fail  { background: var(--color-surface-raised); }
 
-/* ── First-run tutorial overlay ────────────────────────────────────────────── */
+/* -- First-run tutorial overlay -------------------------------------------- */
 .tutorial-overlay {
   position: fixed; inset: 0; z-index: 9999;
   background: var(--color-brand, #1e4d8c);
@@ -489,7 +492,7 @@
 .reconcile-row__supervisor-badge { align-self: flex-start; background: var(--color-status-fail-bg); color: var(--color-status-fail); font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: var(--radius-sm); }
 .reconcile-actions { display: flex; gap: var(--space-md); justify-content: space-between; flex-wrap: wrap; }
 
-/* ── Station selection (was wizard-station.css) ──────────────────────────── */
+/* -- Station selection (was wizard-station.css) ----------------------------- */
 .station-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--space-md); }
 .station-card { position: relative; display: flex; flex-direction: column; gap: var(--space-xs); padding: var(--space-md); background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-lg); text-align: left; min-height: 80px; overflow: hidden; transition: border-color var(--transition), background var(--transition); }
 .station-card--selected { border-color: var(--sc-primary, var(--color-brand)); background: var(--sc-light, rgba(26,58,92,0.05)); }

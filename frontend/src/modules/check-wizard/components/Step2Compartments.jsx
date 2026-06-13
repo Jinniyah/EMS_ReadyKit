@@ -20,6 +20,11 @@
  *
  * inProgress = cd?.status === 'in_progress' -- only true after entering Step 3.
  * Confirming readings on the card keeps status as 'not_started'.
+ *
+ * Priority item confirmations do NOT set the compartment status to 'in_progress'.
+ * They write a line item into the compartment's line_items array but leave the
+ * compartment at whatever status it was before (typically undefined / not_started),
+ * so the action card with No Change / Modify remains fully visible.
  */
 import React, { useState, useMemo, useEffect } from 'react'
 import { useAuth } from '../../../shared/hooks/useAuth.jsx'
@@ -157,7 +162,7 @@ export default function Step2Compartments({
     [parLevels]
   )
 
-  if (isLoading) return <Spinner label="Loading compartments…" />
+  if (isLoading) return <Spinner label="Loading compartments..." />
 
   const allDone = compartments?.every(c => {
     const cd = draft?.compartments?.[String(c.compartment_id)]
@@ -172,7 +177,7 @@ export default function Step2Compartments({
 
   return (
     <div className="wizard-step">
-      <h2 className="wizard-step__title">Step 2 — Compartments</h2>
+      <h2 className="wizard-step__title">Step 2 -- Compartments</h2>
 
       {/* -- Priority items -- confirmed inline before compartment walk --------- */}
       {priorityItems.length > 0 && (
@@ -235,7 +240,7 @@ export default function Step2Compartments({
                       )}
                       {lastCheckDate && lastFuncPass === false && (
                         <span className="priority-card__last-confirmed" style={{ color: 'var(--color-status-fail)' }}>
-                          Last check: {fmtDate(lastCheckDate)} — FAILED
+                          Last check: {fmtDate(lastCheckDate)} -- FAILED
                         </span>
                       )}
                       {!lastCheckDate && (
@@ -361,7 +366,7 @@ export default function Step2Compartments({
                 className="compartment-card compartment-card--done"
                 onClick={() => onSelectCompartment(comp)}
                 type="button"
-                aria-label={`${comp.name}, done — ${itemStatus?.label ?? ''}`}
+                aria-label={`${comp.name}, done -- ${itemStatus?.label ?? ''}`}
               >
                 <div className="compartment-card__number compartment-card__number--done" aria-hidden="true">✓</div>
                 <div className="compartment-card__info">
@@ -387,9 +392,9 @@ export default function Step2Compartments({
                 className="compartment-card compartment-card--in-progress"
                 onClick={() => onSelectCompartment(comp)}
                 type="button"
-                aria-label={`${comp.name}, in progress — ${itemStatus?.label ?? ''}`}
+                aria-label={`${comp.name}, in progress -- ${itemStatus?.label ?? ''}`}
               >
-                <div className="compartment-card__number" aria-hidden="true">…</div>
+                <div className="compartment-card__number" aria-hidden="true">...</div>
                 <div className="compartment-card__info">
                   <div className="compartment-card__name">{comp.name}</div>
                   {comp.location_descriptor && (
@@ -604,7 +609,7 @@ export default function Step2Compartments({
                           {isEditing ? (
                             <div className="reading-row__edit">
                               <input
-                                className="reading-row__input"
+                                className="reading-row__input reading-row__input--date"
                                 type="date"
                                 defaultValue={curDate ?? lastDate ?? ''}
                                 id={`reading-edit-${pl.item_id}`}
@@ -660,7 +665,7 @@ export default function Step2Compartments({
                         <span className="preview-row__stock">
                           {known
                             ? (isShort ? `↓ ${qty} / ${pl.min_quantity}` : `${qty} / ${pl.min_quantity}`)
-                            : `— / ${pl.min_quantity}`}
+                            : `-- / ${pl.min_quantity}`}
                         </span>
                       </div>
                     )
@@ -689,7 +694,7 @@ export default function Step2Compartments({
                     type="button"
                     aria-label={
                       allReadingsConfirmed
-                        ? `No Change — attest all items at par for ${comp.name}`
+                        ? `No Change -- attest all items at par for ${comp.name}`
                         : 'Confirm readings above first'
                     }
                   >

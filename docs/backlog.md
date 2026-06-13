@@ -1,5 +1,5 @@
 # EMS ReadyKit — Active Backlog
-# v1.86 | Updated: 2026-06-12 | Session V complete — Administrator + Supervisor UAT passed
+# v1.87 | Updated: 2026-06-12 | Session V addendum: dead code cleanup + UAT-BUG8 + CI audit fix
 # Completed items -> backlog_completed.md
 # Priority: Critical / High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
@@ -184,6 +184,7 @@
 | User Acceptance Testing | 8 | 0 | 8 |
 | **Total open** | **36** | **2** | **38** |
 
+*v1.87 — 2026-06-12: Session V addendum. Dead code cleanup (RestockVehiclePanel, StockSummaryView, getStationChecksToday deleted; admin.py par-level deactivate refactored with write_audit_event). UAT-BUG8: deactivated par level blocking check wizard Step 3 — list_location_par_levels now filters ParLevel.active. CI fix: npm audit --omit=dev so esbuild CVEs (dev-only) don't block deployment.*
 *v1.86 — 2026-06-12: Session V complete. Administrator and Supervisor UAT passed. Four bugs found and fixed: UAT-BUG4 (progress bar showed "Vehicle" for supply room checks — WizardProgress selectionLabel prop added); UAT-BUG5 ("This check" as check subject — selection_label added to initialDraft in HomePage); UAT-BUG6 (check date blank — todayIso() fallback added to Step5Submit); UAT-BUG7 (supply room check did not update View Supplies — architectural gap: _reconcile_supply_room_check (SR-B5) added to checks.py, called on STATION_SUPPLY_ROOM submissions, FIFO reconciles quantity_found back to StockLot quantities). UAT-4 complete.*
 *v1.85 — 2026-06-12: Session U complete. Supervisor UAT passed. Bugs found and fixed: Log Items Used showed no ambulance buttons (v.status === 'ACTIVE' → v.active === true; also fixed in test fixtures); No Change bypassed Reconcile when items were short (quantity_found used pl.min_quantity instead of lastQtyMap — shortages were silently buried); test_usage.py flaky unique constraint failure (id(station) → uuid4().hex[:12] in _make_setup). CLAUDE.md updated: filesystem:edit_file permanently banned; vehicle API shape documented. 418 tests passing, 201 npm tests passing.*
 *v1.84 — 2026-06-12: Session U UAT in progress. Bugs found and fixed: SUP-DMG-FIX1 (FAIL banner persisted after repair resolved), SUP-DMG1 (damaged items not surfaced on compliance dashboard — new endpoint + frontend panel + 13 tests, 410 passing). New backlog: USAGE-B1, USAGE-B2. UAT-10 acceptance criteria updated.*

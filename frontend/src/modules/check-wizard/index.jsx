@@ -1,6 +1,6 @@
 /**
  * modules/check-wizard/index.jsx
- * Check wizard orchestrator — 5-step flow.
+ * Check wizard orchestrator -- 5-step flow.
  */
 import React, { useState, useCallback, useEffect } from 'react'
 import { useAuth }             from '../../shared/hooks/useAuth.jsx'
@@ -29,7 +29,7 @@ const STEP = {
   SUBMITTED:    6,
 }
 
-/** Derive overall status from draft compartments — mirrors backend logic */
+/** Derive overall status from draft compartments -- mirrors backend logic */
 function deriveOverallStatus(compartments) {
   const allItems = Object.values(compartments ?? {}).flatMap(c => c.line_items ?? [])
   const hasFail = allItems.some(li => {
@@ -65,9 +65,9 @@ export default function CheckWizard({
   const [compartmentList, setCompartmentList]     = useState([])
   const [submittedCheckId, setSubmittedCheckId]   = useState(null)
   const [submittedAt, setSubmittedAt]             = useState(null)
-  const [submittedStatus, setSubmittedStatus]     = useState(null)  // NEW
-  const [submittedRepairNeeded, setSubmittedRepairNeeded] = useState(false) // NEW
-  const [submittedRepairNotes, setSubmittedRepairNotes]   = useState('')    // NEW
+  const [submittedStatus, setSubmittedStatus]     = useState(null)
+  const [submittedRepairNeeded, setSubmittedRepairNeeded] = useState(false)
+  const [submittedRepairNotes, setSubmittedRepairNotes]   = useState('')
   const [isSubmitting, setIsSubmitting]           = useState(false)
   const [submitError, setSubmitError]             = useState(null)
   const [showDiscardModal, setShowDiscardModal]   = useState(false)
@@ -116,7 +116,7 @@ export default function CheckWizard({
     if (directLocationId) {
       setVehicleId(null)
       setLocationId(directLocationId)
-      // Compute key explicitly — state hasn't flushed yet so keyRef is still null.
+      // Compute key explicitly -- state hasn't flushed yet so keyRef is still null.
       const firstKey = draftKey(directLocationId, now)
       saveDraft({
         vehicle_id: null, location_id: directLocationId,
@@ -160,11 +160,20 @@ export default function CheckWizard({
     }, payload)
   }, [activeCompartment, draft, saveLineItem])
 
+  // Priority item confirmation: writes the line item into the compartment's
+  // line_items array WITHOUT changing compartment status. This is intentional --
+  // the responder is confirming a device is ready (AED, LUCAS) before starting
+  // the compartment walk. The compartment card must remain in its not_started
+  // state so No Change / Modify buttons stay visible. Status only becomes
+  // 'in_progress' when the responder actually taps Modify and enters Step 3.
   const handleUpdatePriorityItem = useCallback((comp, payload) => {
     const compKey = String(comp.compartment_id)
     saveLineItem(comp.compartment_id, {
       name:              comp.name,
-      status:            'in_progress',
+      // Preserve whatever status the compartment already has (undefined or
+      // 'not_started'). Do NOT set 'in_progress' here -- that would hide
+      // the No Change / Modify action row on the compartment card.
+      status:            draft?.compartments?.[compKey]?.status ?? undefined,
       compartment_notes: draft?.compartments?.[compKey]?.compartment_notes ?? '',
     }, payload)
   }, [draft, saveLineItem])
@@ -213,7 +222,7 @@ export default function CheckWizard({
     const compKey = String(compartmentId)
     // saveDraft merges against draftRef.current (always up-to-date), so we
     // only need to flip status to 'complete'. Line items written via
-    // saveLineItem are already in draftRef.current — reading them from the
+    // saveLineItem are already in draftRef.current -- reading them from the
     // stale `draft` closure would overwrite those writes with old data.
     saveDraft({
       compartments: {
@@ -275,7 +284,7 @@ export default function CheckWizard({
         vehicle_id:  vehicleId,
         // Send location_id only for portable checks (vehicleId null).
         // For vehicle checks, locationId is the vehicle's inventory location
-        // (resolved internally) — that is NOT stored on the check record.
+        // (resolved internally) -- that is NOT stored on the check record.
         location_id: vehicleId ? null : locationId,
         station_id:  stationId,
         check_date:  checkDate,
@@ -292,7 +301,7 @@ export default function CheckWizard({
       setSubmittedRepairNotes(repairNotes ?? '')
       setStep(STEP.SUBMITTED)
     } catch (err) {
-      setSubmitError(err.message ?? 'Submission failed — please try again.')
+      setSubmitError(err.message ?? 'Submission failed -- please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -380,7 +389,7 @@ export default function CheckWizard({
       )}
 
       {step === STEP.VEHICLE && (
-        <ErrorBoundary moduleName="Step 1 — Vehicle">
+        <ErrorBoundary moduleName="Step 1 -- Vehicle">
           <Step1Vehicle
             draft={draft}
             preselectedStation={preselectedStation}
@@ -390,11 +399,11 @@ export default function CheckWizard({
       )}
 
       {step === STEP.COMPARTMENTS && !locationId && vehicleId && (
-        <Spinner label="Resolving vehicle location…" />
+        <Spinner label="Resolving vehicle location..." />
       )}
 
       {step === STEP.COMPARTMENTS && locationId && (
-        <ErrorBoundary moduleName="Step 2 — Compartments">
+        <ErrorBoundary moduleName="Step 2 -- Compartments">
           <Step2Compartments
             locationId={locationId}
             vehicleId={vehicleId}
@@ -411,7 +420,7 @@ export default function CheckWizard({
       )}
 
       {step === STEP.ITEMS && activeCompartment && locationId && (
-        <ErrorBoundary moduleName="Step 3 — Items">
+        <ErrorBoundary moduleName="Step 3 -- Items">
           <Step3Items
             compartment={activeCompartment}
             locationId={locationId}
@@ -426,7 +435,7 @@ export default function CheckWizard({
       )}
 
       {step === STEP.RECONCILE && (
-        <ErrorBoundary moduleName="Step 4 — Reconcile">
+        <ErrorBoundary moduleName="Step 4 -- Reconcile">
           <Step4Reconcile
             draft={draft}
             selectionLabel={selectionLabel}
@@ -438,7 +447,7 @@ export default function CheckWizard({
       )}
 
       {step === STEP.SUBMIT && (
-        <ErrorBoundary moduleName="Step 5 — Submit">
+        <ErrorBoundary moduleName="Step 5 -- Submit">
           <Step5Submit
             draft={draft}
             checkDate={checkDate}
