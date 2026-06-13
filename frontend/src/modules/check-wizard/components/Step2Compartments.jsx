@@ -13,9 +13,11 @@
  *     the wizard routes through Reconcile before Submit.
  *   - Modify -- opens Step 3 (readings pre-filled if already confirmed).
  *
- * No Change is BLOCKED (hidden) when:
- *   - comp.requires_full_check === true
- *   - the compartment contains a priority item
+ * No Change is BLOCKED when:
+ *   - comp.requires_full_check === true (always -- Truck Operations etc.)
+ *   - the compartment has priority items that are NOT YET confirmed in the draft
+ *   - the compartment has damaged items
+ * Once all priority items in a compartment are confirmed, No Change unblocks.
  * No Change is DISABLED (grayed) when readings exist but are not all confirmed.
  *
  * inProgress = cd?.status === 'in_progress' -- only true after entering Step 3.
@@ -290,12 +292,24 @@ export default function Step2Compartments({
           const compPars = (parLevels ?? []).filter(
             pl => pl.compartment_id === comp.compartment_id && pl.active !== false
           )
-          const hasPriorityItem  = compPars.some(pl => pl.priority_check === true)
+
+          // Block No Change only while priority items in this compartment are
+          // still unconfirmed. Once the responder has confirmed them all in the
+          // priority section above, this clears and No Change becomes available.
+          const confirmedItemIds = new Set(
+            (cd?.line_items ?? [])
+              .filter(li => li.confirmed === true)
+              .map(li => li.item_id)
+          )
+          const hasUnconfirmedPriorityItem = compPars.some(
+            pl => pl.priority_check === true && !confirmedItemIds.has(pl.item_id)
+          )
+
           const damagedCount     = compPars.filter(pl => pl.is_damaged).length
-          const noChangeBlocked  = comp.requires_full_check || hasPriorityItem || damagedCount > 0
-          const noChangeBlockMsg = comp.requires_full_check ? 'Full check required'
-                                 : hasPriorityItem          ? 'Has priority items'
-                                 : damagedCount > 0         ? 'Has damaged items'
+          const noChangeBlocked  = comp.requires_full_check || hasUnconfirmedPriorityItem || damagedCount > 0
+          const noChangeBlockMsg = comp.requires_full_check      ? 'Full check required'
+                                 : hasUnconfirmedPriorityItem    ? 'Confirm priority items first'
+                                 : damagedCount > 0              ? 'Has damaged items'
                                  : ''
 
           // Reading items: MEASUREMENT/FUNCTIONAL/DATE_RECORD, not flagged as priority,
