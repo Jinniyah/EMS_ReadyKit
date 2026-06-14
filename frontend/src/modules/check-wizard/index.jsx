@@ -1,8 +1,12 @@
 /**
  * modules/check-wizard/index.jsx
  * Check wizard orchestrator -- 5-step flow.
+ *
+ * CQ-F1: Replaced 18 useState calls with useReducer.
+ * Submission result fields are grouped into a single submissionResult object.
+ * No functional change.
  */
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useReducer, useCallback, useEffect } from 'react'
 import { useAuth }             from '../../shared/hooks/useAuth.jsx'
 import { useApi }              from '../../shared/hooks/useApi.js'
 import { useDraft, draftKey }    from '../../shared/hooks/useDraft.js'
@@ -43,6 +47,83 @@ function deriveOverallStatus(compartments) {
   return hasFail ? 'FAIL' : hasWarn ? 'NEEDS_RESTOCK' : 'PASS'
 }
 
+// -- Reducer ------------------------------------------------------------------
+
+const initialState = (initialDraft, preselectedStation) => ({
+  step:             initialDraft ? STEP.COMPARTMENTS : STEP.VEHICLE,
+  vehicleId:        initialDraft?.vehicle_id   ?? null,
+  locationId:       initialDraft?.location_id  ?? null,
+  stationId:        initialDraft?.station_id   ?? preselectedStation?.station_id ?? null,
+  checkDate:        initialDraft?.check_date   ?? todayIso(),
+  startedAt:        initialDraft?.started_at   ?? null,
+  vehicle:          null,
+  selectionLabel:   initialDraft?.selection_label ?? '',
+  activeCompartment:  null,
+  compartmentList:    [],
+  submissionResult:   null,   // { checkId, submittedAt, status, repairNeeded, repairNotes }
+  isSubmitting:       false,
+  submitError:        null,
+  showDiscardModal:   false,
+})
+
+function reducer(state, action) {
+  switch (action.type) {
+    case 'VEHICLE_SELECTED':
+      return {
+        ...state,
+        step:           STEP.COMPARTMENTS,
+        stationId:      action.stationId,
+        vehicleId:      action.vehicleId ?? null,
+        locationId:     action.locationId ?? null,
+        checkDate:      action.checkDate,
+        startedAt:      action.startedAt,
+        vehicle:        action.vehicle ?? null,
+        selectionLabel: action.selectionLabel ?? '',
+      }
+    case 'LOCATION_RESOLVED':
+      return { ...state, locationId: action.locationId }
+    case 'SELECT_COMPARTMENT':
+      return { ...state, activeCompartment: action.compartment, step: STEP.ITEMS }
+    case 'COMPARTMENTS_LOADED':
+      return { ...state, compartmentList: action.compartments }
+    case 'REVIEW':
+      return { ...state, step: action.needsReconcile ? STEP.RECONCILE : STEP.SUBMIT }
+    case 'RECONCILE_CONTINUE':
+      return { ...state, step: STEP.SUBMIT }
+    case 'BACK_TO_COMPARTMENTS':
+      return { ...state, step: STEP.COMPARTMENTS, activeCompartment: null }
+    case 'BACK_FROM_SUBMIT':
+      return { ...state, step: action.needsReconcile ? STEP.RECONCILE : STEP.COMPARTMENTS }
+    case 'SUBMIT_START':
+      return { ...state, isSubmitting: true, submitError: null }
+    case 'SUBMIT_SUCCESS':
+      return {
+        ...state,
+        isSubmitting: false,
+        step: STEP.SUBMITTED,
+        submissionResult: {
+          checkId:      action.checkId,
+          submittedAt:  action.submittedAt,
+          status:       action.status,
+          repairNeeded: action.repairNeeded,
+          repairNotes:  action.repairNotes,
+        },
+      }
+    case 'SUBMIT_ERROR':
+      return { ...state, isSubmitting: false, submitError: action.error }
+    case 'SHOW_DISCARD_MODAL':
+      return { ...state, showDiscardModal: true }
+    case 'HIDE_DISCARD_MODAL':
+      return { ...state, showDiscardModal: false }
+    case 'RESET':
+      return initialState(null, action.preselectedStation)
+    default:
+      return state
+  }
+}
+
+// -- Component ----------------------------------------------------------------
+
 export default function CheckWizard({
   initialDraft    = null,
   initialDraftKey = null,
@@ -51,39 +132,23 @@ export default function CheckWizard({
 }) {
   const { getToken } = useAuth()
 
-  const [step, setStep]               = useState(STEP.VEHICLE)
-  const [vehicleId, setVehicleId]     = useState(initialDraft?.vehicle_id   ?? null)
-  const [stationId, setStationId]     = useState(
-    initialDraft?.station_id ?? preselectedStation?.station_id ?? null
+  const [state, dispatch] = useReducer(reducer, undefined, () =>
+    initialState(initialDraft, preselectedStation)
   )
-  const [checkDate, setCheckDate]     = useState(initialDraft?.check_date   ?? todayIso())
-  const [startedAt, setStartedAt]     = useState(initialDraft?.started_at   ?? null)
-  const [vehicle, setVehicle]         = useState(null)
-  const [locationId, setLocationId]   = useState(initialDraft?.location_id  ?? null)
-  const [selectionLabel, setSelectionLabel] = useState(initialDraft?.selection_label ?? '')
-  const [activeCompartment, setActiveCompartment] = useState(null)
-  const [compartmentList, setCompartmentList]     = useState([])
-  const [submittedCheckId, setSubmittedCheckId]   = useState(null)
-  const [submittedAt, setSubmittedAt]             = useState(null)
-  const [submittedStatus, setSubmittedStatus]     = useState(null)
-  const [submittedRepairNeeded, setSubmittedRepairNeeded] = useState(false)
-  const [submittedRepairNotes, setSubmittedRepairNotes]   = useState('')
-  const [isSubmitting, setIsSubmitting]           = useState(false)
-  const [submitError, setSubmitError]             = useState(null)
-  const [showDiscardModal, setShowDiscardModal]   = useState(false)
+
+  const {
+    step, vehicleId, locationId, stationId, checkDate, startedAt,
+    vehicle, selectionLabel, activeCompartment, compartmentList,
+    submissionResult, isSubmitting, submitError, showDiscardModal,
+  } = state
 
   const { draft, savedAt, saveDraft, saveLineItem, clearDraft, draftRef } =
     useDraft(vehicleId ?? locationId, startedAt, initialDraftKey)
 
   useEffect(() => {
     if (initialDraft) {
-      if (initialDraft.vehicle_id)       setVehicleId(initialDraft.vehicle_id)
-      else if (initialDraft.location_id) setLocationId(initialDraft.location_id)
-      setStationId(initialDraft.station_id)
-      setCheckDate(initialDraft.check_date)
-      setStartedAt(initialDraft.started_at ?? null)
-      setSelectionLabel(initialDraft.selection_label ?? '')
-      setStep(STEP.COMPARTMENTS)
+      if (initialDraft.vehicle_id)       dispatch({ type: 'VEHICLE_SELECTED', vehicleId: initialDraft.vehicle_id, locationId: null, stationId: initialDraft.station_id, checkDate: initialDraft.check_date, startedAt: initialDraft.started_at ?? null, selectionLabel: initialDraft.selection_label ?? '' })
+      else if (initialDraft.location_id) dispatch({ type: 'VEHICLE_SELECTED', vehicleId: null, locationId: initialDraft.location_id, stationId: initialDraft.station_id, checkDate: initialDraft.check_date, startedAt: initialDraft.started_at ?? null, selectionLabel: initialDraft.selection_label ?? '' })
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -95,10 +160,8 @@ export default function CheckWizard({
   )
   useEffect(() => {
     if (locations && vehicleId) {
-      const loc = locations.find(
-        l => l.vehicle_id === vehicleId && l.location_type === 'VEHICLE'
-      )
-      if (loc) setLocationId(loc.location_id)
+      const loc = locations.find(l => l.vehicle_id === vehicleId && l.location_type === 'VEHICLE')
+      if (loc) dispatch({ type: 'LOCATION_RESOLVED', locationId: loc.location_id })
     }
   }, [locations, vehicleId])
 
@@ -107,48 +170,23 @@ export default function CheckWizard({
     checkDate: cd, secondCrew, vehicle: v, selectionLabel: label,
   }) => {
     const now = new Date().toISOString()
-    setStationId(sid)
-    setCheckDate(cd)
-    setStartedAt(now)
-    setVehicle(v ?? null)
-    setSelectionLabel(label ?? '')
+    dispatch({ type: 'VEHICLE_SELECTED', stationId: sid, vehicleId: vid ?? null, locationId: directLocationId ?? null, checkDate: cd, startedAt: now, vehicle: v ?? null, selectionLabel: label ?? '' })
 
     if (directLocationId) {
-      setVehicleId(null)
-      setLocationId(directLocationId)
-      // Compute key explicitly -- state hasn't flushed yet so keyRef is still null.
       const firstKey = draftKey(directLocationId, now)
-      saveDraft({
-        vehicle_id: null, location_id: directLocationId,
-        station_id: sid, check_date: cd, started_at: now,
-        second_crew: secondCrew || null, selection_label: label,
-      }, firstKey)
+      saveDraft({ vehicle_id: null, location_id: directLocationId, station_id: sid, check_date: cd, started_at: now, second_crew: secondCrew || null, selection_label: label }, firstKey)
     } else {
-      setVehicleId(vid)
-      setLocationId(null)
-      // For vehicle drafts, location_id is resolved async later.
-      // Key is based on vehicle_id + now so it is stable and unique.
       const firstKey = draftKey(vid, now)
-      saveDraft({
-        vehicle_id: vid, location_id: null,
-        station_id: sid, check_date: cd, started_at: now,
-        second_crew: secondCrew || null, selection_label: label,
-      }, firstKey)
+      saveDraft({ vehicle_id: vid, location_id: null, station_id: sid, check_date: cd, started_at: now, second_crew: secondCrew || null, selection_label: label }, firstKey)
     }
-    setStep(STEP.COMPARTMENTS)
   }, [saveDraft])
 
   const handleSelectCompartment = useCallback((comp) => {
-    setActiveCompartment(comp)
-    setStep(STEP.ITEMS)
+    dispatch({ type: 'SELECT_COMPARTMENT', compartment: comp })
   }, [])
 
   const handleReview = useCallback(() => {
-    if (draftNeedsReconcile(draft?.compartments)) {
-      setStep(STEP.RECONCILE)
-    } else {
-      setStep(STEP.SUBMIT)
-    }
+    dispatch({ type: 'REVIEW', needsReconcile: draftNeedsReconcile(draft?.compartments) })
   }, [draft])
 
   const handleUpdateItem = useCallback((compartmentId, payload) => {
@@ -160,36 +198,21 @@ export default function CheckWizard({
     }, payload)
   }, [activeCompartment, draft, saveLineItem])
 
-  // Priority item confirmation: writes the line item into the compartment's
-  // line_items array WITHOUT changing compartment status. This is intentional --
-  // the responder is confirming a device is ready (AED, LUCAS) before starting
-  // the compartment walk. The compartment card must remain in its not_started
-  // state so No Change / Modify buttons stay visible. Status only becomes
-  // 'in_progress' when the responder actually taps Modify and enters Step 3.
   const handleUpdatePriorityItem = useCallback((comp, payload) => {
     const compKey = String(comp.compartment_id)
     saveLineItem(comp.compartment_id, {
       name:              comp.name,
-      // Preserve whatever status the compartment already has (undefined or
-      // 'not_started'). Do NOT set 'in_progress' here -- that would hide
-      // the No Change / Modify action row on the compartment card.
       status:            draft?.compartments?.[compKey]?.status ?? undefined,
       compartment_notes: draft?.compartments?.[compKey]?.compartment_notes ?? '',
     }, payload)
   }, [draft, saveLineItem])
 
   const handleConfirmReadingItem = useCallback((comp, payload) => {
-    // Store reading confirmation as a line item but preserve compartment status
-    // (stays 'not_started' so the action card remains visible).
-    saveLineItem(comp.compartment_id, {
-      compartment_id: comp.compartment_id,
-      name:           comp.name,
-    }, payload)
+    saveLineItem(comp.compartment_id, { compartment_id: comp.compartment_id, name: comp.name }, payload)
   }, [saveLineItem])
 
   const handleNoChangeCompartment = useCallback((comp, supplyLineItems) => {
     const compKey = String(comp.compartment_id)
-    // Merge any pre-confirmed readings (MEASUREMENT/FUNCTIONAL/DATE_RECORD) with SUPPLY items.
     const readingTypes = new Set(['MEASUREMENT', 'FUNCTIONAL', 'DATE_RECORD', 'EXPIRY_DATE'])
     const existingItems = draft?.compartments?.[compKey]?.line_items ?? []
     const confirmedReadings = existingItems.filter(li => readingTypes.has(li.check_type))
@@ -220,10 +243,6 @@ export default function CheckWizard({
 
   const handleSaveCompartment = useCallback((compartmentId) => {
     const compKey = String(compartmentId)
-    // saveDraft merges against draftRef.current (always up-to-date), so we
-    // only need to flip status to 'complete'. Line items written via
-    // saveLineItem are already in draftRef.current -- reading them from the
-    // stale `draft` closure would overwrite those writes with old data.
     saveDraft({
       compartments: {
         ...(draftRef.current?.compartments ?? {}),
@@ -233,24 +252,20 @@ export default function CheckWizard({
         },
       },
     })
-    setStep(STEP.COMPARTMENTS)
-    setActiveCompartment(null)
+    dispatch({ type: 'BACK_TO_COMPARTMENTS' })
   }, [saveDraft])
 
   const handleBackToList = useCallback(() => {
-    setStep(STEP.COMPARTMENTS)
-    setActiveCompartment(null)
+    dispatch({ type: 'BACK_TO_COMPARTMENTS' })
   }, [])
 
   const handleReconcileContinue = useCallback(() => {
-    setStep(STEP.SUBMIT)
+    dispatch({ type: 'RECONCILE_CONTINUE' })
   }, [])
 
   const handleSubmit = useCallback(async ({ overallNotes, repairNeeded, repairNotes }) => {
-    setIsSubmitting(true)
-    setSubmitError(null)
+    dispatch({ type: 'SUBMIT_START' })
 
-    // Capture status and repair details BEFORE clearing the draft
     const overallStatus = deriveOverallStatus(draft?.compartments)
 
     const lineItems = []
@@ -282,9 +297,6 @@ export default function CheckWizard({
     try {
       const result = await checkApi.submitCheck({
         vehicle_id:  vehicleId,
-        // Send location_id only for portable checks (vehicleId null).
-        // For vehicle checks, locationId is the vehicle's inventory location
-        // (resolved internally) -- that is NOT stored on the check record.
         location_id: vehicleId ? null : locationId,
         station_id:  stationId,
         check_date:  checkDate,
@@ -294,42 +306,27 @@ export default function CheckWizard({
       }, getToken)
 
       clearDraft()
-      setSubmittedCheckId(result.check_id)
-      setSubmittedAt(new Date())
-      setSubmittedStatus(overallStatus)
-      setSubmittedRepairNeeded(repairNeeded)
-      setSubmittedRepairNotes(repairNotes ?? '')
-      setStep(STEP.SUBMITTED)
+      dispatch({
+        type:         'SUBMIT_SUCCESS',
+        checkId:      result.check_id,
+        submittedAt:  new Date(),
+        status:       overallStatus,
+        repairNeeded,
+        repairNotes:  repairNotes ?? '',
+      })
     } catch (err) {
-      setSubmitError(err.message ?? 'Submission failed -- please try again.')
-    } finally {
-      setIsSubmitting(false)
+      dispatch({ type: 'SUBMIT_ERROR', error: err.message ?? 'Submission failed -- please try again.' })
     }
-  }, [draft, vehicleId, stationId, checkDate, startedAt, selectionLabel, getToken, clearDraft])
+  }, [draft, vehicleId, stationId, checkDate, startedAt, selectionLabel, locationId, getToken, clearDraft])
 
   const handleDiscardConfirm = useCallback(() => {
     clearDraft()
-    setShowDiscardModal(false)
+    dispatch({ type: 'HIDE_DISCARD_MODAL' })
     if (onExit) onExit()
   }, [clearDraft, onExit])
 
   const handleStartNew = useCallback(() => {
-    setStep(STEP.VEHICLE)
-    setVehicleId(null)
-    setStationId(preselectedStation?.station_id ?? null)
-    setCheckDate(todayIso())
-    setStartedAt(null)
-    setVehicle(null)
-    setLocationId(null)
-    setSelectionLabel('')
-    setActiveCompartment(null)
-    setCompartmentList([])
-    setSubmittedCheckId(null)
-    setSubmittedAt(null)
-    setSubmittedStatus(null)
-    setSubmittedRepairNeeded(false)
-    setSubmittedRepairNotes('')
-    setSubmitError(null)
+    dispatch({ type: 'RESET', preselectedStation })
   }, [preselectedStation])
 
   const showDiscardBtn = step >= STEP.COMPARTMENTS && step < STEP.SUBMITTED
@@ -354,7 +351,7 @@ export default function CheckWizard({
         {showDiscardBtn && (
           <button
             className="btn-text btn-text--danger wizard-discard-btn"
-            onClick={() => setShowDiscardModal(true)}
+            onClick={() => dispatch({ type: 'SHOW_DISCARD_MODAL' })}
             type="button"
             aria-label="Discard this check and return to home"
           >
@@ -369,7 +366,7 @@ export default function CheckWizard({
         confirmLabel="Yes, discard"
         cancelLabel="Keep working"
         onConfirm={handleDiscardConfirm}
-        onCancel={() => setShowDiscardModal(false)}
+        onCancel={() => dispatch({ type: 'HIDE_DISCARD_MODAL' })}
         danger
       >
         <p>All progress on this check will be permanently deleted.</p>
@@ -414,7 +411,7 @@ export default function CheckWizard({
             onNoChangeCompartment={handleNoChangeCompartment}
             onUndoCompartment={handleUndoCompartment}
             onConfirmReadingItem={handleConfirmReadingItem}
-            onCompartmentsLoaded={setCompartmentList}
+            onCompartmentsLoaded={(comps) => dispatch({ type: 'COMPARTMENTS_LOADED', compartments: comps })}
           />
         </ErrorBoundary>
       )}
@@ -428,7 +425,7 @@ export default function CheckWizard({
             draft={draft}
             onUpdateItem={handleUpdateItem}
             onSaveCompartment={handleSaveCompartment}
-            onNavigateCompartment={setActiveCompartment}
+            onNavigateCompartment={(comp) => dispatch({ type: 'SELECT_COMPARTMENT', compartment: comp })}
             onBackToList={handleBackToList}
           />
         </ErrorBoundary>
@@ -441,7 +438,7 @@ export default function CheckWizard({
             selectionLabel={selectionLabel}
             onUpdateItem={handleUpdateItem}
             onContinue={handleReconcileContinue}
-            onBack={() => setStep(STEP.COMPARTMENTS)}
+            onBack={() => dispatch({ type: 'BACK_TO_COMPARTMENTS' })}
           />
         </ErrorBoundary>
       )}
@@ -455,25 +452,23 @@ export default function CheckWizard({
             selectionLabel={selectionLabel}
             compartments={compartmentList}
             onSubmit={handleSubmit}
-            onBack={() => setStep(
-              draftNeedsReconcile(draft?.compartments) ? STEP.RECONCILE : STEP.COMPARTMENTS
-            )}
+            onBack={() => dispatch({ type: 'BACK_FROM_SUBMIT', needsReconcile: draftNeedsReconcile(draft?.compartments) })}
             isSubmitting={isSubmitting}
             submitError={submitError}
           />
         </ErrorBoundary>
       )}
 
-      {step === STEP.SUBMITTED && (
+      {step === STEP.SUBMITTED && submissionResult && (
         <SubmittedScreen
-          checkId={submittedCheckId}
+          checkId={submissionResult.checkId}
           draft={draft}
           vehicle={vehicle}
           selectionLabel={selectionLabel}
-          submittedAt={submittedAt}
-          overallStatus={submittedStatus}
-          repairNeeded={submittedRepairNeeded}
-          repairNotes={submittedRepairNotes}
+          submittedAt={submissionResult.submittedAt}
+          overallStatus={submissionResult.status}
+          repairNeeded={submissionResult.repairNeeded}
+          repairNotes={submissionResult.repairNotes}
           onStartNew={handleStartNew}
           onGoHome={onExit}
         />

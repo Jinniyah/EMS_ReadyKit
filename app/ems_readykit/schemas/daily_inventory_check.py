@@ -3,14 +3,19 @@ schemas/daily_inventory_check.py
 Pydantic schemas for DailyInventoryCheck request validation and response serialization.
 
 Phase 7 additions:
-  AcknowledgeRequest   — body for PATCH /checks/daily/{id}/acknowledge
-  SoftDeleteRequest    — body for DELETE /checks/daily/{id}
+  AcknowledgeRequest   -- body for PATCH /checks/daily/{id}/acknowledge
+  SoftDeleteRequest    -- body for DELETE /checks/daily/{id}
   DailyInventoryCheckRead now exposes acknowledgement and soft-delete fields.
 
 Phase 4 change: line_items added to both Create and Read schemas.
 - On create, line_items is optional (empty = header-only check, backward compatible)
 - Overall status is auto-computed from line items in the router.
 - performed_by is set from JWT identity, not from the request body.
+
+CQ-B6: check_date changed from Optional[str] to Optional[Union[date, str]].
+  Accepts both date objects (from DB via from_attributes) and ISO strings (from
+  client JSON). The field_serializer always emits YYYY-MM-DD in API responses.
+  String values are validated to be YYYY-MM-DD format; other formats are rejected.
 
 Timezone note:
   All datetime columns use DateTime(timezone=True) and store UTC in the DB.
@@ -24,8 +29,8 @@ Timezone note:
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
-from typing import List, Optional
+from datetime import date, datetime, timezone
+from typing import List, Optional, Union
 
 from pydantic import (
     BaseModel,
@@ -46,7 +51,6 @@ def _to_utc_str(dt: Optional[datetime]) -> Optional[str]:
     """Ensure a datetime is serialized as an explicit UTC ISO string with 'Z' suffix."""
     if dt is None:
         return None
-    # If the datetime is naive (no tzinfo), assume it is UTC (as stored by SQLite).
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -56,7 +60,10 @@ class DailyInventoryCheckBase(BaseModel):
     vehicle_id: Optional[int] = Field(default=None, gt=0)
     location_id: Optional[int] = Field(default=None, gt=0)
     station_id: int = Field(..., gt=0)
-    check_date: Optional[str] = Field(
+    # CQ-B6: accepts both date objects (from DB) and ISO strings (from client).
+    # String values must be YYYY-MM-DD format (same validation as before CQ-B6).
+    # Serialized as YYYY-MM-DD string in all API responses.
+    check_date: Optional[Union[date, str]] = Field(
         default=None,
         examples=["2026-05-23"],
         description="Accepted for backward compatibility but ignored server-side. "
@@ -74,10 +81,27 @@ class DailyInventoryCheckBase(BaseModel):
 
     @field_validator("check_date")
     @classmethod
-    def validate_check_date_format(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None and not _DATE_PATTERN.match(v):
+    def validate_check_date_format(
+        cls, v: Optional[Union[date, str]]
+    ) -> Optional[Union[date, str]]:
+        """
+        Strings must be in YYYY-MM-DD format.
+        date objects (returned by ORM on read) pass through unchanged.
+        """
+        if v is None or isinstance(v, date):
+            return v
+        if not _DATE_PATTERN.match(str(v)):
             raise ValueError("check_date must be in YYYY-MM-DD format.")
         return v
+
+    @field_serializer("check_date")
+    def serialize_check_date(self, v: Optional[Union[date, str]]) -> Optional[str]:
+        """Always emit check_date as a YYYY-MM-DD string regardless of DB type."""
+        if v is None:
+            return None
+        if isinstance(v, date):
+            return v.isoformat()
+        return str(v)
 
 
 class DailyInventoryCheckCreate(DailyInventoryCheckBase):
@@ -109,7 +133,7 @@ class SoftDeleteRequest(BaseModel):
 
 
 class DailyInventoryCheckRead(DailyInventoryCheckBase):
-    """Response model — includes all fields including acknowledgement and soft-delete metadata."""
+    """Response model -- includes all fields including acknowledgement and soft-delete metadata."""
 
     model_config = ConfigDict(from_attributes=True)
 

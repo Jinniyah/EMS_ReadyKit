@@ -3,6 +3,9 @@ tests/test_models.py
 Phase 1 model sanity tests.
 Verifies that all tables create correctly and relationships are wired up.
 No network or Azure dependencies required.
+
+CQ-B6 note: check_date is now a Date column. Tests that create DailyInventoryCheck
+directly must pass a date object, not a string.
 """
 
 from __future__ import annotations
@@ -194,7 +197,7 @@ def test_par_level_unique_constraint(db):
     db.add(comp)
     db.flush()
 
-    # First par level for this item in this compartment — must succeed
+    # First par level for this item in this compartment -- must succeed
     par1 = ParLevel(
         item_id=item.item_id,
         location_id=loc.location_id,
@@ -205,7 +208,7 @@ def test_par_level_unique_constraint(db):
     db.add(par1)
     db.flush()
 
-    # Duplicate: same item, same compartment — must raise IntegrityError
+    # Duplicate: same item, same compartment -- must raise IntegrityError
     par2 = ParLevel(
         item_id=item.item_id,
         location_id=loc.location_id,
@@ -231,10 +234,11 @@ def test_daily_inventory_check(db):
     db.add(vehicle)
     db.flush()
 
+    # CQ-B6: check_date is a Date column -- pass a date object, not a string.
     check = DailyInventoryCheck(
         vehicle_id=vehicle.vehicle_id,
         station_id=station.station_id,
-        check_date="2026-05-06",
+        check_date=date(2026, 5, 6),
         performed_by="j.smith",
         timestamp=_utcnow(),
         status=CheckStatus.PASS,

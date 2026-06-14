@@ -1,24 +1,31 @@
 """
 tests/test_check_history.py
-Tests for check history, acknowledgement, and soft-delete endpoints.
+Tests for check history, acknowledgement, soft-delete, restore, and hard-delete endpoints.
 
 Covers:
-  CH-B1: GET  /checks/daily/my-history       — own checks only, date filters
-  CH-B2: GET  /checks/daily/{id}/detail      — RBAC scoping
-  B-E2:  PATCH /checks/daily/{id}/acknowledge — corrective action
-  CH-B3: DELETE /checks/daily/{id}           — soft-delete lifecycle
+  CH-B1: GET  /checks/daily/my-history          -- own checks only, date filters
+  CH-B2: GET  /checks/daily/{id}/detail         -- RBAC scoping
+  B-E2:  PATCH /checks/daily/{id}/acknowledge   -- corrective action
+  CH-B3: DELETE /checks/daily/{id}              -- soft-delete lifecycle
+  CH-B5: GET  /checks/daily/deleted             -- list soft-deleted (Supervisor+)
+  CH-B6: PATCH /checks/daily/{id}/restore       -- restore soft-deleted (Supervisor+)
+  CH-B4: DELETE /checks/daily/{id}/force        -- permanent hard-delete (Admin only)
   RBAC enforcement on all restricted endpoints
 
 Note: Starlette TestClient (requests-backed) does not support json= on
 DELETE requests via client.delete(). Use client.request("DELETE", ..., json=)
-instead — the underlying requests.Session.request() accepts json= for any
+instead -- the underlying requests.Session.request() accepts json= for any
 HTTP method.
+
+CQ-B6 note: check_date is now a Date column. The _check() helper converts
+the ISO string to a date object before constructing DailyInventoryCheck so
+SQLite's Date type processor doesn't reject it.
 """
 
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -32,7 +39,7 @@ from ems_readykit.models import (
 )
 from ems_readykit.models.daily_inventory_check import CheckStatus, DailyInventoryCheck
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
+# -- Helpers ------------------------------------------------------------------
 
 
 def _uid() -> str:
@@ -59,7 +66,7 @@ def _vehicle(db: Session, station_id: int) -> Vehicle:
         location_type=LocationType.VEHICLE,
         station_id=station_id,
         vehicle_id=v.vehicle_id,
-        label=f"{number} — ALS",
+        label=f"{number} -- ALS",
     )
     db.add(loc)
     db.flush()
@@ -75,10 +82,13 @@ def _check(
     check_date: str = "2026-05-23",
     check_status: CheckStatus = CheckStatus.FAIL,
 ) -> DailyInventoryCheck:
+    # CQ-B6: check_date column is now Date type. SQLite's Date type processor
+    # requires a Python date object -- strings are rejected at INSERT time.
+    check_date_obj: date = date.fromisoformat(check_date)
     c = DailyInventoryCheck(
         vehicle_id=vehicle_id,
         station_id=station_id,
-        check_date=check_date,
+        check_date=check_date_obj,
         performed_by=performed_by,
         timestamp=datetime.now(timezone.utc),
         status=check_status,
@@ -97,7 +107,21 @@ def _delete_with_body(client, url: str, body: dict, headers: dict):
     return client.request("DELETE", url, json=body, headers=headers)
 
 
-# ── CH-B1: My check history ────────────────────────────────────────────────────
+def _soft_delete(
+    client, check_id: int, headers: dict, reason: str = "Deleted for test purposes."
+):
+    """Helper: soft-delete a check and assert success."""
+    resp = _delete_with_body(
+        client,
+        f"/api/v1/checks/daily/{check_id}",
+        {"deletion_reason": reason},
+        headers,
+    )
+    assert resp.status_code == 200, f"soft-delete setup failed: {resp.text}"
+    return resp
+
+
+# -- CH-B1: My check history --------------------------------------------------
 
 
 class TestMyCheckHistory:
@@ -168,7 +192,7 @@ class TestMyCheckHistory:
         assert resp.status_code in (401, 403)
 
 
-# ── CH-B2: Check detail with RBAC scoping ─────────────────────────────────────
+# -- CH-B2: Check detail with RBAC scoping ------------------------------------
 
 
 class TestCheckDetail:
@@ -227,7 +251,7 @@ class TestCheckDetail:
         assert resp.status_code == 404
 
 
-# ── B-E2: Acknowledge check ────────────────────────────────────────────────────
+# -- B-E2: Acknowledge check --------------------------------------------------
 
 
 class TestAcknowledgeCheck:
@@ -338,7 +362,7 @@ class TestAcknowledgeCheck:
         assert audit is not None
 
 
-# ── CH-B3: Soft-delete ─────────────────────────────────────────────────────────
+# -- CH-B3: Soft-delete -------------------------------------------------------
 
 
 class TestSoftDeleteCheck:
@@ -444,3 +468,321 @@ class TestSoftDeleteCheck:
             headers=auth_supervisor,
         )
         assert resp.status_code == 404
+
+
+# -- CH-B5: List soft-deleted checks ------------------------------------------
+
+
+class TestListDeletedChecks:
+    def test_supervisor_sees_deleted_checks_for_station(
+        self, client, db, auth_supervisor
+    ):
+        s = _station(db)
+        v = _vehicle(db, s.station_id)
+        c1 = _check(db, v.vehicle_id, s.station_id)
+        c2 = _check(db, v.vehicle_id, s.station_id)
+        _soft_delete(
+            client, c1.check_id, auth_supervisor, "Duplicate submitted by responder."
+        )
+        _soft_delete(
+            client, c2.check_id, auth_supervisor, "Wrong vehicle selected in error."
+        )
+
+        resp = client.get(
+            f"/api/v1/checks/daily/deleted?station_id={s.station_id}",
+            headers=auth_supervisor,
+        )
+        assert resp.status_code == 200
+        ids = {r["check_id"] for r in resp.json()}
+        assert c1.check_id in ids
+        assert c2.check_id in ids
+
+    def test_returns_empty_when_no_deleted_checks(self, client, db, auth_supervisor):
+        s = _station(db)
+        resp = client.get(
+            f"/api/v1/checks/daily/deleted?station_id={s.station_id}",
+            headers=auth_supervisor,
+        )
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_does_not_return_active_checks(self, client, db, auth_supervisor):
+        s = _station(db)
+        v = _vehicle(db, s.station_id)
+        _check(db, v.vehicle_id, s.station_id)  # active, not deleted
+
+        resp = client.get(
+            f"/api/v1/checks/daily/deleted?station_id={s.station_id}",
+            headers=auth_supervisor,
+        )
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_scoped_to_station(self, client, db, auth_supervisor):
+        s1 = _station(db)
+        s2 = _station(db)
+        v1 = _vehicle(db, s1.station_id)
+        v2 = _vehicle(db, s2.station_id)
+        c1 = _check(db, v1.vehicle_id, s1.station_id)
+        c2 = _check(db, v2.vehicle_id, s2.station_id)
+        _soft_delete(client, c1.check_id, auth_supervisor, "Station one check deleted.")
+        _soft_delete(client, c2.check_id, auth_supervisor, "Station two check deleted.")
+
+        resp = client.get(
+            f"/api/v1/checks/daily/deleted?station_id={s1.station_id}",
+            headers=auth_supervisor,
+        )
+        assert resp.status_code == 200
+        ids = {r["check_id"] for r in resp.json()}
+        assert c1.check_id in ids
+        assert c2.check_id not in ids
+
+    def test_responder_cannot_list_deleted(self, client, db, auth_responder):
+        s = _station(db)
+        resp = client.get(
+            f"/api/v1/checks/daily/deleted?station_id={s.station_id}",
+            headers=auth_responder,
+        )
+        assert resp.status_code == 403
+
+    def test_missing_station_id_returns_422(self, client, auth_supervisor):
+        resp = client.get(
+            "/api/v1/checks/daily/deleted",
+            headers=auth_supervisor,
+        )
+        assert resp.status_code == 422
+
+
+# -- CH-B6: Restore soft-deleted check ----------------------------------------
+
+
+class TestRestoreCheck:
+    def test_supervisor_can_restore_deleted_check(self, client, db, auth_supervisor):
+        s = _station(db)
+        v = _vehicle(db, s.station_id)
+        c = _check(db, v.vehicle_id, s.station_id)
+        _soft_delete(client, c.check_id, auth_supervisor, "Deleted by mistake.")
+
+        resp = client.patch(
+            f"/api/v1/checks/daily/{c.check_id}/restore",
+            headers=auth_supervisor,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["deleted_at"] is None
+        assert data["deleted_by"] is None
+        assert data["deletion_reason"] is None
+
+    def test_restored_check_visible_in_normal_history(
+        self, client, db, auth_supervisor
+    ):
+        s = _station(db)
+        v = _vehicle(db, s.station_id)
+        c = _check(db, v.vehicle_id, s.station_id)
+        _soft_delete(
+            client, c.check_id, auth_supervisor, "Restoring to verify visibility."
+        )
+        client.patch(
+            f"/api/v1/checks/daily/{c.check_id}/restore",
+            headers=auth_supervisor,
+        )
+
+        resp = client.get(
+            f"/api/v1/checks/daily/{c.check_id}/detail",
+            headers=auth_supervisor,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["check_id"] == c.check_id
+
+    def test_restore_non_deleted_check_returns_409(self, client, db, auth_supervisor):
+        s = _station(db)
+        v = _vehicle(db, s.station_id)
+        c = _check(db, v.vehicle_id, s.station_id)
+
+        resp = client.patch(
+            f"/api/v1/checks/daily/{c.check_id}/restore",
+            headers=auth_supervisor,
+        )
+        assert resp.status_code == 409
+
+    def test_restore_nonexistent_check_returns_404(self, client, auth_supervisor):
+        resp = client.patch(
+            "/api/v1/checks/daily/99999/restore",
+            headers=auth_supervisor,
+        )
+        assert resp.status_code == 404
+
+    def test_responder_cannot_restore(
+        self, client, db, auth_supervisor, auth_responder
+    ):
+        s = _station(db)
+        v = _vehicle(db, s.station_id)
+        c = _check(db, v.vehicle_id, s.station_id)
+        _soft_delete(
+            client, c.check_id, auth_supervisor, "Deleted to test responder block."
+        )
+
+        resp = client.patch(
+            f"/api/v1/checks/daily/{c.check_id}/restore",
+            headers=auth_responder,
+        )
+        assert resp.status_code == 403
+
+    def test_restore_writes_audit_event(self, client, db, auth_supervisor):
+        from ems_readykit.models.audit_event import AuditEvent
+
+        s = _station(db)
+        v = _vehicle(db, s.station_id)
+        c = _check(db, v.vehicle_id, s.station_id)
+        _soft_delete(
+            client, c.check_id, auth_supervisor, "Deleting to test restore audit."
+        )
+        client.patch(
+            f"/api/v1/checks/daily/{c.check_id}/restore",
+            headers=auth_supervisor,
+        )
+
+        audit = (
+            db.query(AuditEvent).filter(AuditEvent.action == "CHECK_RESTORED").first()
+        )
+        assert audit is not None
+
+    def test_restore_removes_check_from_deleted_list(self, client, db, auth_supervisor):
+        s = _station(db)
+        v = _vehicle(db, s.station_id)
+        c = _check(db, v.vehicle_id, s.station_id)
+        _soft_delete(
+            client,
+            c.check_id,
+            auth_supervisor,
+            "Deleting to verify removal after restore.",
+        )
+        client.patch(
+            f"/api/v1/checks/daily/{c.check_id}/restore",
+            headers=auth_supervisor,
+        )
+
+        resp = client.get(
+            f"/api/v1/checks/daily/deleted?station_id={s.station_id}",
+            headers=auth_supervisor,
+        )
+        ids = {r["check_id"] for r in resp.json()}
+        assert c.check_id not in ids
+
+
+# -- CH-B4: Force hard-delete -------------------------------------------------
+
+
+class TestForceDeleteCheck:
+    def test_admin_can_force_delete_soft_deleted_check(
+        self, client, db, auth_supervisor, auth_admin
+    ):
+        s = _station(db)
+        v = _vehicle(db, s.station_id)
+        c = _check(db, v.vehicle_id, s.station_id)
+        _soft_delete(
+            client, c.check_id, auth_supervisor, "Soft delete before hard delete."
+        )
+
+        resp = _delete_with_body(
+            client,
+            f"/api/v1/checks/daily/{c.check_id}/force",
+            {},
+            auth_admin,
+        )
+        assert resp.status_code == 204
+
+    def test_force_deleted_check_is_gone(self, client, db, auth_supervisor, auth_admin):
+        s = _station(db)
+        v = _vehicle(db, s.station_id)
+        c = _check(db, v.vehicle_id, s.station_id)
+        _soft_delete(
+            client, c.check_id, auth_supervisor, "Soft delete before hard delete."
+        )
+        _delete_with_body(
+            client,
+            f"/api/v1/checks/daily/{c.check_id}/force",
+            {},
+            auth_admin,
+        )
+
+        # Verify it no longer shows in deleted list
+        resp = client.get(
+            f"/api/v1/checks/daily/deleted?station_id={s.station_id}",
+            headers=auth_supervisor,
+        )
+        ids = {r["check_id"] for r in resp.json()}
+        assert c.check_id not in ids
+
+    def test_cannot_force_delete_active_check(self, client, db, auth_admin):
+        s = _station(db)
+        v = _vehicle(db, s.station_id)
+        c = _check(db, v.vehicle_id, s.station_id)
+
+        resp = _delete_with_body(
+            client,
+            f"/api/v1/checks/daily/{c.check_id}/force",
+            {},
+            auth_admin,
+        )
+        assert resp.status_code == 409
+
+    def test_supervisor_cannot_force_delete(self, client, db, auth_supervisor):
+        s = _station(db)
+        v = _vehicle(db, s.station_id)
+        c = _check(db, v.vehicle_id, s.station_id)
+        _soft_delete(
+            client, c.check_id, auth_supervisor, "Soft delete to test supervisor block."
+        )
+
+        resp = _delete_with_body(
+            client,
+            f"/api/v1/checks/daily/{c.check_id}/force",
+            {},
+            auth_supervisor,
+        )
+        assert resp.status_code == 403
+
+    def test_responder_cannot_force_delete(
+        self, client, db, auth_supervisor, auth_responder
+    ):
+        s = _station(db)
+        v = _vehicle(db, s.station_id)
+        c = _check(db, v.vehicle_id, s.station_id)
+        _soft_delete(
+            client, c.check_id, auth_supervisor, "Soft delete to test responder block."
+        )
+
+        resp = _delete_with_body(
+            client,
+            f"/api/v1/checks/daily/{c.check_id}/force",
+            {},
+            auth_responder,
+        )
+        assert resp.status_code == 403
+
+    def test_force_delete_writes_audit_event(
+        self, client, db, auth_supervisor, auth_admin
+    ):
+        from ems_readykit.models.audit_event import AuditEvent
+
+        s = _station(db)
+        v = _vehicle(db, s.station_id)
+        c = _check(db, v.vehicle_id, s.station_id)
+        _soft_delete(
+            client, c.check_id, auth_supervisor, "Soft delete before audit check."
+        )
+        _delete_with_body(
+            client,
+            f"/api/v1/checks/daily/{c.check_id}/force",
+            {},
+            auth_admin,
+        )
+
+        audit = (
+            db.query(AuditEvent)
+            .filter(AuditEvent.action == "CHECK_HARD_DELETED")
+            .first()
+        )
+        assert audit is not None
+        assert audit.severity == "CRITICAL"

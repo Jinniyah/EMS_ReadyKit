@@ -1,6 +1,6 @@
 """
 models/daily_inventory_check.py
-DailyInventoryCheck — one record per inventory check event.
+DailyInventoryCheck -- one record per inventory check event.
 
 Phase 7 change: added supervisor acknowledgement (reviewed_by, reviewed_at,
 corrective_action) and soft-delete fields (deleted_at, deleted_by,
@@ -20,15 +20,18 @@ Phase 5 change: removed UniqueConstraint("vehicle_id", "check_date").
 Multiple checks per vehicle per calendar day are supported.
 
 Phase 4 change: added line_items relationship to CheckLineItem.
+
+CQ-B6: check_date changed from String(10) to Date type (migration 0026).
+ISO string comparisons in range queries still work via SQLAlchemy Date type.
 """
 
 from __future__ import annotations
 
 import enum
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -65,32 +68,32 @@ class DailyInventoryCheck(TimestampMixin, Base):
     station_id: Mapped[int] = mapped_column(
         ForeignKey("stations.station_id"), nullable=False
     )
-    check_date: Mapped[str] = mapped_column(String(10), nullable=False)
-    performed_by: Mapped[str] = mapped_column(String(100), nullable=False)
+    check_date: Mapped[date] = mapped_column(Date(), nullable=False)
+    performed_by: Mapped[str] = mapped_column(nullable=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[CheckStatus] = mapped_column(
         SAEnum(CheckStatus, native_enum=False),
         nullable=False,
         default=CheckStatus.PASS,
     )
-    notes: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(nullable=True)
 
-    # ── Acknowledgement (B-M7) ────────────────────────────────────────────────
-    reviewed_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    # -- Acknowledgement (B-M7) ------------------------------------------------
+    reviewed_by: Mapped[Optional[str]] = mapped_column(nullable=True)
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    corrective_action: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    corrective_action: Mapped[Optional[str]] = mapped_column(nullable=True)
 
-    # ── Soft delete (B-M9) ────────────────────────────────────────────────────
+    # -- Soft delete (B-M9) ---------------------------------------------------
     deleted_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    deleted_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    deletion_reason: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
+    deleted_by: Mapped[Optional[str]] = mapped_column(nullable=True)
+    deletion_reason: Mapped[Optional[str]] = mapped_column(nullable=True)
     force_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
-    # ── Relationships ─────────────────────────────────────────────────────────
+    # -- Relationships ---------------------------------------------------------
     vehicle: Mapped[Optional["Vehicle"]] = relationship(
         "Vehicle", back_populates="daily_checks"
     )

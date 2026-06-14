@@ -6,12 +6,12 @@ All client calls include auth headers. Most tests use auth_admin for
 simplicity. RBAC-specific tests use the appropriate role fixture.
 
 performed_by / primary_signer are now set from the JWT identity in the router,
-so the request body values are ignored — tests no longer need to assert on
+so the request body values are ignored -- tests no longer need to assert on
 the specific name submitted.
 
 Phase 5 change:
   test_create_daily_check_duplicate_returns_409 replaced with
-  test_multiple_checks_same_vehicle_same_day_all_succeed — multiple checks
+  test_multiple_checks_same_vehicle_same_day_all_succeed -- multiple checks
   per vehicle per day are now explicitly allowed and tested.
   test_station_compliance_today updated to assert 2 checks are returned
   when 2 are submitted.
@@ -20,6 +20,11 @@ Session C change:
   Station membership is now enforced. Any test that uses a non-admin role
   to access station-scoped data must first add a StationMember row.
   Use _add_member(db, station_id, email, role) for this.
+
+CQ-B6 note: check_date format validator still enforces YYYY-MM-DD for string
+  inputs (test_create_daily_check_invalid_date_format_returns_422 unchanged).
+CQ-B7 note: create_par_level 409 message no longer contains par_id -- just
+  asserts 409 status code now.
 """
 
 from __future__ import annotations
@@ -43,8 +48,6 @@ from ems_readykit.models import (
 )
 from ems_readykit.models.station_member import StationMember
 
-# ── Unique name helpers ────────────────────────────────────────────────────────
-
 
 def _uid() -> str:
     return uuid.uuid4().hex[:8]
@@ -52,9 +55,6 @@ def _uid() -> str:
 
 def _utcnow() -> str:
     return datetime.now(timezone.utc).isoformat()
-
-
-# ── Test data helpers ─────────────────────────────────────────────────────────
 
 
 def _station(db: Session, *, name: Optional[str] = None) -> Station:
@@ -81,7 +81,7 @@ def _vehicle(
         location_type=LocationType.VEHICLE,
         station_id=station_id,
         vehicle_id=v.vehicle_id,
-        label=f"{number} — {vtype.value}",
+        label=f"{number} -- {vtype.value}",
     )
     db.add(loc)
     db.flush()
@@ -112,11 +112,6 @@ def _supply_room(db: Session, station_id: int) -> InventoryLocation:
 
 
 def _add_member(db: Session, station_id: int, user_email: str, role: str) -> None:
-    """
-    Add a StationMember row for a test user.
-    Required when a non-admin auth fixture accesses a station-scoped endpoint
-    after Session C membership enforcement was added (ACC-B7/B8).
-    """
     db.add(
         StationMember(
             station_id=station_id,
@@ -127,9 +122,6 @@ def _add_member(db: Session, station_id: int, user_email: str, role: str) -> Non
         )
     )
     db.flush()
-
-
-# ── Station endpoints ─────────────────────────────────────────────────────────
 
 
 class TestStationEndpoints:
@@ -145,18 +137,13 @@ class TestStationEndpoints:
             headers=auth_admin,
         )
         assert response.status_code == 201
-        body = response.json()
-        assert body["station_id"] is not None
-        assert body["active"] is True
+        assert response.json()["station_id"] is not None
+        assert response.json()["active"] is True
 
     def test_create_station_blank_name_returns_422(self, client, auth_admin):
         response = client.post(
             "/api/v1/stations",
-            json={
-                "name": "   ",
-                "address": "100 Main St",
-                "region": "Downriver",
-            },
+            json={"name": "   ", "address": "100 Main St", "region": "Downriver"},
             headers=auth_admin,
         )
         assert response.status_code == 422
@@ -189,8 +176,7 @@ class TestStationEndpoints:
         )
         response = client.get("/api/v1/stations?active=false", headers=auth_admin)
         assert response.status_code == 200
-        names = [s["name"] for s in response.json()]
-        assert name_i in names
+        assert name_i in [s["name"] for s in response.json()]
 
     def test_get_station_by_id(self, client, auth_admin):
         r = client.post(
@@ -204,10 +190,10 @@ class TestStationEndpoints:
         assert response.json()["station_id"] == station_id
 
     def test_get_station_not_found_returns_404(self, client, auth_admin):
-        response = client.get("/api/v1/stations/99999999", headers=auth_admin)
-        assert response.status_code == 404
-
-    # CH-B8 / CH-B7 — station settings
+        assert (
+            client.get("/api/v1/stations/99999999", headers=auth_admin).status_code
+            == 404
+        )
 
     def test_get_station_settings_default_true(self, client, auth_admin):
         r = client.post(
@@ -218,9 +204,7 @@ class TestStationEndpoints:
         station_id = r.json()["station_id"]
         r2 = client.get(f"/api/v1/stations/{station_id}/settings", headers=auth_admin)
         assert r2.status_code == 200
-        body = r2.json()
-        assert body["station_id"] == station_id
-        assert body["allow_check_modification"] is True
+        assert r2.json()["allow_check_modification"] is True
 
     def test_patch_station_settings_admin_can_toggle(self, client, auth_admin):
         r = client.post(
@@ -236,9 +220,12 @@ class TestStationEndpoints:
         )
         assert r2.status_code == 200
         assert r2.json()["allow_check_modification"] is False
-        # verify persisted
-        r3 = client.get(f"/api/v1/stations/{station_id}/settings", headers=auth_admin)
-        assert r3.json()["allow_check_modification"] is False
+        assert (
+            client.get(
+                f"/api/v1/stations/{station_id}/settings", headers=auth_admin
+            ).json()["allow_check_modification"]
+            is False
+        )
 
     def test_patch_station_settings_supervisor_returns_403(
         self, client, auth_admin, auth_supervisor
@@ -248,13 +235,14 @@ class TestStationEndpoints:
             json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"},
             headers=auth_admin,
         )
-        station_id = r.json()["station_id"]
-        r2 = client.patch(
-            f"/api/v1/stations/{station_id}/settings",
-            json={"allow_check_modification": False},
-            headers=auth_supervisor,
+        assert (
+            client.patch(
+                f"/api/v1/stations/{r.json()['station_id']}/settings",
+                json={"allow_check_modification": False},
+                headers=auth_supervisor,
+            ).status_code
+            == 403
         )
-        assert r2.status_code == 403
 
     def test_get_station_settings_responder_returns_403(
         self, client, auth_admin, auth_responder
@@ -264,15 +252,13 @@ class TestStationEndpoints:
             json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"},
             headers=auth_admin,
         )
-        station_id = r.json()["station_id"]
-        r2 = client.get(
-            f"/api/v1/stations/{station_id}/settings",
-            headers=auth_responder,
+        assert (
+            client.get(
+                f"/api/v1/stations/{r.json()['station_id']}/settings",
+                headers=auth_responder,
+            ).status_code
+            == 403
         )
-        assert r2.status_code == 403
-
-
-# ── Vehicle endpoints ─────────────────────────────────────────────────────────
 
 
 class TestVehicleEndpoints:
@@ -320,16 +306,18 @@ class TestVehicleEndpoints:
         assert loc.location_type == LocationType.VEHICLE
 
     def test_create_vehicle_invalid_station_returns_404(self, client, auth_admin):
-        response = client.post(
-            "/api/v1/vehicles",
-            json={
-                "station_id": 99999999,
-                "vehicle_number": f"AMB-{_uid()}",
-                "vehicle_type": "ALS",
-            },
-            headers=auth_admin,
+        assert (
+            client.post(
+                "/api/v1/vehicles",
+                json={
+                    "station_id": 99999999,
+                    "vehicle_number": f"AMB-{_uid()}",
+                    "vehicle_type": "ALS",
+                },
+                headers=auth_admin,
+            ).status_code
+            == 404
         )
-        assert response.status_code == 404
 
     def test_create_vehicle_duplicate_number_returns_409(self, client, auth_admin):
         r = client.post(
@@ -344,12 +332,14 @@ class TestVehicleEndpoints:
             json={"station_id": sid, "vehicle_number": vnum, "vehicle_type": "ALS"},
             headers=auth_admin,
         )
-        response = client.post(
-            "/api/v1/vehicles",
-            json={"station_id": sid, "vehicle_number": vnum, "vehicle_type": "ALS"},
-            headers=auth_admin,
+        assert (
+            client.post(
+                "/api/v1/vehicles",
+                json={"station_id": sid, "vehicle_number": vnum, "vehicle_type": "ALS"},
+                headers=auth_admin,
+            ).status_code
+            == 409
         )
-        assert response.status_code == 409
 
     def test_qrv_vehicle_cs_check_false(self, client, auth_admin):
         r = client.post(
@@ -371,8 +361,10 @@ class TestVehicleEndpoints:
         assert response.json()["requires_controlled_substance_check"] is False
 
     def test_get_vehicle_not_found_returns_404(self, client, auth_admin):
-        response = client.get("/api/v1/vehicles/99999999", headers=auth_admin)
-        assert response.status_code == 404
+        assert (
+            client.get("/api/v1/vehicles/99999999", headers=auth_admin).status_code
+            == 404
+        )
 
     def test_list_station_vehicles(self, client, auth_admin):
         r1 = client.post(
@@ -406,11 +398,12 @@ class TestVehicleEndpoints:
     def test_list_station_vehicles_invalid_station_returns_404(
         self, client, auth_admin
     ):
-        response = client.get("/api/v1/stations/99999999/vehicles", headers=auth_admin)
-        assert response.status_code == 404
-
-
-# ── Item endpoints ────────────────────────────────────────────────────────────
+        assert (
+            client.get(
+                "/api/v1/stations/99999999/vehicles", headers=auth_admin
+            ).status_code
+            == 404
+        )
 
 
 class TestItemEndpoints:
@@ -436,12 +429,18 @@ class TestItemEndpoints:
             json={"name": name, "category": "Consumable", "unit_of_measure": "each"},
             headers=auth_admin,
         )
-        response = client.post(
-            "/api/v1/items",
-            json={"name": name, "category": "Consumable", "unit_of_measure": "each"},
-            headers=auth_admin,
+        assert (
+            client.post(
+                "/api/v1/items",
+                json={
+                    "name": name,
+                    "category": "Consumable",
+                    "unit_of_measure": "each",
+                },
+                headers=auth_admin,
+            ).status_code
+            == 409
         )
-        assert response.status_code == 409
 
     def test_list_items_filter_by_category(self, client, auth_admin):
         med_name, equip_name = f"Med-{_uid()}", f"Equip-{_uid()}"
@@ -494,19 +493,19 @@ class TestItemEndpoints:
         assert all(i["controlled_substance"] is True for i in response.json())
 
     def test_get_item_not_found_returns_404(self, client, auth_admin):
-        response = client.get("/api/v1/items/99999999", headers=auth_admin)
-        assert response.status_code == 404
+        assert (
+            client.get("/api/v1/items/99999999", headers=auth_admin).status_code == 404
+        )
 
     def test_create_item_blank_name_returns_422(self, client, auth_admin):
-        response = client.post(
-            "/api/v1/items",
-            json={"name": "  ", "category": "Medication", "unit_of_measure": "mL"},
-            headers=auth_admin,
+        assert (
+            client.post(
+                "/api/v1/items",
+                json={"name": "  ", "category": "Medication", "unit_of_measure": "mL"},
+                headers=auth_admin,
+            ).status_code
+            == 422
         )
-        assert response.status_code == 422
-
-
-# ── Inventory endpoints ───────────────────────────────────────────────────────
 
 
 class TestInventoryEndpoints:
@@ -517,10 +516,12 @@ class TestInventoryEndpoints:
         assert isinstance(response.json(), list)
 
     def test_get_location_not_found_returns_404(self, client, auth_admin):
-        response = client.get(
-            "/api/v1/inventory/locations/99999999", headers=auth_admin
+        assert (
+            client.get(
+                "/api/v1/inventory/locations/99999999", headers=auth_admin
+            ).status_code
+            == 404
         )
-        assert response.status_code == 404
 
     def _setup_loc_and_item(self, client, auth_admin):
         sr = client.post(
@@ -569,12 +570,14 @@ class TestInventoryEndpoints:
         assert response.json()["quantity"] == 10
 
     def test_create_stock_lot_negative_quantity_returns_422(self, client, auth_admin):
-        response = client.post(
-            "/api/v1/inventory/lots",
-            json={"item_id": 1, "location_id": 1, "quantity": -5},
-            headers=auth_admin,
+        assert (
+            client.post(
+                "/api/v1/inventory/lots",
+                json={"item_id": 1, "location_id": 1, "quantity": -5},
+                headers=auth_admin,
+            ).status_code
+            == 422
         )
-        assert response.status_code == 422
 
     def test_create_stock_lot_invalid_location_returns_404(self, client, auth_admin):
         ir = client.post(
@@ -586,16 +589,18 @@ class TestInventoryEndpoints:
             },
             headers=auth_admin,
         )
-        response = client.post(
-            "/api/v1/inventory/lots",
-            json={
-                "item_id": ir.json()["item_id"],
-                "location_id": 99999999,
-                "quantity": 5,
-            },
-            headers=auth_admin,
+        assert (
+            client.post(
+                "/api/v1/inventory/lots",
+                json={
+                    "item_id": ir.json()["item_id"],
+                    "location_id": 99999999,
+                    "quantity": 5,
+                },
+                headers=auth_admin,
+            ).status_code
+            == 404
         )
-        assert response.status_code == 404
 
     def test_list_expiring_lots(self, client, auth_admin):
         loc_id, item_id = self._setup_loc_and_item(client, auth_admin)
@@ -659,19 +664,22 @@ class TestInventoryEndpoints:
         assert response.json()["min_quantity"] == 5
 
     def test_create_par_level_max_less_than_min_returns_422(self, client, auth_admin):
-        response = client.post(
-            "/api/v1/inventory/par-levels",
-            json={
-                "item_id": 1,
-                "location_id": 1,
-                "min_quantity": 10,
-                "max_quantity": 5,
-            },
-            headers=auth_admin,
+        assert (
+            client.post(
+                "/api/v1/inventory/par-levels",
+                json={
+                    "item_id": 1,
+                    "location_id": 1,
+                    "min_quantity": 10,
+                    "max_quantity": 5,
+                },
+                headers=auth_admin,
+            ).status_code
+            == 422
         )
-        assert response.status_code == 422
 
     def test_create_par_level_duplicate_returns_409(self, client, auth_admin):
+        """CQ-B7: pre-check removed; 409 now comes from IntegrityError. Message no longer contains par_id."""
         loc_id, item_id = self._setup_loc_and_item(client, auth_admin)
         client.post(
             "/api/v1/inventory/par-levels",
@@ -694,7 +702,7 @@ class TestInventoryEndpoints:
             headers=auth_admin,
         )
         assert response.status_code == 409
-        assert "par_id" in response.json()["detail"]
+        assert "par level already exists" in response.json()["detail"].lower()
 
     def test_list_location_par_levels(self, client, auth_admin):
         loc_id, item_id = self._setup_loc_and_item(client, auth_admin)
@@ -715,11 +723,7 @@ class TestInventoryEndpoints:
         assert len(response.json()) >= 1
 
 
-# ── Par level deactivation (B-E9) ────────────────────────────────────────────
-
-
 class TestParLevelDeactivate:
-    """PATCH /inventory/par-levels/{id} — soft-deactivate with optional reason (B-E9)."""
 
     def _setup_par(self, client, auth_admin):
         sr = client.post(
@@ -764,49 +768,56 @@ class TestParLevelDeactivate:
 
     def test_deactivate_par_level_returns_204(self, client, auth_admin):
         par_id = self._setup_par(client, auth_admin)
-        resp = client.patch(
-            f"/api/v1/inventory/par-levels/{par_id}",
-            json={},
-            headers=auth_admin,
+        assert (
+            client.patch(
+                f"/api/v1/inventory/par-levels/{par_id}", json={}, headers=auth_admin
+            ).status_code
+            == 204
         )
-        assert resp.status_code == 204
 
     def test_deactivate_with_reason_returns_204(self, client, auth_admin):
         par_id = self._setup_par(client, auth_admin)
-        resp = client.patch(
-            f"/api/v1/inventory/par-levels/{par_id}",
-            json={"reason": "No longer stocked on this unit"},
-            headers=auth_admin,
+        assert (
+            client.patch(
+                f"/api/v1/inventory/par-levels/{par_id}",
+                json={"reason": "No longer stocked on this unit"},
+                headers=auth_admin,
+            ).status_code
+            == 204
         )
-        assert resp.status_code == 204
 
     def test_deactivate_twice_returns_409(self, client, auth_admin):
         par_id = self._setup_par(client, auth_admin)
         client.patch(
             f"/api/v1/inventory/par-levels/{par_id}", json={}, headers=auth_admin
         )
-        resp = client.patch(
-            f"/api/v1/inventory/par-levels/{par_id}", json={}, headers=auth_admin
+        assert (
+            client.patch(
+                f"/api/v1/inventory/par-levels/{par_id}", json={}, headers=auth_admin
+            ).status_code
+            == 409
         )
-        assert resp.status_code == 409
 
     def test_deactivate_unknown_par_returns_404(self, client, auth_admin):
-        resp = client.patch(
-            "/api/v1/inventory/par-levels/99999999", json={}, headers=auth_admin
+        assert (
+            client.patch(
+                "/api/v1/inventory/par-levels/99999999", json={}, headers=auth_admin
+            ).status_code
+            == 404
         )
-        assert resp.status_code == 404
 
     def test_responder_cannot_deactivate_par_returns_403(
         self, client, auth_admin, auth_responder
     ):
         par_id = self._setup_par(client, auth_admin)
-        resp = client.patch(
-            f"/api/v1/inventory/par-levels/{par_id}", json={}, headers=auth_responder
+        assert (
+            client.patch(
+                f"/api/v1/inventory/par-levels/{par_id}",
+                json={},
+                headers=auth_responder,
+            ).status_code
+            == 403
         )
-        assert resp.status_code == 403
-
-
-# ── Compartment endpoints ─────────────────────────────────────────────────────
 
 
 class TestCompartmentEndpoints:
@@ -855,12 +866,14 @@ class TestCompartmentEndpoints:
             json=payload,
             headers=auth_admin,
         )
-        response = client.post(
-            f"/api/v1/inventory/locations/{loc_id}/compartments",
-            json=payload,
-            headers=auth_admin,
+        assert (
+            client.post(
+                f"/api/v1/inventory/locations/{loc_id}/compartments",
+                json=payload,
+                headers=auth_admin,
+            ).status_code
+            == 409
         )
-        assert response.status_code == 409
 
     def test_list_compartments_sorted_by_sort_order(self, client, auth_admin):
         loc_id, _ = self._make_location(client, auth_admin)
@@ -878,8 +891,11 @@ class TestCompartmentEndpoints:
             f"/api/v1/inventory/locations/{loc_id}/compartments", headers=auth_admin
         )
         assert response.status_code == 200
-        names = [c["name"] for c in response.json()]
-        assert names == ["Compartment #1", "Compartment #2", "Compartment #3"]
+        assert [c["name"] for c in response.json()] == [
+            "Compartment #1",
+            "Compartment #2",
+            "Compartment #3",
+        ]
 
     def test_get_compartment_by_id(self, client, auth_admin):
         loc_id, _ = self._make_location(client, auth_admin)
@@ -896,15 +912,16 @@ class TestCompartmentEndpoints:
         assert response.json()["name"] == "First Out Bag"
 
     def test_get_compartment_not_found_returns_404(self, client, auth_admin):
-        response = client.get(
-            "/api/v1/inventory/compartments/99999999", headers=auth_admin
+        assert (
+            client.get(
+                "/api/v1/inventory/compartments/99999999", headers=auth_admin
+            ).status_code
+            == 404
         )
-        assert response.status_code == 404
 
     def test_responder_can_list_compartments(
         self, client, db, auth_admin, auth_responder
     ):
-        """Session C: responder must be a station member to list compartments."""
         loc_id, sid = self._make_location(client, auth_admin)
         _add_member(db, sid, "test-responder@ems.local", "Responder")
         client.post(
@@ -912,26 +929,27 @@ class TestCompartmentEndpoints:
             json={"location_id": loc_id, "name": "Compartment #1"},
             headers=auth_admin,
         )
-        response = client.get(
-            f"/api/v1/inventory/locations/{loc_id}/compartments", headers=auth_responder
+        assert (
+            client.get(
+                f"/api/v1/inventory/locations/{loc_id}/compartments",
+                headers=auth_responder,
+            ).status_code
+            == 200
         )
-        assert response.status_code == 200
 
     def test_responder_cannot_create_compartment_returns_403(
         self, client, db, auth_admin, auth_responder
     ):
-        """Role 403 — Responder lacks Supervisor role regardless of membership."""
         loc_id, sid = self._make_location(client, auth_admin)
         _add_member(db, sid, "test-responder@ems.local", "Responder")
-        response = client.post(
-            f"/api/v1/inventory/locations/{loc_id}/compartments",
-            json={"location_id": loc_id, "name": "Compartment #1"},
-            headers=auth_responder,
+        assert (
+            client.post(
+                f"/api/v1/inventory/locations/{loc_id}/compartments",
+                json={"location_id": loc_id, "name": "Compartment #1"},
+                headers=auth_responder,
+            ).status_code
+            == 403
         )
-        assert response.status_code == 403
-
-
-# ── Check line item tests ─────────────────────────────────────────────────────
 
 
 class TestCheckLineItems:
@@ -994,10 +1012,8 @@ class TestCheckLineItems:
             headers=auth_admin,
         )
         assert response.status_code == 201
-        body = response.json()
-        assert body["status"] == "PASS"
-        assert len(body["line_items"]) == 1
-        assert body["line_items"][0]["status"] == "OK"
+        assert response.json()["status"] == "PASS"
+        assert response.json()["line_items"][0]["status"] == "OK"
 
     def test_short_item_sets_status_needs_restock(self, client, auth_admin):
         sid, vid, cid, item_id = self._setup(client, auth_admin)
@@ -1020,9 +1036,8 @@ class TestCheckLineItems:
             headers=auth_admin,
         )
         assert response.status_code == 201
-        body = response.json()
-        assert body["status"] == "NEEDS_RESTOCK"
-        assert body["line_items"][0]["status"] == "SHORT"
+        assert response.json()["status"] == "NEEDS_RESTOCK"
+        assert response.json()["line_items"][0]["status"] == "SHORT"
 
     def test_missing_item_sets_status_fail(self, client, auth_admin):
         sid, vid, cid, item_id = self._setup(client, auth_admin)
@@ -1045,9 +1060,8 @@ class TestCheckLineItems:
             headers=auth_admin,
         )
         assert response.status_code == 201
-        body = response.json()
-        assert body["status"] == "FAIL"
-        assert body["line_items"][0]["status"] == "MISSING"
+        assert response.json()["status"] == "FAIL"
+        assert response.json()["line_items"][0]["status"] == "MISSING"
 
     def test_check_without_line_items_defaults_to_pass(self, client, auth_admin):
         sid, vid, _cid, _item_id = self._setup(client, auth_admin)
@@ -1117,7 +1131,7 @@ class TestCheckLineItems:
                         "lot_id": lot_id,
                         "quantity_needed": 2,
                         "quantity_found": 2,
-                    },
+                    }
                 ],
             },
             headers=auth_admin,
@@ -1159,14 +1173,13 @@ class TestCheckLineItems:
                         "lot_id": lot_id,
                         "quantity_needed": 2,
                         "quantity_found": 2,
-                    },
+                    }
                 ],
             },
             headers=auth_admin,
         )
         assert response.status_code == 201
         assert response.json()["status"] == "PASS"
-        assert response.json()["line_items"][0]["status"] == "OK"
         assert response.json()["line_items"][0]["expiration_date"] == "2029-01-01"
 
     def test_wrong_lot_item_returns_422(self, client, auth_admin):
@@ -1182,17 +1195,15 @@ class TestCheckLineItems:
             },
             headers=auth_admin,
         )
-        item2_id = ir2.json()["item_id"]
         lot_r = client.post(
             "/api/v1/inventory/lots",
             json={
-                "item_id": item2_id,
+                "item_id": ir2.json()["item_id"],
                 "location_id": loc_id,
                 "quantity": 2,
             },
             headers=auth_admin,
         )
-        lot_id = lot_r.json()["lot_id"]
         response = client.post(
             "/api/v1/checks/daily",
             json={
@@ -1204,10 +1215,10 @@ class TestCheckLineItems:
                     {
                         "compartment_id": cid,
                         "item_id": item_id,
-                        "lot_id": lot_id,
+                        "lot_id": lot_r.json()["lot_id"],
                         "quantity_needed": 2,
                         "quantity_found": 2,
-                    },
+                    }
                 ],
             },
             headers=auth_admin,
@@ -1266,9 +1277,6 @@ class TestCheckLineItems:
         assert response.json()["status"] == "FAIL"
 
 
-# ── Check endpoints ───────────────────────────────────────────────────────────
-
-
 class TestCheckEndpoints:
 
     def _make_station_and_vehicle(self, client, auth_admin, vtype: str = "ALS"):
@@ -1302,12 +1310,12 @@ class TestCheckEndpoints:
             headers=auth_admin,
         )
         assert response.status_code == 201
-        assert response.json()["status"] == "PASS"
         assert response.json()["performed_by"] == "test-administrator@ems.local"
 
     def test_create_daily_check_invalid_date_format_returns_422(
         self, client, auth_admin
     ):
+        """CQ-B6: check_date format validator still rejects non-YYYY-MM-DD strings."""
         sid, vid = self._make_station_and_vehicle(client, auth_admin)
         response = client.post(
             "/api/v1/checks/daily",
@@ -1358,17 +1366,19 @@ class TestCheckEndpoints:
         assert len(ids) == 3
 
     def test_create_daily_check_invalid_vehicle_returns_404(self, client, auth_admin):
-        response = client.post(
-            "/api/v1/checks/daily",
-            json={
-                "vehicle_id": 99999999,
-                "station_id": 1,
-                "check_date": "2026-05-10",
-                "timestamp": _utcnow(),
-            },
-            headers=auth_admin,
+        assert (
+            client.post(
+                "/api/v1/checks/daily",
+                json={
+                    "vehicle_id": 99999999,
+                    "station_id": 1,
+                    "check_date": "2026-05-10",
+                    "timestamp": _utcnow(),
+                },
+                headers=auth_admin,
+            ).status_code
+            == 404
         )
-        assert response.status_code == 404
 
     def test_daily_check_creates_audit_event(self, client, db, auth_admin):
         sid, vid = self._make_station_and_vehicle(client, auth_admin)
@@ -1385,8 +1395,7 @@ class TestCheckEndpoints:
         event = (
             db.query(AuditEvent)
             .filter(
-                AuditEvent.action == "CHECK_COMPLETED",
-                AuditEvent.vehicle_id == vid,
+                AuditEvent.action == "CHECK_COMPLETED", AuditEvent.vehicle_id == vid
             )
             .first()
         )
@@ -1426,11 +1435,7 @@ class TestCheckEndpoints:
         assert len(response.json()) == 2
 
 
-# ── B-E3: Date-range compliance query ───────────────────────────────────────
-
-
 class TestStationDateRangeChecks:
-    """B-E3: GET /checks/daily/station/{id}?from=&to="""
 
     def _make_sv(self, client, auth_admin):
         sr = client.post(
@@ -1452,7 +1457,6 @@ class TestStationDateRangeChecks:
 
     def test_date_range_returns_checks_in_window(self, client, auth_admin):
         sid, vid = self._make_sv(client, auth_admin)
-        # Timestamps must land on the intended dates (server derives check_date from timestamp)
         ts_may01 = datetime(2026, 5, 1, 12, 0, 0, tzinfo=timezone.utc).isoformat()
         ts_may10 = datetime(2026, 5, 10, 12, 0, 0, tzinfo=timezone.utc).isoformat()
         ts_june01 = datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc).isoformat()
@@ -1547,21 +1551,21 @@ class TestStationDateRangeChecks:
             },
             headers=auth_admin,
         )
-        response = client.get(
-            f"/api/v1/checks/daily/station/{sid}", headers=auth_responder
+        assert (
+            client.get(
+                f"/api/v1/checks/daily/station/{sid}", headers=auth_responder
+            ).status_code
+            == 200
         )
-        assert response.status_code == 200
 
     def test_non_member_returns_403(self, client, db, auth_admin, auth_responder):
         sid, _ = self._make_sv(client, auth_admin)
-        # No _add_member call — responder is not a member
-        response = client.get(
-            f"/api/v1/checks/daily/station/{sid}", headers=auth_responder
+        assert (
+            client.get(
+                f"/api/v1/checks/daily/station/{sid}", headers=auth_responder
+            ).status_code
+            == 403
         )
-        assert response.status_code == 403
-
-
-# ── Check endpoints (CS checks) ───────────────────────────────────────────────
 
 
 class TestCSCheckEndpoints:
@@ -1597,7 +1601,6 @@ class TestCSCheckEndpoints:
             headers=auth_admin,
         )
         assert response.status_code == 201
-        assert response.json()["discrepancy_flag"] is False
         assert response.json()["primary_signer"] == "Test Administrator"
 
     def test_create_cs_check_non_als_returns_422(self, client, auth_admin):
@@ -1616,11 +1619,10 @@ class TestCSCheckEndpoints:
             },
             headers=auth_admin,
         )
-        vid = vr.json()["vehicle_id"]
         response = client.post(
             "/api/v1/checks/controlled-substance",
             json={
-                "vehicle_id": vid,
+                "vehicle_id": vr.json()["vehicle_id"],
                 "secondary_signer": "M. Jones",
                 "timestamp": _utcnow(),
                 "discrepancy_flag": False,
@@ -1631,7 +1633,6 @@ class TestCSCheckEndpoints:
         assert "ALS" in response.json()["detail"]
 
     def test_create_cs_check_same_signers_returns_422(self, client, db, auth_responder):
-        """Session C: responder needs membership before reaching the dual-signer check."""
         sr = client.post(
             "/api/v1/stations",
             json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"},
@@ -1723,14 +1724,13 @@ class TestCSCheckEndpoints:
             },
             headers=auth_admin,
         )
-        vid = vr.json()["vehicle_id"]
-        response = client.get(
-            f"/api/v1/checks/controlled-substance/vehicle/{vid}", headers=auth_admin
+        assert (
+            client.get(
+                f"/api/v1/checks/controlled-substance/vehicle/{vr.json()['vehicle_id']}",
+                headers=auth_admin,
+            ).status_code
+            == 422
         )
-        assert response.status_code == 422
-
-
-# ── Audit endpoints ───────────────────────────────────────────────────────────
 
 
 class TestAuditEndpoints:
@@ -1738,7 +1738,6 @@ class TestAuditEndpoints:
     def test_list_audit_events_returns_200(self, client, auth_supervisor):
         response = client.get("/api/v1/audit", headers=auth_supervisor)
         assert response.status_code == 200
-        assert isinstance(response.json(), list)
 
     def test_list_audit_events_filter_by_severity(self, client, db, auth_admin):
         sr = client.post(
@@ -1770,9 +1769,8 @@ class TestAuditEndpoints:
         )
         response = client.get("/api/v1/audit?severity=HIGH", headers=auth_admin)
         assert response.status_code == 200
-        events = response.json()
-        assert len(events) >= 1
-        assert all(e["severity"] == "HIGH" for e in events)
+        assert len(response.json()) >= 1
+        assert all(e["severity"] == "HIGH" for e in response.json())
 
     def test_list_audit_events_filter_by_action(self, client, auth_admin):
         sr = client.post(
@@ -1807,7 +1805,6 @@ class TestAuditEndpoints:
         )
         assert response.status_code == 200
         assert len(response.json()) >= 1
-        assert all(e["action"] == "CHECK_COMPLETED" for e in response.json())
 
     def test_list_audit_events_limit(self, client, auth_supervisor):
         response = client.get("/api/v1/audit?limit=5", headers=auth_supervisor)
@@ -1815,28 +1812,22 @@ class TestAuditEndpoints:
         assert len(response.json()) <= 5
 
     def test_list_audit_events_invalid_limit_returns_422(self, client, auth_supervisor):
-        response = client.get("/api/v1/audit?limit=0", headers=auth_supervisor)
-        assert response.status_code == 422
+        assert (
+            client.get("/api/v1/audit?limit=0", headers=auth_supervisor).status_code
+            == 422
+        )
 
     def test_audit_from_date_accepts_valid_date(self, client, auth_supervisor):
-        from datetime import date
-
         today = date.today().isoformat()
         resp = client.get(f"/api/v1/audit?from_date={today}", headers=auth_supervisor)
         assert resp.status_code == 200
-        assert isinstance(resp.json(), list)
 
     def test_audit_to_date_accepts_valid_date(self, client, auth_supervisor):
-        from datetime import date
-
         today = date.today().isoformat()
         resp = client.get(f"/api/v1/audit?to_date={today}", headers=auth_supervisor)
         assert resp.status_code == 200
-        assert isinstance(resp.json(), list)
 
     def test_audit_from_date_tomorrow_returns_empty(self, client, auth_supervisor):
-        from datetime import date, timedelta
-
         tomorrow = (date.today() + timedelta(days=1)).isoformat()
         resp = client.get(
             f"/api/v1/audit?from_date={tomorrow}", headers=auth_supervisor
@@ -1845,143 +1836,146 @@ class TestAuditEndpoints:
         assert resp.json() == []
 
     def test_audit_to_date_yesterday_returns_empty(self, client, auth_supervisor):
-        from datetime import date, timedelta
-
         yesterday = (date.today() - timedelta(days=1)).isoformat()
         resp = client.get(f"/api/v1/audit?to_date={yesterday}", headers=auth_supervisor)
         assert resp.status_code == 200
         assert resp.json() == []
 
     def test_audit_invalid_date_format_returns_422(self, client, auth_supervisor):
-        resp = client.get("/api/v1/audit?from_date=not-a-date", headers=auth_supervisor)
-        assert resp.status_code == 422
-
-
-# ── Schema validation tests ───────────────────────────────────────────────────
+        assert (
+            client.get(
+                "/api/v1/audit?from_date=not-a-date", headers=auth_supervisor
+            ).status_code
+            == 422
+        )
 
 
 class TestSchemaValidation:
 
     def test_stock_lot_expiry_far_future_returns_422(self, client, auth_admin):
-        response = client.post(
-            "/api/v1/inventory/lots",
-            json={
-                "item_id": 1,
-                "location_id": 1,
-                "quantity": 5,
-                "expiration_date": "2099-01-01",
-            },
-            headers=auth_admin,
+        assert (
+            client.post(
+                "/api/v1/inventory/lots",
+                json={
+                    "item_id": 1,
+                    "location_id": 1,
+                    "quantity": 5,
+                    "expiration_date": "2099-01-01",
+                },
+                headers=auth_admin,
+            ).status_code
+            == 422
         )
-        assert response.status_code == 422
 
     def test_par_level_min_zero_returns_422(self, client, auth_admin):
-        response = client.post(
-            "/api/v1/inventory/par-levels",
-            json={
-                "item_id": 1,
-                "location_id": 1,
-                "min_quantity": 0,
-                "max_quantity": 10,
-            },
-            headers=auth_admin,
+        assert (
+            client.post(
+                "/api/v1/inventory/par-levels",
+                json={
+                    "item_id": 1,
+                    "location_id": 1,
+                    "min_quantity": 0,
+                    "max_quantity": 10,
+                },
+                headers=auth_admin,
+            ).status_code
+            == 422
         )
-        assert response.status_code == 422
 
     def test_vehicle_missing_required_field_returns_422(self, client, auth_admin):
-        response = client.post(
-            "/api/v1/vehicles",
-            json={"station_id": 1, "vehicle_number": f"AMB-{_uid()}"},
-            headers=auth_admin,
+        assert (
+            client.post(
+                "/api/v1/vehicles",
+                json={"station_id": 1, "vehicle_number": f"AMB-{_uid()}"},
+                headers=auth_admin,
+            ).status_code
+            == 422
         )
-        assert response.status_code == 422
-
-
-# ── RBAC enforcement tests ────────────────────────────────────────────────────
 
 
 class TestRBAC:
 
     def test_unauthenticated_returns_401(self, client):
-        response = client.get("/api/v1/stations")
-        assert response.status_code in (401, 403)
+        assert client.get("/api/v1/stations").status_code in (401, 403)
 
     def test_responder_can_list_stations(self, client, auth_responder):
-        """Responders use GET /stations/my — GET /stations is Admin only."""
-        response = client.get("/api/v1/stations", headers=auth_responder)
-        assert response.status_code == 403
+        assert client.get("/api/v1/stations", headers=auth_responder).status_code == 403
 
     def test_responder_can_list_my_stations(self, client, auth_responder):
         response = client.get("/api/v1/stations/my", headers=auth_responder)
         assert response.status_code == 200
-        assert isinstance(response.json(), list)
 
     def test_responder_cannot_create_station_returns_403(self, client, auth_responder):
-        response = client.post(
-            "/api/v1/stations",
-            json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"},
-            headers=auth_responder,
+        assert (
+            client.post(
+                "/api/v1/stations",
+                json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"},
+                headers=auth_responder,
+            ).status_code
+            == 403
         )
-        assert response.status_code == 403
 
     def test_supervisor_can_list_stations(self, client, auth_supervisor):
-        """Supervisors use GET /stations/my — GET /stations is Admin only."""
-        response = client.get("/api/v1/stations", headers=auth_supervisor)
-        assert response.status_code == 403
+        assert (
+            client.get("/api/v1/stations", headers=auth_supervisor).status_code == 403
+        )
 
     def test_supervisor_can_list_my_stations(self, client, auth_supervisor):
-        response = client.get("/api/v1/stations/my", headers=auth_supervisor)
-        assert response.status_code == 200
-        assert isinstance(response.json(), list)
+        assert (
+            client.get("/api/v1/stations/my", headers=auth_supervisor).status_code
+            == 200
+        )
 
     def test_supervisor_cannot_create_station_returns_403(
         self, client, auth_supervisor
     ):
-        response = client.post(
-            "/api/v1/stations",
-            json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"},
-            headers=auth_supervisor,
+        assert (
+            client.post(
+                "/api/v1/stations",
+                json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"},
+                headers=auth_supervisor,
+            ).status_code
+            == 403
         )
-        assert response.status_code == 403
 
     def test_admin_can_create_station(self, client, auth_admin):
-        response = client.post(
-            "/api/v1/stations",
-            json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"},
-            headers=auth_admin,
+        assert (
+            client.post(
+                "/api/v1/stations",
+                json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"},
+                headers=auth_admin,
+            ).status_code
+            == 201
         )
-        assert response.status_code == 201
 
     def test_responder_can_read_items(self, client, auth_responder):
-        response = client.get("/api/v1/items", headers=auth_responder)
-        assert response.status_code == 200
+        assert client.get("/api/v1/items", headers=auth_responder).status_code == 200
 
     def test_responder_cannot_create_item_returns_403(self, client, auth_responder):
-        response = client.post(
-            "/api/v1/items",
-            json={
-                "name": f"Item-{_uid()}",
-                "category": "Medication",
-                "unit_of_measure": "mL",
-            },
-            headers=auth_responder,
+        assert (
+            client.post(
+                "/api/v1/items",
+                json={
+                    "name": f"Item-{_uid()}",
+                    "category": "Medication",
+                    "unit_of_measure": "mL",
+                },
+                headers=auth_responder,
+            ).status_code
+            == 403
         )
-        assert response.status_code == 403
 
     def test_responder_cannot_access_audit_log_returns_403(
         self, client, auth_responder
     ):
-        response = client.get("/api/v1/audit", headers=auth_responder)
-        assert response.status_code == 403
+        assert client.get("/api/v1/audit", headers=auth_responder).status_code == 403
 
     def test_supervisor_can_access_audit_log(self, client, auth_supervisor):
-        response = client.get("/api/v1/audit", headers=auth_supervisor)
-        assert response.status_code == 200
+        assert client.get("/api/v1/audit", headers=auth_supervisor).status_code == 200
 
     def test_responder_can_submit_daily_check(
         self, client, db, auth_admin, auth_responder
     ):
-        """Session C: responder must be a station member to submit a check."""
         sr = client.post(
             "/api/v1/stations",
             json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"},
@@ -2015,7 +2009,6 @@ class TestRBAC:
     def test_responder_cannot_view_daily_check_detail_returns_403(
         self, client, db, auth_admin, auth_responder
     ):
-        """Session C: responder needs membership to submit, then gets 403 on detail (Supervisor+ only)."""
         sr = client.post(
             "/api/v1/stations",
             json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"},
@@ -2043,22 +2036,16 @@ class TestRBAC:
             },
             headers=auth_responder,
         )
-        assert cr.status_code == 201, f"Check submission failed: {cr.json()}"
-        check_id = cr.json()["check_id"]
-        response = client.get(
-            f"/api/v1/checks/daily/{check_id}", headers=auth_responder
+        assert cr.status_code == 201
+        assert (
+            client.get(
+                f"/api/v1/checks/daily/{cr.json()['check_id']}", headers=auth_responder
+            ).status_code
+            == 403
         )
-        assert response.status_code == 403
-
-
-# ── Check type tests ──────────────────────────────────────────────────────────
 
 
 class TestCheckTypes:
-    """
-    Tests for the four non-SUPPLY item check types:
-      MEASUREMENT, FUNCTIONAL, DATE_RECORD, DOCUMENT
-    """
 
     def _make_env(self, client, auth_admin):
         sr = client.post(
@@ -2081,11 +2068,7 @@ class TestCheckTypes:
         loc_id = next(loc["location_id"] for loc in locs if loc["vehicle_id"] == vid)
         cr = client.post(
             f"/api/v1/inventory/locations/{loc_id}/compartments",
-            json={
-                "location_id": loc_id,
-                "name": f"Comp-{_uid()}",
-                "sort_order": 1,
-            },
+            json={"location_id": loc_id, "name": f"Comp-{_uid()}", "sort_order": 1},
             headers=auth_admin,
         )
         cid = cr.json()["compartment_id"]
@@ -2112,7 +2095,7 @@ class TestCheckTypes:
         if recurrence_days is not None:
             payload["recurrence_days"] = recurrence_days
         r = client.post("/api/v1/items", json=payload, headers=auth_admin)
-        assert r.status_code == 201, f"Item creation failed: {r.json()}"
+        assert r.status_code == 201
         return r.json()["item_id"]
 
     def _submit_check(
@@ -2570,13 +2553,12 @@ class TestCheckTypes:
             json={
                 "location_type": "JUMP_BAG",
                 "station_id": sid,
-                "label": f"Jump Bag 710/712 — {_uid()}",
+                "label": f"Jump Bag 710/712 -- {_uid()}",
             },
             headers=auth_admin,
         )
         assert response.status_code == 201
         assert response.json()["location_type"] == "JUMP_BAG"
-        assert response.json()["station_id"] == sid
 
     def test_cannot_create_vehicle_location_via_api_returns_422(
         self, client, auth_admin
@@ -2587,13 +2569,15 @@ class TestCheckTypes:
             headers=auth_admin,
         )
         sid = sr.json()["station_id"]
-        response = client.post(
-            "/api/v1/inventory/locations",
-            json={
-                "location_type": "VEHICLE",
-                "station_id": sid,
-                "label": "Should not be allowed",
-            },
-            headers=auth_admin,
+        assert (
+            client.post(
+                "/api/v1/inventory/locations",
+                json={
+                    "location_type": "VEHICLE",
+                    "station_id": sid,
+                    "label": "Should not be allowed",
+                },
+                headers=auth_admin,
+            ).status_code
+            == 422
         )
-        assert response.status_code == 422

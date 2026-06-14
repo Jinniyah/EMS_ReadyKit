@@ -3,20 +3,28 @@ routers/inventory.py
 Inventory location, compartment, stock lot, and par level endpoints.
 
 Session C (ACC-B8): Station membership enforced on inventory endpoints.
-  - GET  /inventory/locations            — requires station_id param (enforced) or Admin only
-  - GET  /inventory/locations/{id}       — derives station from location, enforces membership
-  - GET  /inventory/locations/{id}/stock        — same
-  - GET  /inventory/locations/{id}/par-levels   — same
-  - GET  /inventory/locations/{id}/compartments — same
-  - POST /inventory/locations            — enforces membership on payload.station_id
-  - POST /inventory/lots                 — enforces membership via location.station_id
-  - POST /inventory/par-levels           — enforces membership via location.station_id
-  - POST /inventory/locations/{id}/compartments — same
+  - GET  /inventory/locations            -- requires station_id param (enforced) or Admin only
+  - GET  /inventory/locations/{id}       -- derives station from location, enforces membership
+  - GET  /inventory/locations/{id}/stock        -- same
+  - GET  /inventory/locations/{id}/par-levels   -- same
+  - GET  /inventory/locations/{id}/compartments -- same
+  - POST /inventory/locations            -- enforces membership on payload.station_id
+  - POST /inventory/lots                 -- enforces membership via location.station_id
+  - POST /inventory/par-levels           -- enforces membership via location.station_id
+  - POST /inventory/locations/{id}/compartments -- same
 
 Design note: GET /inventory/locations without ?station_id is restricted to
 Administrators. All other roles must supply a station_id they are a member of.
 This protects station data while allowing the check wizard to fetch location
 data by passing the known station_id.
+
+CQ-B4: _ItemStatusPatch moved to schemas/inventory.py as ItemStatusPatch.
+CQ-B7: create_par_level pre-check refined.
+  When compartment_id is set, rely on the DB unique constraint + IntegrityError
+  (eliminates TOCTOU race). When compartment_id is NULL, a pre-check is still
+  required because most SQL databases do not consider NULL==NULL in unique
+  constraints, so two location-level pars for the same item would both succeed
+  without a pre-check.
 """
 
 from __future__ import annotations
@@ -51,6 +59,7 @@ from ems_readykit.routers.deps import (
     require_station_membership,
 )
 from ems_readykit.schemas.compartment import CompartmentCreate, CompartmentRead
+from ems_readykit.schemas.inventory import ItemStatusPatch
 from ems_readykit.schemas.inventory_location import (
     InventoryLocationCreate,
     InventoryLocationRead,
@@ -92,7 +101,7 @@ def _get_location_or_404(location_id: int, db: Session) -> InventoryLocation:
     return location
 
 
-# ── Inventory Locations ───────────────────────────────────────────────────────
+# -- Inventory Locations -------------------------------------------------------
 
 
 @router.get(
@@ -126,7 +135,7 @@ def list_locations(
             .all()
         )
 
-    # No station_id supplied — Administrator only
+    # No station_id supplied -- Administrator only
     if not current_user.has_role(ROLE_ADMINISTRATOR):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -149,7 +158,6 @@ def get_location(
     current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
 ) -> InventoryLocation:
     location = _get_location_or_404(location_id, db)
-    # ACC-B8: derive station from location
     require_station_membership(location.station_id, current_user, db)
     return location
 
@@ -184,7 +192,6 @@ def create_location(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Station {payload.station_id} not found.",
         )
-    # ACC-B8: membership on target station
     require_station_membership(payload.station_id, current_user, db)
 
     location = InventoryLocation(
@@ -213,7 +220,7 @@ def create_location(
 @router.patch(
     "/locations/{location_id}/retire",
     response_model=InventoryLocationRead,
-    summary="Permanently retire a location (RET-B2) — Administrator only",
+    summary="Permanently retire a location (RET-B2) -- Administrator only",
 )
 def retire_location(
     location_id: int,
@@ -282,7 +289,7 @@ def list_location_par_levels(
     )
 
 
-# ── Compartments ──────────────────────────────────────────────────────────────
+# -- Compartments --------------------------------------------------------------
 
 
 @router.get(
@@ -402,10 +409,7 @@ def update_compartment(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> Compartment:
-    """
-    Edit a compartment's name, descriptor, sort order, or restriction note.
-    Supervisor+ with station membership required.
-    """
+    """Edit a compartment's name, descriptor, sort order, or restriction note."""
     compartment = (
         db.query(Compartment)
         .filter(Compartment.compartment_id == compartment_id)
@@ -419,7 +423,6 @@ def update_compartment(
     location = _get_location_or_404(compartment.location_id, db)
     require_station_membership(location.station_id, current_user, db)
 
-    # Check for name conflict within same location
     name_conflict = (
         db.query(Compartment)
         .filter(
@@ -457,7 +460,7 @@ def update_compartment(
     return compartment
 
 
-# ── Stock Lots ────────────────────────────────────────────────────────────────
+# -- Stock Lots ----------------------------------------------------------------
 
 
 @router.post(
@@ -483,8 +486,6 @@ def create_stock_lot(
     )
     db.add(lot)
 
-    # Write an inbound transfer record so Transfer History shows the receipt.
-    # from_location_id=None means external (received from outside the system).
     transfer = StockTransfer(
         from_location_id=None,
         to_location_id=payload.location_id,
@@ -516,7 +517,7 @@ def create_stock_lot(
 @router.get(
     "/lots/retired",
     response_model=List[StockLotRead],
-    summary="List retired stock lots at a location (RET-B6) — Supervisor+",
+    summary="List retired stock lots at a location (RET-B6) -- Supervisor+",
 )
 def list_retired_lots(
     location_id: int = Query(..., gt=0, description="Location to query"),
@@ -609,7 +610,7 @@ def update_stock_lot(
 @router.patch(
     "/lots/{lot_id}/retire",
     response_model=StockLotRead,
-    summary="Retire (dispose) a stock lot (RET-B5) — Supervisor+",
+    summary="Retire (dispose) a stock lot (RET-B5) -- Supervisor+",
 )
 def retire_stock_lot(
     lot_id: int,
@@ -662,10 +663,7 @@ def list_expiring_lots(
     days: int = Query(default=30, ge=1, le=365),
     db: Session = Depends(get_db),
 ) -> List[StockLot]:
-    """
-    Cross-station expiry report — Administrator only.
-    For station-scoped expiry, filter GET /inventory/locations/{id}/stock by expiration_date.
-    """
+    """Cross-station expiry report. For station-scoped expiry, filter /locations/{id}/stock."""
     cutoff = date.today() + timedelta(days=days)
     return (
         db.query(StockLot)
@@ -678,7 +676,7 @@ def list_expiring_lots(
     )
 
 
-# ── Par Levels ────────────────────────────────────────────────────────────────
+# -- Par Levels ----------------------------------------------------------------
 
 
 @router.post(
@@ -692,27 +690,25 @@ def create_par_level(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> ParLevel:
+    """
+    CQ-B7: Duplicate detection strategy depends on whether compartment_id is set.
+
+    Compartment-scoped pars (compartment_id set):
+      The DB unique constraint uq_par_item_compartment on (item_id, compartment_id)
+      catches duplicates at INSERT time. We rely on IntegrityError → 409, which
+      eliminates the TOCTOU race between a pre-check query and the INSERT.
+
+    Location-level pars (compartment_id NULL):
+      SQL NULL != NULL in unique constraints, so two rows with the same item_id
+      and compartment_id=NULL are not considered duplicates by the DB. A pre-check
+      query is required here to detect the duplicate before attempting the INSERT.
+    """
     location = _get_location_or_404(payload.location_id, db)
     require_station_membership(location.station_id, current_user, db)
 
-    if payload.compartment_id is not None:
-        existing = (
-            db.query(ParLevel)
-            .filter(
-                ParLevel.item_id == payload.item_id,
-                ParLevel.compartment_id == payload.compartment_id,
-            )
-            .first()
-        )
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=(
-                    f"A par level already exists for item {payload.item_id} "
-                    f"in compartment {payload.compartment_id} (par_id={existing.par_id})."
-                ),
-            )
-    else:
+    # Pre-check only for location-level pars (NULL compartment_id): the DB
+    # unique constraint does not catch NULL=NULL duplicates.
+    if payload.compartment_id is None:
         existing = (
             db.query(ParLevel)
             .filter(
@@ -745,7 +741,10 @@ def create_par_level(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="A par level already exists for this item/location/compartment combination.",
+            detail=(
+                f"A par level already exists for item {payload.item_id} "
+                "at this location/compartment combination."
+            ),
         )
     db.refresh(par)
     logger.info(
@@ -791,7 +790,7 @@ class _ParLevelDeactivate(BaseModel):
 @router.patch(
     "/par-levels/{par_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Soft-deactivate a par level (B-E9) — Supervisor+",
+    summary="Soft-deactivate a par level (B-E9) -- Supervisor+",
 )
 def deactivate_par_level(
     par_id: int,
@@ -830,7 +829,7 @@ def deactivate_par_level(
     )
 
 
-# ── SUPPLY-B2: Stock summary ──────────────────────────────────────────────────
+# -- SUPPLY-B2: Stock summary --------------------------------------------------
 
 
 @router.get(
@@ -859,25 +858,21 @@ def get_stock_summary(
     if not lots:
         return []
 
-    # Group lots by item
     lots_by_item: Dict[int, List[StockLot]] = {}
     for lot in lots:
         lots_by_item.setdefault(lot.item_id, []).append(lot)
 
-    # Fetch par levels (any active par at this location, across compartments)
     pars = (
         db.query(ParLevel)
         .filter(ParLevel.location_id == location_id, ParLevel.active)
         .all()
     )
-    # Lowest min_quantity for the item across all compartments
     par_by_item: Dict[int, ParLevel] = {}
     for par in pars:
         existing = par_by_item.get(par.item_id)
         if existing is None or par.min_quantity < existing.min_quantity:
             par_by_item[par.item_id] = par
 
-    # Fetch item metadata
     item_ids = list(lots_by_item.keys())
     items_map = {
         i.item_id: i for i in db.query(Item).filter(Item.item_id.in_(item_ids)).all()
@@ -929,12 +924,10 @@ def get_stock_summary(
     return result
 
 
-# ── Transfer history ──────────────────────────────────────────────────────────
+# -- Transfer history ----------------------------------------------------------
 # SR-B5: POST /inventory/transfer (restock-vehicle action) removed.
-# Supply room stock is now decremented automatically when a vehicle check is
-# submitted with quantity_found > last check's quantity_found (SR-B4).
-# The stock_transfers table and transfer history endpoint are retained for
-# the audit trail of transfers that occurred before this change.
+# Supply room stock is decremented automatically when a vehicle check is
+# submitted (SR-B4). The transfers table is retained for the audit trail.
 
 
 @router.get(
@@ -948,9 +941,6 @@ def list_location_transfers(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
 ) -> List[StockTransferRead]:
-    """
-    Returns inbound and outbound transfers for this location, most recent first.
-    """
     location = _get_location_or_404(location_id, db)
     require_station_membership(location.station_id, current_user, db)
 
@@ -967,7 +957,6 @@ def list_location_transfers(
         .all()
     )
 
-    # Gather all location and item IDs for batch fetch
     loc_ids = set()
     item_ids = set()
     for t in transfers:
@@ -1014,7 +1003,7 @@ def list_location_transfers(
     ]
 
 
-# ── CSV receive template ──────────────────────────────────────────────────────
+# -- CSV receive template ------------------------------------------------------
 
 
 @router.get(
@@ -1024,7 +1013,6 @@ def list_location_transfers(
     dependencies=[Depends(require_role(*SUPERVISOR_PLUS))],
 )
 def receive_stock_template() -> StreamingResponse:
-    """Returns a downloadable CSV template with headers and one example row."""
     output = io.StringIO()
     writer = csv_mod.writer(output)
     writer.writerow(["item_name", "lot_number", "expiration_date", "quantity"])
@@ -1041,12 +1029,7 @@ def receive_stock_template() -> StreamingResponse:
     )
 
 
-# ── PATCH /inventory/items/{item_id}/status — DMG-B1 ─────────────────────────
-
-
-class _ItemStatusPatch(BaseModel):
-    compartment_id: int
-    is_damaged: bool
+# -- DMG-B1: Mark/clear item damaged at compartment ---------------------------
 
 
 @router.patch(
@@ -1056,7 +1039,7 @@ class _ItemStatusPatch(BaseModel):
 )
 def patch_item_status(
     item_id: int,
-    payload: _ItemStatusPatch,
+    payload: ItemStatusPatch,
     current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
     db: Session = Depends(get_db),
 ) -> ParLevel:
@@ -1095,7 +1078,7 @@ def patch_item_status(
     return par
 
 
-# ── CSV bulk receive ──────────────────────────────────────────────────────────
+# -- CSV bulk receive ----------------------------------------------------------
 
 
 @router.post(
@@ -1112,12 +1095,6 @@ async def receive_stock_csv(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> CsvReceiveResult:
-    """
-    Parses a CSV and creates stock lots at the given location.
-
-    Columns: item_name (required), lot_number (optional), expiration_date (YYYY-MM-DD, optional), quantity (required integer > 0).
-    Items are matched by exact name (case-insensitive). Unmatched rows are skipped with an error message.
-    """
     location = _get_location_or_404(location_id, db)
     require_station_membership(location.station_id, current_user, db)
 
@@ -1128,7 +1105,6 @@ async def receive_stock_csv(
     lots_created: List[StockLot] = []
     row_num = 1
 
-    # Case-insensitive item name → item map
     all_items = db.query(Item).filter(Item.active).all()
     item_map = {i.name.lower(): i for i in all_items}
 
@@ -1188,7 +1164,7 @@ async def receive_stock_csv(
                     {
                         "row": row_num,
                         "item_name": raw_name,
-                        "error": f"Invalid date {raw_exp!r} — use YYYY-MM-DD",
+                        "error": f"Invalid date {raw_exp!r} -- use YYYY-MM-DD",
                     }
                 )
                 continue
@@ -1208,7 +1184,6 @@ async def receive_stock_csv(
         for lot in lots_created:
             db.refresh(lot)
 
-        # Write inbound transfer records for each lot so Transfer History shows the receipt.
         for lot in lots_created:
             db.add(
                 StockTransfer(
@@ -1244,7 +1219,7 @@ async def receive_stock_csv(
     )
 
 
-# ── SR-B1: Station supply catalog ─────────────────────────────────────────────
+# -- SR-B1: Station supply catalog ---------------------------------------------
 
 
 @router.get(
@@ -1261,8 +1236,7 @@ def get_supply_catalog(
 ) -> List[SupplyCatalogItem]:
     """
     Returns all station-supply items (station_supply=True, check_type != FUNCTIONAL)
-    with their on-hand quantity at the station's supply room. Items with zero on-hand
-    are included so responders can see what should be stocked.
+    with their on-hand quantity at the station's supply room.
     """
     require_station_membership(station_id, current_user, db)
 
@@ -1292,8 +1266,6 @@ def get_supply_catalog(
 
     item_ids = [i.item_id for i in items]
 
-    # Lots at supply room, FIFO order (include zero-quantity lots so expiry
-    # editing is available even when on_hand = 0; exclude retired lots only)
     lots = (
         db.query(StockLot)
         .filter(
@@ -1308,7 +1280,6 @@ def get_supply_catalog(
     for lot in lots:
         lots_by_item.setdefault(lot.item_id, []).append(lot)
 
-    # Par levels at supply room -- join compartments for shelf grouping (SS-F2)
     par_rows = (
         db.query(ParLevel, Compartment)
         .outerjoin(Compartment, Compartment.compartment_id == ParLevel.compartment_id)
@@ -1324,9 +1295,7 @@ def get_supply_catalog(
     )
 
     par_min_by_item: Dict[int, int] = {}
-    compartment_by_item: Dict[int, tuple] = (
-        {}
-    )  # item_id -> (compartment_id, compartment_name)
+    compartment_by_item: Dict[int, tuple] = {}
     for par, comp in par_rows:
         if (
             par.item_id not in par_min_by_item
@@ -1336,8 +1305,6 @@ def get_supply_catalog(
         if par.item_id not in compartment_by_item and comp is not None:
             compartment_by_item[par.item_id] = (comp.compartment_id, comp.name)
 
-    # is_damaged: check ALL vehicle compartment par levels for this station,
-    # not supply room par levels (DMG-B1 marks vehicle compartments, not shelf rows)
     vehicle_location_ids = db.query(InventoryLocation.location_id).filter(
         InventoryLocation.station_id == station_id,
         InventoryLocation.location_type == LocationType.VEHICLE,
@@ -1372,7 +1339,7 @@ def get_supply_catalog(
     ]
 
 
-# ── SR-B2: Correct supply room on-hand count ──────────────────────────────────
+# -- SR-B2: Correct supply room on-hand count ----------------------------------
 
 
 @router.patch(

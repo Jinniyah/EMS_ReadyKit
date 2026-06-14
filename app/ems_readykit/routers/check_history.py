@@ -1,17 +1,27 @@
 """
 routers/check_history.py
-Check history, acknowledgement, and soft-delete endpoints.
+Check history, acknowledgement, soft-delete, restore, and hard-delete endpoints.
 
 Refactor (Session B):
 - Role constants imported from deps (REF-3)
 - write_audit_event imported from core.audit (REF-1)
 - HTTP_422_UNPROCESSABLE_CONTENT replaces deprecated constant (REF-7)
+
+Session W additions:
+- CH-B5: GET  /checks/daily/deleted        -- list soft-deleted checks (Supervisor+)
+- CH-B6: PATCH /checks/daily/{id}/restore  -- restore a soft-deleted check (Supervisor+)
+- CH-B4: DELETE /checks/daily/{id}/force   -- permanent hard-delete (Admin only)
+  (CH-B4 and CH-B5 were already implemented; CH-B6 restore added this session)
+
+CQ-B6 note: check_date is now a Date column. Audit metadata must convert it to
+an ISO string before passing to write_audit_event, since SQLite's JSON serializer
+cannot serialize Python date objects. Use check.check_date.isoformat() throughout.
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -59,7 +69,20 @@ def _get_check_or_404(
     return check
 
 
-# ── CH-B1: Responder's own check history ─────────────────────────────────────
+def _check_date_str(check: DailyInventoryCheck) -> str:
+    """
+    Return check_date as an ISO string regardless of column type.
+    CQ-B6 changed the column from String(10) to Date, so check_date is
+    now a date object at runtime. json.dumps cannot serialize date objects,
+    so always convert before storing in audit metadata.
+    """
+    cd = check.check_date
+    if isinstance(cd, date):
+        return cd.isoformat()
+    return str(cd)
+
+
+# -- CH-B1: Responder's own check history -------------------------------------
 
 
 @router.get(
@@ -99,7 +122,7 @@ def my_check_history(
     return query.order_by(DailyInventoryCheck.timestamp.desc()).all()
 
 
-# ── CH-B2: Full check detail with RBAC scoping ───────────────────────────────
+# -- CH-B2: Full check detail with RBAC scoping -------------------------------
 
 
 @router.get(
@@ -124,7 +147,7 @@ def get_check_detail(
     return check
 
 
-# ── B-E2: Acknowledge a FAIL check ───────────────────────────────────────────
+# -- B-E2: Acknowledge a FAIL check -------------------------------------------
 
 
 @router.patch(
@@ -180,7 +203,7 @@ def acknowledge_check(
     return check
 
 
-# ── CH-B3: Soft-delete a check ────────────────────────────────────────────────
+# -- CH-B3: Soft-delete a check -----------------------------------------------
 
 
 @router.delete(
@@ -219,7 +242,7 @@ def soft_delete_check(
         vehicle_id=check.vehicle_id,
         metadata={
             "deletion_reason": payload.deletion_reason,
-            "check_date": check.check_date,
+            "check_date": _check_date_str(check),
             "check_status": check.status.value,
         },
         severity="WARNING",
@@ -227,7 +250,7 @@ def soft_delete_check(
 
     db.refresh(check)
     logger.warning(
-        "Check %s soft-deleted by %s — reason: %s",
+        "Check %s soft-deleted by %s -- reason: %s",
         check_id,
         current_user.user_id,
         payload.deletion_reason,
@@ -236,13 +259,13 @@ def soft_delete_check(
     return check
 
 
-# ── CH-F7: GET deleted checks for a station ─────────────────────────────────
+# -- CH-B5: List soft-deleted checks for a station ----------------------------
 
 
 @router.get(
     "/checks/daily/deleted",
     response_model=List[DailyInventoryCheckRead],
-    summary="List soft-deleted checks for a station (CH-F7)",
+    summary="List soft-deleted checks for a station (CH-B5, Supervisor+)",
 )
 def list_deleted_checks(
     station_id: int = Query(..., gt=0, description="Station to scope the query"),
@@ -260,13 +283,68 @@ def list_deleted_checks(
     )
 
 
-# ── CH-F8: DELETE /checks/daily/{id}/force — permanent hard-delete ────────────
+# -- CH-B6: Restore a soft-deleted check (Supervisor+) -----------------------
+
+
+@router.patch(
+    "/checks/daily/{check_id}/restore",
+    response_model=DailyInventoryCheckRead,
+    summary="Restore a soft-deleted check (CH-B6, Supervisor+)",
+)
+def restore_check(
+    check_id: int,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
+) -> DailyInventoryCheck:
+    check = _get_check_or_404(check_id, db, include_deleted=True)
+
+    if check.deleted_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This check is not deleted and cannot be restored.",
+        )
+
+    original_deletion_reason = check.deletion_reason
+
+    check.deleted_at = None
+    check.deleted_by = None
+    check.deletion_reason = None
+    db.add(check)
+    db.flush()
+
+    write_audit_event(
+        db,
+        actor=current_user.user_id,
+        action="CHECK_RESTORED",
+        entity_type="daily_inventory_check",
+        entity_id=str(check_id),
+        station_id=check.station_id,
+        vehicle_id=check.vehicle_id,
+        metadata={
+            "check_date": _check_date_str(check),
+            "check_status": check.status.value,
+            "original_deletion_reason": original_deletion_reason,
+        },
+        severity="INFO",
+    )
+
+    db.refresh(check)
+    logger.info(
+        "Check %s restored by %s",
+        check_id,
+        current_user.user_id,
+        extra={"check_id": check_id, "actor": current_user.user_id},
+    )
+    return check
+
+
+# -- CH-B4: DELETE /checks/daily/{id}/force -- permanent hard-delete ----------
 
 
 @router.delete(
     "/checks/daily/{check_id}/force",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Permanently delete a soft-deleted check (CH-F8, Admin only)",
+    summary="Permanently delete a soft-deleted check (CH-B4, Admin only)",
 )
 def force_delete_check(
     check_id: int,
@@ -290,7 +368,7 @@ def force_delete_check(
         vehicle_id=check.vehicle_id,
         metadata={
             "deletion_reason": check.deletion_reason,
-            "check_date": check.check_date,
+            "check_date": _check_date_str(check),
             "check_status": check.status.value,
         },
         severity="CRITICAL",

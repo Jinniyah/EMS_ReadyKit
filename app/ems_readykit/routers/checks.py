@@ -18,6 +18,10 @@ SR-B5: _reconcile_supply_room_check() is called after a STATION_SUPPLY_ROOM
 check submission. quantity_found for each SUPPLY item is treated as the new
 absolute on-hand truth and applied to the stock lots (FIFO deduct for decreases,
 adjustment lot for increases). This keeps View Supplies in sync with physical counts.
+
+CQ-B4: LastReadingItem moved to schemas/checks.py.
+CQ-B6: check_date stored as Date type. Router passes date objects to the model
+  and uses date objects in DB filters. check_date is still ISO-string in audit logs.
 """
 
 from __future__ import annotations
@@ -28,7 +32,6 @@ from datetime import date, datetime, timezone
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -54,6 +57,7 @@ from ems_readykit.routers.deps import (
     require_station_membership,
 )
 from ems_readykit.schemas.check_line_item import CheckLineItemCreate
+from ems_readykit.schemas.checks import LastReadingItem
 from ems_readykit.schemas.controlled_substance_check import (
     ControlledSubstanceCheckCreate,
     ControlledSubstanceCheckRead,
@@ -67,15 +71,6 @@ _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/checks", tags=["checks"])
-
-
-class LastReadingItem(BaseModel):
-    item_id: int
-    quantity_found: Optional[int]
-    measurement_value: Optional[float]
-    functional_pass: Optional[bool]
-    date_value: Optional[date]
-    check_date: str
 
 
 # Frontend mirror: deriveDraftItemStatus() in frontend/src/shared/utils/statusCalc.js
@@ -202,7 +197,7 @@ def _auto_decrement_supply_room(
         .first()
     )
     if not prev_check:
-        return  # first check -- no baseline to compare against
+        return
 
     last_qty: Dict[tuple, Optional[int]] = {
         (li.item_id, li.compartment_id): li.quantity_found
@@ -226,7 +221,6 @@ def _auto_decrement_supply_room(
             continue
         item_decrements[li.item_id] = item_decrements.get(li.item_id, 0) + topped_off
 
-    # Batch-load all relevant lots in one query (avoids N+1 per item).
     all_supply_lots = (
         db.query(StockLot)
         .filter(
@@ -280,18 +274,7 @@ def _reconcile_supply_room_check(
     """
     SR-B5: When a STATION_SUPPLY_ROOM check is submitted, reconcile stock lot
     quantities to match the physical count recorded in quantity_found.
-
-    For each SUPPLY line item, treat quantity_found as the new absolute
-    on-hand truth and adjust the stock lots using the same FIFO logic as
-    patch_supply_catalog_count (SR-B2):
-      - quantity_found < current on_hand: deduct FIFO (oldest lot first)
-      - quantity_found > current on_hand: create an adjustment lot (no number/expiry)
-      - quantity_found == current on_hand: no change
-
-    Never raises -- mismatches are logged and skipped so the check always
-    saves even if a lot adjustment fails.
     """
-    # Build item -> quantity_found map (sum across compartments for same item)
     item_counts: Dict[int, int] = {}
     for li in line_items:
         item = items_map.get(li.item_id)
@@ -304,7 +287,6 @@ def _reconcile_supply_room_check(
     if not item_counts:
         return
 
-    # Batch-load all lots for this location and the items we need to reconcile
     lots = (
         db.query(StockLot)
         .filter(
@@ -322,12 +304,9 @@ def _reconcile_supply_room_check(
     for item_id, new_qty in item_counts.items():
         current_lots = lots_by_item.get(item_id, [])
         old_qty = sum(lot.quantity for lot in current_lots)
-
         if new_qty == old_qty:
             continue
-
         if new_qty < old_qty:
-            # Physical count is lower -- deduct FIFO
             to_deduct = old_qty - new_qty
             for lot in current_lots:
                 if to_deduct <= 0:
@@ -336,15 +315,12 @@ def _reconcile_supply_room_check(
                 lot.quantity -= take
                 to_deduct -= take
             logger.info(
-                "SR-B5 supply room reconcile: item %s deducted %s (was %s, now %s, location %s)",
+                "SR-B5 reconcile: item %s deducted %s (location %s)",
                 item_id,
                 old_qty - new_qty,
-                old_qty,
-                new_qty,
                 location_id,
             )
         else:
-            # Physical count is higher -- add adjustment lot
             db.add(
                 StockLot(
                     item_id=item_id,
@@ -355,11 +331,9 @@ def _reconcile_supply_room_check(
                 )
             )
             logger.info(
-                "SR-B5 supply room reconcile: item %s increased by %s (was %s, now %s, location %s)",
+                "SR-B5 reconcile: item %s increased by %s (location %s)",
                 item_id,
                 new_qty - old_qty,
-                old_qty,
-                new_qty,
                 location_id,
             )
 
@@ -372,7 +346,6 @@ def _resolve_check_location(
     station_id: int,
     db: Session,
 ) -> None:
-    """Validate that the vehicle or portable location exists and belongs to the station."""
     if vehicle_id:
         get_vehicle_or_404(vehicle_id, db)
     else:
@@ -399,10 +372,6 @@ def _enforce_full_check_compartments(
     line_items: List[CheckLineItemCreate],
     db: Session,
 ) -> None:
-    """
-    Validate submitted compartment IDs exist, then enforce requires_full_check constraints.
-    Compartments with requires_full_check=True must have every active par level submitted.
-    """
     if line_items:
         compartment_ids = {li.compartment_id for li in line_items}
         found_compartments = {
@@ -466,45 +435,32 @@ def _enforce_full_check_compartments(
         if missing:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=(
-                    f"Compartment '{comp.name}' requires a full check -- "
-                    "all items must be submitted. "
-                    f"Missing item IDs: {sorted(missing)}"
-                ),
+                detail=f"Compartment '{comp.name}' requires a full check -- all items must be submitted. Missing item IDs: {sorted(missing)}",
             )
 
 
 def _build_lot_map(
-    line_items: List[CheckLineItemCreate],
-    db: Session,
+    line_items: List[CheckLineItemCreate], db: Session
 ) -> Dict[int, StockLot]:
-    """Fetch and validate stock lots referenced by line items. Returns lot_id -> StockLot map."""
     lot_ids = {li.lot_id for li in line_items if li.lot_id is not None}
     if not lot_ids:
         return {}
-
     lots = db.query(StockLot).filter(StockLot.lot_id.in_(lot_ids)).all()
     lot_map = {lot.lot_id: lot for lot in lots}
-
     missing_lots = lot_ids - set(lot_map.keys())
     if missing_lots:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Stock lot(s) not found: {sorted(missing_lots)}",
         )
-
     for li in line_items:
         if li.lot_id is not None:
             lot = lot_map[li.lot_id]
             if lot.item_id != li.item_id:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                    detail=(
-                        f"Stock lot {li.lot_id} belongs to item {lot.item_id}, "
-                        f"not item {li.item_id}."
-                    ),
+                    detail=f"Stock lot {li.lot_id} belongs to item {lot.item_id}, not item {li.item_id}.",
                 )
-
     return lot_map
 
 
@@ -513,7 +469,6 @@ def _build_line_items(
     lot_map: Dict[int, StockLot],
     items_map: Dict[int, Item],
 ) -> List[CheckLineItem]:
-    """Build CheckLineItem ORM objects from the payload, computing status server-side."""
     objects: List[CheckLineItem] = []
     for li in line_items:
         lot = lot_map.get(li.lot_id) if li.lot_id else None
@@ -552,12 +507,7 @@ def _get_post_check_usage(
     location_id: Optional[int],
     since_timestamp: datetime,
 ) -> Dict[int, int]:
-    """
-    USAGE-B1: Returns {item_id: total_quantity_used} for all usage events
-    logged against this vehicle or location AFTER the given timestamp.
-    Used by get_last_readings to subtract post-call usage from quantity_found
-    so the check wizard pre-fills accurately.
-    """
+    """USAGE-B1: Returns {item_id: total_quantity_used} for usage events after since_timestamp."""
     q = (
         db.query(
             UsageEventItem.item_id,
@@ -566,14 +516,12 @@ def _get_post_check_usage(
         .join(UsageEvent, UsageEventItem.event_id == UsageEvent.event_id)
         .filter(UsageEvent.timestamp > since_timestamp)
     )
-
     if vehicle_id is not None:
         q = q.filter(UsageEvent.vehicle_id == vehicle_id)
     elif location_id is not None:
         q = q.filter(UsageEvent.location_id == location_id)
     else:
         return {}
-
     rows = q.group_by(UsageEventItem.item_id).all()
     return {row.item_id: int(row.total) for row in rows}
 
@@ -587,7 +535,7 @@ def _get_post_check_usage(
     status_code=status.HTTP_201_CREATED,
     summary="Submit a daily inventory check",
 )
-@limiter.limit(DAILY_CHECK_RATE_LIMIT)  # per-IP: 30/min prod, unlimited in test env
+@limiter.limit(DAILY_CHECK_RATE_LIMIT)
 async def create_daily_check(
     request: Request,
     payload: DailyInventoryCheckCreate,
@@ -605,19 +553,16 @@ async def create_daily_check(
             detail=f"Station {payload.station_id} not found.",
         )
 
-    # ACC-B7: Station membership enforcement
     require_station_membership(payload.station_id, current_user, db)
-
     _enforce_full_check_compartments(
         payload.vehicle_id, payload.location_id, payload.line_items, db
     )
-
     lot_map = _build_lot_map(payload.line_items, db)
-
     performed_by = current_user.email or current_user.name
 
-    # check_date is derived server-side from the submitted timestamp -- not from the client.
-    check_date = payload.timestamp.astimezone(timezone.utc).date().isoformat()
+    # CQ-B6: check_date is a date object (not a string) -- schema's field_serializer
+    # converts it to YYYY-MM-DD when the response is serialized.
+    check_date: date = payload.timestamp.astimezone(timezone.utc).date()
 
     item_ids = {li.item_id for li in payload.line_items}
     items_map = {
@@ -633,7 +578,6 @@ async def create_daily_check(
         )
 
     line_item_objects = _build_line_items(payload.line_items, lot_map, items_map)
-
     overall_status = _compute_check_status(line_item_objects)
 
     check = DailyInventoryCheck(
@@ -650,7 +594,6 @@ async def create_daily_check(
     db.add(check)
     db.flush()
 
-    # SR-B4: auto-decrement supply room for vehicle checks (best-effort, never blocks)
     if payload.vehicle_id:
         _auto_decrement_supply_room(
             db=db,
@@ -661,7 +604,6 @@ async def create_daily_check(
             items_map=items_map,
         )
 
-    # SR-B5: reconcile stock lot quantities for supply room checks
     if payload.location_id and not payload.vehicle_id:
         loc = (
             db.query(InventoryLocation)
@@ -700,7 +642,7 @@ async def create_daily_check(
         vehicle_id=payload.vehicle_id,
         metadata={
             "status": overall_status.value,
-            "check_date": check_date,
+            "check_date": check_date.isoformat(),  # explicit string for audit JSON
             "line_items_total": len(line_item_objects),
             "expired_count": expired_count,
             "missing_count": missing_count,
@@ -722,18 +664,6 @@ def get_last_readings(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
 ) -> List[LastReadingItem]:
-    """
-    Returns the most recent check readings for each item on a vehicle or location.
-
-    USAGE-B1: For SUPPLY items, quantity_found is reduced by any usage events
-    logged against this vehicle/location AFTER the check timestamp. This means
-    the check wizard pre-fills the post-call quantity, automatically flagging
-    items as short without requiring a fresh eyes-on discovery check.
-
-    quantity_found is floored at 0 -- never returned as negative.
-    Non-supply items (FUNCTIONAL, MEASUREMENT, DATE_RECORD, EXPIRY_DATE) are
-    returned as-is; usage events do not apply to them.
-    """
     if vehicle_id is None and location_id is None:
         raise HTTPException(
             status_code=400, detail="vehicle_id or location_id required"
@@ -746,26 +676,19 @@ def get_last_readings(
         q = q.filter(DailyInventoryCheck.location_id == location_id)
 
     last_check = q.order_by(
-        DailyInventoryCheck.check_date.desc(),
-        DailyInventoryCheck.created_at.desc(),
+        DailyInventoryCheck.check_date.desc(), DailyInventoryCheck.created_at.desc()
     ).first()
-
     if not last_check:
         return []
 
-    # USAGE-B1: fetch post-check usage to subtract from quantity_found
     check_ts = last_check.timestamp
     if check_ts.tzinfo is None:
         check_ts = check_ts.replace(tzinfo=timezone.utc)
 
     usage_since: Dict[int, int] = _get_post_check_usage(
-        db,
-        vehicle_id=vehicle_id,
-        location_id=location_id,
-        since_timestamp=check_ts,
+        db, vehicle_id=vehicle_id, location_id=location_id, since_timestamp=check_ts
     )
 
-    # Batch-load items to check check_type without N+1
     item_ids = {li.item_id for li in last_check.line_items}
     items_map: Dict[int, Item] = {
         item.item_id: item
@@ -776,8 +699,6 @@ def get_last_readings(
     for li in last_check.line_items:
         item = items_map.get(li.item_id)
         adjusted_qty = li.quantity_found
-
-        # Only subtract usage for SUPPLY items -- others have no quantity to adjust
         if (
             adjusted_qty is not None
             and item is not None
@@ -793,7 +714,12 @@ def get_last_readings(
                 measurement_value=li.measurement_value,
                 functional_pass=li.functional_pass,
                 date_value=li.date_value,
-                check_date=str(last_check.check_date),
+                # check_date may now be a date object -- convert to string for the API response
+                check_date=(
+                    last_check.check_date.isoformat()
+                    if isinstance(last_check.check_date, date)
+                    else str(last_check.check_date)
+                ),
             )
         )
 
@@ -809,7 +735,6 @@ def get_last_readings(
 def get_daily_check(
     check_id: int, db: Session = Depends(get_db)
 ) -> DailyInventoryCheck:
-    """Returns a single daily inventory check. Excludes soft-deleted records."""
     check = (
         db.query(DailyInventoryCheck)
         .filter(
@@ -836,9 +761,7 @@ def list_vehicle_daily_checks(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
 ) -> List[DailyInventoryCheck]:
-    """Returns all non-deleted daily inventory checks for a vehicle, most recent first."""
     vehicle = get_vehicle_or_404(vehicle_id, db)
-    # ACC-B7: derive station from vehicle and enforce membership
     require_station_membership(vehicle.station_id, current_user, db)
     return (
         db.query(DailyInventoryCheck)
@@ -861,21 +784,16 @@ def get_station_compliance_today(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
 ) -> List[DailyInventoryCheck]:
-    """
-    Returns all non-deleted daily checks for a station for today.
-    All roles (Responders need this for the home screen badge and supervisor view).
-    Station membership enforced.
-    """
     station = db.query(Station).filter(Station.station_id == station_id).first()
     if not station:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Station {station_id} not found.",
         )
-    # ACC-B7: station membership enforcement
     require_station_membership(station_id, current_user, db)
 
-    today = datetime.now(timezone.utc).date().isoformat()
+    # CQ-B6: use date object for comparison against Date column
+    today: date = datetime.now(timezone.utc).date()
     return (
         db.query(DailyInventoryCheck)
         .filter(
@@ -910,9 +828,7 @@ def get_station_checks_date_range(
 ) -> List[DailyInventoryCheck]:
     """
     Returns all non-deleted daily checks for a station within an inclusive date range.
-    All roles with station membership may query.
-    Maximum range: 90 days (matches the soft-delete retention window).
-    If from/to are omitted, defaults to today only.
+    Maximum range: 90 days. If from/to are omitted, defaults to today only.
     """
     station = db.query(Station).filter(Station.station_id == station_id).first()
     if not station:
@@ -947,20 +863,18 @@ def get_station_checks_date_range(
             detail="Date range may not exceed 90 days.",
         )
 
+    # CQ-B6: use date objects (d_from, d_to) in filter against Date column
     return (
         db.query(DailyInventoryCheck)
         .filter(
             DailyInventoryCheck.station_id == station_id,
-            DailyInventoryCheck.check_date >= resolved_from,
-            DailyInventoryCheck.check_date <= resolved_to,
+            DailyInventoryCheck.check_date >= d_from,
+            DailyInventoryCheck.check_date <= d_to,
             DailyInventoryCheck.deleted_at.is_(None),
         )
         .order_by(DailyInventoryCheck.timestamp.desc())
         .all()
     )
-
-
-# -- Portable location checks --------------------------------------------------
 
 
 @router.get(
@@ -995,9 +909,6 @@ def get_location_checks(
     )
 
 
-# -- Calendar date-range bounds ------------------------------------------------
-
-
 @router.get(
     "/daily/station/{station_id}/date-range",
     summary="Earliest check date for a station -- used to bound calendar navigation",
@@ -1022,7 +933,8 @@ def get_station_check_date_range(
         )
         .scalar()
     )
-    return {"earliest": str(earliest) if earliest else None}
+    # earliest is a date object; convert to ISO string for JSON response
+    return {"earliest": earliest.isoformat() if earliest else None}
 
 
 # -- Controlled Substance Checks -----------------------------------------------
@@ -1040,30 +952,18 @@ def create_cs_check(
     current_user: CurrentUser = Depends(require_role(*ALL_ROLES)),
 ) -> ControlledSubstanceCheck:
     vehicle = get_vehicle_or_404(payload.vehicle_id, db)
-
     if not vehicle.requires_controlled_substance_check:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=(
-                f"Vehicle {payload.vehicle_id} is type '{vehicle.vehicle_type.value}'. "
-                "Controlled substance checks are only required for ALS vehicles."
-            ),
+            detail=f"Vehicle {payload.vehicle_id} is type '{vehicle.vehicle_type.value}'. Controlled substance checks are only required for ALS vehicles.",
         )
-
-    # ACC-B7: station membership enforcement
     require_station_membership(vehicle.station_id, current_user, db)
 
     primary_signer = current_user.name
-
-    # OWASP A04 -- Known limitation: secondary_signer is free-text and compared
-    # by name string only. The structural fix is F-UX34. See backlog.md SEC-6.
     if primary_signer.strip().lower() == payload.secondary_signer.strip().lower():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=(
-                "dual-signature requirement: primary_signer and secondary_signer "
-                "must be different people."
-            ),
+            detail="dual-signature requirement: primary_signer and secondary_signer must be different people.",
         )
 
     check = ControlledSubstanceCheck(
@@ -1079,7 +979,6 @@ def create_cs_check(
 
     severity = "HIGH" if payload.discrepancy_flag else "INFO"
     action = "CS_DISCREPANCY" if payload.discrepancy_flag else "CS_CHECK_COMPLETED"
-
     if payload.discrepancy_flag:
         logger.warning(
             "Controlled substance discrepancy flagged",
@@ -1143,10 +1042,7 @@ def list_vehicle_cs_checks(
     if not vehicle.requires_controlled_substance_check:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=(
-                f"Vehicle {vehicle_id} is type '{vehicle.vehicle_type.value}'. "
-                "Only ALS vehicles have controlled substance checks."
-            ),
+            detail=f"Vehicle {vehicle_id} is type '{vehicle.vehicle_type.value}'. Only ALS vehicles have controlled substance checks.",
         )
     return (
         db.query(ControlledSubstanceCheck)

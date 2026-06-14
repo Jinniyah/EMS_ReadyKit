@@ -2,13 +2,16 @@
  * modules/check-history/index.jsx
  * Check History screen.
  *
- * CH-F1: "My Checks" — responder's own submitted checks grouped by date
+ * CH-F1: "My Checks" -- responder's own submitted checks grouped by date
  * CH-F2: Check detail view (read-only for Responders)
  * CH-F3: Supervisor acknowledgement shown on detail
- * CH-F4: Supervisor history list — all checks at station, filterable
+ * CH-F4: Supervisor history list -- all checks at station, filterable
  * CH-F5: Soft-delete from detail view (Supervisor+)
+ * CH-F7: Deleted tab -- lists soft-deleted checks (Supervisor+)
+ * CH-F8: Force-delete -- permanent hard-delete from Deleted tab (Admin only)
+ * CH-B6: Restore -- un-delete a soft-deleted check (Supervisor+)
  *
- * NOTE — "All Checks" tab (CH-F4):
+ * NOTE -- "All Checks" tab (CH-F4):
  * The station-scoped history endpoint (B-E3) is not yet built.
  * Until it is, the All Checks tab calls GET /checks/daily/station/{id}/today
  * which returns all checks for the station for today only.
@@ -38,11 +41,12 @@ export default function CheckHistoryScreen({ station, onBack, onNavigateToVehicl
   const [selectedCheck, setSelectedCheck] = useState(null)
   const [statusFilter, setStatusFilter]   = useState(isSupervisor ? 'FAIL' : 'ALL')
   const [deletedIds, setDeletedIds]       = useState(new Set())
+  const [restoredIds, setRestoredIds]     = useState(new Set())
   const [confirmForceDelete, setConfirmForceDelete] = useState(null) // check_id to force-delete
   const [forceDeleting, setForceDeleting]           = useState(false)
   const [hardDeletedIds, setHardDeletedIds]          = useState(new Set())
 
-  // My checks (all roles) — scoped to current user's own submissions at this station
+  // My checks (all roles) -- scoped to current user's own submissions at this station
   const {
     data: myChecks,
     isLoading: loadingMine,
@@ -123,7 +127,7 @@ export default function CheckHistoryScreen({ station, onBack, onNavigateToVehicl
         </div>
       </div>
 
-      {/* Tab bar — only show "All Checks" tab to Supervisors */}
+      {/* Tab bar -- only show "All Checks" tab to Supervisors */}
       {isSupervisor && (
         <div className="check-history-tabs" role="tablist">
           <button
@@ -194,14 +198,26 @@ export default function CheckHistoryScreen({ station, onBack, onNavigateToVehicl
         </div>
       )}
 
-      {/* Deleted Records tab (Supervisor+ only, CH-F7/F8) */}
+      {/* Deleted Records tab (Supervisor+ only, CH-F7/F8/CH-B6) */}
       {activeTab === 'deleted' && isSupervisor && (
         <div className="check-history-screen__all">
           {loadingDeleted ? <Spinner label="Loading deleted records…" /> : (
             <DeletedChecksList
-              checks={(deletedChecks ?? []).filter(c => !hardDeletedIds.has(c.check_id))}
+              checks={(deletedChecks ?? []).filter(
+                c => !hardDeletedIds.has(c.check_id) && !restoredIds.has(c.check_id)
+              )}
               isAdmin={isAdmin}
               onForceDelete={id => setConfirmForceDelete(id)}
+              onRestore={async (checkId) => {
+                try {
+                  await checkHistoryApi.restoreCheck(checkId, getToken)
+                  setRestoredIds(prev => new Set([...prev, checkId]))
+                  refetchAll()
+                  refetchMine()
+                } catch {
+                  // leave row visible on error; user can retry
+                }
+              }}
             />
           )}
         </div>
@@ -237,10 +253,22 @@ export default function CheckHistoryScreen({ station, onBack, onNavigateToVehicl
   )
 }
 
-function DeletedChecksList({ checks, isAdmin, onForceDelete }) {
+function DeletedChecksList({ checks, isAdmin, onForceDelete, onRestore }) {
+  const [restoringId, setRestoringId] = useState(null)
+
   if (!checks.length) {
     return <p className="check-history-empty">No deleted records for this station.</p>
   }
+
+  async function handleRestore(checkId) {
+    setRestoringId(checkId)
+    try {
+      await onRestore(checkId)
+    } finally {
+      setRestoringId(null)
+    }
+  }
+
   return (
     <ul className="deleted-checks-list" aria-label="Deleted checks">
       {checks.map(c => (
@@ -252,15 +280,25 @@ function DeletedChecksList({ checks, isAdmin, onForceDelete }) {
               <div className="deleted-check-row__reason">Reason: {c.deletion_reason}</div>
             )}
           </div>
-          {isAdmin && (
+          <div className="deleted-check-row__actions">
             <button
-              className="btn btn--danger btn--sm deleted-check-row__delete-btn"
+              className="btn btn--secondary btn--sm"
               type="button"
-              onClick={() => onForceDelete(c.check_id)}
+              disabled={restoringId === c.check_id}
+              onClick={() => handleRestore(c.check_id)}
             >
-              Permanently delete
+              {restoringId === c.check_id ? 'Restoring…' : 'Restore'}
             </button>
-          )}
+            {isAdmin && (
+              <button
+                className="btn btn--danger btn--sm deleted-check-row__delete-btn"
+                type="button"
+                onClick={() => onForceDelete(c.check_id)}
+              >
+                Permanently delete
+              </button>
+            )}
+          </div>
         </li>
       ))}
     </ul>

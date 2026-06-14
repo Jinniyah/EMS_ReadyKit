@@ -19,7 +19,7 @@ export const checkHistoryApi = {
   },
 
   /**
-   * Supervisor "All Checks" tab — checks for a station within a date range.
+   * Supervisor "All Checks" tab -- checks for a station within a date range.
    * B-E3: GET /checks/daily/station/{id}?from=&to=
    * If from/to are omitted, backend defaults to today.
    */
@@ -31,7 +31,7 @@ export const checkHistoryApi = {
     return apiGet(`${BASE}/checks/daily/station/${stationId}${qs}`, getToken)
   },
 
-  /** CH-B2: Full check detail — Responders own only, Supervisor+ any */
+  /** CH-B2: Full check detail -- Responders own only, Supervisor+ any */
   getCheckDetail: (checkId, getToken) =>
     apiGet(`${BASE}/checks/daily/${checkId}/detail`, getToken),
 
@@ -43,11 +43,15 @@ export const checkHistoryApi = {
   softDeleteCheck: (checkId, deletionReason, getToken) =>
     apiDeleteWithBody(`${BASE}/checks/daily/${checkId}`, { deletion_reason: deletionReason }, getToken),
 
-  /** CH-F7: List soft-deleted checks for a station (Supervisor+) */
+  /** CH-B5: List soft-deleted checks for a station (Supervisor+) */
   getDeletedChecks: (stationId, getToken) =>
     apiGet(`${BASE}/checks/daily/deleted?station_id=${stationId}`, getToken),
 
-  /** CH-F8: Permanently hard-delete a soft-deleted check (Admin only) */
+  /** CH-B6: Restore a soft-deleted check (Supervisor+) */
+  restoreCheck: (checkId, getToken) =>
+    apiPatch(`${BASE}/checks/daily/${checkId}/restore`, {}, getToken),
+
+  /** CH-B4: Permanently hard-delete a soft-deleted check (Admin only) */
   forceDeleteCheck: (checkId, getToken) =>
     apiDelete(`${BASE}/checks/daily/${checkId}/force`, getToken),
 }

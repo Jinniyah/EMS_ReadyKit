@@ -4,8 +4,8 @@ FastAPI application factory and startup lifecycle.
 
 ## Security headers (SEC-3)
 Every API response carries:
-  X-Content-Type-Options: nosniff      — prevents MIME sniffing
-  X-XSS-Protection: 1; mode=block     — legacy XSS filter for older browsers
+  X-Content-Type-Options: nosniff      -- prevents MIME sniffing
+  X-XSS-Protection: 1; mode=block     -- legacy XSS filter for older browsers
   Referrer-Policy: strict-origin-when-cross-origin
 
 NOTE: X-Frame-Options is intentionally NOT set on the backend API.
@@ -17,6 +17,13 @@ NOTE: X-Frame-Options is intentionally NOT set on the backend API.
 
 ## OpenAPI docs (SEC-2)
 /docs, /redoc, and /openapi.json are disabled in production.
+
+## Admin routers (CQ-B5)
+The monolithic admin.py was split into three sub-routers:
+  admin_items.py    -- item catalog, par levels, CSV import
+  admin_vehicles.py -- vehicle color and details
+  admin_stations.py -- station creation, location rename, retired list
+All three share the /admin prefix and admin tag.
 """
 
 from __future__ import annotations
@@ -33,7 +40,9 @@ from ems_readykit.core.config import get_settings
 from ems_readykit.core.limiter import limiter
 from ems_readykit.core.logging import configure_logging, set_request_id
 from ems_readykit.routers import (
-    admin,
+    admin_items,
+    admin_stations,
+    admin_vehicles,
     audit,
     check_history,
     checks,
@@ -55,19 +64,16 @@ API_PREFIX = "/api/v1"
 
 _LOG_EXCLUDED_PATHS = {"/health", "/docs", "/redoc", "/openapi.json", "/favicon.ico"}
 
-# Rate limiter imported from core/limiter.py to avoid circular imports.
-# See ems_readykit/core/limiter.py for configuration and usage notes.
-
 
 def create_app() -> FastAPI:
-    # ── SEC-4: Fail loud at startup if secret_key is still the default ────────
+    # -- SEC-4: Fail loud at startup if secret_key is still the default --------
     if settings.is_production:
         assert settings.secret_key != "change-me-in-production", (
             "SECRET_KEY must be set to a strong random value in production. "
             "Set the SECRET_KEY environment variable or Key Vault secret."
         )
 
-    # ── SEC-2: Disable OpenAPI docs in production (OWASP A05) ─────────────────
+    # -- SEC-2: Disable OpenAPI docs in production (OWASP A05) -----------------
     _docs_url = None if settings.is_production else "/docs"
     _redoc_url = None if settings.is_production else "/redoc"
     _openapi_url = None if settings.is_production else "/openapi.json"
@@ -84,15 +90,12 @@ def create_app() -> FastAPI:
         openapi_url=_openapi_url,
     )
 
-    # ── Rate limiter state (required by slowapi) ─────────────────────────────────
+    # -- Rate limiter state (required by slowapi) -------------------------------
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-    # ── SEC-3: Security response headers (OWASP A05) ──────────────────────────
-    # Applied to every API response.
-    #
-    # X-Frame-Options is deliberately EXCLUDED — see module docstring above.
-    # X-Frame-Options for the SWA is set in staticwebapp.config.json instead.
+    # -- SEC-3: Security response headers (OWASP A05) --------------------------
+    # X-Frame-Options is deliberately EXCLUDED -- see module docstring above.
     @app.middleware("http")
     async def add_security_headers(request: Request, call_next) -> Response:
         response = await call_next(request)
@@ -136,17 +139,11 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # NOTE (SEC-H1): HTTPSRedirectMiddleware is intentionally NOT used here.
-    # Azure App Service terminates TLS at the load balancer and forwards requests
-    # to the container as plain HTTP. The middleware cannot see X-Forwarded-Proto,
-    # so it would redirect every request to HTTPS, causing an infinite redirect loop.
-    # HTTPS enforcement is handled by Azure App Service's "HTTPS Only" platform setting.
-
-    # ── API Routers ────────────────────────────────────────────────────────────
+    # -- API Routers -----------------------------------------------------------
     # Route ordering matters:
-    #   1. station_members BEFORE stations — /stations/my must resolve before
+    #   1. station_members BEFORE stations -- /stations/my must resolve before
     #      /stations/{station_id} or FastAPI matches "my" as an integer and 422s.
-    #   2. check_history BEFORE checks — /checks/daily/my-history must resolve
+    #   2. check_history BEFORE checks -- /checks/daily/my-history must resolve
     #      before /checks/daily/{check_id}.
     app.include_router(station_members.router, prefix=API_PREFIX)
     app.include_router(stations.router, prefix=API_PREFIX)
@@ -157,7 +154,9 @@ def create_app() -> FastAPI:
     app.include_router(checks.router, prefix=API_PREFIX)
     app.include_router(items.router, prefix=API_PREFIX)
     app.include_router(inventory.router, prefix=API_PREFIX)
-    app.include_router(admin.router, prefix=API_PREFIX)
+    app.include_router(admin_items.router, prefix=API_PREFIX)
+    app.include_router(admin_vehicles.router, prefix=API_PREFIX)
+    app.include_router(admin_stations.router, prefix=API_PREFIX)
     app.include_router(audit.router, prefix=API_PREFIX)
 
     @app.get("/health", tags=["system"])
