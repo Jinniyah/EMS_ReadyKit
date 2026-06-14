@@ -2,41 +2,57 @@
  * shared/components/UserPill.jsx
  * Logged-in user identity pill — shown on every screen in the app header.
  *
- * Displays: initials avatar, name, role badge, and a dropdown menu with:
+ * Displays: initials avatar, name, active role badge, and a dropdown menu with:
+ *   - One button per available role (ACC-B7: multi-role switching)
  *   - Sign out
- *   - Switch to crew mode (Supervisor and Administrator only)
  *   - Dev role switcher (development only)
  *
- * From ADR-005 Decision 4: role switching is display-only, no JWT change.
- * The amber "CREW MODE" badge appears in the pill when crew mode is active.
+ * ACC-B7: If the user holds multiple roles at the current station, all roles
+ * are listed in the dropdown. The active role is stored in localStorage and
+ * drives UI rendering (canAccess checks, crew mode badge, etc).
+ * The JWT is unchanged -- all API permissions remain at the real role level.
  *
  * Accessibility:
  *   - Dropdown button is keyboard-accessible (Enter/Space/Escape)
  *   - Dropdown closes on outside click or Escape
- *   - All interactive elements are 48×48px minimum tap targets
+ *   - All interactive elements are 48px minimum tap targets
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { useAuth, ROLE_SUPERVISOR, ROLE_ADMINISTRATOR } from '../hooks/useAuth.jsx'
+import { useAuth, ROLE_RESPONDER } from '../hooks/useAuth.jsx'
 import { useRoleMode } from '../hooks/useRoleMode.jsx'
 
-export default function UserPill() {
-  const { user, logout } = useAuth()
-  const { isCrewMode, toggleCrewMode } = useRoleMode()
-  const [open, setOpen] = useState(false)
-  const buttonRef = useRef(null)
-  const menuRef = useRef(null)
+const ROLE_ICONS = {
+  Administrator: '🛡',
+  Supervisor:    '👁',
+  Responder:     '🚑',
+}
 
-  const canSwitchRole = user?.role === ROLE_SUPERVISOR || user?.role === ROLE_ADMINISTRATOR
+export default function UserPill({ stationId = null }) {
+  const { user, logout, getToken } = useAuth()
+  const {
+    activeRole,
+    availableRoles,
+    setActiveRole,
+    canSwitch,
+    isCrewMode,
+  } = useRoleMode(stationId, getToken)
+
+  const [open, setOpen]     = useState(false)
+  const buttonRef           = useRef(null)
+  const menuRef             = useRef(null)
+
+  // Display role: use activeRole when available, fall back to JWT role
+  const displayRole = activeRole ?? user?.role
 
   // Close on outside click
   useEffect(() => {
     if (!open) return
     function handler(e) {
-      if (menuRef.current && !menuRef.current.contains(e.target) &&
-          buttonRef.current && !buttonRef.current.contains(e.target)) {
-        setOpen(false)
-      }
+      if (
+        menuRef.current && !menuRef.current.contains(e.target) &&
+        buttonRef.current && !buttonRef.current.contains(e.target)
+      ) setOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -60,10 +76,10 @@ export default function UserPill() {
     logout()
   }, [logout])
 
-  const handleToggleCrewMode = useCallback(() => {
+  const handleRoleSwitch = useCallback((role) => {
     setOpen(false)
-    toggleCrewMode()
-  }, [toggleCrewMode])
+    setActiveRole(role)
+  }, [setActiveRole])
 
   if (!user) return null
 
@@ -76,7 +92,7 @@ export default function UserPill() {
         onClick={() => setOpen(o => !o)}
         aria-haspopup="true"
         aria-expanded={open}
-        aria-label={`${user.name}, ${user.role}${isCrewMode ? ', crew mode active' : ''}. Open menu`}
+        aria-label={`${user.name}, ${displayRole}${isCrewMode ? ', crew mode active' : ''}. Open menu`}
         type="button"
       >
         <span className="user-pill__avatar" aria-hidden="true">
@@ -85,9 +101,8 @@ export default function UserPill() {
         <span className="user-pill__info">
           <span className="user-pill__name">{user.name}</span>
           <span className="user-pill__role">
-            {isCrewMode
-              ? `${user.role} (crew mode)`
-              : user.role}
+            {ROLE_ICONS[displayRole] ?? ''} {displayRole}
+            {isCrewMode ? ' (crew)' : ''}
           </span>
         </span>
         {isCrewMode && (
@@ -115,20 +130,28 @@ export default function UserPill() {
 
           <div className="user-pill__menu-divider" role="separator" />
 
-          {canSwitchRole && (
-            <button
-              className="user-pill__menu-item"
-              onClick={handleToggleCrewMode}
-              role="menuitem"
-              type="button"
-            >
-              {isCrewMode ? '↑ Switch to supervisor view' : '↓ Switch to crew mode'}
-            </button>
+          {/* Role switcher — shown when user holds more than one role */}
+          {canSwitch && (
+            <>
+              <div className="user-pill__menu-section-label">Switch role</div>
+              {availableRoles.map(role => (
+                <button
+                  key={role}
+                  className={`user-pill__menu-item ${activeRole === role ? 'user-pill__menu-item--active' : ''}`}
+                  onClick={() => handleRoleSwitch(role)}
+                  role="menuitem"
+                  type="button"
+                  aria-current={activeRole === role ? 'true' : undefined}
+                >
+                  {activeRole === role ? '● ' : '○ '}
+                  {ROLE_ICONS[role] ?? ''} {role}
+                </button>
+              ))}
+              <div className="user-pill__menu-divider" role="separator" />
+            </>
           )}
 
           <DevRoleSwitcher />
-
-          <div className="user-pill__menu-divider" role="separator" />
 
           <button
             className="user-pill__menu-item user-pill__menu-item--danger"
@@ -153,7 +176,7 @@ function DevRoleSwitcher() {
   return (
     <>
       <div className="user-pill__menu-divider" role="separator" />
-      <div className="user-pill__menu-dev-label">Dev: switch role</div>
+      <div className="user-pill__menu-dev-label">Dev: switch persona</div>
       {Object.entries(_devUsers).map(([key, u]) => (
         <button
           key={key}

@@ -1,60 +1,105 @@
 /**
  * shared/hooks/useRoleMode.jsx
- * Display-only crew/supervisor mode switching for Supervisor and Administrator.
+ * Role switching for users who hold multiple roles at a station (ACC-B7).
  *
- * From ADR-005 Decision 4: role switching changes only the UI.
- * The JWT is unchanged — all API permissions remain at the real role level.
- * Crew mode preference resets on logout (never stored in sessionStorage).
+ * Previously this was a binary crew/supervisor toggle for Supervisor+.
+ * Now it supports any combination of roles by fetching the user's active
+ * roles at the current station from GET /stations/my/roles.
+ *
+ * Role hierarchy (highest-privilege wins for initial selection):
+ *   Administrator > Supervisor > Responder
+ *
+ * The active role is stored in localStorage so it persists across page
+ * refreshes but resets when the station changes.
  *
  * Usage:
- *   const { isCrewMode, isSupervisorMode, toggleCrewMode } = useRoleMode()
+ *   const { activeRole, availableRoles, setActiveRole, isCrewMode } = useRoleMode(stationId, getToken)
+ *
+ * isCrewMode is kept for backward compatibility — true when activeRole === 'Responder'
+ * and the user also holds a higher role.
  */
 
-import { useState, useCallback } from 'react'
-import { useAuth, ROLE_SUPERVISOR, ROLE_ADMINISTRATOR } from './useAuth.jsx'
+import { useState, useEffect, useCallback } from 'react'
+import { useAuth, ROLE_ADMINISTRATOR, ROLE_SUPERVISOR, ROLE_RESPONDER } from './useAuth.jsx'
+import { apiGet } from '../api/client.js'
 
-const STORAGE_KEY = 'ems_role_mode'
+const STORAGE_KEY = 'ems_active_role'
+const ROLE_LEVEL  = { Administrator: 3, Supervisor: 2, Responder: 1 }
 
-export function useRoleMode() {
-  const { user } = useAuth()
+function highestRole(roles) {
+  if (!roles?.length) return ROLE_RESPONDER
+  return roles.reduce((best, r) => (ROLE_LEVEL[r] ?? 0) > (ROLE_LEVEL[best] ?? 0) ? r : best, roles[0])
+}
 
-  const canSwitch = user?.role === ROLE_SUPERVISOR || user?.role === ROLE_ADMINISTRATOR
+export function useRoleMode(stationId = null, getToken = null) {
+  const { user, _isDev } = useAuth()
 
-  // Read initial value from localStorage but only for eligible roles.
-  const [mode, setMode] = useState(() => {
-    if (!canSwitch) return 'supervisor'
-    return localStorage.getItem(STORAGE_KEY) ?? 'supervisor'
+  // In dev mode, available roles are the three fixed personas — no API call needed.
+  const [availableRoles, setAvailableRoles] = useState(() =>
+    _isDev ? [user?.role].filter(Boolean) : [user?.role].filter(Boolean)
+  )
+  const [activeRole, setActiveRoleState] = useState(() => {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    return stored ?? user?.role ?? ROLE_RESPONDER
   })
+  const [loading, setLoading] = useState(false)
 
-  const isCrewMode = canSwitch && mode === 'crew'
-  const isSupervisorMode = !isCrewMode
+  // Fetch available roles from the API when stationId is known (production only).
+  useEffect(() => {
+    if (!stationId || !getToken || _isDev) return
+    if (!user?.email) return
 
-  const toggleCrewMode = useCallback(() => {
-    if (!canSwitch) return
-    setMode(prev => {
-      const next = prev === 'crew' ? 'supervisor' : 'crew'
-      localStorage.setItem(STORAGE_KEY, next)
-      return next
-    })
-  }, [canSwitch])
+    setLoading(true)
+    apiGet(`/api/v1/stations/my/roles?station_id=${stationId}`, getToken)
+      .then(roles => {
+        if (!Array.isArray(roles) || roles.length === 0) return
+        setAvailableRoles(roles)
+        // If the stored role is not in available roles, reset to highest available.
+        const stored = localStorage.getItem(STORAGE_KEY)
+        if (!stored || !roles.includes(stored)) {
+          const best = highestRole(roles)
+          localStorage.setItem(STORAGE_KEY, best)
+          setActiveRoleState(best)
+        }
+      })
+      .catch(() => {
+        // Fall back to JWT role — non-fatal
+        setAvailableRoles([user?.role].filter(Boolean))
+      })
+      .finally(() => setLoading(false))
+  }, [stationId, getToken, user?.email, _isDev])
 
-  const setCrewMode = useCallback(() => {
-    if (!canSwitch) return
-    localStorage.setItem(STORAGE_KEY, 'crew')
-    setMode('crew')
-  }, [canSwitch])
-
-  const setSupervisorMode = useCallback(() => {
-    localStorage.setItem(STORAGE_KEY, 'supervisor')
-    setMode('supervisor')
+  const setActiveRole = useCallback((role) => {
+    localStorage.setItem(STORAGE_KEY, role)
+    setActiveRoleState(role)
   }, [])
 
+  // Backward-compat: crew mode = user has a higher role but is working as Responder
+  const canSwitch = availableRoles.length > 1
+  const isCrewMode = canSwitch && activeRole === ROLE_RESPONDER
+  const isSupervisorMode = !isCrewMode
+
+  // Legacy toggle (kept for any code still using it)
+  const toggleCrewMode = useCallback(() => {
+    if (!canSwitch) return
+    if (isCrewMode) {
+      // Switch to highest non-Responder role
+      const higher = availableRoles.filter(r => r !== ROLE_RESPONDER)
+      setActiveRole(highestRole(higher.length ? higher : availableRoles))
+    } else {
+      setActiveRole(ROLE_RESPONDER)
+    }
+  }, [canSwitch, isCrewMode, availableRoles, setActiveRole])
+
   return {
+    activeRole,
+    availableRoles,
+    setActiveRole,
+    canSwitch,
+    loading,
+    // Backward compat
     isCrewMode,
     isSupervisorMode,
     toggleCrewMode,
-    setCrewMode,
-    setSupervisorMode,
-    canSwitch,
   }
 }

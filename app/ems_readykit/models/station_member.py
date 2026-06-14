@@ -14,6 +14,13 @@ Design decisions (see B-ACCESS1):
     and present in every JWT — no MS Graph call needed to assign users.
   - active flag allows soft-removal without losing assignment history.
   - assigned_by records the UPN of whoever created the assignment (audit trail).
+
+ACC-B7 (Option A): Multiple roles per person at a station.
+  A person may hold more than one active role at the same station by having
+  multiple StationMember rows — one per role. The unique constraint is now
+  (station_id, user_id, role) rather than (station_id, user_id).
+  Role resolution: highest-privilege wins (Administrator > Supervisor > Responder).
+  Migration: 0027_station_member_multi_role.py
 """
 
 from __future__ import annotations
@@ -38,12 +45,14 @@ def _utcnow() -> datetime:
 class StationMember(TimestampMixin, Base):
     __tablename__ = "station_members"
 
-    # One row per user per station. Soft-deleted rows kept for audit history.
+    # One row per (user, station, role). A person can hold multiple roles
+    # at the same station by having multiple active rows.
     __table_args__ = (
         UniqueConstraint(
             "station_id",
             "user_id",
-            name="uq_station_members_station_user",
+            "role",
+            name="uq_station_members_station_user_role",
         ),
     )
 

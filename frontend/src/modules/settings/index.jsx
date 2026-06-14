@@ -4,13 +4,15 @@
  * S-F6: Station management (Admin) — retire station (RET-F4).
  * S-F7: Vehicle management (Admin) — retire vehicle/location (RET-F1/F2).
  * RET-F5: Retired items list (Admin).
- * Visible to Supervisor+ (read-only for non-admin sections).
+ * ACC-B6/B7/B8: Member management — add, edit, multi-role, CSV import.
+ * Visible to Supervisor+.
  */
 import React, { useState } from 'react'
 import { useAuth } from '../../shared/hooks/useAuth.jsx'
 import { useApi } from '../../shared/hooks/useApi.js'
 import { canAccess } from '../../shared/utils/roleGuard.js'
 import { settingsApi } from './api/settingsApi.js'
+import MemberManagementSection from './components/MemberManagementSection.jsx'
 import VehicleManagementSection from './components/VehicleManagementSection.jsx'
 import StationManagementSection from './components/StationManagementSection.jsx'
 import RetiredListSection from './components/RetiredListSection.jsx'
@@ -20,7 +22,7 @@ import './settings.css'
 export default function SettingsScreen({ station, onBack }) {
   const { user, getToken } = useAuth()
   const isAdmin = canAccess(user, 'administrator')
-  const [key, setKey]     = useState(0)
+  const [key, setKey]       = useState(0)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
 
@@ -66,9 +68,9 @@ export default function SettingsScreen({ station, onBack }) {
       ) : settings ? (
         <>
           <div className="settings-screen__body">
+            {/* Check workflow toggle */}
             <div className="settings-section">
               <h2 className="settings-section__heading">Check Workflow</h2>
-
               <div className="settings-row">
                 <div className="settings-row__content">
                   <div className="settings-row__label">Allow check modification</div>
@@ -96,7 +98,6 @@ export default function SettingsScreen({ station, onBack }) {
                   )}
                 </div>
               </div>
-
               {saveError && (
                 <p className="settings-screen__error" role="alert">{saveError}</p>
               )}
@@ -107,8 +108,15 @@ export default function SettingsScreen({ station, onBack }) {
                 Contact your administrator to change these settings.
               </p>
             )}
+
+            {/* Member management — Supervisor+ */}
+            <MemberManagementSection
+              station={station}
+              getToken={getToken}
+            />
           </div>
 
+          {/* Admin-only sections */}
           {isAdmin && (
             <div className="settings-screen__body" style={{ paddingTop: 0 }}>
               <StationManagementSection

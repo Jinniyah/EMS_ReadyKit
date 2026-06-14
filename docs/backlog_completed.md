@@ -1,18 +1,56 @@
 # EMS ReadyKit — Completed Items
-# Last updated: 2026-06-14 (Session X: CQ-B4, CQ-B5, CQ-B6, CQ-B7, CQ-F1 — full code quality cleanup)
-# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X
+# Last updated: 2026-06-14 (Session Z: ACC-B6, ACC-B7, ACC-B8 — member management complete)
+# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z
 # Active backlog -> docs/backlog.md
 
 ---
 
-## Session X — Code Quality Cleanup (2026-06-14)
-All five CQ backlog items implemented. Codebase is now portfolio-ready.
-Migration 0026 added for check_date Date type. Old admin.py replaced by three sub-routers.
-Run `cd app ; pytest tests/ -v` and `alembic upgrade head` to verify.
+## Session Z — Station Member Management (2026-06-14)
+ACC-B6 (edit member name), ACC-B7 (multiple roles per person, Option A),
+and ACC-B8 (CSV bulk import) implemented together as one cohesive set.
+Migration 0027 drops the single-user unique constraint and replaces it with
+(station_id, user_id, role). PATCH and DELETE now use member_id for precision.
+The UserPill role switcher is updated to show all available roles fetched from
+a new /stations/my/roles endpoint. test_member_management.py added (32 tests).
 
 | # | Item | Completed |
 |---|------|-----------|
-| CQ-B7 | `create_par_level` pre-check queries removed; DB constraint + IntegrityError only | 2026-06-14 |
+| ACC-B6 | `PATCH /stations/{id}/members/{member_id}` -- update preferred_name; propagates to all rows for the same user | 2026-06-14 |
+| ACC-B7 | Multi-role support (Option A): migration 0027 replaces `uq_station_members_station_user` with `uq_station_members_station_user_role`; `GET /stations/my/roles` endpoint; UserPill and useRoleMode updated for multi-role switching | 2026-06-14 |
+| ACC-B8 | `POST /stations/{id}/members/import` CSV bulk import; `GET /stations/{id}/members/import/template`; creates/reactivates/skips per row; Supervisor cannot import Administrator rows; `MemberManagementSection.jsx` added to Settings | 2026-06-14 |
+
+---
+
+## Session Y — UAT Complete + Test Suite Fix + Questions Closed (2026-06-14)
+All UAT scenarios passed. Test suite fixed: two root causes resolved (audit metadata date
+serialization from CQ-B6; par level NULL compartment duplicate detection from CQ-B7).
+437 tests collected, 0 failed. All open questions resolved. App is launch-ready pending LAUNCH-OPS1–9.
+
+| # | Item | Completed |
+|---|------|-----------|
+| UAT-2 | Responder UAT passed | 2026-06-14 |
+| UAT-5 | Cross-role test cases passed | 2026-06-14 |
+| UAT-6 | Edge case test cases passed | 2026-06-14 |
+| UAT-7 | Pending assignment test case passed | 2026-06-14 |
+| UAT-8 | Multi-station test case passed | 2026-06-14 |
+| UAT-9 | Unit 712 full shift-start check -- cold run passed | 2026-06-14 |
+| UAT-10 | After-call usage log -- cold run passed | 2026-06-14 |
+| UAT-11 | Damaged item scenario -- cold run passed | 2026-06-14 |
+| BUG-Y1 | `check_history.py` audit metadata passed `date` object to JSON serializer -- converted via `_check_date_str()` helper | 2026-06-14 |
+| BUG-Y2 | `create_par_level` NULL compartment duplicate not caught by DB constraint -- pre-check restored for NULL case | 2026-06-14 |
+| Q-3 | Download check history CSV -- resolved: yes, build as F-5G3 when first compliance report is due | 2026-06-14 |
+| Q-6 | Auto-hard-delete of soft-deleted checks -- resolved: Azure Function on 90-day timer | 2026-06-14 |
+| F-5F7 | Supply room stock view on supervisor dashboard -- resolved: inline low-stock alerts (SR-B3) and DamagedItemsPanel already cover this; no separate view needed | 2026-06-14 |
+
+---
+
+## Session X — Code Quality Cleanup (2026-06-14)
+All five CQ backlog items implemented. Codebase is portfolio-ready.
+Migration 0026 added for check_date Date type. Old admin.py replaced by three sub-routers.
+
+| # | Item | Completed |
+|---|------|-----------|
+| CQ-B7 | `create_par_level` pre-check refined -- DB IntegrityError for compartment-scoped; pre-check retained for NULL compartment_id | 2026-06-14 |
 | CQ-B4 | `LastReadingItem` → `schemas/checks.py`; `_ItemStatusPatch` → `schemas/inventory.py` as `ItemStatusPatch` | 2026-06-14 |
 | CQ-B5 | `admin.py` (30KB) split into `admin_items.py`, `admin_vehicles.py`, `admin_stations.py`; `main.py` updated | 2026-06-14 |
 | CQ-F1 | `check-wizard/index.jsx` 18 `useState` calls → `useReducer`; `submissionResult` object groups submit fields | 2026-06-14 |
@@ -21,23 +59,18 @@ Run `cd app ; pytest tests/ -v` and `alembic upgrade head` to verify.
 ---
 
 ## Session W — Check History Endpoints + Usage Log Gap Closure (2026-06-13)
-CH-B4 (force hard-delete) and CH-B5 (list deleted) were already implemented; CH-B6 (restore) added.
-Tests added for all three. Frontend: restoreCheck API call added; Restore button added to DeletedChecksList.
-USAGE-B1 and USAGE-B2 discovered to already be implemented; closed from backlog. UAT-10 unblocked.
-No new migrations.
 
 | # | Item | Completed |
 |---|------|-----------|
 | CH-B4 | `DELETE /checks/daily/{id}/force` -- Admin only, permanent hard-delete; 6 new tests | 2026-06-13 |
 | CH-B5 | `GET /checks/daily/deleted?station_id=` -- Supervisor+, list soft-deleted; 6 new tests | 2026-06-13 |
 | CH-B6 | `PATCH /checks/daily/{id}/restore` -- Supervisor+, restore soft-deleted; 7 new tests | 2026-06-13 |
-| USAGE-B1 | `get_last_readings` subtracts post-check usage via `_get_post_check_usage()` -- already done | 2026-06-13 |
-| USAGE-B2 | `location_id` on UsageEvent + schema validation + location-scoped usage query -- already done | 2026-06-13 |
+| USAGE-B1 | `get_last_readings` subtracts post-check usage via `_get_post_check_usage()` -- already done in Session N | 2026-06-13 |
+| USAGE-B2 | `location_id` on UsageEvent + schema validation + location-scoped usage query -- already done in Session N | 2026-06-13 |
 
 ---
 
 ## Session V — UAT Continued (2026-06-12)
-Administrator and Supervisor UAT both complete. Four bugs found and fixed.
 
 | # | Item | Completed |
 |---|------|-----------|
@@ -65,30 +98,14 @@ Administrator and Supervisor UAT both complete. Four bugs found and fixed.
 
 ---
 
-## Session T — Par Level Deactivation (2026-06-11)
-| # | Item | Completed |
-|---|------|-----------|
-| B-M6 | deactivated_at + deactivation_reason on par_levels; migration 0024; PATCH /admin/par-levels/{id} | 2026-06-11 |
-
----
-
-## Session S — Retirement (2026-06-10)
-| # | Item | Completed |
-|---|------|-----------|
-| RET-B1--B6 | Retire vehicle/location/station/lot; list retired; RBAC | 2026-06-10 |
-| RET-F1--F5 | VehicleManagementSection, StationManagementSection, RetiredListSection | 2026-06-10 |
-| RET-M1/M2/M3 | Migration 0023: retired_at/by/reason on vehicles/locations/stations/lots | 2026-06-10 |
-
----
-
-## Sessions A–R — Foundation through Settings (2026-05-26 to 2026-06-10)
+## Sessions A–T — Foundation through Par Level Deactivation (2026-05-26 to 2026-06-11)
 Full history in git. Highlights: Azure AD JWT auth, 3-role RBAC, check wizard 5-step flow,
 compliance dashboard, supply room, retirement, security headers, CI/CD pipeline.
-304–410 tests across these sessions.
 
 ---
 
 ## Post-Session L — Frontend Tests + Rate Limiting (2026-06-08/09)
+
 | # | Item | Completed |
 |---|------|-----------|
 | FE-TEST-INFRA--10 | MSAL mocks, useAuth mock, 10 component test files | 2026-06-09 |
