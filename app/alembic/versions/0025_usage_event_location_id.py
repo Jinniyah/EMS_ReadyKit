@@ -9,6 +9,10 @@ locations (jump bags) can be logged against the location rather than a
 vehicle. Exactly one of vehicle_id or location_id must be set; this
 constraint is enforced at the application layer, not the DB, to keep
 the migration simple and compatible with SQLite for testing.
+
+Fix (2026-06-18): removed inline sa.ForeignKey() from add_column — Alembic
+batch mode requires named constraints; the FK is enforced at the app layer
+per the original design intent.
 """
 
 import sqlalchemy as sa
@@ -27,7 +31,6 @@ def upgrade():
             sa.Column(
                 "location_id",
                 sa.Integer(),
-                sa.ForeignKey("inventory_locations.location_id"),
                 nullable=True,
             )
         )

@@ -1,14 +1,14 @@
 # EMS ReadyKit — Python dependencies
-# Last security audit: 2026-05-26
+# Last security audit: 2026-06-18
 # Updated to resolve all pip-audit findings (SEC-1 / OWASP A06).
 
 # Web framework
 # fastapi 0.136.1 requires pydantic>=2.9.0 and starlette>=1.0.0
-# starlette 1.1.0 clears CVE-2025-62727, PYSEC-2026-161
+# starlette 1.3.1 clears CVE-2026-54283, CVE-2026-54282
 fastapi==0.136.1
-starlette==1.1.0
+starlette==1.3.1
 uvicorn[standard]==0.29.0
-python-multipart==0.0.27  # Required by FastAPI for UploadFile / multipart form data (CSV import)
+python-multipart==0.0.31  # 0.0.31 clears CVE-2026-53540, CVE-2026-53539, CVE-2026-53538
 slowapi==0.1.9            # Rate limiting (OWASP A04 — wraps limits library, integrates with FastAPI)
 
 # Database ORM + migrations
@@ -33,10 +33,13 @@ python-dateutil==2.9.0
 
 # Authentication — Azure AD JWT validation
 # PyJWT 2.13.0 — fixes PYSEC-2026-175/176/177/178/179 (2026-06-02)
-# cryptography 46.0.7 — fixes PYSEC-2026-36 (buffer overflow, non-contiguous buffers)
+# cryptography 48.0.1 clears GHSA-537c-gmf6-5ccf
 PyJWT[crypto]==2.13.0
-cryptography==46.0.7
-httpx==0.27.0            # JWKS fetch + ASGI test client for FastAPI
+cryptography==48.0.1
+# httpx2 is the Pydantic-maintained continuation of httpx (same API, new package name).
+# Versioned as 2.x (not 0.x). Replaces plain httpx for starlette 1.3.1 TestClient
+# compatibility — without it, starlette fires StarletteDeprecationWarning on import.
+httpx2==2.4.0
 
 # Testing
 # pytest 9.0.3 — fixes CVE-2025-71176

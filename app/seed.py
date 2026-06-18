@@ -5,10 +5,21 @@ Seed data for EMS ReadyKit development database.
 Stations seeded:
     1. Newberg Township Station 1 — Ambulance 712 (BLS) + Unit 712 Jump Bag
     2. Marcellus Township Station 1 — Ambulance 540 (ALS)
-    3. ⚠ TEST STATION — Dev Only (Unit TEST QRV — 2 compartments, 7 items, all check types)
+    3. Newberg Training Station (orange) — Training Unit A + Training Unit B (BLS)
+                                           Training Jump Bag A + Training Jump Bag B
+    4. ⚠ TEST STATION — Dev Only (Unit TEST QRV — 2 compartments, 7 items, all check types)
 
 Jump bags are one-per-ambulance, named "Unit NNN Jump Bag" so they sort
 alphabetically alongside their parent unit in Step 1 of the check wizard.
+
+Training Station (Station 3):
+    Safe playground for crew training. All real item types are represented —
+    SUPPLY, MEASUREMENT, FUNCTIONAL, DATE_RECORD, EXPIRY_DATE, DOCUMENT — plus
+    priority items (AED, LUCAS, O2 PSI). Par quantities are ~1/3 of Unit 712.
+    Only 9 compartments per ambulance and 2 per jump bag so a training check
+    takes ~5 minutes instead of 20. Station color: #e65100 (orange).
+    Members: admin only. Other users added via Settings → Team Members.
+    Always seeded — present in every environment including production.
 
 Note: Unit 710 jump bag was removed from Newberg seed — Unit 710 has no ambulance
 seeded yet and its jump bag appeared as an orphan in the check wizard.
@@ -564,7 +575,11 @@ def build_ambulance_inventory(
         )
 
     pc6 = make_compartment(
-        db, location=loc, name="PC 6", sort_order=9, location_descriptor="Interior"
+        db,
+        location=loc,
+        name="PC 6",
+        sort_order=9,
+        location_descriptor="Interior",
     )
     for name, cat in [
         ("Wrist BP Monitor", ItemCategory.EQUIPMENT),
@@ -1633,6 +1648,497 @@ def build_jump_bag(db: Session, jb: InventoryLocation) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Training ambulance inventory builder (~1/3 of Unit 712, all check types)
+# ---------------------------------------------------------------------------
+#
+# Compartment selection (9 of 26):
+#   PC 8            — priority items: AED (FUNCTIONAL + DATE_RECORD + EXPIRY_DATE)
+#                     and LUCAS (FUNCTIONAL + DATE_RECORD), plus AED Pads expiry
+#   PC 1 (Airway)   — SUPPLY items (airway equipment)
+#   Admin Counter   — SUPPLY + DOCUMENT items
+#   PC 5 (PPE)      — SUPPLY consumables
+#   PC 13 (Trauma)  — SUPPLY consumables, reduced quantities
+#   Stretcher       — MEASUREMENT (O2 PSI priority) + FUNCTIONAL
+#   Driver Side EC1 — MEASUREMENT (on-board O2 PSI)
+#   Truck Operations — FUNCTIONAL + DOCUMENT, requires_full_check=True
+#   Under Hood      — FUNCTIONAL, requires_full_check=True
+#
+# Par quantities: ~1/3 of Unit 712, minimum 1.
+# ---------------------------------------------------------------------------
+
+
+def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
+    """
+    Build training ambulance compartments and par levels.
+    Covers all check types. ~9 compartments, ~1/3 par quantities.
+    Idempotent — safe to re-run.
+    """
+
+    # ── PC 8 — AED + LUCAS priority items (all special check types) ───────────
+    pc8 = make_compartment(
+        db,
+        location=loc,
+        name="PC 8",
+        sort_order=1,
+        location_descriptor="Interior, driver side — AED and LUCAS",
+    )
+    # AED: FUNCTIONAL priority
+    add_par(
+        db,
+        item=get_or_create_item(
+            db,
+            name="AED Battery",
+            category=ItemCategory.EQUIPMENT,
+            check_type=ItemCheckType.FUNCTIONAL,
+            unit_of_measure="N/A",
+        ),
+        location=loc,
+        compartment=pc8,
+        min_qty=1,
+        priority_check=True,
+        priority_question="AED shows READY?",
+    )
+    # AED: DATE_RECORD
+    add_par(
+        db,
+        item=get_or_create_item(
+            db,
+            name="AED Date of Last Charge",
+            category=ItemCategory.EQUIPMENT,
+            check_type=ItemCheckType.DATE_RECORD,
+            unit_of_measure="N/A",
+            recurrence_days=90,
+        ),
+        location=loc,
+        compartment=pc8,
+        min_qty=1,
+    )
+    # AED Pads Adult: EXPIRY_DATE
+    add_par(
+        db,
+        item=get_or_create_item(
+            db,
+            name="AED Pads Adult",
+            category=ItemCategory.CONSUMABLE,
+            check_type=ItemCheckType.EXPIRY_DATE,
+            unit_of_measure="N/A",
+        ),
+        location=loc,
+        compartment=pc8,
+        min_qty=1,
+    )
+    # AED Pads Pediatric: EXPIRY_DATE
+    add_par(
+        db,
+        item=get_or_create_item(
+            db,
+            name="AED Pads Pediatric",
+            category=ItemCategory.CONSUMABLE,
+            check_type=ItemCheckType.EXPIRY_DATE,
+            unit_of_measure="N/A",
+        ),
+        location=loc,
+        compartment=pc8,
+        min_qty=1,
+    )
+    # LUCAS Device: FUNCTIONAL priority
+    add_par(
+        db,
+        item=get_or_create_item(
+            db,
+            name="LUCAS Device",
+            category=ItemCategory.EQUIPMENT,
+            check_type=ItemCheckType.FUNCTIONAL,
+            unit_of_measure="N/A",
+        ),
+        location=loc,
+        compartment=pc8,
+        min_qty=1,
+        priority_check=True,
+        priority_question="LUCAS shows READY?",
+    )
+    # LUCAS: DATE_RECORD
+    add_par(
+        db,
+        item=get_or_create_item(
+            db,
+            name="LUCAS Date of Last Charge",
+            category=ItemCategory.EQUIPMENT,
+            check_type=ItemCheckType.DATE_RECORD,
+            unit_of_measure="N/A",
+            recurrence_days=30,
+        ),
+        location=loc,
+        compartment=pc8,
+        min_qty=1,
+    )
+    # Portable suction: SUPPLY
+    add_par(
+        db,
+        item=get_or_create_item(
+            db, name="Portable Suction Unit", category=ItemCategory.EQUIPMENT
+        ),
+        location=loc,
+        compartment=pc8,
+        min_qty=1,
+    )
+
+    # ── PC 1 (Airway) — SUPPLY items ─────────────────────────────────────────
+    pc1 = make_compartment(
+        db,
+        location=loc,
+        name="PC 1 (Airway)",
+        sort_order=2,
+        location_descriptor="Interior, left side, forward — airway equipment",
+    )
+    for name in ["Adult BVM", "Adult NAS", "Adult NRB"]:
+        add_par(
+            db,
+            item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
+            location=loc,
+            compartment=pc1,
+            min_qty=1,
+        )
+
+    # ── Admin Counter — SUPPLY + DOCUMENT ─────────────────────────────────────
+    admin_counter = make_compartment(
+        db,
+        location=loc,
+        name="Admin Counter",
+        sort_order=3,
+        location_descriptor="Interior, admin counter near driver",
+    )
+    for name, cat, ct in [
+        ("iPad & Charger", ItemCategory.EQUIPMENT, ItemCheckType.SUPPLY),
+        ("Hand Sanitizer", ItemCategory.CONSUMABLE, ItemCheckType.SUPPLY),
+        ("Trauma Shears", ItemCategory.EQUIPMENT, ItemCheckType.SUPPLY),
+        ("O2 Wrench", ItemCategory.EQUIPMENT, ItemCheckType.SUPPLY),
+        ("PCR or HERN PCR", ItemCategory.DOCUMENT, ItemCheckType.DOCUMENT),
+        ("Billing Form", ItemCategory.DOCUMENT, ItemCheckType.DOCUMENT),
+        ("Updated Radio Channel List", ItemCategory.DOCUMENT, ItemCheckType.DOCUMENT),
+    ]:
+        uom = "N/A" if ct == ItemCheckType.DOCUMENT else "each"
+        add_par(
+            db,
+            item=get_or_create_item(
+                db, name=name, category=cat, check_type=ct, unit_of_measure=uom
+            ),
+            location=loc,
+            compartment=admin_counter,
+            min_qty=1,
+        )
+
+    # ── PC 5 (PPE) — SUPPLY consumables ──────────────────────────────────────
+    pc5 = make_compartment(
+        db,
+        location=loc,
+        name="PC 5 (PPE)",
+        sort_order=4,
+        location_descriptor="Interior, PPE compartment",
+    )
+    for name in [
+        "Glove Boxes Medium",
+        "Glove Boxes Large",
+        "Gowns",
+        "N-95 Masks",
+        "Goggles",
+    ]:
+        add_par(
+            db,
+            item=get_or_create_item(db, name=name, category=ItemCategory.CONSUMABLE),
+            location=loc,
+            compartment=pc5,
+            min_qty=1,
+        )
+
+    # ── PC 13 (Trauma) — SUPPLY consumables, reduced qty ─────────────────────
+    pc13 = make_compartment(
+        db,
+        location=loc,
+        name="PC 13 (Trauma)",
+        sort_order=5,
+        location_descriptor="Interior, trauma supplies",
+    )
+    for name, qty in [
+        ("ABD Pad 8x10", 2),
+        ("Gauze Bandage Various Sizes", 3),
+        ("KERLIX PC13", 3),
+        ("Tape Various Sizes", 3),
+        ("CAT Tourniquet", 1),
+        ("Gauze Sponges 4x4", 8),
+        ("Triangle Bandages", 1),
+        ("Sterile Saline Solution", 1),
+    ]:
+        add_par(
+            db,
+            item=get_or_create_item(db, name=name, category=ItemCategory.CONSUMABLE),
+            location=loc,
+            compartment=pc13,
+            min_qty=qty,
+        )
+
+    # ── Stretcher — MEASUREMENT (O2 PSI) priority + FUNCTIONAL ───────────────
+    stretcher = make_compartment(
+        db,
+        location=loc,
+        name="Stretcher",
+        sort_order=6,
+        location_descriptor="Patient stretcher / cot",
+    )
+    add_par(
+        db,
+        item=get_or_create_item(
+            db,
+            name="Stretcher O2 PSI",
+            category=ItemCategory.EQUIPMENT,
+            check_type=ItemCheckType.MEASUREMENT,
+            unit_of_measure="PSI",
+            measurement_minimum=500.0,
+            measurement_maximum=2200.0,
+        ),
+        location=loc,
+        compartment=stretcher,
+        min_qty=1,
+        priority_check=True,
+        priority_question="Stretcher O2 above 500 PSI?",
+    )
+    add_par(
+        db,
+        item=get_or_create_item(
+            db,
+            name="Stretcher Battery Charged",
+            category=ItemCategory.EQUIPMENT,
+            check_type=ItemCheckType.FUNCTIONAL,
+            unit_of_measure="N/A",
+        ),
+        location=loc,
+        compartment=stretcher,
+        min_qty=1,
+    )
+
+    # ── Driver Side EC 1 — On-board O2 MEASUREMENT ────────────────────────────
+    ds_ec1 = make_compartment(
+        db,
+        location=loc,
+        name="Driver Side EC 1",
+        sort_order=7,
+        location_descriptor="Exterior, driver side, forward bay",
+    )
+    add_par(
+        db,
+        item=get_or_create_item(
+            db,
+            name="On-Board O2 PSI",
+            category=ItemCategory.EQUIPMENT,
+            check_type=ItemCheckType.MEASUREMENT,
+            unit_of_measure="PSI",
+            measurement_minimum=500.0,
+            measurement_maximum=2200.0,
+        ),
+        location=loc,
+        compartment=ds_ec1,
+        min_qty=1,
+    )
+    for name in ["Long-board Splints", "Fire Extinguisher"]:
+        add_par(
+            db,
+            item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
+            location=loc,
+            compartment=ds_ec1,
+            min_qty=1,
+        )
+
+    # ── Truck Operations — FUNCTIONAL + DOCUMENT, requires_full_check ─────────
+    truck_ops = make_compartment(
+        db,
+        location=loc,
+        name="Truck Operations",
+        sort_order=8,
+        location_descriptor="Operational vehicle systems check",
+        requires_full_check=True,
+    )
+    for name in [
+        "Runs and Starts",
+        "External Warning Systems (Lights & Sirens)",
+        "Ambulance Cot and Straps Secured",
+        "Communication Medcom Compliant",
+        "Fire Extinguisher UL Listed",
+        "Portable Two-Way Radio",
+        "Mileage Sheet",
+        "Insurance Information",
+    ]:
+        cat = (
+            ItemCategory.DOCUMENT
+            if any(x in name for x in ["Sheet", "Information"])
+            else ItemCategory.EQUIPMENT
+        )
+        ct = (
+            ItemCheckType.DOCUMENT
+            if cat == ItemCategory.DOCUMENT
+            else ItemCheckType.FUNCTIONAL
+        )
+        add_par(
+            db,
+            item=get_or_create_item(
+                db, name=name, category=cat, check_type=ct, unit_of_measure="N/A"
+            ),
+            location=loc,
+            compartment=truck_ops,
+            min_qty=1,
+        )
+    for size in ["Small", "Medium", "Large"]:
+        add_par(
+            db,
+            item=get_or_create_item(
+                db, name=f"Cab Gloves {size}", category=ItemCategory.CONSUMABLE
+            ),
+            location=loc,
+            compartment=truck_ops,
+            min_qty=1,
+        )
+
+    # ── Under Hood — FUNCTIONAL, requires_full_check ──────────────────────────
+    under_hood = make_compartment(
+        db,
+        location=loc,
+        name="Under Hood",
+        sort_order=9,
+        location_descriptor="Engine compartment",
+        restriction_note=None,
+        requires_full_check=True,
+    )
+    for name in ["Hoses", "Belts", "Oil Level", "Radiator", "Battery"]:
+        add_par(
+            db,
+            item=get_or_create_item(
+                db,
+                name=f"Hood {name}",
+                category=ItemCategory.EQUIPMENT,
+                check_type=ItemCheckType.FUNCTIONAL,
+                unit_of_measure="N/A",
+            ),
+            location=loc,
+            compartment=under_hood,
+            min_qty=1,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Training jump bag inventory builder (~1/3 of Unit 712 jump bag)
+# ---------------------------------------------------------------------------
+#
+# Compartments (2 of 6):
+#   Main Pocket   — O2 PSI priority (MEASUREMENT) + key SUPPLY items
+#   Front Pocket  — consumable SUPPLY items (glucometer, bandaids, etc.)
+# ---------------------------------------------------------------------------
+
+
+def build_training_jump_bag(db: Session, jb: InventoryLocation) -> None:
+    """
+    Build training jump bag compartments and par levels.
+    2 compartments, ~1/3 quantities. Idempotent.
+    """
+
+    # ── Main Pocket — O2 PSI priority + SUPPLY ────────────────────────────────
+    jb_main = make_compartment(
+        db,
+        location=jb,
+        name="Main Pocket",
+        sort_order=1,
+        location_descriptor="Main compartment of jump bag",
+    )
+    add_par(
+        db,
+        item=get_or_create_item(
+            db,
+            name="Jump Bag O2 PSI",
+            category=ItemCategory.EQUIPMENT,
+            check_type=ItemCheckType.MEASUREMENT,
+            unit_of_measure="PSI",
+            measurement_minimum=500.0,
+            measurement_maximum=2200.0,
+        ),
+        location=jb,
+        compartment=jb_main,
+        min_qty=1,
+        priority_check=True,
+        priority_question="Jump Bag O2 above 500 PSI?",
+    )
+    add_par(
+        db,
+        item=get_or_create_item(
+            db,
+            name="Jump Bag O2 Tank w/ Regulator 15LPM",
+            category=ItemCategory.EQUIPMENT,
+        ),
+        location=jb,
+        compartment=jb_main,
+        min_qty=1,
+    )
+    for name, qty in [
+        ("Kerlix Large JB", 1),
+        ("Stethoscope JB", 1),
+        ("BP Cuff JB", 1),
+        ("Clipboard w/ Paperwork JB", 1),
+        ("Tourniquet JB", 1),
+        ("BVM Adult JB", 1),
+    ]:
+        cat = ItemCategory.DOCUMENT if "Paperwork" in name else ItemCategory.EQUIPMENT
+        ct = (
+            ItemCheckType.DOCUMENT
+            if cat == ItemCategory.DOCUMENT
+            else ItemCheckType.SUPPLY
+        )
+        uom = "N/A" if ct == ItemCheckType.DOCUMENT else "each"
+        add_par(
+            db,
+            item=get_or_create_item(
+                db, name=name, category=cat, check_type=ct, unit_of_measure=uom
+            ),
+            location=jb,
+            compartment=jb_main,
+            min_qty=qty,
+        )
+
+    # ── Front Pocket — consumable SUPPLY items ────────────────────────────────
+    jb_front = make_compartment(
+        db,
+        location=jb,
+        name="Front Pocket",
+        sort_order=2,
+        location_descriptor="Front pocket of jump bag",
+    )
+    for name, qty in [
+        ("C-Collar Adult JB", 1),
+        ("Overdose Rescue Kit NARCAN", 1),
+        ("Glucometer Lancets JB", 2),
+        ("Alcohol Prep JB", 2),
+        ("Bandaids JB", 2),
+        ("Gauze 3x3 JB", 1),
+        ("Glucometer Test Strips JB", 2),
+        ("Thermometer JB", 1),
+        ("Trauma Shears JB", 1),
+        ("Occlusive Dressing JB", 1),
+    ]:
+        cat = (
+            ItemCategory.MEDICATION
+            if "NARCAN" in name
+            else (
+                ItemCategory.CONSUMABLE
+                if any(x in name for x in ["Gauze", "Bandaid", "Prep", "Strips"])
+                else ItemCategory.EQUIPMENT
+            )
+        )
+        add_par(
+            db,
+            item=get_or_create_item(db, name=name, category=cat),
+            location=jb,
+            compartment=jb_front,
+            min_qty=qty,
+        )
+
+
+# ---------------------------------------------------------------------------
 # TEST unit inventory builder
 # ---------------------------------------------------------------------------
 
@@ -1985,7 +2491,172 @@ def seed(db: Session) -> None:
     )
 
     # =========================================================================
-    # STATION 3 — ⚠ TEST STATION (Dev Only)
+    # STATION 3 — Newberg Training Station
+    #
+    # Purpose: Safe playground for crew training. Use this station to learn
+    # EMS ReadyKit before touching real Unit 712 data. Nothing here affects
+    # real compliance records. Station color: #e65100 (orange) so it is
+    # immediately distinct from the real blue stations.
+    #
+    # Vehicles: Training Unit A (BLS) + Training Unit B (BLS)
+    # Jump bags: Training Jump Bag A + Training Jump Bag B
+    #
+    # Compartments per ambulance: 9 (vs 26 on Unit 712) — all check types
+    # represented so trainees learn every kind of interaction.
+    # Par quantities: ~1/3 of Unit 712 so a training check takes ~5 minutes.
+    #
+    # Always seeded — present in every environment including production.
+    # Members: admin only (jinniyah@gmail.com). Add crew via Settings → Team Members.
+    # =========================================================================
+    print("\nSeeding Newberg Training Station...")
+
+    training = (
+        db.query(Station).filter(Station.name == "Newberg Training Station").first()
+    )
+    if not training:
+        training = Station(
+            name="Newberg Training Station",
+            address="Newberg Township, Michigan",
+            region="Cass County — Training",
+            active=True,
+            primary_color="#e65100",  # orange — visually distinct from real stations
+        )
+        db.add(training)
+        db.flush()
+        print(f"  Created station: {training.name}")
+    else:
+        # Ensure color is set on re-seed of existing DB
+        if training.primary_color != "#e65100":
+            training.primary_color = "#e65100"
+            print("  Updated training station color to #e65100 (orange)")
+
+    training_supply = (
+        db.query(InventoryLocation)
+        .filter(
+            InventoryLocation.station_id == training.station_id,
+            InventoryLocation.location_type == LocationType.STATION_SUPPLY_ROOM,
+        )
+        .first()
+    )
+    if not training_supply:
+        training_supply = InventoryLocation(
+            location_type=LocationType.STATION_SUPPLY_ROOM,
+            station_id=training.station_id,
+            label="Training Supply Room",
+        )
+        db.add(training_supply)
+        db.flush()
+        print("  Created Training supply room")
+    build_supply_room(db, training_supply)
+
+    # Training Unit A
+    v_train_a = (
+        db.query(Vehicle)
+        .filter(
+            Vehicle.vehicle_number == "TRAIN-A",
+            Vehicle.station_id == training.station_id,
+        )
+        .first()
+    )
+    if not v_train_a:
+        v_train_a = Vehicle(
+            station_id=training.station_id,
+            vehicle_number="TRAIN-A",
+            vehicle_type=VehicleType.BLS,
+            active=True,
+        )
+        db.add(v_train_a)
+        db.flush()
+        loc_train_a = InventoryLocation(
+            location_type=LocationType.VEHICLE,
+            station_id=training.station_id,
+            vehicle_id=v_train_a.vehicle_id,
+            label="Training Unit A",
+        )
+        db.add(loc_train_a)
+        db.flush()
+        print("  Created Training Unit A (BLS)")
+    else:
+        loc_train_a = (
+            db.query(InventoryLocation)
+            .filter(InventoryLocation.vehicle_id == v_train_a.vehicle_id)
+            .first()
+        )
+
+    # Training Unit B
+    v_train_b = (
+        db.query(Vehicle)
+        .filter(
+            Vehicle.vehicle_number == "TRAIN-B",
+            Vehicle.station_id == training.station_id,
+        )
+        .first()
+    )
+    if not v_train_b:
+        v_train_b = Vehicle(
+            station_id=training.station_id,
+            vehicle_number="TRAIN-B",
+            vehicle_type=VehicleType.BLS,
+            active=True,
+        )
+        db.add(v_train_b)
+        db.flush()
+        loc_train_b = InventoryLocation(
+            location_type=LocationType.VEHICLE,
+            station_id=training.station_id,
+            vehicle_id=v_train_b.vehicle_id,
+            label="Training Unit B",
+        )
+        db.add(loc_train_b)
+        db.flush()
+        print("  Created Training Unit B (BLS)")
+    else:
+        loc_train_b = (
+            db.query(InventoryLocation)
+            .filter(InventoryLocation.vehicle_id == v_train_b.vehicle_id)
+            .first()
+        )
+
+    # Training Jump Bag A
+    jb_train_a, created_jba = get_or_create_jump_bag_location(
+        db, station_id=training.station_id, label="Training Jump Bag A"
+    )
+    if created_jba:
+        print("  Created Training Jump Bag A")
+
+    # Training Jump Bag B
+    jb_train_b, created_jbb = get_or_create_jump_bag_location(
+        db, station_id=training.station_id, label="Training Jump Bag B"
+    )
+    if created_jbb:
+        print("  Created Training Jump Bag B")
+
+    print("  Building Training Unit A inventory...")
+    build_training_ambulance(db, loc_train_a)
+    print("  Building Training Unit B inventory...")
+    build_training_ambulance(db, loc_train_b)
+    print("  Building Training Jump Bag A inventory...")
+    build_training_jump_bag(db, jb_train_a)
+    print("  Building Training Jump Bag B inventory...")
+    build_training_jump_bag(db, jb_train_b)
+
+    training_loc_ids = [
+        loc_train_a.location_id,
+        loc_train_b.location_id,
+        jb_train_a.location_id,
+        jb_train_b.location_id,
+    ]
+    training_comp_count = (
+        db.query(Compartment)
+        .filter(Compartment.location_id.in_(training_loc_ids))
+        .count()
+    )
+    training_par_count = (
+        db.query(ParLevel).filter(ParLevel.location_id.in_(training_loc_ids)).count()
+    )
+
+    # =========================================================================
+    # STATION 4 — ⚠ TEST STATION (Dev Only)
     #
     # Purpose: fast end-to-end testing of all 5 wizard steps in under 5 min.
     # Contains 2 compartments and 7 items covering all check types plus a
@@ -2075,6 +2746,9 @@ def seed(db: Session) -> None:
     # is immediately usable after a fresh deploy without manual DB intervention.
     # Additional users are assigned via the Admin UI once it is built (B-ACCESS1).
     #
+    # Training Station: admin only. Other members are added via
+    # Settings → Team Members after trainees join the team.
+    #
     # To add more bootstrap members, duplicate the block below with the
     # appropriate user_id, preferred_name, role, and station list.
     # =========================================================================
@@ -2095,7 +2769,9 @@ def seed(db: Session) -> None:
         ("test-responder@ems.local", "Test Responder", "Responder"),
     ]
 
-    for station in [newberg, marcellus, test_station]:
+    # Real operational stations + training get the bootstrap admin.
+    # Dev test users go to all stations (including training) for test token access.
+    for station in [newberg, marcellus, training, test_station]:
         # Bootstrap admin
         existing = (
             db.query(StationMember)
@@ -2229,11 +2905,28 @@ def seed(db: Session) -> None:
     Par levels:           {marcellus_par_count}
     Station ID:           {marcellus.station_id}
 
+  Newberg Training Station (orange — #e65100):
+    Training Unit A:      location_id={loc_train_a.location_id}
+    Training Unit B:      location_id={loc_train_b.location_id}
+    Training Jump Bag A:  location_id={jb_train_a.location_id}
+    Training Jump Bag B:  location_id={jb_train_b.location_id}
+    Compartments (all):   {training_comp_count}
+    Par levels (all):     {training_par_count}
+    Station ID:           {training.station_id}
+
   ⚠ TEST STATION — Dev Only:
     Unit TEST (QRV):      location_id={loc_test.location_id}
     Compartments:         {test_comp_count}
     Par levels:           {test_par_count}
     Station ID:           {test_station.station_id}
+
+  Training walkthrough (~5 min):
+    Step 1 — Select "Newberg Training Station" → "Training Unit A"
+    Step 2 — Priority items first: confirm AED READY, LUCAS READY, Stretcher O2 PSI
+    Step 3 — 9 compartments (vs 26 on Unit 712). Count trauma supplies, check
+              AED pads expiry dates, enter O2 PSI readings, confirm Truck Ops items.
+    Step 4 — Reconcile any flagged items (short or fail)
+    Step 5 — Submit check — try adding notes, see the confirmation screen
 
   Test walkthrough (< 5 min):
     Step 1 — Select "⚠ TEST STATION" → "Unit TEST ⚠ Dev Only"

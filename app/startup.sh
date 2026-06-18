@@ -6,6 +6,20 @@
 # both the antenv virtualenv AND all app files (alembic.ini, alembic/, ems_readykit/).
 # /home/site/wwwroot contains only the compressed tarball (output.tar.zst),
 # NOT the extracted files — so we must work from APP_PATH, not wwwroot.
+#
+# Seed strategy (two independent passes):
+#
+#   Pass 1 — Operational seed (dev/staging only, skipped in production):
+#     Runs seed.py when stations table is empty. Creates real operational
+#     stations (Newberg 712, Marcellus 540) and the TEST STATION.
+#     Skipped in production because real station data is entered by the admin
+#     after first login, not auto-seeded.
+#
+#   Pass 2 — Training seed (always runs, including production):
+#     Calls seed_training.py to ensure the Newberg Training Station exists.
+#     seed_training.py is idempotent — safe to run on every deploy.
+#     Survives a full database teardown and recreate: training data is
+#     restored automatically on the next startup without manual intervention.
 
 set -e
 
@@ -73,12 +87,19 @@ echo "Running Alembic migrations..."
 alembic upgrade head
 echo "Migrations complete."
 
-# ── Auto-seed if the database is empty ────────────────────────────────────────
-# Runs seed.py only when the stations table has zero rows.
-# Safe on every deploy — seed.py uses get_or_create throughout.
+# ── Pass 1: Operational seed (dev/staging only) ────────────────────────────────
+# Runs seed.py only when the stations table is empty AND APP_ENV != production.
+# In production, real station data is entered by the administrator after first
+# login — not auto-seeded. The TEST STATION and Newberg/Marcellus operational
+# data should never appear in production.
 if [ -f "seed.py" ]; then
-    echo "Checking if database needs seeding..."
-    STATION_COUNT=$(python -c "
+    APP_ENV_LOWER=$(echo "${APP_ENV:-}" | tr '[:upper:]' '[:lower:]')
+
+    if [ "$APP_ENV_LOWER" = "production" ]; then
+        echo "Pass 1: APP_ENV=production — skipping operational seed."
+    else
+        echo "Pass 1: Checking if operational seed is needed..."
+        STATION_COUNT=$(python -c "
 from ems_readykit.core.database import SessionLocal
 from sqlalchemy import text
 db = SessionLocal()
@@ -86,32 +107,34 @@ result = db.execute(text('SELECT COUNT(*) FROM stations')).scalar()
 db.close()
 print(result)
 " 2>/dev/null || echo "0")
-    echo "Station count: $STATION_COUNT"
+        echo "  Station count: $STATION_COUNT"
 
-    MEMBER_COUNT=$(python -c "
-from ems_readykit.core.database import SessionLocal
-from sqlalchemy import text
-db = SessionLocal()
-try:
-    result = db.execute(text('SELECT COUNT(*) FROM station_members')).scalar()
-except Exception:
-    result = 0
-db.close()
-print(result)
-" 2>/dev/null || echo "0")
-    echo "Member count: $MEMBER_COUNT"
-
-    APP_ENV_LOWER=$(echo "${APP_ENV:-}" | tr '[:upper:]' '[:lower:]')
-    if [ "$APP_ENV_LOWER" = "production" ]; then
-        echo "APP_ENV=production — skipping seed."
-    elif [ "$STATION_COUNT" = "0" ] || [ "$MEMBER_COUNT" = "0" ]; then
-        echo "Database needs seeding (stations=$STATION_COUNT, members=$MEMBER_COUNT) — running seed..."
-        python seed.py && echo "Seed complete." || echo "WARNING: Seed failed — continuing startup."
-    else
-        echo "Database already seeded ($STATION_COUNT stations, $MEMBER_COUNT members) — skipping."
+        if [ "$STATION_COUNT" = "0" ]; then
+            echo "  Database is empty — running operational seed..."
+            python seed.py && echo "  Operational seed complete." \
+                || echo "  WARNING: Operational seed failed — continuing startup."
+        else
+            echo "  Database already has $STATION_COUNT station(s) — skipping operational seed."
+        fi
     fi
 else
-    echo "seed.py not found — skipping auto-seed."
+    echo "Pass 1: seed.py not found — skipping."
+fi
+
+# ── Pass 2: Training station seed (always runs, including production) ──────────
+# seed_training.py ensures the Newberg Training Station exists with both
+# training ambulances and jump bags. Fully idempotent — runs on every startup
+# and is a no-op if the training station already exists.
+#
+# This survives a full database teardown: if the DB is wiped and recreated,
+# the training station is automatically restored on the next deploy without
+# any manual intervention.
+if [ -f "seed_training.py" ]; then
+    echo "Pass 2: Ensuring training station exists..."
+    python seed_training.py && echo "  Training seed complete." \
+        || echo "  WARNING: Training seed failed — continuing startup."
+else
+    echo "Pass 2: seed_training.py not found — skipping."
 fi
 
 # ── Start gunicorn ─────────────────────────────────────────────────────────────
