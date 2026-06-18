@@ -49,30 +49,23 @@ export default function RetiredListSection({ station, getToken }) {
     <div className="settings-section">
       <button
         className="settings-section__heading"
-        style={{ display: 'flex', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 'var(--space-sm) var(--space-md)' }}
         onClick={() => setOpen(o => !o)}
         type="button"
         aria-expanded={open}
       >
         <span>Retired Items</span>
-        <span>{open ? '▲' : '▼'}</span>
+        <span aria-hidden="true">{open ? '▲' : '▼'}</span>
       </button>
 
       {open && (
         <>
-          <div style={{ padding: 'var(--space-sm) var(--space-md) 0', fontWeight: 700, fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)' }}>
-            Vehicles
-          </div>
+          <h3 className="settings-section__heading">Vehicles</h3>
           <RetiredTypeList station={station} type="vehicles" label="Vehicles" getToken={getToken} />
 
-          <div style={{ padding: 'var(--space-sm) var(--space-md) 0', fontWeight: 700, fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)', borderTop: '1px solid var(--color-border)' }}>
-            Portable Locations
-          </div>
+          <h3 className="settings-section__heading">Portable Locations</h3>
           <RetiredTypeList station={station} type="locations" label="Locations" getToken={getToken} />
 
-          <div style={{ padding: 'var(--space-sm) var(--space-md) 0', fontWeight: 700, fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)', borderTop: '1px solid var(--color-border)' }}>
-            Stations
-          </div>
+          <h3 className="settings-section__heading">Stations</h3>
           <RetiredTypeList station={station} type="stations" label="Stations" getToken={getToken} />
         </>
       )}

@@ -58,6 +58,8 @@
   font-size: var(--font-size-sm);
 }
 
+/* ── Section card ─────────────────────────────────────────────────────────── */
+
 .settings-section {
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
@@ -65,7 +67,43 @@
   overflow: hidden;
 }
 
-/* Header row: heading on the left, count pill on the right */
+/* ── Section heading ──────────────────────────────────────────────────────── */
+/* Used as a <h2> for static headings and as a <button> for collapsible ones.
+   Works both ways without any modifier class — button reset is applied inline
+   on the element when used as a button (see RetiredListSection). */
+
+.settings-section__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  margin: 0;
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  cursor: default;
+  text-align: left;
+}
+
+/* When used as a <button>, the cursor becomes a pointer */
+button.settings-section__heading {
+  cursor: pointer;
+  min-height: var(--tap-target);
+}
+
+button.settings-section__heading:hover {
+  background: var(--color-surface);
+}
+
+/* Header row variant: heading left, count pill right */
 .settings-section__header-row {
   display: flex;
   align-items: center;
@@ -74,13 +112,9 @@
   border-bottom: 1px solid var(--color-border);
 }
 
-.settings-section__heading {
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0;
+.settings-section__header-row .settings-section__heading {
+  border: none;
+  padding: 0;
 }
 
 .settings-section__count {
@@ -89,12 +123,19 @@
   color: var(--color-brand);
 }
 
+/* ── Data rows ────────────────────────────────────────────────────────────── */
+
 .settings-row {
   display: flex;
   align-items: center;
   gap: var(--space-md);
   padding: var(--space-md);
   min-height: var(--tap-target);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.settings-row:last-child {
+  border-bottom: none;
 }
 
 .settings-row__content {
@@ -117,6 +158,8 @@
 .settings-row__control {
   flex-shrink: 0;
 }
+
+/* ── Toggle ───────────────────────────────────────────────────────────────── */
 
 .settings-toggle {
   min-width: 64px;
@@ -161,8 +204,7 @@
   padding: var(--space-sm) 0;
 }
 
-/* -- Retirement UI --------------------------------------------------------- */
-/* Confirm sheet uses shared .ems-confirm-* classes from index.css           */
+/* ── Retirement UI ────────────────────────────────────────────────────────── */
 
 .settings-retire-btn {
   min-height: var(--tap-target);
@@ -195,7 +237,6 @@
 .settings-retired-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
 }
 
 .settings-retired-item {
@@ -203,7 +244,7 @@
   flex-direction: column;
   gap: 2px;
   padding: var(--space-sm) var(--space-md);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .settings-retired-item:last-child {
@@ -326,10 +367,6 @@
   color: var(--color-text-muted);
 }
 
-.member-csv-row__btn {
-  /* inherits .btn .btn--secondary from index.css */
-}
-
 .member-csv-row__result {
   width: 100%;
   font-size: var(--font-size-sm);
@@ -359,14 +396,15 @@
 }
 
 /* ── Member Management — Person row ───────────────────────────────────────── */
+/* Matches the same vertical rhythm as .settings-row */
 
 .member-row {
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border-light);
+  background: var(--color-surface);
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
-  padding: var(--space-md);
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface);
 }
 
 .member-row:last-child {
@@ -375,16 +413,16 @@
 
 .member-row__identity {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-md);
+  align-items: center;
+  gap: var(--space-sm);
 }
 
 .member-row__avatar {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: var(--color-brand);
   color: #fff;
@@ -398,7 +436,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .member-row__name-row {
@@ -462,12 +500,12 @@
   outline-offset: 1px;
 }
 
-/* Role chips */
+/* Role chips — no indent, flow naturally below the identity row */
 .member-row__roles {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-xs);
-  padding-left: 56px; /* align under name, past avatar */
+  padding-left: 0;
 }
 
 .member-row__role-chip {
@@ -504,7 +542,6 @@
 .member-row__error {
   font-size: var(--font-size-sm);
   color: var(--color-danger);
-  padding-left: 56px;
   margin: 0;
 }
 
@@ -537,7 +574,6 @@
 }
 
 /* ── Small button variant ─────────────────────────────────────────────────── */
-/* Used for inline save/cancel in member name edit */
 
 .btn--small {
   min-height: var(--tap-target);
