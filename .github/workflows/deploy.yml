@@ -121,6 +121,9 @@ jobs:
                 /tmp/ems_stage/
           # Include seed.py so startup.sh can auto-seed an empty database
           cp seed.py /tmp/ems_stage/seed.py
+          # Include seed_training.py — startup.sh runs this on every deploy,
+          # including production, to ensure the Training Station always exists
+          cp seed_training.py /tmp/ems_stage/seed_training.py
           cd /tmp/ems_stage
           zip -r /tmp/deploy.zip .
           echo "Zip size: $(du -h /tmp/deploy.zip | cut -f1)"
