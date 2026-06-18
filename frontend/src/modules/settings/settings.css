@@ -65,15 +65,28 @@
   overflow: hidden;
 }
 
+/* Header row: heading on the left, count pill on the right */
+.settings-section__header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
 .settings-section__heading {
   font-size: var(--font-size-sm);
   font-weight: 700;
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: var(--space-sm) var(--space-md);
-  border-bottom: 1px solid var(--color-border);
   margin: 0;
+}
+
+.settings-section__count {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-brand);
 }
 
 .settings-row {
@@ -213,4 +226,321 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
   text-align: center;
+}
+
+/* ── Member Management — Add form ─────────────────────────────────────────── */
+
+.member-add-form {
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  background: var(--color-surface);
+}
+
+.member-add-form__title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.member-add-form__fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.member-add-form__input {
+  flex: 1;
+  min-width: 140px;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  font-family: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+  min-height: var(--tap-target);
+  box-sizing: border-box;
+}
+
+.member-add-form__input:focus {
+  outline: 3px solid var(--color-brand);
+  outline-offset: 1px;
+  border-color: var(--color-brand);
+}
+
+.member-add-form__select {
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  font-family: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+  min-height: var(--tap-target);
+  cursor: pointer;
+}
+
+.member-add-form__select:focus {
+  outline: 3px solid var(--color-brand);
+  outline-offset: 1px;
+}
+
+.member-add-form__btn {
+  flex-shrink: 0;
+}
+
+.member-add-form__error {
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+  margin: 0;
+}
+
+.member-add-form__success {
+  font-size: var(--font-size-sm);
+  color: var(--color-status-pass);
+  margin: 0;
+}
+
+/* ── Member Management — CSV import row ───────────────────────────────────── */
+
+.member-csv-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+}
+
+.member-csv-row__template-link {
+  font-size: var(--font-size-sm);
+  color: var(--color-brand);
+}
+
+.member-csv-row__separator {
+  color: var(--color-text-muted);
+}
+
+.member-csv-row__btn {
+  /* inherits .btn .btn--secondary from index.css */
+}
+
+.member-csv-row__result {
+  width: 100%;
+  font-size: var(--font-size-sm);
+  color: var(--color-status-pass);
+  margin: 0;
+}
+
+.member-csv-row__error {
+  width: 100%;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+  margin: 0;
+}
+
+/* ── Member Management — Member list ──────────────────────────────────────── */
+
+.member-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.member-list__empty {
+  padding: var(--space-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* ── Member Management — Person row ───────────────────────────────────────── */
+
+.member-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.member-row:last-child {
+  border-bottom: none;
+}
+
+.member-row__identity {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+}
+
+.member-row__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-brand);
+  color: #fff;
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  flex-shrink: 0;
+}
+
+.member-row__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.member-row__name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.member-row__name {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.member-row__edit-btn {
+  font-size: var(--font-size-sm);
+  color: var(--color-brand);
+  text-decoration: underline;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  min-height: var(--tap-target);
+}
+
+.member-row__email {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.member-row__you-badge {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* Inline name edit */
+.member-row__edit-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.member-row__name-input {
+  flex: 1;
+  min-width: 120px;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  font-family: inherit;
+  color: var(--color-text);
+  min-height: var(--tap-target);
+}
+
+.member-row__name-input:focus {
+  outline: 3px solid var(--color-brand);
+  outline-offset: 1px;
+}
+
+/* Role chips */
+.member-row__roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  padding-left: 56px; /* align under name, past avatar */
+}
+
+.member-row__role-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.member-row__remove-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--tap-target);
+  min-height: var(--tap-target);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-sm);
+  transition: color var(--transition), background var(--transition);
+}
+
+.member-row__remove-btn:hover {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+.member-row__remove-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.member-row__error {
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+  padding-left: 56px;
+  margin: 0;
+}
+
+/* ── Role badges ──────────────────────────────────────────────────────────── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badge--admin {
+  background: var(--color-priority-bg);
+  color: var(--color-priority);
+}
+
+.badge--supervisor {
+  background: var(--color-status-warn-bg);
+  color: var(--color-status-warn);
+}
+
+.badge--responder {
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+/* ── Small button variant ─────────────────────────────────────────────────── */
+/* Used for inline save/cancel in member name edit */
+
+.btn--small {
+  min-height: var(--tap-target);
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-sm);
 }

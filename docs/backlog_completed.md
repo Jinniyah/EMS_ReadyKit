@@ -1,23 +1,29 @@
 # EMS ReadyKit — Completed Items
-# Last updated: 2026-06-14 (Session Z: ACC-B6, ACC-B7, ACC-B8 — member management complete)
+# Last updated: 2026-06-14 (Session Z closed; ruff fixes applied; published to Azure)
 # Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z
 # Active backlog -> docs/backlog.md
 
 ---
 
-## Session Z — Station Member Management (2026-06-14)
+## Session Z — Station Member Management + Azure Publish (2026-06-14)
 ACC-B6 (edit member name), ACC-B7 (multiple roles per person, Option A),
 and ACC-B8 (CSV bulk import) implemented together as one cohesive set.
 Migration 0027 drops the single-user unique constraint and replaces it with
 (station_id, user_id, role). PATCH and DELETE now use member_id for precision.
-The UserPill role switcher is updated to show all available roles fetched from
+The UserPill role switcher updated to show all available roles fetched from
 a new /stations/my/roles endpoint. test_member_management.py added (32 tests).
+Three ruff errors fixed post-implementation: B018 (bare name expression in
+template endpoint -- fixed by actually calling _get_station_or_404), two F841
+(unused variable assignments in tests -- dropped assignment, kept DB row creation).
+App published to Azure.
 
 | # | Item | Completed |
 |---|------|-----------|
-| ACC-B6 | `PATCH /stations/{id}/members/{member_id}` -- update preferred_name; propagates to all rows for the same user | 2026-06-14 |
-| ACC-B7 | Multi-role support (Option A): migration 0027 replaces `uq_station_members_station_user` with `uq_station_members_station_user_role`; `GET /stations/my/roles` endpoint; UserPill and useRoleMode updated for multi-role switching | 2026-06-14 |
-| ACC-B8 | `POST /stations/{id}/members/import` CSV bulk import; `GET /stations/{id}/members/import/template`; creates/reactivates/skips per row; Supervisor cannot import Administrator rows; `MemberManagementSection.jsx` added to Settings | 2026-06-14 |
+| ACC-B6 | `PATCH /stations/{id}/members/{member_id}` -- update preferred_name; propagates to all rows for same user | 2026-06-14 |
+| ACC-B7 | Multi-role support (Option A): migration 0027; `GET /stations/my/roles`; UserPill and useRoleMode updated for multi-role switching | 2026-06-14 |
+| ACC-B8 | `POST /stations/{id}/members/import` CSV bulk import + template download; `MemberManagementSection.jsx` in Settings | 2026-06-14 |
+| RUFF-Z | Three ruff errors fixed: B018 in station_members.py, two F841 in test_member_management.py | 2026-06-14 |
+| AZURE-PUBLISH | App published to Azure -- live at lively-bush-0ed75ca10.7.azurestaticapps.net | 2026-06-14 |
 
 ---
 
@@ -40,7 +46,7 @@ serialization from CQ-B6; par level NULL compartment duplicate detection from CQ
 | BUG-Y2 | `create_par_level` NULL compartment duplicate not caught by DB constraint -- pre-check restored for NULL case | 2026-06-14 |
 | Q-3 | Download check history CSV -- resolved: yes, build as F-5G3 when first compliance report is due | 2026-06-14 |
 | Q-6 | Auto-hard-delete of soft-deleted checks -- resolved: Azure Function on 90-day timer | 2026-06-14 |
-| F-5F7 | Supply room stock view on supervisor dashboard -- resolved: inline low-stock alerts (SR-B3) and DamagedItemsPanel already cover this; no separate view needed | 2026-06-14 |
+| F-5F7 | Supply room stock view on supervisor dashboard -- resolved: inline low-stock alerts (SR-B3) and DamagedItemsPanel already cover this | 2026-06-14 |
 
 ---
 

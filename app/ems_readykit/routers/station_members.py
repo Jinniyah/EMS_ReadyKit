@@ -374,7 +374,9 @@ def remove_station_member(
 def download_member_import_template(
     station_id: int, db: Session = Depends(get_db)
 ) -> StreamingResponse:
-    _get_station_or_404(station_id, db)  # B018 fix: call the function, don't just name it
+    _get_station_or_404(
+        station_id, db
+    )  # B018 fix: call the function, don't just name it
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["email", "preferred_name", "role"])
