@@ -1,9 +1,9 @@
 # EMS ReadyKit — Active Backlog
-# v1.98 | Updated: 2026-06-18 | Session AB closed; training station + security fixes
+# v2.00 | Updated: 2026-06-19 | Session AD closed; BUG-AD1 retired vehicle leak fixed
 # Completed items -> backlog_completed.md
 # Priority: Critical / High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
-# ✅ Sessions A–AB complete — see backlog_completed.md
+# ✅ Sessions A–AD complete — see backlog_completed.md
 
 ---
 
@@ -30,6 +30,8 @@
 ##   ✓ Training station seeded and auto-restored on deploy (LAUNCH-OPS8 replacement) -- Session AB
 ##   ✓ Security vulnerabilities resolved (6 CVEs + starlette deprecation warning) -- Session AB
 ##   ✓ Settings screen CSS consistent with app-wide patterns -- Session AB
+##   ✓ Email alignment diagnostic available to admins (LAUNCH-OPS9) -- Session AC
+##   ✓ Retired vehicles no longer leak into active screens (BUG-AD1) -- Session AD, found in UAT
 
 ---
 
@@ -44,7 +46,6 @@
 | LAUNCH-OPS4 | Add all EMS team members | Use Settings → Team Members CSV import. |
 | LAUNCH-OPS5 | Chief full walkthrough — shift-start check on Unit 712 | |
 | LAUNCH-OPS6 | Volunteer walkthrough — Earl or equivalent | |
-| LAUNCH-OPS9 | Email alignment verification | Small startup warning (log level) that flags any StationMember rows whose `user_id` does not look like a valid email. Prevents the silent "not listed" error on first login if an admin entered a display name instead of an email. |
 
 ### Post-launch engineering
 | # | Item | Pri | Notes |
@@ -67,10 +68,12 @@
 ## Summary
 | Area | Count |
 |------|-------|
-| Post-launch operational | 7 |
+| Post-launch operational | 6 |
 | Post-launch engineering | 12 (2 ⛔) |
-| **Total remaining** | **19** |
+| **Total remaining** | **18** |
 
+*v2.00 — 2026-06-19: Session AD closed. BUG-AD1 fixed — retired vehicles (retired_at set) were leaking into VehiclesScreen (Admin), VehicleCard/V&E Status, HomePage's issue-badge check, and (defensively) the check wizard's vehicle picker. All four now filter on `retired_at` in addition to `active`, matching the documented convention. Found by Jennifer in UAT while walking LAUNCH-OPS5/6. 4 new frontend tests added, 4 existing files patched, no backend changes needed (retire_vehicle already set the fields correctly).*
+*v1.99 — 2026-06-19: Session AC closed. LAUNCH-OPS9 (email alignment check) implemented as GET /admin/email-alignment-check, Admin only, 12 tests. Moved to backlog_completed.md. Remaining operational items (OPS1-6) are the EMS chief's job, not engineering — walkthrough checklist provided separately.*
 *v1.98 — 2026-06-18: Session AB closed. Training station added, security vulnerabilities patched, Settings CSS fixed. All launch gates now met. Moved F-5G3 and ADMIN-F10 to post-launch engineering.*
 *v1.97 — 2026-06-14: Help screen added to Session AA as LAUNCH-F1.*
 *v1.96 — 2026-06-14: Session Z closed + ruff fixes + published to Azure.*

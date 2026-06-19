@@ -2,6 +2,12 @@
  * components/VehicleCard.jsx
  * Expandable card — fetches active repair requests by default.
  * Supervisor can toggle to see resolved requests.
+ *
+ * Session AD (BUG-AD1): retired vehicles (retired_at set) never show
+ * "Report an Issue" or "Return to Service" — those actions don't make
+ * sense for a permanently retired vehicle. The screen that renders this
+ * card already filters retired vehicles out, but this is a second layer
+ * of protection in case a retired vehicle ever reaches this component.
  */
 
 import React, { useState } from 'react'
@@ -63,6 +69,7 @@ export default function VehicleCard({ vehicle, onVehicleUpdated }) {
   const [isUpdating, setIsUpdating]       = useState(false)
 
   const isSupervisor = canAccess(user, 'supervisor')
+  const isRetired = !!vehicle.retired_at
 
   // Fetch repair requests on mount so the open count badge shows on the
   // collapsed header without requiring the user to expand first.
@@ -144,7 +151,9 @@ export default function VehicleCard({ vehicle, onVehicleUpdated }) {
           </div>
         </div>
         <div className="vehicle-card__summary">
-          {!vehicle.active && (
+          {isRetired ? (
+            <span className="badge badge--inactive">Retired</span>
+          ) : !vehicle.active && (
             <span className="badge badge--inactive">Out of Service</span>
           )}
           {openCount > 0 && (
@@ -163,13 +172,20 @@ export default function VehicleCard({ vehicle, onVehicleUpdated }) {
             <div className="vehicle-card__error" role="alert">⚠ {submitError}</div>
           )}
 
-          {!vehicle.active && vehicle.inactive_reason && (
+          {isRetired ? (
             <div className="vehicle-card__inactive-strip">
-              {vehicle.inactive_reason}
+              This vehicle is permanently retired
+              {vehicle.retirement_reason ? `: ${vehicle.retirement_reason}` : '.'}
             </div>
+          ) : (
+            !vehicle.active && vehicle.inactive_reason && (
+              <div className="vehicle-card__inactive-strip">
+                {vehicle.inactive_reason}
+              </div>
+            )
           )}
 
-          {activePanel === null && (
+          {!isRetired && activePanel === null && (
             <div className="vehicle-card__actions">
               <button
                 className="btn btn--primary btn--full"
@@ -202,7 +218,7 @@ export default function VehicleCard({ vehicle, onVehicleUpdated }) {
             </div>
           )}
 
-          {activePanel === 'repair-form' && (
+          {!isRetired && activePanel === 'repair-form' && (
             <RepairRequestForm
               vehicle={vehicle}
               onSubmit={handleRepairSubmit}
@@ -211,7 +227,7 @@ export default function VehicleCard({ vehicle, onVehicleUpdated }) {
             />
           )}
 
-          {activePanel === 'inactive-confirm' && (
+          {!isRetired && activePanel === 'inactive-confirm' && (
             <InactiveConfirmForm
               onConfirm={handleStatusToggle}
               onCancel={() => setActivePanel(null)}
@@ -249,8 +265,8 @@ export default function VehicleCard({ vehicle, onVehicleUpdated }) {
             ) : (
               <RepairRequestList
                 requests={displayRepairs}
-                canManage={true}
-                canResolve={isSupervisor}
+                canManage={!isRetired}
+                canResolve={isSupervisor && !isRetired}
                 onUpdate={handleRepairUpdate}
                 isUpdating={isUpdating}
               />

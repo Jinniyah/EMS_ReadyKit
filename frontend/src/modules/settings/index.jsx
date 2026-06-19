@@ -5,6 +5,7 @@
  * S-F7: Vehicle management (Admin) — retire vehicle/location (RET-F1/F2).
  * RET-F5: Retired items list (Admin).
  * ACC-B6/B7/B8: Member management — add, edit, multi-role, CSV import.
+ * LAUNCH-OPS9: Email alignment check (Admin only).
  * Visible to Supervisor+.
  */
 import React, { useState } from 'react'
@@ -13,6 +14,7 @@ import { useApi } from '../../shared/hooks/useApi.js'
 import { canAccess } from '../../shared/utils/roleGuard.js'
 import { settingsApi } from './api/settingsApi.js'
 import MemberManagementSection from './components/MemberManagementSection.jsx'
+import EmailAlignmentSection from './components/EmailAlignmentSection.jsx'
 import VehicleManagementSection from './components/VehicleManagementSection.jsx'
 import StationManagementSection from './components/StationManagementSection.jsx'
 import RetiredListSection from './components/RetiredListSection.jsx'
@@ -119,6 +121,10 @@ export default function SettingsScreen({ station, onBack }) {
           {/* Admin-only sections */}
           {isAdmin && (
             <div className="settings-screen__body" style={{ paddingTop: 0 }}>
+              <EmailAlignmentSection
+                station={station}
+                getToken={getToken}
+              />
               <StationManagementSection
                 station={station}
                 getToken={getToken}

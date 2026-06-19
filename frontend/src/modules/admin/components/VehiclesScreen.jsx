@@ -10,6 +10,16 @@
  *   Saving calls PATCH /admin/vehicles/{id}/color.
  *   The vehicle card header shows a colour dot when a colour is set.
  *
+ * Session AD (BUG-AD1): Retired vehicles were leaking into this screen.
+ *   "active" and "retired_at" are two separate, independent fields on the
+ *   Vehicle model (see CLAUDE.md). Retiring a vehicle does set active=false
+ *   as a side effect, but this screen's old filter only checked `active` —
+ *   so checking "Show out-of-service vehicles" surfaced retired vehicles
+ *   right alongside genuinely-temporary OOS ones, with a working
+ *   "Return to Service" button that could un-retire something that was
+ *   meant to be permanent. Retired vehicles are managed exclusively from
+ *   Settings → Retired Items now; this screen excludes them outright.
+ *
  * UX principles (tired crew / 68yo iPhone user):
  *   - Large tap targets throughout (60px min)
  *   - One action at a time — add form replaces the button, not a modal
@@ -371,6 +381,8 @@ function VehicleAdminCard({ vehicle: initialVehicle, onVehicleUpdated }) {
   const [showRtsForm, setShowRtsForm]     = useState(false)
   const [rtsComment, setRtsComment]       = useState('')
 
+  const isRetired = !!vehicle.retired_at
+
   // Fetch compartments via admin route (already filtered to vehicle)
   const { data: compartments, isLoading } = useApi(
     () => expanded
@@ -466,7 +478,9 @@ function VehicleAdminCard({ vehicle: initialVehicle, onVehicleUpdated }) {
           {colorDot}
           <span className="admin-vehicle-card__number">{vehicle.vehicle_number}</span>
           <span className="admin-vehicle-card__type">{vehicle.vehicle_type}</span>
-          {!vehicle.active && (
+          {isRetired ? (
+            <span className="admin-vehicle-card__inactive-badge">Retired</span>
+          ) : !vehicle.active && (
             <span className="admin-vehicle-card__inactive-badge">Out of service</span>
           )}
         </div>
@@ -492,13 +506,15 @@ function VehicleAdminCard({ vehicle: initialVehicle, onVehicleUpdated }) {
                   <span className="admin-vehicle-card__number">{vehicle.vehicle_number}</span>
                   <span className="admin-vehicle-card__type" style={{ marginLeft: '0.5rem' }}>{vehicle.vehicle_type}</span>
                 </div>
-                <button
-                  type="button"
-                  className="btn btn--secondary btn--sm"
-                  onClick={() => setShowEditDetails(true)}
-                >
-                  Edit name / type
-                </button>
+                {!isRetired && (
+                  <button
+                    type="button"
+                    className="btn btn--secondary btn--sm"
+                    onClick={() => setShowEditDetails(true)}
+                  >
+                    Edit name / type
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -514,78 +530,40 @@ function VehicleAdminCard({ vehicle: initialVehicle, onVehicleUpdated }) {
           </div>
 
           {/* ── Vehicle service toggle ───────────────────────────────── */}
-          <div className="admin-vehicle-card__actions">
-            {vehicle.active ? (
-              showOosForm ? (
-                <form
-                  className="oos-form"
-                  onSubmit={handleMarkOutOfService}
-                  noValidate
-                >
-                  <label className="oos-form__label">
-                    Reason for taking out of service <span aria-hidden="true">*</span>
-                  </label>
-                  <input
-                    className="oos-form__input"
-                    value={oosReason}
-                    onChange={e => { setOosReason(e.target.value); setOosError(null) }}
-                    placeholder="e.g. Scheduled maintenance, mechanical failure…"
-                    maxLength={200}
-                    autoFocus
-                    disabled={toggling}
-                  />
-                  {oosError && (
-                    <p className="vehicle-form__error" role="alert">{oosError}</p>
-                  )}
-                  <div className="oos-form__actions">
-                    <button
-                      type="submit"
-                      className="btn btn--primary btn--sm"
-                      disabled={toggling}
-                    >
-                      {toggling ? 'Saving…' : 'Confirm'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn--secondary btn--sm"
-                      onClick={() => { setShowOosForm(false); setOosReason(''); setOosError(null) }}
-                      disabled={toggling}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <button
-                  type="button"
-                  className="btn btn--secondary btn--sm"
-                  onClick={() => setShowOosForm(true)}
-                >
-                  Mark Out of Service
-                </button>
-              )
-            ) : (
-              <>
-                {vehicle.inactive_reason && (
-                  <p className="oos-reason">
-                    <strong>Reason:</strong> {vehicle.inactive_reason}
-                  </p>
-                )}
-                {showRtsForm ? (
-                  <form className="oos-form" onSubmit={handleReturnToService} noValidate>
+          {isRetired ? (
+            <div className="admin-vehicle-card__actions">
+              <p className="oos-reason">
+                <strong>Retired:</strong> {vehicle.retirement_reason ?? '(no reason given)'}
+              </p>
+              <p className="vehicle-color-section__hint">
+                This vehicle is permanently retired and can't be returned to service from
+                here. Manage retired vehicles from Settings → Retired Items.
+              </p>
+            </div>
+          ) : (
+            <div className="admin-vehicle-card__actions">
+              {vehicle.active ? (
+                showOosForm ? (
+                  <form
+                    className="oos-form"
+                    onSubmit={handleMarkOutOfService}
+                    noValidate
+                  >
                     <label className="oos-form__label">
-                      Return to service note
-                      <span className="oos-form__optional"> (optional)</span>
+                      Reason for taking out of service <span aria-hidden="true">*</span>
                     </label>
                     <input
                       className="oos-form__input"
-                      value={rtsComment}
-                      onChange={e => setRtsComment(e.target.value)}
-                      placeholder="e.g. Maintenance complete, ready for service…"
+                      value={oosReason}
+                      onChange={e => { setOosReason(e.target.value); setOosError(null) }}
+                      placeholder="e.g. Scheduled maintenance, mechanical failure…"
                       maxLength={200}
                       autoFocus
                       disabled={toggling}
                     />
+                    {oosError && (
+                      <p className="vehicle-form__error" role="alert">{oosError}</p>
+                    )}
                     <div className="oos-form__actions">
                       <button
                         type="submit"
@@ -597,7 +575,7 @@ function VehicleAdminCard({ vehicle: initialVehicle, onVehicleUpdated }) {
                       <button
                         type="button"
                         className="btn btn--secondary btn--sm"
-                        onClick={() => { setShowRtsForm(false); setRtsComment('') }}
+                        onClick={() => { setShowOosForm(false); setOosReason(''); setOosError(null) }}
                         disabled={toggling}
                       >
                         Cancel
@@ -607,15 +585,65 @@ function VehicleAdminCard({ vehicle: initialVehicle, onVehicleUpdated }) {
                 ) : (
                   <button
                     type="button"
-                    className="btn btn--primary btn--sm"
-                    onClick={() => setShowRtsForm(true)}
+                    className="btn btn--secondary btn--sm"
+                    onClick={() => setShowOosForm(true)}
                   >
-                    Return to Service
+                    Mark Out of Service
                   </button>
-                )}
-              </>
-            )}
-          </div>
+                )
+              ) : (
+                <>
+                  {vehicle.inactive_reason && (
+                    <p className="oos-reason">
+                      <strong>Reason:</strong> {vehicle.inactive_reason}
+                    </p>
+                  )}
+                  {showRtsForm ? (
+                    <form className="oos-form" onSubmit={handleReturnToService} noValidate>
+                      <label className="oos-form__label">
+                        Return to service note
+                        <span className="oos-form__optional"> (optional)</span>
+                      </label>
+                      <input
+                        className="oos-form__input"
+                        value={rtsComment}
+                        onChange={e => setRtsComment(e.target.value)}
+                        placeholder="e.g. Maintenance complete, ready for service…"
+                        maxLength={200}
+                        autoFocus
+                        disabled={toggling}
+                      />
+                      <div className="oos-form__actions">
+                        <button
+                          type="submit"
+                          className="btn btn--primary btn--sm"
+                          disabled={toggling}
+                        >
+                          {toggling ? 'Saving…' : 'Confirm'}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn--secondary btn--sm"
+                          onClick={() => { setShowRtsForm(false); setRtsComment('') }}
+                          disabled={toggling}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn--primary btn--sm"
+                      onClick={() => setShowRtsForm(true)}
+                    >
+                      Return to Service
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          )}
 
           {/* ── Compartments ─────────────────────────────────────────── */}
           <div className="admin-vehicle-card__section">
@@ -628,7 +656,7 @@ function VehicleAdminCard({ vehicle: initialVehicle, onVehicleUpdated }) {
                   </span>
                 )}
               </h4>
-              {!showAddComp && !editingComp && locationId && (
+              {!showAddComp && !editingComp && locationId && !isRetired && (
                 <button
                   type="button"
                   className="btn btn--primary btn--sm"
@@ -692,13 +720,15 @@ function VehicleAdminCard({ vehicle: initialVehicle, onVehicleUpdated }) {
                                 <span className="admin-compartment-row__inactive">Inactive</span>
                               )}
                             </div>
-                            <button
-                              type="button"
-                              className="btn btn--secondary btn--sm"
-                              onClick={() => { setEditingComp(comp); setShowAddComp(false) }}
-                            >
-                              Edit
-                            </button>
+                            {!isRetired && (
+                              <button
+                                type="button"
+                                className="btn btn--secondary btn--sm"
+                                onClick={() => { setEditingComp(comp); setShowAddComp(false) }}
+                              >
+                                Edit
+                              </button>
+                            )}
                           </div>
                           <CompartmentParLevels
                             compartmentId={comp.compartment_id}
@@ -731,7 +761,13 @@ export default function VehiclesScreen({ station, onBack }) {
     [vehiclesKey, station.station_id]
   )
 
-  const displayed = (vehicles ?? []).filter(v => showInactive || v.active)
+  // Retired vehicles are permanently gone — manage them from Settings →
+  // Retired Items, not here. "Show out-of-service vehicles" only affects
+  // temporary OOS vehicles (active=false, retired_at=null), never retired
+  // ones (BUG-AD1, Session AD).
+  const displayed = (vehicles ?? [])
+    .filter(v => !v.retired_at)
+    .filter(v => showInactive || v.active)
 
   function refresh() {
     setVehiclesKey(k => k + 1)

@@ -6,6 +6,13 @@
  * F-5E1: Repair request form with severity selector and URGENT banner
  * F-5E2: Mark vehicle inactive toggle (Supervisor+)
  * F-5E3: Repair request status tracking display
+ *
+ * Session AD (BUG-AD1): Retired vehicles must never appear here. "active"
+ * and "retired_at" are independent fields — retiring a vehicle sets
+ * active=false as a side effect, but that's not the same thing as a
+ * temporary out-of-service vehicle. This screen excludes anything with
+ * retired_at set so it can't be reported on or returned to service from
+ * here.
  */
 
 import React, { useState } from 'react'
@@ -38,9 +45,9 @@ export default function VehicleStatusScreen({ station, onBack }) {
     setLocalOverrides(prev => ({ ...prev, [updated.vehicle_id]: updated }))
   }
 
-  const displayVehicles = (vehicles ?? []).map(v =>
-    localOverrides[v.vehicle_id] ?? v
-  )
+  const displayVehicles = (vehicles ?? [])
+    .map(v => localOverrides[v.vehicle_id] ?? v)
+    .filter(v => !v.retired_at)
 
   const activeCount   = displayVehicles.filter(v => v.active).length
   const inactiveCount = displayVehicles.filter(v => !v.active).length

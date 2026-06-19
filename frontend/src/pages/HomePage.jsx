@@ -10,6 +10,12 @@
  *   Also: selectedStation is re-hydrated from the stations API response
  *   on every load rather than trusting the stale localStorage copy, so
  *   color changes made in admin are immediately reflected here.
+ *
+ * Session AD (BUG-AD1): useStationIssues now excludes retired vehicles
+ *   before checking for open repair requests. A retired vehicle with old
+ *   open repair requests was wrongly triggering the "Unresolved Issue"
+ *   badge on the home screen — repair history on a permanently retired
+ *   vehicle isn't actionable and shouldn't surface here.
  */
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { useAuth } from '../shared/hooks/useAuth.jsx'
@@ -50,6 +56,9 @@ function resolveStationColors(station, index) {
 
 /**
  * VE-F5: Check all vehicles at the selected station for open repair requests.
+ * Retired vehicles are excluded — a permanently retired vehicle's repair
+ * history isn't actionable and shouldn't surface as a home-screen alert
+ * (BUG-AD1, Session AD).
  */
 function useStationIssues(stationId, getToken) {
   const [issueState, setIssueState] = useState(null)
@@ -57,8 +66,9 @@ function useStationIssues(stationId, getToken) {
   const compute = useCallback(async () => {
     if (!stationId) { setIssueState(null); return }
     try {
-      const vehicles = await vehicleApi.getStationVehicles(stationId, getToken)
-      if (!vehicles?.length) { setIssueState(null); return }
+      const allVehicles = await vehicleApi.getStationVehicles(stationId, getToken)
+      const vehicles = (allVehicles ?? []).filter(v => !v.retired_at)
+      if (!vehicles.length) { setIssueState(null); return }
 
       const allRepairs = await Promise.all(
         vehicles.map(v => vehicleApi.getRepairRequests(v.vehicle_id, getToken))

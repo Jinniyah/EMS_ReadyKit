@@ -1,7 +1,87 @@
 # EMS ReadyKit — Completed Items
-# Last updated: 2026-06-18 (Session AB closed; all launch gates met)
-# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, AB
+# Last updated: 2026-06-19 (Session AD closed; BUG-AD1 retired vehicle leak fixed)
+# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, AB, AC, AD
 # Active backlog -> docs/backlog.md
+
+---
+
+## Session AD — Retired Vehicle Leak Fix (2026-06-19)
+
+Found by Jennifer during LAUNCH-OPS5/6 walkthroughs: after retiring the "TEST UAT"
+vehicle from Settings, it still appeared in Admin → Vehicles with "Show out-of-service
+vehicles" unchecked, with a working "Return to Service" button.
+
+Root cause: `active` and `retired_at` are two independent fields on the Vehicle model
+(documented in CLAUDE.md as `v.active === true && !v.retired_at`). Retiring a vehicle
+sets `active = False` as a side effect, but several frontend call sites only ever
+checked `active` and never `retired_at` directly -- meaning the "no longer in active
+service" signal worked by coincidence, not by design, and didn't distinguish a
+permanently retired vehicle from a genuinely temporary out-of-service one. The retire
+endpoint itself (`PATCH /vehicles/{id}/retire`) was correct the whole time; this was
+purely a frontend display/action-gating bug.
+
+Four call sites patched:
+- `admin/components/VehiclesScreen.jsx` -- screen-level filter excluded `retired_at`
+  rows outright (regardless of the "Show out-of-service" toggle); `VehicleAdminCard`
+  now shows a "Retired" badge and the retirement reason instead of editable fields,
+  Return to Service, or compartment edit controls.
+- `vehicles/index.jsx` (V&E Status) + `vehicles/components/VehicleCard.jsx` -- same
+  screen-level exclusion; card now shows "Retired" badge instead of "Out of Service"
+  and hides Report an Issue / Mark Out of Service / Return to Service entirely.
+- `pages/HomePage.jsx` -- `useStationIssues` excluded retired vehicles before
+  fetching repair requests, so old repair history on a retired vehicle can no longer
+  trigger the home screen's "Unresolved Issue" badge.
+- `check-wizard/components/Step1Vehicle.jsx` -- defensive fix only (this path was
+  already safe because the server-side `active=true` filter combined with
+  retirement's `active=False` side effect happened to exclude retired vehicles), but
+  now checks `retired_at` directly via a shared `isCheckableVehicle()` helper rather
+  than relying on that side effect continuing to hold.
+
+`usage-log/index.jsx` already filtered correctly (`v.active === true && !v.retired_at`)
+and served as the reference pattern for the fix.
+
+4 new/updated test files: `VehicleCard.test.jsx` (4 new regression cases),
+`VehiclesScreen.test.jsx` (new file, 3 cases -- this screen had no test coverage
+before, which is how the bug shipped unnoticed).
+
+| # | Item | Completed |
+|---|------|-----------|
+| BUG-AD1 | Retired vehicles excluded from VehiclesScreen, V&E Status, HomePage issue badge, check wizard picker; 7 new frontend tests | 2026-06-19 |
+
+---
+
+## Session AC — Email Alignment Diagnostic + Settings UI (2026-06-19)
+
+LAUNCH-OPS9 was the one remaining engineering item on the post-launch operational list;
+everything else there (priority items config, physical stock counts, team member CSV
+import, chief/volunteer walkthroughs) is the EMS chief's job, not engineering, and was
+handed off as a walkthrough checklist instead.
+
+Built as an on-demand Admin diagnostic rather than a startup-time check, since
+StationMember rows can be added or imported at any time after the app is already
+running -- a one-time startup scan would miss anything added later. `GET
+/admin/email-alignment-check` scans StationMember rows and flags any whose `user_id`
+doesn't look like a valid email (blank, contains whitespace, missing `@`/domain, or
+not lowercase), which is the standard symptom of an admin typing a display name into
+the email field during manual add or CSV import. Read-only; never modifies data.
+Optional `station_id` filter; `include_inactive` to also scan soft-deleted rows.
+Added to `admin_stations.py` (Admin-only, alongside the other admin diagnostics like
+`/admin/retired`) rather than a new router. 12 new tests in `test_email_alignment.py`.
+
+Follow-up same session: wired a "Run Check" button into Settings (Admin-only section,
+`EmailAlignmentSection.jsx`, placed above StationManagementSection). On a flagged
+result, an Admin can pick recipients from existing Administrators/Supervisors at the
+station (excluding anyone who is themselves flagged, since their address may not be
+reachable) or type in additional emails, then draft a notification email. No email
+account is connected in this environment, so the draft opens via a `mailto:` link
+in the Admin's own mail app rather than sending automatically. New CSS block added
+to `settings.css` (`.email-alignment__*`), reusing existing color tokens. 17 new
+frontend tests in `EmailAlignmentSection.test.jsx`.
+
+| # | Item | Completed |
+|---|------|-----------|
+| LAUNCH-OPS9 | `GET /admin/email-alignment-check` — flags malformed StationMember.user_id values; Admin only; 12 tests | 2026-06-19 |
+| LAUNCH-OPS9-UI | Settings → Email Alignment Check section: Run Check button, flagged-issue list, recipient picker, draft email via mailto; 17 frontend tests | 2026-06-19 |
 
 ---
 

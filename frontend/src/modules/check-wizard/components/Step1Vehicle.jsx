@@ -11,6 +11,13 @@
  *   Previously all dots showed the station palette color regardless of the
  *   per-vehicle color set in the admin Vehicles screen.
  *
+ * Session AD (BUG-AD1, defensive): "active" and "retired_at" are independent
+ *   fields. The backend call here passes active=true, and retiring a vehicle
+ *   happens to also set active=false, so retired vehicles are excluded today
+ *   — but that's a side effect, not a guarantee. Filtering on !v.retired_at
+ *   here too means this screen can't surface a retired vehicle for a new
+ *   check even if that side effect ever changes.
+ *
  * Two groups of selectable cards are shown:
  *
  *   1. Vehicles — loaded from GET /stations/{id}/vehicles
@@ -46,6 +53,11 @@ import LastCheckBanner from '../../../shared/components/LastCheckBanner.jsx'
 //   { type: 'vehicle', vehicleId, vehicle }
 //   { type: 'location', locationId, label, locationType }
 const NO_SELECTION = null
+
+// A vehicle is checkable only if it's active and not permanently retired.
+function isCheckableVehicle(v) {
+  return v.active !== false && !v.retired_at
+}
 
 export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
   const { getToken } = useAuth()
@@ -109,7 +121,7 @@ export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
 
   // Auto-select if exactly one vehicle and no portable locations
   useEffect(() => {
-    const activeVehicles = vehicles?.filter(v => v.active !== false) ?? []
+    const activeVehicles = vehicles?.filter(isCheckableVehicle) ?? []
     const portables      = portableLocations ?? []
     if (activeVehicles.length === 1 && portables.length === 0 && !selection) {
       setSelection({ type: 'vehicle', vehicleId: activeVehicles[0].vehicle_id, vehicle: activeVehicles[0] })
@@ -182,7 +194,7 @@ export default function Step1Vehicle({ draft, preselectedStation, onSelect }) {
   }
 
   const isLoading = loadingVehicles || loadingLocations
-  const activeVehicles = vehicles?.filter(v => v.active !== false) ?? []
+  const activeVehicles = vehicles?.filter(isCheckableVehicle) ?? []
   const portables      = portableLocations ?? []
   const hasAnyItems    = activeVehicles.length > 0 || portables.length > 0
 

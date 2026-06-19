@@ -1,6 +1,9 @@
 /**
  * tests/VehicleCard.test.jsx
  * OOS badge, RTS/OOS toggle role-gating, open repair count badge.
+ *
+ * Session AD (BUG-AD1): added regression coverage for retired vehicles —
+ * see the "VehicleCard — retired vehicle (BUG-AD1)" block at the bottom.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -149,5 +152,58 @@ describe('VehicleCard — Report an Issue (all roles)', () => {
     render(<VehicleCard vehicle={ACTIVE_VEHICLE} onVehicleUpdated={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: /^712/i }))
     expect(screen.getByRole('button', { name: /report an issue/i })).toBeTruthy()
+  })
+})
+
+// ── Regression: retired vehicles (BUG-AD1, Session AD) ────────────────────────
+// A retired vehicle (retired_at set) must never offer Return to Service or
+// Report an Issue, even if it somehow reaches this component — retirement
+// is permanent and isn't meant to be reversible from here. This was the bug
+// Jennifer found in UAT: a retired TEST UAT vehicle was still visible in
+// VehiclesScreen with a working Return to Service button.
+
+const RETIRED_VEHICLE = {
+  ...ACTIVE_VEHICLE,
+  active:             false,
+  retired_at:         '2026-06-11T00:00:00Z',
+  retired_by:         'jinniyah@gmail.com',
+  retirement_reason:  'UAT Testing',
+}
+
+describe('VehicleCard — retired vehicle (BUG-AD1)', () => {
+  beforeEach(() => {
+    useApi.mockReturnValue({ data: [], isLoading: false, error: null, refetch: vi.fn() })
+  })
+
+  it('shows a Retired badge instead of Out of Service', async () => {
+    asEarl()
+    render(<VehicleCard vehicle={RETIRED_VEHICLE} onVehicleUpdated={vi.fn()} />)
+    expect(screen.getByText('Retired')).toBeTruthy()
+    expect(screen.queryByText('Out of Service')).toBeNull()
+  })
+
+  it('does NOT show Return to Service for a Supervisor', async () => {
+    asEarl()
+    const user = userEvent.setup()
+    render(<VehicleCard vehicle={RETIRED_VEHICLE} onVehicleUpdated={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: /^712/i }))
+    expect(screen.queryByRole('button', { name: /return to service/i })).toBeNull()
+  })
+
+  it('does NOT show Report an Issue for any role', async () => {
+    asJamie()
+    const user = userEvent.setup()
+    render(<VehicleCard vehicle={RETIRED_VEHICLE} onVehicleUpdated={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: /^712/i }))
+    expect(screen.queryByRole('button', { name: /report an issue/i })).toBeNull()
+  })
+
+  it('shows the retirement reason instead of an inactive reason', async () => {
+    asEarl()
+    const user = userEvent.setup()
+    render(<VehicleCard vehicle={RETIRED_VEHICLE} onVehicleUpdated={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: /^712/i }))
+    expect(screen.getByText(/permanently retired/i)).toBeTruthy()
+    expect(screen.getByText(/UAT Testing/)).toBeTruthy()
   })
 })

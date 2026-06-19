@@ -580,3 +580,183 @@ button.settings-section__heading:hover {
   padding: var(--space-xs) var(--space-md);
   font-size: var(--font-size-sm);
 }
+
+/* ── Email Alignment Check (LAUNCH-OPS9) ──────────────────────────────────── */
+
+.email-alignment__clean {
+  padding: var(--space-md);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-status-pass);
+}
+
+.email-alignment__results {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.email-alignment__summary {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-status-warn);
+  margin: 0;
+}
+
+.email-alignment__issue-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.email-alignment__issue {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-sm);
+  background: var(--color-status-warn-bg);
+  border-radius: var(--radius-sm);
+}
+
+.email-alignment__issue-name {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.email-alignment__issue-value {
+  font-size: var(--font-size-sm);
+  font-family: monospace;
+  color: var(--color-text-secondary);
+}
+
+.email-alignment__issue-reason {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* ── Notify panel ──────────────────────────────────────────────────────────── */
+
+.email-alignment__notify-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.email-alignment__notify-label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.email-alignment__notify-hint {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.email-alignment__recipient-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.email-alignment__recipient-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: var(--tap-target);
+  font-size: var(--font-size-md);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.email-alignment__recipient-checkbox input[type="checkbox"] {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.email-alignment__recipient-role {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.email-alignment__custom-row {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.email-alignment__custom-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.email-alignment__custom-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.email-alignment__custom-chip button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  padding: 0;
+  min-width: var(--tap-target);
+  min-height: var(--tap-target);
+}
+
+.email-alignment__custom-chip button:hover {
+  color: var(--color-danger);
+}
+
+/* ── Drafted email preview ────────────────────────────────────────────────── */
+
+.email-alignment__draft-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.email-alignment__draft-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.email-alignment__draft-body {
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  white-space: pre-wrap;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm);
+  margin: 0;
+}

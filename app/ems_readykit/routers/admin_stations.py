@@ -3,20 +3,22 @@ routers/admin_stations.py
 Station and location admin endpoints.
 
 Routes (all prefixed /admin via router):
-  POST  /admin/stations              Create station (Admin only)
-  PATCH /admin/locations/{id}        Rename inventory location label (Admin only)
-  GET   /admin/retired               List retired vehicles/locations/stations (Admin only)
+  POST  /admin/stations                  Create station (Admin only)
+  PATCH /admin/locations/{id}            Rename inventory location label (Admin only)
+  GET   /admin/retired                   List retired vehicles/locations/stations (Admin only)
+  GET   /admin/email-alignment-check     Flag StationMember rows with malformed user_id (Admin only, LAUNCH-OPS9)
 """
 
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from ems_readykit.core.audit import write_audit_event
 from ems_readykit.core.auth import ROLE_ADMINISTRATOR, CurrentUser
@@ -250,3 +252,117 @@ def list_retired(
             )
 
     return result
+
+
+# -- LAUNCH-OPS9: Email alignment check ----------------------------------------
+# StationMember.user_id must be the person's Azure AD preferred_username
+# (an email address) -- see station_members.py and B-ACCESS1 for why. If an
+# admin enters a display name ("Earl Jones") instead of an email when adding
+# or importing a member, that row will never match any JWT's preferred_username,
+# and the person gets a silent "You're not listed as a member of this station"
+# 403 on first login with no indication of what went wrong.
+#
+# This is an on-demand admin diagnostic (not a blocking check) -- the chief or
+# an admin can run it any time after a CSV import or manual add to confirm
+# every row looks like a real email before someone gets locked out.
+_EMAIL_SHAPE_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+
+
+class _EmailAlignmentIssue(BaseModel):
+    member_id: int
+    station_id: int
+    station_name: str
+    user_id: str
+    role: str
+    preferred_name: Optional[str]
+    active: bool
+    reason: str
+
+
+class _EmailAlignmentReport(BaseModel):
+    checked: int
+    flagged: int
+    issues: List[_EmailAlignmentIssue]
+
+
+def _email_alignment_reason(user_id: str) -> Optional[str]:
+    """Return a human-readable reason if user_id doesn't look like an email."""
+    candidate = (user_id or "").strip()
+    if not candidate:
+        return "user_id is blank"
+    if " " in candidate:
+        return "contains a space -- looks like a display name, not an email"
+    if not _EMAIL_SHAPE_RE.match(candidate):
+        return "does not look like a valid email address"
+    if candidate != candidate.lower():
+        return "contains uppercase characters -- emails are stored lowercase"
+    return None
+
+
+@router.get(
+    "/email-alignment-check",
+    response_model=_EmailAlignmentReport,
+    summary="Flag StationMember rows whose user_id is not a valid-looking email (LAUNCH-OPS9) -- Admin only",
+    dependencies=[Depends(require_role(*ADMIN_ONLY))],
+)
+def email_alignment_check(
+    station_id: Optional[int] = Query(
+        default=None,
+        gt=0,
+        description="Limit the check to a single station. Omit to check all stations.",
+    ),
+    include_inactive: bool = Query(
+        default=False,
+        description="Include soft-deleted (inactive) membership rows in the check.",
+    ),
+    db: Session = Depends(get_db),
+) -> _EmailAlignmentReport:
+    """
+    Scans StationMember rows and flags any whose user_id doesn't look like a
+    valid email address -- the most common cause being an admin typing a
+    display name (e.g. "Earl Jones") into the email field during manual add
+    or CSV import. A flagged row will never match a real JWT preferred_username,
+    so that person will be silently denied access on first login.
+
+    This does not modify any data -- it's a read-only diagnostic an admin can
+    run any time, e.g. right after a bulk member import.
+    """
+    query = db.query(StationMember).options(joinedload(StationMember.station))
+    if station_id is not None:
+        query = query.filter(StationMember.station_id == station_id)
+    if not include_inactive:
+        query = query.filter(StationMember.active)
+
+    rows = query.order_by(StationMember.station_id, StationMember.user_id).all()
+
+    issues: List[_EmailAlignmentIssue] = []
+    for member in rows:
+        reason = _email_alignment_reason(member.user_id)
+        if reason:
+            issues.append(
+                _EmailAlignmentIssue(
+                    member_id=member.member_id,
+                    station_id=member.station_id,
+                    station_name=member.station.name if member.station else "",
+                    user_id=member.user_id,
+                    role=member.role,
+                    preferred_name=member.preferred_name,
+                    active=member.active,
+                    reason=reason,
+                )
+            )
+
+    if issues:
+        logger.warning(
+            "Email alignment check: %s of %s membership rows flagged",
+            len(issues),
+            len(rows),
+            extra={
+                "action": "EMAIL_ALIGNMENT_CHECK",
+                "entity_type": "station_member",
+                "flagged_count": len(issues),
+                "checked_count": len(rows),
+            },
+        )
+
+    return _EmailAlignmentReport(checked=len(rows), flagged=len(issues), issues=issues)

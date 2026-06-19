@@ -1,6 +1,6 @@
 /**
  * modules/settings/api/membersApi.js
- * Station membership API calls (ACC-B6, ACC-B7, ACC-B8).
+ * Station membership API calls (ACC-B6, ACC-B7, ACC-B8, LAUNCH-OPS9).
  */
 import { apiGet, apiPost, apiPatch, apiDelete, apiUpload } from '../../../shared/api/client.js'
 
@@ -31,4 +31,12 @@ export const membersApi = {
     formData.append('file', file)
     return apiUpload(`/api/v1/stations/${stationId}/members/import`, formData, getToken)
   },
+
+  /**
+   * LAUNCH-OPS9: Run the email alignment diagnostic for a station.
+   * Flags StationMember rows whose user_id doesn't look like a valid email.
+   * Read-only — Admin only.
+   */
+  checkEmailAlignment: (stationId, getToken) =>
+    apiGet(`/api/v1/admin/email-alignment-check?station_id=${stationId}`, getToken),
 }
