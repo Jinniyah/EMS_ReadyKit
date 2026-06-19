@@ -1,6 +1,12 @@
 /**
- * modules/settings/components/MemberManagementSection.jsx
+ * modules/admin/components/MemberManagementSection.jsx
  * Station member list with add, edit (name), role management, and CSV import.
+ *
+ * Moved from modules/settings/ (Session AE, MERGE-1) — member management was
+ * split across Station Administration -> Members (broken removal, no
+ * multi-role/CSV support) and Settings -> Team Members (working, fuller
+ * featured). Consolidated here as the single source of truth. Settings is
+ * now reserved for admin-only configuration only.
  *
  * ACC-B6: Edit preferred name on an existing member.
  * ACC-B7: A person can hold multiple roles — each role is a separate row.

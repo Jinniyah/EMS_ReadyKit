@@ -1,7 +1,7 @@
 /**
  * modules/admin/api/adminApi.js
- * API calls for station membership, item catalog, par levels,
- * vehicle management, and station CRUD.
+ * API calls for item catalog, par levels, vehicle management, station CRUD,
+ * and portable locations. Member CRUD lives in ./membersApi.js (Session AE).
  */
 import { apiGet, apiPost, apiPatch, apiDelete, apiUpload } from '../../../shared/api/client.js'
 import { getMyStations } from '../../../shared/api/stationsApi.js'
@@ -10,20 +10,15 @@ const ADMIN = '/api/v1/admin'
 
 export const adminApi = {
   // ── Station membership ─────────────────────────────────────────────────
+  // Member CRUD (add/edit/remove/CSV) lives in ./membersApi.js (Session AE,
+  // MERGE-1) -- it's member_id-based, matching the backend's ACC-B7 routes.
+  // The old getStationMembers/addMember/updateMember/removeMember here used
+  // a user_id (email) where the backend expects an integer member_id, which
+  // is why member removal in Station Administration used to fail with
+  // "unable to parse string as an integer". Don't re-add member endpoints
+  // here -- use membersApi.
 
   getMyStations,
-
-  getStationMembers: (stationId, getToken) =>
-    apiGet(`/api/v1/stations/${stationId}/members`, getToken),
-
-  addMember: (stationId, payload, getToken) =>
-    apiPost(`/api/v1/stations/${stationId}/members`, payload, getToken),
-
-  updateMember: (stationId, userId, payload, getToken) =>
-    apiPatch(`/api/v1/stations/${stationId}/members/${encodeURIComponent(userId)}`, payload, getToken),
-
-  removeMember: (stationId, userId, getToken) =>
-    apiDelete(`/api/v1/stations/${stationId}/members/${encodeURIComponent(userId)}`, getToken),
 
   // ── Station CRUD (ADMIN-B15) ───────────────────────────────────────────
 

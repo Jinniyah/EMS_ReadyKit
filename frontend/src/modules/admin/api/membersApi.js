@@ -1,6 +1,10 @@
 /**
- * modules/settings/api/membersApi.js
+ * modules/admin/api/membersApi.js
  * Station membership API calls (ACC-B6, ACC-B7, ACC-B8, LAUNCH-OPS9).
+ *
+ * Moved from modules/settings/api/ (Session AE, MERGE-1) — member management
+ * now lives entirely under Station Administration -> Members. Settings is
+ * reserved for admin-only configuration (check workflow toggle, retirement).
  */
 import { apiGet, apiPost, apiPatch, apiDelete, apiUpload } from '../../../shared/api/client.js'
 

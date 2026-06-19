@@ -1,5 +1,5 @@
 # EMS ReadyKit — Codebase Index
-# Last updated: 2026-06-19 (Session AD: BUG-AD1 retired vehicle leak fixed across 4 frontend files)
+# Last updated: 2026-06-19 (Session AE: MERGE-1, member management consolidated into Station Administration -> Members)
 # PURPOSE: Load this file at the start of every session to orient quickly.
 # After reading this, load only the sections relevant to the current task.
 # Full project state → docs/project_index.md | Open work → docs/backlog.md
@@ -32,7 +32,7 @@ EMS_ReadyKit/
 ├── docs/                       # All project documentation
 │   ├── backlog.md              # ALL open work items — single source of truth
 │   ├── project_index.md        # Technical reference, API structure, stack
-│   ├── backlog_completed.md    # Completed items (Sessions A–AD)
+│   ├── backlog_completed.md    # Completed items (Sessions A–AE)
 │   ├── uat_test_cases.md       # UAT test cases
 │   └── adr/                   # Architecture Decision Records (ADR-001–006)
 ├── iac/                        # Terraform (Azure infra)
@@ -53,7 +53,7 @@ All routes are prefixed `/api/v1/`. Router registration order in main.py matters
 |------|------|-------------|-------|---------|
 | `deps.py` | 5 KB | — | — | Shared: `get_current_user`, `require_role`, `get_vehicle_or_404`, `require_station_membership`, role constants |
 | `stations.py` | 11 KB | `/stations` | All / Admin | CRUD; GET /my; GET supply-room (404 if missing); POST supply-room (get-or-create + Shelf 1–4); `GET /stations/{id}/expiring-soon` includes EXPIRY_DATE check-type items (SUP-F3); `GET /stations/{id}/settings` (Supervisor+, CH-B8); `PATCH /stations/{id}/settings` (Admin only, CH-B7); `PATCH /stations/{id}/retire` (Admin, RET-B3); `GET /stations/{id}/damaged-items` (Supervisor+, SUP-DMG1). |
-| `station_members.py` | 8 KB | `/stations/{id}/members` | Supervisor+ | Membership management; CSV bulk import + template download (ACC-B8) |
+| `station_members.py` | 8 KB | `/stations/{id}/members` | Supervisor+ | Membership management; PATCH/DELETE by `member_id` (integer PK, ACC-B7); CSV bulk import + template download (ACC-B8). This is the only correct member endpoint set — frontend consolidated onto it in Session AE (MERGE-1) after a stale `user_id`-based caller in `adminApi.js` was found broken. |
 | `vehicles.py` | 6 KB | `/vehicles` | All + membership | Vehicle CRUD; OOS/RTS status toggle; `PATCH /vehicles/{id}/retire` (Admin, RET-B1) — sets `retired_at`, `retired_by`, `retirement_reason`, AND `active=False`. Frontend must check `retired_at` directly, not just `active` (see BUG-AD1, Session AD). |
 | `checks.py` | 26 KB | `/checks/daily` | All + membership | Check wizard: create with embedded line_items; `_compute_line_item_status`; `_auto_decrement_supply_room` (SR-B4, N+1 batched PERF-1); `_reconcile_supply_room_check` (SR-B5 — called on STATION_SUPPLY_ROOM submission; reconciles quantity_found back to StockLot quantities FIFO); helpers: `_resolve_check_location`, `_enforce_full_check_compartments`, `_build_lot_map`, `_build_line_items` (CQ-B3); `GET /daily/last-readings` |
 | `check_history.py` | 7 KB | `/checks/daily` | All / Supervisor+ | Read-only history; soft-delete; acknowledgement; hard-delete (Admin only); `my-history` accepts optional `station_id` filter |
@@ -65,6 +65,11 @@ All routes are prefixed `/api/v1/`. Router registration order in main.py matters
 | `admin_stations.py` | — | `/admin` | Admin | `POST /admin/stations` (ADMIN-B15, auto-creates supply room + StationMember). `PATCH /admin/locations/{id}` renames a location label (SS-B1). `GET /admin/retired?type=&station_id=` lists retired vehicles/locations/stations (RET-B4). `GET /admin/email-alignment-check?station_id=&include_inactive=` — flags StationMember rows whose `user_id` doesn't look like a valid email (blank, contains whitespace, missing `@`/domain, not lowercase); read-only diagnostic for catching display-name-instead-of-email mistakes from manual add or CSV import (LAUNCH-OPS9, Session AC). |
 | `usage.py` | 9 KB | `/checks` | All + membership | `POST /checks/usage` (log items used, FIFO decrement); `GET /checks/usage/station/{id}` (history); `GET /checks/usage/station/{id}/frequent` (top 10 items, 90-day window) |
 | `audit.py` | 2 KB | `/audit` | Supervisor+ | Paginated audit event log; `GET /audit?from_date=&to_date=` date-range filter (B-E18) |
+
+No backend changes were needed for Session AE's member-management merge — `station_members.py`
+was already correct (member_id-based, ACC-B7-compliant). The bug was entirely in the frontend's
+`adminApi.js`, which had a second, stale, user_id-based set of member endpoints that never got
+updated when ACC-B7 changed the unique constraint and route shape.
 
 ### Key shared patterns (deps.py)
 ```python
@@ -112,6 +117,15 @@ already did before this was a documented rule. Already fixed: `VehiclesScreen.js
 `vehicles/index.jsx` + `VehicleCard.jsx`, `HomePage.jsx`'s `useStationIssues`,
 `check-wizard/components/Step1Vehicle.jsx`. If a new screen lists vehicles/locations,
 check this convention before shipping it.
+
+### ⚠ Critical frontend convention: member_id, not user_id, for member PATCH/DELETE (Session AE)
+`StationMember` rows are addressed by `member_id` (integer PK) for PATCH and DELETE,
+never by `user_id` (email string) — see ACC-B7's docstring in `station_members.py`.
+A person can hold multiple roles, each as a separate row with the same `user_id`, so
+`user_id` alone is no longer a unique key. The only frontend API module that should
+call these endpoints is `modules/admin/api/membersApi.js`. Don't add a second
+member-CRUD API module elsewhere — that's exactly how the bug fixed in MERGE-1
+(Session AE) happened: a second, stale, user_id-based copy in `adminApi.js`.
 
 ### Domain model hierarchy
 ```
@@ -172,7 +186,7 @@ AuditEvent     (immutable log)
 | `test_damaged_items.py` | — | SUP-DMG1: damaged items endpoint; happy path; retired excluded; inactive excluded; station isolation; RBAC. 13 tests. | `db` |
 | `test_email_alignment.py` | — | LAUNCH-OPS9: `GET /admin/email-alignment-check` — valid emails pass clean; display-name/malformed/uppercase/blank user_id flagged; inactive row inclusion toggle; cross-station scan; RBAC (Admin only). 12 tests. (Session AC) | `db` |
 
-**Run:** `cd app; pytest` — see `backlog.md` / `CLAUDE.md` for current passing-count baseline (468+ as of Session AB; Session AC adds 12 new tests in `test_email_alignment.py`). Session AD (BUG-AD1) was a frontend-only fix — no backend tests added.
+**Run:** `cd app; pytest` — see `backlog.md` / `CLAUDE.md` for current passing-count baseline (468+ as of Session AB; Session AC adds 12 new tests in `test_email_alignment.py`). Sessions AD and AE were frontend-only — no backend tests added or changed for either.
 
 **Two DB fixtures — do not mix:**
 - `db` — in-memory SQLite, empty, rolls back after each test. Use for all API/logic tests.
@@ -213,13 +227,13 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 | `components/SupplyLowStockPanel.jsx` | — | SR-F5: expandable supply low-stock panel; red if out, amber if below par |
 | `components/DamagedItemsPanel.jsx` | — | SUP-DMG1: collapsible panel listing damaged items (item name, vehicle, compartment). allClear only when no FAIL + no damaged items. |
 
-### admin/  (Station administration — Option B layout: station header + 3 nav cards)
+### admin/  (Station administration — Option B layout: station header + nav cards)
 | File | Size | Purpose |
 |------|------|---------|
-| `index.jsx` | 21 KB | Admin hub: 3 nav cards → Members / Items / Vehicles screens |
-| `components/MembersScreen.jsx` | 3 KB | Member management entry |
-| `components/MemberList.jsx` | 3 KB | Active members list |
-| `components/AddMemberForm.jsx` | 4 KB | Add/invite member form |
+| `index.jsx` | 21 KB | Admin hub: nav cards → Members / Items / Vehicles / Supplies / Jump Bags screens |
+| `components/MembersScreen.jsx` | — | **Station Administration -> Members** — the single member-management entry point (Session AE, MERGE-1). Wraps `MemberManagementSection` (visible to Supervisor+) and `EmailAlignmentSection` (Admin only). Replaces the old flat-list MemberList/AddMemberForm pair, which called a broken user_id-based removal endpoint. |
+| `components/MemberManagementSection.jsx` | — | Moved from `settings/` (Session AE). Member list grouped by person, edit name, multi-role chips with per-role remove, CSV import. ACC-B6/B7/B8. |
+| `components/EmailAlignmentSection.jsx` | — | Moved from `settings/` (Session AE). LAUNCH-OPS9 diagnostic — flags malformed `user_id` entries; notify-panel with mailto draft. Admin only. |
 | `components/VehiclesScreen.jsx` | 25 KB | Vehicle + compartment CRUD, par assignment entry. Display filter excludes retired vehicles outright (`!v.retired_at`), independent of the "Show out-of-service vehicles" toggle (BUG-AD1, Session AD). `VehicleAdminCard` shows a "Retired" badge + retirement reason and hides Edit/Color-still-shown/OOS-RTS/compartment-edit controls for retired vehicles. |
 | `components/ItemCatalog.jsx` | 9 KB | Item search + list (also reused as View Supplies interface in supply room) |
 | `components/ItemForm.jsx` | 16 KB | Add/edit item form |
@@ -228,6 +242,8 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 | `components/StationSuppliesScreen.jsx` | — | SS-F1: Admin screen — manage supply room shelves and their par levels. Fetches supply room → compartments → CompartmentParLevels per shelf. |
 | `components/PortableLocationsScreen.jsx` | — | ADMIN-F7: Full CRUD for portable locations (Jump Bags). List → create → rename + ShelfManager (compartment CRUD + par levels). |
 | `components/CsvImport.jsx` | 8 KB | Bulk item import with template download |
+| `api/adminApi.js` | — | Station CRUD, item catalog, par levels, vehicles, portable locations. **No longer has member endpoints** — those moved to `api/membersApi.js` (Session AE). |
+| `api/membersApi.js` | — | Moved from `settings/api/` (Session AE). Member CRUD by `member_id` + CSV import/template (ACC-B6/B7/B8); `checkEmailAlignment` (LAUNCH-OPS9). The only frontend module that should call `/stations/{id}/members*` endpoints. |
 
 ### supply-room/  (Station Supplies — redesigned Session K)
 | File | Size | Purpose |
@@ -262,19 +278,23 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 | `index.jsx` | 6 KB | My Checks / All Checks tabs + detail navigation |
 | `components/` | — | Check list items and detail view |
 
-### settings/  (Station configuration — Session Q, Supervisor+; Admin sections — Session R)
+### settings/  (Station configuration — Admin-only config; Session Q/R, narrowed Session AE)
 | File | Size | Purpose |
 |------|------|---------|
-| `index.jsx` | — | Settings screen orchestration. Admin: EmailAlignmentSection + StationManagementSection + VehicleManagementSection + RetiredListSection. allow_check_modification toggle for all admins. Supervisor: read-only label. |
+| `index.jsx` | — | Settings screen orchestration. Visible to Supervisor+ for the check-workflow toggle row; everything else (StationManagementSection, VehicleManagementSection, RetiredListSection) is Admin only. Member management and the Email Alignment Check moved to Station Administration -> Members (Session AE, MERGE-1) — Settings no longer has any member UI. |
 | `api/settingsApi.js` | — | `getSettings(stationId, getToken)`, `updateSettings(stationId, payload, getToken)` |
-| `api/membersApi.js` | — | Member CRUD + CSV import/template (ACC-B6/B7/B8). `checkEmailAlignment(stationId, getToken)` — calls `GET /admin/email-alignment-check?station_id=` (LAUNCH-OPS9). |
 | `api/retirementApi.js` | — | `getStationVehicles`, `getStationLocations`, `retireVehicle`, `retireLocation`, `retireStation`, `getRetired` |
 | `components/VehicleManagementSection.jsx` | — | S-F7/RET-F1/F2: lists active vehicles + portable locations with Retire buttons |
 | `components/StationManagementSection.jsx` | — | S-F6/RET-F4: station info + Retire Station button |
 | `components/RetiredListSection.jsx` | — | RET-F5: collapsible ▲/▼ section; three sub-lists |
-| `components/MemberManagementSection.jsx` | — | ACC-B6/B7/B8: member list, edit name, multi-role display, CSV import |
-| `components/EmailAlignmentSection.jsx` | — | LAUNCH-OPS9, Admin only. "Run Check" button calls `membersApi.checkEmailAlignment`; shows clean state or flagged-issue list. On flagged result, "Notify Someone About This" expands a panel: checkbox-select existing Administrators/Supervisors (excluding anyone themselves flagged) via `membersApi.listMembers`, or add freeform emails. "Draft Email" builds a plain-text body summarizing the issues and renders a preview with a `mailto:` link ("Open in Mail App") — no email account is connected in this environment, so nothing sends automatically. |
-| `settings.css` | — | Token-based CSS. 60px tap targets. `.email-alignment__*` classes added Session AC. |
+| `settings.css` | — | Settings-screen-only styles (shell, toggle, retirement). Cross-module classes (`.settings-section`, `.settings-row`, `.badge`, `.member-*`, `.email-alignment__*`) moved to `index.css` (Session AE) since they're now used by both `settings/` and `admin/`. |
+
+**Member management is no longer split across two screens.** Previously: Admin -> Members
+(broken, user_id-based removal, no multi-role/CSV) and Settings -> Team Members (working,
+fuller-featured). Session AE (MERGE-1) consolidated everything into Station Administration ->
+Members. Supervisors can manage their own station's members — add, edit name, add additional
+roles, CSV import — without Administrator access; only the Email Alignment Check stays
+Admin-gated within that same screen.
 
 ---
 
@@ -297,10 +317,14 @@ Vitest + React Testing Library. Run: `cd frontend && npm test` — see `backlog.
 | `modules/vehicles/__tests__/VehicleCard.test.jsx` | 12 | OOS badge, repair count, RTS/OOS role-gating, Report an Issue. Session AD adds 4 regression cases for retired vehicles (BUG-AD1): Retired badge, no Return to Service, no Report an Issue, retirement reason shown. |
 | `modules/admin/__tests__/ItemCatalog.test.jsx` | 11 | Item list, search, Add button role-gating |
 | `modules/admin/__tests__/VehiclesScreen.test.jsx` | 3 | New file, Session AD (BUG-AD1) — this screen had no prior test coverage. Retired vehicle excluded by default; still excluded after toggling "Show out-of-service vehicles"; empty-state message reflects only active vehicles. |
+| `modules/admin/__tests__/EmailAlignmentSection.test.jsx` | 17 | Moved from `modules/settings/__tests__/` (Session AE) — same coverage, new home. LAUNCH-OPS9 UI: Run Check button + clean/flagged states; Notify panel recipient checkboxes (excludes flagged person); custom email chips; Draft Email enable/disable; drafted preview with mailto link. |
 | `modules/check-history/__tests__/CheckHistory.test.jsx` | 9 | My Checks, All Checks tab (Supervisor+), Deleted tab |
 | `modules/usage-log/__tests__/UsageItemPicker.test.jsx` | 13 | Catalog, search, +/- controls, selected, sections |
 | `modules/usage-log/__tests__/UsageLogScreen.test.jsx` | 6 | Multi-vehicle picker, single-vehicle skip, payload, error |
-| `modules/settings/__tests__/EmailAlignmentSection.test.jsx` | 17 | LAUNCH-OPS9 UI: Run Check button + clean/flagged states; Notify panel recipient checkboxes (excludes flagged person); custom email chips; Draft Email enable/disable; drafted preview with mailto link. (Session AC) |
+
+No test file exists yet for `MemberManagementSection.jsx` or the new `MembersScreen.jsx`
+(neither the old admin flat-list nor the old settings version had one). Worth adding in a
+future session — see `docs/backlog.md`.
 
 **Mock infrastructure:**
 - `src/shared/hooks/__mocks__/useAuth.jsx` — configurable useAuth with Jamie/Earl/Jennifer personas
@@ -380,6 +404,8 @@ To add a new migration: `cd app && alembic revision --autogenerate -m "descripti
 | 0026 | `check_date` `String(10)` → `Date` type (Session X, CQ-B6) |
 | 0027 | `station_members` unique constraint changed to `(station_id, user_id, role)` — supports multiple roles per person (Session Z, ACC-B7) |
 
+No new migration in Session AE — frontend-only change.
+
 ---
 
 ## Seed Data (app/seed.py, app/seed_training.py)
@@ -423,6 +449,7 @@ To add a new migration: `cd app && alembic revision --autogenerate -m "descripti
 | `app/tests/test_routers.py` | 67 KB — split by domain when it next needs major additions |
 | `frontend/src/modules/admin/components/VehiclesScreen.jsx` | 25 KB — extract sub-components when next modified |
 | `frontend/src/styles/wizard.css` | Consolidated from 3 old patch files; ideally moves to `modules/check-wizard/` — defer until next modification |
+| `_session_AE_removed/` (repo root) | Session AE (MERGE-1) staging folder for files removed during the member-management merge: old `MemberList.jsx`, `AddMemberForm.jsx` (admin's broken flat-list), and the pre-move copies of `settings_MemberManagementSection.jsx`, `settings_EmailAlignmentSection.jsx`, `settings_membersApi.js`, `settings_EmailAlignmentSection.test.jsx`. The filesystem MCP tool has no delete operation, only move — this folder exists so nothing was silently destroyed. Run `git rm -r _session_AE_removed` (or just delete the folder and `git add -A`) before committing, then delete it. |
 
 ---
 
@@ -430,4 +457,4 @@ To add a new migration: `cd app && alembic revision --autogenerate -m "descripti
 
 | Session | Focus | Key Items |
 |---------|-------|-----------|
-| **AE** | Post-launch engineering backlog | F-5G3 (CSV export), ADMIN-F10 (member search), or operational walkthroughs (LAUNCH-OPS1-6) handled directly by the chief |
+| **AF** | Post-launch engineering backlog | F-5G3 (CSV export), ADMIN-F10 (member search), test coverage for the new MembersScreen/MemberManagementSection (none exists yet), or operational walkthroughs (LAUNCH-OPS1-6) handled directly by the chief |

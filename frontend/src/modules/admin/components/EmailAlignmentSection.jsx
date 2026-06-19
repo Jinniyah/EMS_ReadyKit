@@ -1,6 +1,9 @@
 /**
- * modules/settings/components/EmailAlignmentSection.jsx
+ * modules/admin/components/EmailAlignmentSection.jsx
  * LAUNCH-OPS9 — Admin-only diagnostic panel.
+ *
+ * Moved from modules/settings/ (Session AE, MERGE-1) — travels with member
+ * management into Station Administration -> Members.
  *
  * Runs GET /admin/email-alignment-check on demand (not a startup check —
  * membership rows can be added any time, so this is something an Admin
@@ -188,7 +191,7 @@ function NotifyPanel({ issues, station, getToken }) {
       ...lines,
       '',
       "Each of these people will be silently blocked from signing in until the entry is corrected. To fix it:",
-      '  1. Go to Settings -> Team Members',
+      '  1. Go to Station Administration -> Members',
       '  2. Remove the incorrect row',
       '  3. Re-add the person with their real sign-in email address',
       '',

@@ -1,8 +1,10 @@
 /**
- * modules/settings/__tests__/EmailAlignmentSection.test.jsx
+ * modules/admin/__tests__/EmailAlignmentSection.test.jsx
  * LAUNCH-OPS9 — Run Check button, clean result, flagged issues list,
  * Notify panel recipient selection (existing members + custom emails),
  * and drafted email preview.
+ *
+ * Moved from modules/settings/__tests__/ (Session AE, MERGE-1).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'

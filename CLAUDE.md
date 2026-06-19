@@ -1,6 +1,6 @@
 # CLAUDE.md — AI Development Rules for EMS ReadyKit
-# Last updated: 2026-06-12
-# Updated: Session V — SR-B5 supply room reconcile documented; Session U — filesystem:edit_file permanently banned
+# Last updated: 2026-06-19
+# Updated: Session AE — MERGE-1, member management consolidated into Station Administration -> Members; Session V — SR-B5 supply room reconcile documented; Session U — filesystem:edit_file permanently banned
 # Load this file at the start of every session alongside CODEBASE_INDEX.md.
 
 ---
@@ -62,6 +62,16 @@ the tool returns no error, the diff looks correct, and the bug ships anyway.
 
 This applies to every file in the repo — .py, .jsx, .js, .css, .md, everything.
 Never use `filesystem:edit_file` regardless of how small the change is.
+
+### Deleting files
+**The filesystem MCP has no delete operation — only `move_file`.** When a file
+must be removed (superseded component, dead code), move it to a `_session_XX_removed/`
+staging folder at the repo root (create one per session if needed) rather than
+leaving it in place or trying to blank it out. Tell the user exactly which files
+landed there and ask them to `git rm` (or delete the folder + `git add -A`) at
+session close. Don't leave superseded files sitting inside `src/` — Vite will
+still bundle anything reachable by an import, and unreachable dead files inside
+`src/` are confusing on the next session's `directory_tree` read.
 
 ### New files
 - Use `filesystem:write_file` to create new files.
@@ -208,13 +218,25 @@ v.active === true && !v.retired_at   // active and not retired
 Never `v.status === 'ACTIVE'` -- that field does not exist and will silently
 filter out all vehicles (learned from Session U UAT bug).
 
+### Station membership API — one module, member_id only
+**Only `modules/admin/api/membersApi.js` may call `/stations/{id}/members*` endpoints.**
+PATCH and DELETE take an integer `member_id` (the StationMember primary key), never
+a `user_id` (email) -- since ACC-B7, a person can hold multiple roles as separate rows,
+so `user_id` is no longer unique per station. Session AE (MERGE-1) found and removed a
+second, stale, user_id-based copy of these calls in `adminApi.js` that had silently been
+broken since the ACC-B7 migration -- every removal through it threw "unable to parse
+string as an integer". Don't add a second member-CRUD module anywhere; route any new
+member-related frontend work through `membersApi.js`, and surface it in
+`modules/admin/components/MembersScreen.jsx` (Station Administration -> Members),
+which is the single member-management screen.
+
 ### CSS and theming -- mandatory rules
 1. **Tokens only.** All CSS values must use tokens from `index.css :root` -- no hardcoded hex colors, raw rem values, or raw px sizes except for `0`, `1px` borders, and media query breakpoints.
 2. **Shared utility classes first.** Before writing custom CSS, check if `index.css` already has a class that does the job: `.ems-card`, `.ems-card--warn/fail/pass`, `.ems-section-head`, `.ems-preview-row`.
 3. **Station color is always `var(--station-primary)` / `var(--station-text)`.** Vehicle color is `var(--vehicle-primary)` which inherits station color by default; override via inline style on the component root.
 4. **Semantic color tokens for new Session H/I/J features:** `--color-damaged`/`--color-damaged-bg`, `--color-priority`/`--color-priority-bg`, `--color-no-change`/`--color-no-change-bg`.
 5. **Module CSS placement.** New styles go in the relevant module CSS file (e.g. `supervisor.css`, `supply-room.css`). Never create a new patch/fix CSS file -- if a module doesn't have a CSS file yet, create one. Never create new root-level CSS files in `src/`.
-6. **Shared component CSS belongs in `index.css`.** Any CSS class used by a component in `src/shared/components/` -- or reused across two or more modules -- must live in `index.css`, not in a single module's CSS file. If it lives in e.g. `admin.css`, it will be missing whenever the admin module is not loaded. Confirmed victims moved to `index.css`: `.item-combobox` (ItemSearchCombobox), `.csv-import` (CsvImport / ReceiveStockPanel). If you spot an unstyled shared component during UAT, check whether its CSS class is scoped to a module file.
+6. **Shared component CSS belongs in `index.css`.** Any CSS class used by a component in `src/shared/components/` -- or reused across two or more modules -- must live in `index.css`, not in a single module's CSS file. If it lives in e.g. `admin.css`, it will be missing whenever the admin module is not loaded. Confirmed victims moved to `index.css`: `.item-combobox` (ItemSearchCombobox), `.csv-import` (CsvImport / ReceiveStockPanel), `.settings-section`/`.settings-row`/`.badge`/`.member-*`/`.email-alignment__*` (moved in Session AE when member management relocated from `settings/` into `admin/` and those classes became genuinely cross-module). If you spot an unstyled shared component during UAT, check whether its CSS class is scoped to a module file.
 
 ### UX constraints -- these are non-negotiable
 - Minimum tap target: **60px**
@@ -272,6 +294,8 @@ No handoff files. At the end of every session:
 | Rate limiter | Lives in `core/limiter.py`; `TESTING=true` disables it in tests; `check_date` server-derived; `performed_by` = email |
 | Draft key | Includes `started_at` -- supports multi-draft |
 | StationMember.user_id | Email (preferred_username), not OID -- see station_members.py |
+| StationMember PATCH/DELETE | By `member_id` (integer PK) only, never `user_id` -- a person can hold multiple roles as separate rows since ACC-B7. Only `modules/admin/api/membersApi.js` should call these endpoints (Session AE, MERGE-1). |
+| Member management UI | One screen only: Station Administration -> Members (`modules/admin/components/MembersScreen.jsx`). Settings no longer has any member UI -- it's reserved for admin-only station/vehicle configuration (Session AE, MERGE-1). |
 | Supply room | Uses `LocationType.STATION_SUPPLY_ROOM` -- not a fake vehicle |
 | Build zip | Always on Linux in CI -- Windows paths break Oryx extraction |
 | OpenAPI docs | Disabled in production (SEC-2) |
@@ -285,6 +309,7 @@ No handoff files. At the end of every session:
 | Supply room check reconcile | `_reconcile_supply_room_check` (SR-B5) fires in `create_daily_check` when `payload.location_id` is set AND location type is `STATION_SUPPLY_ROOM`. Treats `quantity_found` as new absolute on-hand truth; adjusts StockLot quantities FIFO (deduct for decrease, new adjustment lot for increase). This keeps View Supplies in sync after a supply room check is submitted. Best-effort: never raises. |
 | Supply room creation | `POST /stations/{id}/supply-room` is get-or-create (Supervisor+). Frontend detects 404 from `getSupplyRoom` via `e.status === 404`, shows setup state. `TimestampMixin` uses Python-side `default=` only -- raw SQL INSERTs must include `CURRENT_TIMESTAMP` for `created_at`/`updated_at`. |
 | File editing | ALWAYS use `filesystem:write_file` -- NEVER `filesystem:edit_file`. The edit tool silently fails on Windows CRLF files, reports success, shows a valid diff, but leaves the file unchanged on disk. |
+| File deletion | The filesystem MCP has no delete operation -- only `move_file`. Stage removed files in a `_session_XX_removed/` folder at repo root and tell the user to `git rm` them at session close. |
 | Vehicle API shape | No `status` field exists. Filter active vehicles with `v.active === true && !v.retired_at`. Never `v.status === 'ACTIVE'`. |
 
 ---
@@ -302,3 +327,5 @@ Address these when touching the relevant area:
 | CSS patch files | `frontend/src/` | `module-card-fix.css`, `submitted-screen-patch.css`, `wizard-station.css`, `wizard.css` in src root -- consolidate into module CSS files |
 | `wizard.css` location | `frontend/src/styles/` | Should be in `modules/check-wizard/` -- move when next modified |
 | `_damagedOverrides` comment | `modules/check-wizard/components/Step3Items.jsx` | Abandoned approach left as comment artifact -- remove on next touch |
+| `_session_AE_removed/` (repo root) | repo root | Session AE (MERGE-1) staging folder for files removed during the member-management merge. Run `git rm -r _session_AE_removed` (or delete + `git add -A`) and remove the folder. |
+| No test coverage for MembersScreen/MemberManagementSection | `frontend/src/modules/admin/__tests__/` | Neither the old admin nor old settings version of these had tests. Worth adding -- multi-role grouping, CSV import, name edit, and the member_id-based remove are all good candidates. |
