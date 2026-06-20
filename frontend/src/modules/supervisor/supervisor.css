@@ -650,6 +650,12 @@
   border-color: var(--color-brand);
 }
 
+.cal__supply-reminder--error {
+  background: var(--color-status-fail-bg);
+  border-color: #fca5a5;
+  cursor: default;
+}
+
 .cal__supply-reminder__icon {
   font-size: var(--font-size-lg);
   flex-shrink: 0;

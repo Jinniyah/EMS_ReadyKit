@@ -16,6 +16,17 @@
  * moved under the toolbar per Jennifer's feedback after launch — a chip
  * inside month view would get seen far less often than something that's
  * always on screen).
+ *
+ * Session AF data-source note: the supply room reminder originally tried to
+ * find the "most recent count ever" by widening getComplianceRange's date
+ * window to 730 days. That endpoint (GET /checks/daily/station/{id}) caps
+ * the range at 90 days server-side and 422s above that -- the request was
+ * silently failing every time, so the reminder always rendered as if no
+ * count existed, and (since the error swallowed history into a permanent
+ * null) the button was correctly disabled, which looked like "broken" rather
+ * than an outright crash. Fixed by switching to
+ * GET /checks/daily/location/{id} (getLocationCheckHistory), which is
+ * location-scoped and has no date-range limit at all.
  */
 
 import React, { useState, useMemo } from 'react'
@@ -198,22 +209,31 @@ function MonthCalendar({ todayIso, days, index, selectedKey, onViewCheck }) {
 }
 
 // ── SupplyRoomReminder — standing reminder, always visible under the
-//    Week/Month toggle regardless of which view is selected. Shows the most
-//    recent count overall (not scoped to whatever date range happens to be
-//    on screen) and clicking it opens that same most-recent count — display
-//    text and click target now read from the exact same data, so they can
-//    never disagree (the previous bug: the reminder's text and its click
-//    target were fed by two differently-scoped fetches that could disagree
-//    — e.g. showing "No count on record" while still opening a real count
-//    when tapped). ────────────────────────────────────────────────────────
+//    Week/Month toggle regardless of which view is selected. Driven by
+//    getLocationCheckHistory (no date-range limit), so the display text and
+//    the click target always read from the same data and the same source. ──
 
-function SupplyRoomReminder({ history, isLoading, onViewCheck }) {
+function SupplyRoomReminder({ history, isLoading, isError, onViewCheck }) {
   const latest = useMemo(() => {
     if (!history?.length) return null
+    // Already most-recent-first from the API, but sort defensively in case
+    // that ever changes.
     return [...history].sort((a, b) => (a.check_date < b.check_date ? 1 : -1))[0]
   }, [history])
 
   if (isLoading) return null
+
+  if (isError) {
+    return (
+      <div className="cal__supply-reminder cal__supply-reminder--error" role="alert">
+        <span className="cal__supply-reminder__icon" aria-hidden="true">⚠</span>
+        <span className="cal__supply-reminder__text">
+          <span className="cal__supply-reminder__title">Station Supplies Count</span>
+          <span className="cal__supply-reminder__meta">Couldn't load — try refreshing</span>
+        </span>
+      </div>
+    )
+  }
 
   const status = latest ? (STATUS_GLYPH[latest.status] ?? STATUS_GLYPH.PASS) : null
 
@@ -281,24 +301,18 @@ export default function ComplianceCalendar({ station, vehicles, portables = [], 
     [station.station_id]
   )
 
-  // Supply room check history — fetched once, unconditionally (not gated to
-  // month mode), over a generous lookback window so "most recent count" is
-  // correct regardless of which week/month is currently being viewed. This
-  // is the single source for both the reminder's display text and its click
-  // target — fixing the previous bug where two separately-scoped fetches
-  // could disagree with each other.
-  const lookbackFrom = useMemo(() => {
-    const d = new Date(today)
-    d.setDate(d.getDate() - 730)
-    return localIso(d)
-  }, [today])
-
-  const { data: supplyRoomHistory, isLoading: supplyRoomHistoryLoading } = useApi(
+  // Supply room check history — all checks ever recorded at this location,
+  // most-recent-first, no date-range limit (see module docstring for why
+  // this must NOT go through getComplianceRange).
+  const {
+    data: supplyRoomHistory,
+    isLoading: supplyRoomHistoryLoading,
+    error: supplyRoomHistoryError,
+  } = useApi(
     () => supplyRoom
-      ? supervisorApi.getComplianceRange(station.station_id, lookbackFrom, todayIso, getToken)
-          .then(all => all.filter(c => c.location_id === supplyRoom.location_id))
+      ? supervisorApi.getLocationCheckHistory(supplyRoom.location_id, getToken)
       : Promise.resolve([]),
-    [station.station_id, supplyRoom?.location_id, lookbackFrom, todayIso]
+    [supplyRoom?.location_id]
   )
 
   // ── Earliest check date — bounds backwards navigation ────────────────────
@@ -459,6 +473,7 @@ export default function ComplianceCalendar({ station, vehicles, portables = [], 
         <SupplyRoomReminder
           history={supplyRoomHistory}
           isLoading={supplyRoomHistoryLoading}
+          isError={!!supplyRoomHistoryError}
           onViewCheck={onViewCheck}
         />
       )}

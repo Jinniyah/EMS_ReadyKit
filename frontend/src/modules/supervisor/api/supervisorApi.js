@@ -149,11 +149,29 @@ export const supervisorApi = {
   /**
    * F-5F2: Load checks for a station over a date range (B-E3).
    * Returns flat array; caller aggregates by vehicle and date.
+   * NOTE: backend caps this at a 90-day range (422 if exceeded) -- never use
+   * this for an "all-time most recent" lookup. Use getLocationCheckHistory
+   * for that instead (Session AF, see note there for why).
    */
   getComplianceRange: async (stationId, fromDate, toDate, getToken) => {
     const params = new URLSearchParams({ from: fromDate, to: toDate })
     return apiGet(`${BASE}/checks/daily/station/${stationId}?${params}`, getToken)
   },
+
+  /**
+   * Session AF: All checks ever recorded for a single location (jump bag /
+   * equipment / supply room), most-recent-first, no date range limit.
+   * GET /checks/daily/location/{id} -- unlike getComplianceRange, this has
+   * no 90-day cap, which makes it the correct source for "when was this
+   * last counted" reminders that need to look back further than 90 days.
+   * (The Compliance Calendar's Station Supplies reminder originally tried
+   * to fake an unbounded lookback by widening getComplianceRange's date
+   * window to 730 days, which silently 422'd against the real 90-day limit
+   * and made the reminder always show "no count on record" -- this endpoint
+   * is the actual fix.)
+   */
+  getLocationCheckHistory: (locationId, getToken) =>
+    apiGet(`${BASE}/checks/daily/location/${locationId}`, getToken),
 
   getCheckDateRange: (stationId, getToken) =>
     apiGet(`${BASE}/checks/daily/station/${stationId}/date-range`, getToken),
