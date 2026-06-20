@@ -1,7 +1,100 @@
 # EMS ReadyKit — Completed Items
-# Last updated: 2026-06-19 (Session AE closed; MERGE-1 member management consolidation; verified + deployed to Azure)
-# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, AB, AC, AD, AE
+# Last updated: 2026-06-19 (Session AF closed; PAR-B1 par-level reactivation + audit date-range timezone fix; verified + deployed to Azure)
+# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, AB, AC, AD, AE, AF
 # Active backlog -> docs/backlog.md
+
+---
+
+## Session AF — Compliance Calendar Fixes + PAR-B1 Reactivation + Audit Test Timezone Bug (2026-06-19)
+
+Three frontend/UX bugs found by Jennifer in UAT, plus a backend test-suite failure
+that took three diagnostic passes (across two root causes) to fully resolve.
+
+**1. Compliance Dashboard showing retired vehicles** (calendar + today list). Root
+cause: `GET /stations/{id}/vehicles` returns ALL vehicles (active + retired) unless
+`active=true` is explicitly passed; nothing downstream filtered `retired_at`. Fix:
+`supervisorApi.getTodayCompliance` now filters `!v.retired_at` at the source
+(`frontend/src/modules/supervisor/api/supervisorApi.js`), with defensive
+`!v.retired_at` checks also added in `index.jsx` and `ComplianceCalendar.jsx`,
+matching the documented BUG-AD1 convention.
+
+**2. Jump bag missing from Compliance Calendar month view; Station Supplies Count
+missing entirely from the calendar.** `ComplianceCalendar.jsx` rewritten: week view =
+active (non-retired) vehicles + jump bags only (Station Supply Room intentionally
+excluded — wasted space at weekly cadence per Jennifer's direction). Month view =
+combined vehicle/jump-bag picker + grid, plus a month-only "Station Supplies Count"
+reminder strip (new `supervisorApi.getSupplyRoomLocation`, excludes a retired supply
+room via `!loc.retired_at` check after fetch since `GET /stations/{id}/supply-room`
+has no server-side retired filter).
+
+**3. PAR-B1 — "This item is already assigned to this compartment" on re-add after
+removal; check wizard Step 3 stuck on a removed item.** Root cause:
+`ParLevel.uq_par_item_compartment (item_id, compartment_id)` unique constraint has no
+concept of `active`. Soft-deactivating a par level (Remove) leaves a row occupying
+that slot; re-adding the same item to the same compartment always hit the
+`IntegrityError` → 409 fallback even with no active duplicate present. Fixed in both
+creation entry points — reactivate the matching inactive row (clear
+`deactivated_at`/`deactivation_reason`, apply new min/max) instead of inserting a
+duplicate, preserving the original `par_id` and its history:
+- `app/ems_readykit/routers/admin_items.py` :: `assign_item_to_compartment`
+  (`POST /admin/items/{id}/assign` — the actual UI path)
+- `app/ems_readykit/routers/inventory.py` :: `create_par_level`
+  (`POST /inventory/par-levels` — not currently called from any frontend UI, fixed
+  for consistency since it has the identical flaw)
+
+New test file: `app/tests/test_par_level_reactivation.py`.
+
+**4. Backend test suite — two separate root causes found across the session, both
+on the test side, not the application side:**
+
+*First pass:* `test_audit_from_date_tomorrow_returns_empty` and
+`test_audit_to_date_yesterday_returns_empty` were asserting `== []` against the
+**entire, unfiltered** `GET /audit` endpoint. Every route handler in this app calls
+`db.commit()`, which releases the active SAVEPOINT — committed rows are never rolled
+back between tests within a pytest session (documented behavior). With 480+ tests in
+the suite, many of which write audit events, the global audit table legitimately had
+hundreds of unrelated rows in it by the time these two tests ran. Fixed by scoping
+both tests to a station they create themselves, matching the pattern their siblings
+`test_list_audit_events_filter_by_severity`/`_by_action` already used.
+
+A first attempt at this fix incorrectly suspected `routers/audit.py`'s naive-vs-aware
+datetime comparison (`DateTime(timezone=True)` on SQLite). This was verified WRONG
+via isolated repro against the pinned SQLAlchemy version (2.0.30) — the comparison
+logic was never actually broken. That change was made and explicitly reverted before
+the station-scoping fix above was applied instead.
+
+*Second pass (new failure on a fresh run, after the station-scoping fix landed):*
+`test_audit_from_date_tomorrow_returns_empty` still failed — but now genuinely scoped
+to its own station, so this was new evidence, not the same bug recurring. The full
+traceback showed the test's own freshly-written audit event being returned despite
+querying `from_date=<tomorrow>`. Root cause: the test computed `tomorrow` from local
+wall-clock `date.today()`, while `AuditEvent.timestamp` is always written as
+`datetime.now(timezone.utc)` (`core/audit.py`). The captured log line on the failing
+run showed local time `20:29:35` with `from_date=2026-06-20` — at US Eastern evening
+hours, UTC has already rolled to the next calendar day, so the event's actual UTC
+timestamp satisfied `>= from_date` and was incorrectly included. This is a test-data
+bug (wrong clock for the boundary), not a defect in `routers/audit.py`'s comparison
+logic (left untouched both times, confirmed unmodified throughout the session). Fixed
+by computing `tomorrow`/`yesterday` from `datetime.now(timezone.utc).date()` instead
+of local `date.today()` in both tests.
+
+**Dependency fix (treated as a separate quick fix, not part of this session's
+backlog):** GitHub Actions' `pip-audit` CI gate flagged `pydantic-settings==2.14.1`
+(GHSA-4xgf-cpjx-pc3j); bumped to `2.14.2` in `app/requirements.txt`. Unrelated to the
+audit-test timezone fix above — pure dependency patch bump, no code changes.
+
+**Verified:** `cd app; pytest` (484/484), `cd app; ruff check .`, and
+`cd app; black --check .` all confirmed green by Jennifer. Deployed to Azure and
+confirmed live.
+
+| # | Item | Completed |
+|---|------|-----------|
+| CAL-AF1 | Compliance Dashboard/Calendar — retired vehicles filtered out at source (supervisorApi.getTodayCompliance) plus defensive checks | 2026-06-19 |
+| CAL-AF2 | ComplianceCalendar rewritten — jump bags in month view; Station Supplies Count reminder strip added | 2026-06-19 |
+| PAR-B1 | Par-level reactivation on re-add after removal — assign_item_to_compartment + create_par_level reactivate inactive rows instead of erroring; new test_par_level_reactivation.py | 2026-06-19 |
+| AUDIT-AF1 | test_audit_from_date_tomorrow_returns_empty / test_audit_to_date_yesterday_returns_empty scoped to a station the test creates (fixed global-table pollution) | 2026-06-19 |
+| AUDIT-AF2 | Same two tests' tomorrow/yesterday boundary computed from UTC today (datetime.now(timezone.utc).date()) instead of local date.today() — fixed a local/UTC day-boundary mismatch found on a later run | 2026-06-19 |
+| SEC-AF1 | pydantic-settings 2.14.1 → 2.14.2 (GHSA-4xgf-cpjx-pc3j); quick fix, not part of Session AF backlog proper | 2026-06-19 |
 
 ---
 

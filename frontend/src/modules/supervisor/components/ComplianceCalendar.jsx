@@ -3,18 +3,19 @@
  *
  * Week view  — horizontal grid: each row = one active (non-retired) vehicle
  *              or jump bag, each column = one day. The Station Supply Room
- *              does NOT appear in week view — it's checked every few months,
- *              not weekly, so a row here would just be wasted screen space.
+ *              does NOT get a row here — it's checked every few months, not
+ *              daily, so a row in a daily grid would mostly be empty space.
  * Month view — traditional Su–Sa calendar grid for one selected vehicle or
- *              jump bag, picked from a combined chip picker. The Station
- *              Supply Room is shown underneath as its own small reminder
- *              strip with its most recent count date — month view is the
- *              right cadence for a "do this every few months" reminder.
+ *              jump bag, picked from a combined chip picker.
  *
  * Jump bags are checked alongside vehicles (same cadence, easy-access gear)
  * and so share the vehicle/jump-bag picker and grid rows, in both week and
- * month view. The Station Supply Room is deliberately kept out of that
- * picker/grid and only shown in month view as its own reminder (B-AF1).
+ * month view. The Station Supply Room is kept out of that picker/grid
+ * entirely and instead gets a standing reminder strip directly under the
+ * Week/Month toggle, visible no matter which view is selected (B-AF1,
+ * moved under the toolbar per Jennifer's feedback after launch — a chip
+ * inside month view would get seen far less often than something that's
+ * always on screen).
  */
 
 import React, { useState, useMemo } from 'react'
@@ -196,23 +197,31 @@ function MonthCalendar({ todayIso, days, index, selectedKey, onViewCheck }) {
   )
 }
 
-// ── SupplyRoomReminder — month-view-only reminder row, separate from the
-//    vehicle/jump-bag picker. Shows the most recent count and how long it's
-//    been since the last one overall, so a supervisor sees at a glance that
-//    the every-few-months count is due. Deliberately NOT shown in week view
-//    (B-AF1) — at a weekly cadence it would never have anything new to say
-//    and would just take up space. ─────────────────────────────────────────
+// ── SupplyRoomReminder — standing reminder, always visible under the
+//    Week/Month toggle regardless of which view is selected. Shows the most
+//    recent count overall (not scoped to whatever date range happens to be
+//    on screen) and clicking it opens that same most-recent count — display
+//    text and click target now read from the exact same data, so they can
+//    never disagree (the previous bug: the reminder's text and its click
+//    target were fed by two differently-scoped fetches that could disagree
+//    — e.g. showing "No count on record" while still opening a real count
+//    when tapped). ────────────────────────────────────────────────────────
 
-function SupplyRoomReminder({ supplyRoomChecks, allTimeLastCheck, onViewCheck }) {
-  const sorted = [...supplyRoomChecks].sort((a, b) => (a.check_date < b.check_date ? 1 : -1))
-  const latest = sorted[0] ?? null
+function SupplyRoomReminder({ history, isLoading, onViewCheck }) {
+  const latest = useMemo(() => {
+    if (!history?.length) return null
+    return [...history].sort((a, b) => (a.check_date < b.check_date ? 1 : -1))[0]
+  }, [history])
+
+  if (isLoading) return null
+
   const status = latest ? (STATUS_GLYPH[latest.status] ?? STATUS_GLYPH.PASS) : null
 
-  let daysAgoLabel = 'No count on record'
-  if (allTimeLastCheck) {
-    const last = new Date(allTimeLastCheck.check_date + 'T00:00:00')
+  let daysAgoLabel = 'No count on record yet'
+  if (latest) {
+    const last = new Date(latest.check_date + 'T00:00:00')
     const days = Math.floor((Date.now() - last.getTime()) / 86400000)
-    daysAgoLabel = days === 0 ? 'Counted today'
+    daysAgoLabel = days <= 0 ? 'Counted today'
       : days === 1 ? 'Counted 1 day ago'
       : `Counted ${days} days ago`
   }
@@ -256,7 +265,7 @@ export default function ComplianceCalendar({ station, vehicles, portables = [], 
   // Jump bags join the vehicle rows/picker — same daily cadence, designed to
   // be grabbed alongside the truck. Equipment locations (if any) and the
   // Station Supply Room do NOT join this list; the supply room gets its own
-  // month-only reminder below instead.
+  // standing reminder under the toolbar instead.
   const jumpBags = portables.filter(loc => loc.location_type === 'JUMP_BAG')
 
   const calendarEntities = useMemo(() => ([
@@ -266,10 +275,30 @@ export default function ComplianceCalendar({ station, vehicles, portables = [], 
 
   // Station Supply Room — fetched separately; GET /stations/{id}/locations
   // only returns JUMP_BAG/EQUIPMENT, never STATION_SUPPLY_ROOM. Returns null
-  // if the station hasn't set one up yet. Only used in month mode.
+  // if the station hasn't set one up yet (or it's been retired).
   const { data: supplyRoom } = useApi(
     () => supervisorApi.getSupplyRoomLocation(station.station_id, getToken),
     [station.station_id]
+  )
+
+  // Supply room check history — fetched once, unconditionally (not gated to
+  // month mode), over a generous lookback window so "most recent count" is
+  // correct regardless of which week/month is currently being viewed. This
+  // is the single source for both the reminder's display text and its click
+  // target — fixing the previous bug where two separately-scoped fetches
+  // could disagree with each other.
+  const lookbackFrom = useMemo(() => {
+    const d = new Date(today)
+    d.setDate(d.getDate() - 730)
+    return localIso(d)
+  }, [today])
+
+  const { data: supplyRoomHistory, isLoading: supplyRoomHistoryLoading } = useApi(
+    () => supplyRoom
+      ? supervisorApi.getComplianceRange(station.station_id, lookbackFrom, todayIso, getToken)
+          .then(all => all.filter(c => c.location_id === supplyRoom.location_id))
+      : Promise.resolve([]),
+    [station.station_id, supplyRoom?.location_id, lookbackFrom, todayIso]
   )
 
   // ── Earliest check date — bounds backwards navigation ────────────────────
@@ -328,31 +357,8 @@ export default function ComplianceCalendar({ station, vehicles, portables = [], 
     [station.station_id, fromIso, toIso]
   )
 
-  // All-time most recent supply room check (separate from the visible date
-  // window) — drives the "Counted N days ago" reminder text so the prompt
-  // works even when the last count happened outside the viewed month. Only
-  // fetched/used in month mode.
-  const lookbackFrom = useMemo(() => {
-    const d = new Date(today)
-    d.setDate(d.getDate() - 365)
-    return localIso(d)
-  }, [today])
-
-  const { data: supplyRoomHistory } = useApi(
-    () => (mode === 'month' && supplyRoom)
-      ? supervisorApi.getComplianceRange(station.station_id, lookbackFrom, todayIso, getToken)
-          .then(all => all.filter(c => c.location_id === supplyRoom.location_id))
-      : Promise.resolve([]),
-    [station.station_id, mode, supplyRoom?.location_id, lookbackFrom, todayIso]
-  )
-
-  const allTimeLastSupplyCheck = useMemo(() => {
-    if (!supplyRoomHistory?.length) return null
-    return [...supplyRoomHistory].sort((a, b) => (a.check_date < b.check_date ? 1 : -1))[0]
-  }, [supplyRoomHistory])
-
   // Index: 'v:{vehicle_id}' → date → checks[]  for vehicles
-  //         'l:{location_id}' → date → checks[]  for portable locations (jump bags + supply room)
+  //         'l:{location_id}' → date → checks[]  for portable locations (jump bags)
   const index = useMemo(() => {
     if (!checks) return {}
     const map = {}
@@ -365,13 +371,6 @@ export default function ComplianceCalendar({ station, vehicles, portables = [], 
     }
     return map
   }, [checks])
-
-  const supplyRoomChecksInWindow = useMemo(() => {
-    if (!supplyRoom) return []
-    return index[`l:${supplyRoom.location_id}`]
-      ? Object.values(index[`l:${supplyRoom.location_id}`]).flat()
-      : []
-  }, [index, supplyRoom])
 
   // Month mode: auto-select the first vehicle/jump bag if none chosen yet
   const effectiveSelectedKey = useMemo(() => {
@@ -450,6 +449,19 @@ export default function ComplianceCalendar({ station, vehicles, portables = [], 
           </button>
         </div>
       </div>
+
+      {/* ── Station Supply Room reminder — always visible here, under the
+            Week/Month toggle, regardless of which view is selected. Moved
+            out from under the month grid per Jennifer's feedback: a chip
+            buried inside month view would get seen far less often than
+            something that's always on screen. ────────────────────────────── */}
+      {supplyRoom && (
+        <SupplyRoomReminder
+          history={supplyRoomHistory}
+          isLoading={supplyRoomHistoryLoading}
+          onViewCheck={onViewCheck}
+        />
+      )}
 
       {/* ── Vehicle + jump bag picker (month mode only) ──────────────────── */}
       {mode === 'month' && calendarEntities.length > 1 && (
@@ -607,17 +619,6 @@ export default function ComplianceCalendar({ station, vehicles, portables = [], 
           days={days}
           index={index}
           selectedKey={effectiveSelectedKey}
-          onViewCheck={onViewCheck}
-        />
-      )}
-
-      {/* ── Station Supply Room reminder — month view only (B-AF1). It's a
-            periodic count (every few months), so it doesn't belong in the
-            weekly grid; showing it there would just be wasted screen space. */}
-      {mode === 'month' && supplyRoom && (
-        <SupplyRoomReminder
-          supplyRoomChecks={supplyRoomChecksInWindow}
-          allTimeLastCheck={allTimeLastSupplyCheck}
           onViewCheck={onViewCheck}
         />
       )}

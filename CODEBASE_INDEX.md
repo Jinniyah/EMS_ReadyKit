@@ -1,32 +1,10 @@
 # EMS ReadyKit — Codebase Index
-# Last updated: 2026-06-19 (Session AF IN PROGRESS, NOT closed — see docs/backlog.md "SESSION AF — IN PROGRESS"
-# for full state. Root-cause fix applied for the one remaining pytest failure; fresh pytest/ruff/black
-# run still needed to confirm green before this session can close.)
+# Last updated: 2026-06-19 (Session AF closed — PAR-B1, Compliance Calendar fixes, audit
+# date-range test fix all confirmed: pytest 484/484, ruff check, black --check, npm test
+# all green; deployed to Azure and confirmed live.)
 # PURPOSE: Load this file at the start of every session to orient quickly.
 # After reading this, load only the sections relevant to the current task.
 # Full project state → docs/project_index.md | Open work → docs/backlog.md
-
----
-
-## ⚠ SESSION AF NOT CLOSED — READ docs/backlog.md FIRST
-
-Three frontend/UX bugs were found and fixed this session (retired vehicles on the Compliance
-Dashboard; jump bag + Station Supplies Count missing from the calendar; a par-level
-"already assigned" bug on re-add after removal, PAR-B1). The PAR-B1 backend fix is in
-`admin_items.py` and `inventory.py`, with a new test file `test_par_level_reactivation.py`.
-
-**The test suite's single remaining failure has a root-cause fix applied but NOT yet
-confirmed by a fresh pytest run.** The latest reviewed pytest output (484 collected, 483
-passed, 1 failed) showed `TestAuditEndpoints::test_audit_from_date_tomorrow_returns_empty`
-failing because its `tomorrow`/`yesterday` boundary was computed from local wall-clock
-`date.today()` while the audit event's timestamp is always UTC — fixed in
-`app/tests/test_routers.py` by computing the boundary from
-`datetime.now(timezone.utc).date()` instead. `routers/audit.py` was NOT touched (its
-date-filter comparison logic was already verified correct via isolated repro earlier this
-session). Do not assume any "all tests passing" claim elsewhere in this file or in
-`CLAUDE.md` still holds — verify with a fresh `cd app; pytest` run before relying on it.
-Full details in `docs/backlog.md` under "SESSION AF — IN PROGRESS". Read that section
-before touching test files again.
 
 ---
 
@@ -42,7 +20,7 @@ EMS_ReadyKit/
 │   │   ├── schemas/            # Pydantic request/response schemas
 │   │   └── main.py             # App factory, middleware, router registration
 │   ├── alembic/                # DB migrations (versions/ subdirectory)
-│   ├── tests/                  # pytest suite (484 collected as of Session AF — see docs/backlog.md, fix applied, pending fresh-run confirmation)
+│   ├── tests/                  # pytest suite (484 collected, 484 passing as of Session AF close)
 │   ├── seed.py                 # Dev seed data (Newberg 712 BLS + 712 Jump Bag; Marcellus 540 ALS; TEST station)
 │   ├── seed_training.py        # Training station seed — always run, including production (Session AB)
 │   ├── initial_stock.csv       # 10 seed stock items — upload via Receive New Stock → CSV
@@ -56,7 +34,7 @@ EMS_ReadyKit/
 ├── docs/                       # All project documentation
 │   ├── backlog.md              # ALL open work items — single source of truth
 │   ├── project_index.md        # Technical reference, API structure, stack
-│   ├── backlog_completed.md    # Completed items (Sessions A–AE)
+│   ├── backlog_completed.md    # Completed items (Sessions A–AF)
 │   ├── uat_test_cases.md       # UAT test cases
 │   └── adr/                   # Architecture Decision Records (ADR-001–006)
 ├── iac/                        # Terraform (Azure infra)
@@ -88,7 +66,7 @@ All routes are prefixed `/api/v1/`. Router registration order in main.py matters
 | `admin_vehicles.py` | — | `/admin` | Admin | Vehicle color and details admin (split from monolithic admin.py, CQ-B5) |
 | `admin_stations.py` | — | `/admin` | Admin | `POST /admin/stations` (ADMIN-B15, auto-creates supply room + StationMember). `PATCH /admin/locations/{id}` renames a location label (SS-B1). `GET /admin/retired?type=&station_id=` lists retired vehicles/locations/stations (RET-B4). `GET /admin/email-alignment-check?station_id=&include_inactive=` — flags StationMember rows whose `user_id` doesn't look like a valid email (blank, contains whitespace, missing `@`/domain, not lowercase); read-only diagnostic for catching display-name-instead-of-email mistakes from manual add or CSV import (LAUNCH-OPS9, Session AC). |
 | `usage.py` | 9 KB | `/checks` | All + membership | `POST /checks/usage` (log items used, FIFO decrement); `GET /checks/usage/station/{id}` (history); `GET /checks/usage/station/{id}/frequent` (top 10 items, 90-day window) |
-| `audit.py` | 2 KB | `/audit` | Supervisor+ | Paginated audit event log; `GET /audit?from_date=&to_date=` date-range filter (B-E18). Unmodified this session (and the session before it) — an earlier attempt to "fix" a naive/aware datetime comparison here was reverted after an isolated repro showed the comparison was never actually broken; the real bug both times was on the test side (test pollution, then a local-vs-UTC date computed in the wrong timezone). See docs/backlog.md Session AF notes before touching this file's date filters again. |
+| `audit.py` | 2 KB | `/audit` | Supervisor+ | Paginated audit event log; `GET /audit?from_date=&to_date=` date-range filter (B-E18). Unmodified across Session AF — two separate suspicions about a naive/aware datetime comparison here were each checked via isolated repro and ruled out; the real bug both times was on the test side (global-table pollution, then a local-vs-UTC date computed in the wrong timezone). See `docs/backlog_completed.md` Session AF write-up for the full two-pass diagnosis before touching this file's date filters. |
 
 ### ⚠ PAR-B1 (Session AF): par-level reactivation on re-add after removal
 `ParLevel`'s unique constraint `uq_par_item_compartment (item_id, compartment_id)` has no
@@ -204,7 +182,7 @@ AuditEvent     (immutable log)
 | File | Size | Coverage | DB Fixture |
 |------|------|----------|------------|
 | `conftest.py` | 5 KB | Fixtures: in-memory SQLite (`db`), seeded dev DB (`seeded_db`), test client, auth headers | — |
-| `test_routers.py` | 67 KB | Main router integration tests. Session AF: `TestAuditEndpoints::test_audit_from_date_tomorrow_returns_empty` / `test_audit_to_date_yesterday_returns_empty` scoped to a station the test itself creates (`station_id=` query param), AND their `tomorrow`/`yesterday` boundary is computed from `datetime.now(timezone.utc).date()` rather than local `date.today()` — two separate fixes for two separate root causes found across this session (global-table pollution, then a local/UTC day-boundary mismatch). See docs/backlog.md for the full writeup of each. | `db` |
+| `test_routers.py` | 67 KB | Main router integration tests. Session AF: `TestAuditEndpoints::test_audit_from_date_tomorrow_returns_empty` / `test_audit_to_date_yesterday_returns_empty` scoped to a station the test itself creates (`station_id=` query param), AND their `tomorrow`/`yesterday` boundary is computed from `datetime.now(timezone.utc).date()` rather than local `date.today()` — two separate fixes for two separate root causes found across the session (global-table pollution, then a local/UTC day-boundary mismatch). See `docs/backlog_completed.md` Session AF write-up for the full diagnosis. | `db` |
 | `test_par_level_reactivation.py` | — | NEW (Session AF). PAR-B1: assign→deactivate→re-assign reactivates the original par_id on both `POST /admin/items/{id}/assign` and `POST /inventory/par-levels`; reactivated row clears deactivation fields; reactivated item reappears in the wizard-facing `GET .../par-levels`; active duplicates still correctly blocked. `compartment` fixture is created fresh per test (named after `request.node.name`) rather than get-or-create, because route handlers call `db.commit()` and a shared compartment would leak active par levels across tests in the same file. | `db` |
 | `test_supply_room.py` | 12 KB | Supply room SR-B1/B2/B3/B4 | `db` |
 | `test_repair_requests.py` | 17 KB | Repair request lifecycle | `db` |
@@ -224,12 +202,9 @@ AuditEvent     (immutable log)
 | `test_damaged_items.py` | — | SUP-DMG1: damaged items endpoint; happy path; retired excluded; inactive excluded; station isolation; RBAC. 13 tests. | `db` |
 | `test_email_alignment.py` | — | LAUNCH-OPS9: `GET /admin/email-alignment-check` — valid emails pass clean; display-name/malformed/uppercase/blank user_id flagged; inactive row inclusion toggle; cross-station scan; RBAC (Admin only). 12 tests. (Session AC) | `db` |
 
-**Run:** `cd app; pytest` — 484 tests collected as of Session AF. **⚠ Suite status: one
-root-cause fix applied (see audit date-boundary note above) but NOT YET CONFIRMED by a
-fresh green run — see docs/backlog.md "SESSION AF — IN PROGRESS" before trusting any
-earlier "all passing" claim in this file or in CLAUDE.md.** Sessions AD and AE were
-frontend-only — no backend tests added or changed for either. Confirmed green by Jennifer
-at Session AE close (that confirmation predates Session AF's changes).
+**Run:** `cd app; pytest` — 484 tests collected, **484 passing — confirmed green by Jennifer
+at Session AF close** (2026-06-19), alongside `ruff check .` and `black --check .`, both
+also confirmed green.
 
 **Two DB fixtures — do not mix:**
 - `db` — in-memory SQLite, empty, rolls back after each test. Use for all API/logic tests.
@@ -269,7 +244,7 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 | File | Size | Purpose |
 |------|------|---------|
 | `index.jsx` | 7 KB | Dashboard entry; loads supply alerts (SR-B3) for SupplyLowStockPanel. Session AF: `vehicles` re-filtered defensively by `!v.retired_at` (source-of-truth fix is in `supervisorApi.js`, this is a second defensive layer matching the BUG-AD1 convention). |
-| `components/ComplianceCalendar.jsx` | — | Calendar view of check compliance. Rewritten Session AF: week view = active (non-retired) vehicles + jump bags only; Station Supply Room intentionally excluded from week view (periodic count, not daily — would just be empty space). Month view = combined vehicle/jump-bag picker (`EntityPicker`) + traditional grid, plus a month-only `SupplyRoomReminder` strip below showing days-since-last-count. Supply room fetched via `supervisorApi.getSupplyRoomLocation`, which filters out a retired supply room client-side. |
+| `components/ComplianceCalendar.jsx` | — | Calendar view of check compliance. Rewritten Session AF: week view = active (non-retired) vehicles + jump bags only; Station Supply Room intentionally excluded from week view (periodic count, not daily — would just be empty space). Month view = combined vehicle/jump-bag picker (`EntityPicker`) + traditional grid, plus a month-only `SupplyRoomReminder` strip below showing days-since-last-count. Supply room fetched via `supervisorApi.getSupplyRoomLocation`, which filters out a retired supply room client-side. No test file yet — see TEST-AF1 in `docs/backlog.md`. |
 | `components/CheckDetailPanel.jsx` | 9 KB | Drill-down check detail — read-only + comments only |
 | `components/VehicleComplianceCard.jsx` | 7 KB | Per-vehicle compliance summary card |
 | `components/PortableComplianceCard.jsx` | — | Per-portable-location compliance summary card |
@@ -283,7 +258,7 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 |------|------|---------|
 | `index.jsx` | 21 KB | Admin hub: nav cards → Members / Items / Vehicles / Supplies / Jump Bags screens |
 | `components/MembersScreen.jsx` | — | **Station Administration -> Members** — the single member-management entry point (Session AE, MERGE-1). Wraps `MemberManagementSection` (visible to Supervisor+) and `EmailAlignmentSection` (Admin only). Replaces the old flat-list MemberList/AddMemberForm pair, which called a broken user_id-based removal endpoint. |
-| `components/MemberManagementSection.jsx` | — | Moved from `settings/` (Session AE). Member list grouped by person, edit name, multi-role chips with per-role remove, CSV import. ACC-B6/B7/B8. |
+| `components/MemberManagementSection.jsx` | — | Moved from `settings/` (Session AE). Member list grouped by person, edit name, multi-role chips with per-role remove, CSV import. ACC-B6/B7/B8. No test file yet — see TEST-AE1 in `docs/backlog.md`. |
 | `components/EmailAlignmentSection.jsx` | — | Moved from `settings/` (Session AE). LAUNCH-OPS9 diagnostic — flags malformed `user_id` entries; notify-panel with mailto draft. Admin only. |
 | `components/VehiclesScreen.jsx` | 25 KB | Vehicle + compartment CRUD, par assignment entry. Display filter excludes retired vehicles outright (`!v.retired_at`), independent of the "Show out-of-service vehicles" toggle (BUG-AD1, Session AD). `VehicleAdminCard` shows a "Retired" badge + retirement reason and hides Edit/Color-still-shown/OOS-RTS/compartment-edit controls for retired vehicles. |
 | `components/ItemCatalog.jsx` | 9 KB | Item search + list (also reused as View Supplies interface in supply room) |
@@ -351,7 +326,9 @@ Admin-gated within that same screen.
 
 ## Frontend — Tests (frontend/src/)
 
-Vitest + React Testing Library. Run: `cd frontend && npm test` — see `backlog.md` for current passing-count baseline. **Confirmed green by Jennifer at Session AE close** (predates Session AF's frontend changes to ComplianceCalendar.jsx, supervisorApi.js, supervisor/index.jsx — no frontend tests were added or re-run for those this session; npm test has NOT been re-verified after the Session AF frontend changes).
+Vitest + React Testing Library. Run: `cd frontend && npm test` — **confirmed green by
+Jennifer at Session AF close** (2026-06-19), re-verified after this session's frontend
+changes to ComplianceCalendar.jsx, supervisorApi.js, and supervisor/index.jsx.
 
 | File | Tests | Coverage |
 |------|-------|----------|
@@ -374,9 +351,9 @@ Vitest + React Testing Library. Run: `cd frontend && npm test` — see `backlog.
 | `modules/usage-log/__tests__/UsageLogScreen.test.jsx` | 6 | Multi-vehicle picker, single-vehicle skip, payload, error |
 
 No test file exists yet for `MemberManagementSection.jsx` or the new `MembersScreen.jsx`
-(neither the old admin flat-list nor the old settings version had one). Worth adding in a
-future session — see `docs/backlog.md` (TEST-AE1). Also no test file yet for the rewritten
-`ComplianceCalendar.jsx` (Session AF) — worth adding alongside TEST-AE1 in a future session.
+(neither the old admin flat-list nor the old settings version had one) — see `docs/backlog.md`
+(TEST-AE1). Also no test file yet for the rewritten `ComplianceCalendar.jsx` (Session AF) —
+see TEST-AF1 in the same backlog.
 
 **Mock infrastructure:**
 - `src/shared/hooks/__mocks__/useAuth.jsx` — configurable useAuth with Jamie/Earl/Jennifer personas
@@ -491,9 +468,12 @@ PAR-B1's reactivation fix is router logic, not a schema change).
 | CI/CD trigger | Push to `main` → GitHub Actions |
 | Terraform | `iac/Terraform/` — delete delete-lock before apply |
 
-**Session AE deploy confirmed live** — MERGE-1 (member management consolidation) verified
-in production by Jennifer. **Session AF has NOT been deployed** — test suite must be green
-first per CLAUDE.md session-close rules.
+**Session AF deploy confirmed live** (2026-06-19) — Compliance Calendar fixes, PAR-B1
+par-level reactivation, and the audit date-range test fix all verified in production by
+Jennifer, alongside a separate quick dependency fix (`pydantic-settings` 2.14.1 → 2.14.2,
+GHSA-4xgf-cpjx-pc3j, raised by the `pip-audit` CI gate). `cd app; pytest` (484/484),
+`cd app; ruff check .`, `cd app; black --check .`, and `cd frontend; npm test` all
+confirmed green before this deploy.
 
 ---
 
@@ -517,5 +497,4 @@ files) has been reviewed and deleted — no longer flagged.
 
 | Session | Focus | Key Items |
 |---------|-------|-----------|
-| **AF (continued)** | **Confirm `cd app; pytest` is fully green with a fresh run, then close out Session AF properly** | A root-cause fix has been applied for the one known failure (audit date-range tests computing their boundary from local time instead of UTC — see docs/backlog.md "SESSION AF — IN PROGRESS"). Still needed: (1) a fresh `cd app; pytest` run pasted back to confirm 484/484 green, (2) `cd app; ruff check .` + `cd app; black --check .` once green, (3) `cd frontend; npm test` re-run since it hasn't been re-verified since this session's frontend changes, (4) move completed items to `backlog_completed.md` and update both this file's and backlog.md's banners once all three are confirmed. |
-| **AG (after AF closes)** | Post-launch engineering backlog | F-5G3 (CSV export), ADMIN-F10 (member search), TEST-AE1 (test coverage for MembersScreen/MemberManagementSection), test coverage for the rewritten ComplianceCalendar.jsx, or operational walkthroughs (LAUNCH-OPS1-6) handled directly by the chief |
+| **AG** | Post-launch engineering backlog | F-5G3 (CSV export), ADMIN-F10 (member search), TEST-AE1 (test coverage for MembersScreen/MemberManagementSection), TEST-AF1 (test coverage for the rewritten ComplianceCalendar.jsx), or operational walkthroughs (LAUNCH-OPS1-6) handled directly by the chief |
