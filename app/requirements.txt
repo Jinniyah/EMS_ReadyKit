@@ -1,5 +1,5 @@
 # EMS ReadyKit — Python dependencies
-# Last security audit: 2026-06-18
+# Last security audit: 2026-06-19
 # Updated to resolve all pip-audit findings (SEC-1 / OWASP A06).
 
 # Web framework
@@ -19,7 +19,7 @@ psycopg2-binary==2.9.9   # PostgreSQL driver (binary wheel — no libpq build de
 # Pydantic v2
 # 2.13.4 is the current stable v2 release; no breaking changes from 2.7.x for our usage
 pydantic==2.13.4
-pydantic-settings==2.14.1
+pydantic-settings==2.14.2  # 2.14.2 clears GHSA-4xgf-cpjx-pc3j (pip-audit, CI run 2026-06-19)
 
 # Azure SDK — Key Vault secret retrieval via Managed Identity
 azure-keyvault-secrets==4.8.0
