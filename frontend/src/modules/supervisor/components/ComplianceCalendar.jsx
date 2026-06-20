@@ -1,12 +1,20 @@
 /**
  * modules/supervisor/components/ComplianceCalendar.jsx  (F-5F2)
  *
- * Week view  — horizontal grid: each row = one vehicle, each column = one day.
- * Month view — traditional Su–Sa calendar grid for the selected vehicle.
+ * Week view  — horizontal grid: each row = one active (non-retired) vehicle
+ *              or jump bag, each column = one day. The Station Supply Room
+ *              does NOT appear in week view — it's checked every few months,
+ *              not weekly, so a row here would just be wasted screen space.
+ * Month view — traditional Su–Sa calendar grid for one selected vehicle or
+ *              jump bag, picked from a combined chip picker. The Station
+ *              Supply Room is shown underneath as its own small reminder
+ *              strip with its most recent count date — month view is the
+ *              right cadence for a "do this every few months" reminder.
  *
- * In month mode the vehicle label column is gone; the VehiclePicker chips
- * above the calendar handle vehicle selection. Switching to month mode
- * auto-selects the first vehicle if none is active.
+ * Jump bags are checked alongside vehicles (same cadence, easy-access gear)
+ * and so share the vehicle/jump-bag picker and grid rows, in both week and
+ * month view. The Station Supply Room is deliberately kept out of that
+ * picker/grid and only shown in month view as its own reminder (B-AF1).
  */
 
 import React, { useState, useMemo } from 'react'
@@ -32,9 +40,6 @@ function startOfIsoWeek(d) {
   copy.setHours(0, 0, 0, 0)
   return copy
 }
-
-function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1) }
-function endOfMonth(d)   { return new Date(d.getFullYear(), d.getMonth() + 1, 0) }
 
 function dateRange(start, n) {
   return Array.from({ length: n }, (_, i) => {
@@ -67,23 +72,32 @@ function vehicleColor(vehicle, station) {
   return vehicle.vehicle_color ?? station?.primary_color ?? 'var(--color-brand)'
 }
 
-// ── VehiclePicker ─────────────────────────────────────────────────────────────
+// A unified row/picker entity for either a vehicle or a jump bag.
+// key:  'v:{vehicle_id}' or 'l:{location_id}' — matches the `index` map keys.
+function entityKey(entity) {
+  return entity.kind === 'vehicle' ? `v:${entity.vehicle_id}` : `l:${entity.location_id}`
+}
 
-function VehiclePicker({ vehicles, selectedId, onChange }) {
+// ── EntityPicker (month mode) — vehicles + jump bags together ────────────────
+
+function EntityPicker({ entities, selectedKey, onChange }) {
   return (
-    <div className="cal-vehicle-picker" role="listbox" aria-label="Vehicle">
-      {vehicles.map(v => {
-        const selected = v.vehicle_id === selectedId
+    <div className="cal-vehicle-picker" role="listbox" aria-label="Vehicle or jump bag">
+      {entities.map(entity => {
+        const key      = entityKey(entity)
+        const selected = key === selectedKey
+        const label    = entity.kind === 'vehicle' ? entity.vehicle_number : entity.label
         return (
           <button
-            key={v.vehicle_id}
+            key={key}
             type="button"
             role="option"
             aria-selected={selected}
             className={`cal-vehicle-chip ${selected ? 'cal-vehicle-chip--active' : ''}`}
-            onClick={() => onChange(v.vehicle_id)}
+            onClick={() => onChange(key)}
           >
-            {v.vehicle_number}
+            {entity.kind === 'jump_bag' && <span aria-hidden="true">🎒 </span>}
+            {label}
           </button>
         )
       })}
@@ -93,17 +107,14 @@ function VehiclePicker({ vehicles, selectedId, onChange }) {
 
 // ── MonthCalendar — traditional Su–Sa grid ────────────────────────────────────
 
-function MonthCalendar({ todayIso, days, index, vehicles, selectedVehicleId, onViewCheck }) {
+function MonthCalendar({ todayIso, days, index, selectedKey, onViewCheck }) {
   // How many empty cells before day 1 (Sunday = 0 ... Saturday = 6)
   const leadingBlanks = days[0].getDay()
   const totalCells    = leadingBlanks + days.length
   const trailingBlanks = (7 - (totalCells % 7)) % 7
 
   function checksForDay(dateIso) {
-    if (selectedVehicleId) {
-      return index[`v:${selectedVehicleId}`]?.[dateIso] ?? []
-    }
-    return vehicles.flatMap(v => index[`v:${v.vehicle_id}`]?.[dateIso] ?? [])
+    return index[selectedKey]?.[dateIso] ?? []
   }
 
   function handleCellClick(dateIso) {
@@ -185,6 +196,46 @@ function MonthCalendar({ todayIso, days, index, vehicles, selectedVehicleId, onV
   )
 }
 
+// ── SupplyRoomReminder — month-view-only reminder row, separate from the
+//    vehicle/jump-bag picker. Shows the most recent count and how long it's
+//    been since the last one overall, so a supervisor sees at a glance that
+//    the every-few-months count is due. Deliberately NOT shown in week view
+//    (B-AF1) — at a weekly cadence it would never have anything new to say
+//    and would just take up space. ─────────────────────────────────────────
+
+function SupplyRoomReminder({ supplyRoomChecks, allTimeLastCheck, onViewCheck }) {
+  const sorted = [...supplyRoomChecks].sort((a, b) => (a.check_date < b.check_date ? 1 : -1))
+  const latest = sorted[0] ?? null
+  const status = latest ? (STATUS_GLYPH[latest.status] ?? STATUS_GLYPH.PASS) : null
+
+  let daysAgoLabel = 'No count on record'
+  if (allTimeLastCheck) {
+    const last = new Date(allTimeLastCheck.check_date + 'T00:00:00')
+    const days = Math.floor((Date.now() - last.getTime()) / 86400000)
+    daysAgoLabel = days === 0 ? 'Counted today'
+      : days === 1 ? 'Counted 1 day ago'
+      : `Counted ${days} days ago`
+  }
+
+  return (
+    <button
+      type="button"
+      className="cal__supply-reminder"
+      onClick={() => latest && onViewCheck(latest.check_id)}
+      disabled={!latest}
+    >
+      <span className="cal__supply-reminder__icon" aria-hidden="true">📦</span>
+      <span className="cal__supply-reminder__text">
+        <span className="cal__supply-reminder__title">Station Supplies Count</span>
+        <span className="cal__supply-reminder__meta">{daysAgoLabel} — every few months</span>
+      </span>
+      {status && (
+        <span aria-hidden="true" className="cal__supply-reminder__glyph">{status.glyph}</span>
+      )}
+    </button>
+  )
+}
+
 // ── ComplianceCalendar ────────────────────────────────────────────────────────
 
 export default function ComplianceCalendar({ station, vehicles, portables = [], onViewCheck }) {
@@ -192,15 +243,34 @@ export default function ComplianceCalendar({ station, vehicles, portables = [], 
   const today    = useMemo(() => new Date(), [])
   const todayIso = useMemo(() => localIso(today), [today])
 
-  const [mode, setMode]                           = useState('week')
-  const [selectedVehicleId, setSelectedVehicleId] = useState(null)
+  const [mode, setMode]               = useState('week')
+  const [selectedKey, setSelectedKey] = useState(null)
   const [viewedYear,  setViewedYear]  = useState(today.getFullYear())
   const [viewedMonth, setViewedMonth] = useState(today.getMonth()) // 0-indexed
 
-  const activeVehicles  = vehicles.filter(v => v.active)
-  // Portable locations are shown in the calendar regardless of retirement status
-  // (retired ones are already excluded upstream by the dashboard data fetch).
-  const activePortables = portables
+  // Vehicles arrive already filtered to exclude retired ones (supervisorApi
+  // filters at the source). Still check both fields defensively here — never
+  // rely on `active` alone (CODEBASE_INDEX.md "active vs retired_at", BUG-AD1).
+  const activeVehicles = vehicles.filter(v => v.active && !v.retired_at)
+
+  // Jump bags join the vehicle rows/picker — same daily cadence, designed to
+  // be grabbed alongside the truck. Equipment locations (if any) and the
+  // Station Supply Room do NOT join this list; the supply room gets its own
+  // month-only reminder below instead.
+  const jumpBags = portables.filter(loc => loc.location_type === 'JUMP_BAG')
+
+  const calendarEntities = useMemo(() => ([
+    ...activeVehicles.map(v => ({ kind: 'vehicle', ...v })),
+    ...jumpBags.map(loc => ({ kind: 'jump_bag', ...loc })),
+  ]), [activeVehicles, jumpBags])
+
+  // Station Supply Room — fetched separately; GET /stations/{id}/locations
+  // only returns JUMP_BAG/EQUIPMENT, never STATION_SUPPLY_ROOM. Returns null
+  // if the station hasn't set one up yet. Only used in month mode.
+  const { data: supplyRoom } = useApi(
+    () => supervisorApi.getSupplyRoomLocation(station.station_id, getToken),
+    [station.station_id]
+  )
 
   // ── Earliest check date — bounds backwards navigation ────────────────────
 
@@ -258,8 +328,31 @@ export default function ComplianceCalendar({ station, vehicles, portables = [], 
     [station.station_id, fromIso, toIso]
   )
 
+  // All-time most recent supply room check (separate from the visible date
+  // window) — drives the "Counted N days ago" reminder text so the prompt
+  // works even when the last count happened outside the viewed month. Only
+  // fetched/used in month mode.
+  const lookbackFrom = useMemo(() => {
+    const d = new Date(today)
+    d.setDate(d.getDate() - 365)
+    return localIso(d)
+  }, [today])
+
+  const { data: supplyRoomHistory } = useApi(
+    () => (mode === 'month' && supplyRoom)
+      ? supervisorApi.getComplianceRange(station.station_id, lookbackFrom, todayIso, getToken)
+          .then(all => all.filter(c => c.location_id === supplyRoom.location_id))
+      : Promise.resolve([]),
+    [station.station_id, mode, supplyRoom?.location_id, lookbackFrom, todayIso]
+  )
+
+  const allTimeLastSupplyCheck = useMemo(() => {
+    if (!supplyRoomHistory?.length) return null
+    return [...supplyRoomHistory].sort((a, b) => (a.check_date < b.check_date ? 1 : -1))[0]
+  }, [supplyRoomHistory])
+
   // Index: 'v:{vehicle_id}' → date → checks[]  for vehicles
-  //         'l:{location_id}' → date → checks[]  for portable locations
+  //         'l:{location_id}' → date → checks[]  for portable locations (jump bags + supply room)
   const index = useMemo(() => {
     if (!checks) return {}
     const map = {}
@@ -273,12 +366,18 @@ export default function ComplianceCalendar({ station, vehicles, portables = [], 
     return map
   }, [checks])
 
-  // Week mode: all active vehicles + all active portables as rows
-  const displayVehicles = useMemo(() => {
-    if (mode === 'week') return activeVehicles
-    if (selectedVehicleId === null) return activeVehicles
-    return activeVehicles.filter(v => v.vehicle_id === selectedVehicleId)
-  }, [mode, activeVehicles, selectedVehicleId])
+  const supplyRoomChecksInWindow = useMemo(() => {
+    if (!supplyRoom) return []
+    return index[`l:${supplyRoom.location_id}`]
+      ? Object.values(index[`l:${supplyRoom.location_id}`]).flat()
+      : []
+  }, [index, supplyRoom])
+
+  // Month mode: auto-select the first vehicle/jump bag if none chosen yet
+  const effectiveSelectedKey = useMemo(() => {
+    if (selectedKey && calendarEntities.some(e => entityKey(e) === selectedKey)) return selectedKey
+    return calendarEntities.length > 0 ? entityKey(calendarEntities[0]) : null
+  }, [selectedKey, calendarEntities])
 
   // ── Cell click (week view) ────────────────────────────────────────────────
 
@@ -300,7 +399,7 @@ export default function ComplianceCalendar({ station, vehicles, portables = [], 
     return `${MONTH_NAMES[from.getMonth()]} ${from.getDate()} – ${MONTH_NAMES[to.getMonth()]} ${to.getDate()}, ${to.getFullYear()}`
   }
 
-  if (!activeVehicles.length && !activePortables.length) {
+  if (!calendarEntities.length && !supplyRoom) {
     return <div className="cal-empty">No active vehicles or equipment to display.</div>
   }
 
@@ -344,12 +443,7 @@ export default function ComplianceCalendar({ station, vehicles, portables = [], 
           <button
             type="button"
             className={`cal__mode-btn ${mode === 'month' ? 'cal__mode-btn--active' : ''}`}
-            onClick={() => {
-              setMode('month')
-              if (selectedVehicleId === null && activeVehicles.length > 0) {
-                setSelectedVehicleId(activeVehicles[0].vehicle_id)
-              }
-            }}
+            onClick={() => setMode('month')}
             aria-pressed={mode === 'month'}
           >
             Month
@@ -357,12 +451,12 @@ export default function ComplianceCalendar({ station, vehicles, portables = [], 
         </div>
       </div>
 
-      {/* ── Vehicle picker (month mode only) ─────────────────────────────── */}
-      {mode === 'month' && activeVehicles.length > 1 && (
-        <VehiclePicker
-          vehicles={activeVehicles}
-          selectedId={selectedVehicleId}
-          onChange={id => setSelectedVehicleId(id)}
+      {/* ── Vehicle + jump bag picker (month mode only) ──────────────────── */}
+      {mode === 'month' && calendarEntities.length > 1 && (
+        <EntityPicker
+          entities={calendarEntities}
+          selectedKey={effectiveSelectedKey}
+          onChange={setSelectedKey}
         />
       )}
 
@@ -402,8 +496,8 @@ export default function ComplianceCalendar({ station, vehicles, portables = [], 
               })}
             </div>
 
-            {/* Vehicle rows */}
-            {displayVehicles.map(vehicle => {
+            {/* Vehicle rows — active (non-retired) only */}
+            {activeVehicles.map(vehicle => {
               const color = vehicleColor(vehicle, station)
               const vkey  = `v:${vehicle.vehicle_id}`
               return (
@@ -454,10 +548,9 @@ export default function ComplianceCalendar({ station, vehicles, portables = [], 
               )
             })}
 
-            {/* Portable location rows (jump bags, equipment) */}
-            {mode === 'week' && activePortables.map(loc => {
+            {/* Jump bag rows — same grid as vehicles, checked on the same cadence */}
+            {jumpBags.map(loc => {
               const lkey = `l:${loc.location_id}`
-              const icon = loc.location_type === 'JUMP_BAG' ? '🎒' : '🔧'
               return (
                 <div key={`loc-${loc.location_id}`} className="cal__row" role="row">
                   <div
@@ -465,7 +558,7 @@ export default function ComplianceCalendar({ station, vehicles, portables = [], 
                     role="rowheader"
                     title={loc.label}
                   >
-                    <span style={{ fontSize: '0.85rem', marginRight: '4px' }} aria-hidden="true">{icon}</span>
+                    <span style={{ fontSize: '0.85rem', marginRight: '4px' }} aria-hidden="true">🎒</span>
                     <span className="cal__vehicle-num" style={{ fontSize: '0.75rem' }}>{loc.label}</span>
                   </div>
                   {days.map(d => {
@@ -508,13 +601,23 @@ export default function ComplianceCalendar({ station, vehicles, portables = [], 
         </div>
       )}
 
-      {!isLoading && !error && mode === 'month' && (
+      {!isLoading && !error && mode === 'month' && effectiveSelectedKey && (
         <MonthCalendar
           todayIso={todayIso}
           days={days}
           index={index}
-          vehicles={activeVehicles}
-          selectedVehicleId={selectedVehicleId}
+          selectedKey={effectiveSelectedKey}
+          onViewCheck={onViewCheck}
+        />
+      )}
+
+      {/* ── Station Supply Room reminder — month view only (B-AF1). It's a
+            periodic count (every few months), so it doesn't belong in the
+            weekly grid; showing it there would just be wasted screen space. */}
+      {mode === 'month' && supplyRoom && (
+        <SupplyRoomReminder
+          supplyRoomChecks={supplyRoomChecksInWindow}
+          allTimeLastCheck={allTimeLastSupplyCheck}
           onViewCheck={onViewCheck}
         />
       )}

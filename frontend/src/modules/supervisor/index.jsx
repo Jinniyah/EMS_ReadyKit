@@ -21,8 +21,14 @@ import './supervisor.css'
 
 const SORT_WEIGHT = { FAIL: 0, UNCHECKED: 1, NEEDS_RESTOCK: 2, PASS: 3, INACTIVE: 4 }
 
+// `vehicle.active` and `vehicle.retired_at` are independent fields — never
+// rely on `active` alone to mean "not retired" (CODEBASE_INDEX.md "active
+// vs retired_at", BUG-AD1). supervisorApi.getTodayCompliance already filters
+// retired vehicles out of `data.vehicles` at the source, but this is checked
+// again here defensively, matching the pattern used everywhere else retired
+// vehicles are displayed or sorted.
 function vehicleWeight(vehicle, checks) {
-  if (!vehicle.active) return SORT_WEIGHT.INACTIVE
+  if (!vehicle.active || vehicle.retired_at) return SORT_WEIGHT.INACTIVE
   if (!checks?.length) return SORT_WEIGHT.UNCHECKED
   return SORT_WEIGHT[checks[0].status] ?? SORT_WEIGHT.PASS
 }
@@ -68,7 +74,9 @@ export default function SupervisorDashboard({ station, onBack, onNavigateToVehic
     )
   }
 
-  const vehicles        = data?.vehicles          ?? []
+  // data.vehicles is already filtered to exclude retired vehicles (see
+  // supervisorApi.getTodayCompliance). Filtered again here defensively.
+  const vehicles        = (data?.vehicles ?? []).filter(v => !v.retired_at)
   const byVehicle       = data?.checksByVehicle   ?? {}
   const portables       = data?.portables         ?? []
   const byLocation      = data?.checksByLocation  ?? {}

@@ -18,11 +18,21 @@ export const supervisorApi = {
   getTodayCompliance: async (stationId, getToken) => {
     const today = todayStr()
 
-    // Fetch vehicles + portable locations in parallel
-    const [vehicles, portables] = await Promise.all([
+    // Fetch vehicles + portable locations in parallel.
+    // GET /stations/{id}/vehicles returns ALL vehicles (active and retired)
+    // when no `active` query param is passed -- retired vehicles must be
+    // excluded here explicitly via `!v.retired_at`, never inferred from
+    // `active` alone (see CODEBASE_INDEX.md "active vs retired_at", BUG-AD1).
+    // This is the single source feeding the dashboard list, the summary
+    // tiles, and the calendar, so filtering once here keeps all three in sync.
+    // GET /stations/{id}/locations (jump bags/equipment) already excludes
+    // retired_at server-side (see stations.py list_station_locations), so no
+    // frontend filter is needed for `portables`.
+    const [vehiclesRaw, portables] = await Promise.all([
       apiGet(`${BASE}/stations/${stationId}/vehicles`, getToken),
       apiGet(`${BASE}/stations/${stationId}/locations`, getToken).catch(() => []),
     ])
+    const vehicles = vehiclesRaw.filter(v => !v.retired_at)
 
     // Fetch today's checks + open repair requests in parallel
     const [vehicleCheckResults, portableCheckResults, repairResults] = await Promise.all([
@@ -156,6 +166,21 @@ export const supervisorApi = {
 
   getDamagedItems: (stationId, getToken) =>
     apiGet(`${BASE}/stations/${stationId}/damaged-items`, getToken).catch(() => []),
+
+  /**
+   * F-5F2 (calendar) + Compliance Dashboard reminder row.
+   * The station's Station Supply Room is not returned by GET /locations
+   * (that endpoint is scoped to JUMP_BAG/EQUIPMENT only) and is not a
+   * vehicle, so it has its own fetch. Returns null if no supply room has
+   * been set up yet, or if it has been retired (GET /supply-room does not
+   * filter retired_at server-side, since RET-B2 allows retiring any
+   * InventoryLocation including STATION_SUPPLY_ROOM) -- callers should
+   * treat null as "nothing to show", not an error.
+   */
+  getSupplyRoomLocation: (stationId, getToken) =>
+    apiGet(`${BASE}/stations/${stationId}/supply-room`, getToken)
+      .then(loc => (loc && !loc.retired_at) ? loc : null)
+      .catch(() => null),
 
   getCheckDetail: (checkId, getToken) =>
     checkHistoryApi.getCheckDetail(checkId, getToken),

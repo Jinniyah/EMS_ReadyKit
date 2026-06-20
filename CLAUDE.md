@@ -1,6 +1,6 @@
 # CLAUDE.md — AI Development Rules for EMS ReadyKit
 # Last updated: 2026-06-19
-# Updated: Session AE — MERGE-1, member management consolidated into Station Administration -> Members; Session V — SR-B5 supply room reconcile documented; Session U — filesystem:edit_file permanently banned
+# Updated: Session AE — MERGE-1, member management consolidated into Station Administration -> Members; verified (pytest + npm test green) and deployed to Azure; Session V — SR-B5 supply room reconcile documented; Session U — filesystem:edit_file permanently banned
 # Load this file at the start of every session alongside CODEBASE_INDEX.md.
 
 ---
@@ -62,6 +62,16 @@ the tool returns no error, the diff looks correct, and the bug ships anyway.
 
 This applies to every file in the repo — .py, .jsx, .js, .css, .md, everything.
 Never use `filesystem:edit_file` regardless of how small the change is.
+
+**`write_file` overwrites the ENTIRE file — always pass the full content back,
+never just the section being changed.** When making a targeted edit to a large
+file, read the FULL file first (not just a `head`/`tail` excerpt), then write the
+FULL file back with the edit applied. Writing back only the section you were
+looking at silently truncates everything else — this happened to this exact file
+once already (the Flagged Technical Debt table got written back as the entire
+document, Session AE close-out). If a file is too large to comfortably hold in
+full, edit it in clearly-bounded chunks via multiple targeted re-reads and
+re-writes of the full file, never a partial write.
 
 ### Deleting files
 **The filesystem MCP has no delete operation — only `move_file`.** When a file
@@ -308,7 +318,7 @@ No handoff files. At the end of every session:
 | Auto-decrement supply room | `_auto_decrement_supply_room` (SR-B4) fires in `create_daily_check` only when `payload.vehicle_id` is set -- vehicle checks only. Best-effort: depletes to zero, never blocks submission. |
 | Supply room check reconcile | `_reconcile_supply_room_check` (SR-B5) fires in `create_daily_check` when `payload.location_id` is set AND location type is `STATION_SUPPLY_ROOM`. Treats `quantity_found` as new absolute on-hand truth; adjusts StockLot quantities FIFO (deduct for decrease, new adjustment lot for increase). This keeps View Supplies in sync after a supply room check is submitted. Best-effort: never raises. |
 | Supply room creation | `POST /stations/{id}/supply-room` is get-or-create (Supervisor+). Frontend detects 404 from `getSupplyRoom` via `e.status === 404`, shows setup state. `TimestampMixin` uses Python-side `default=` only -- raw SQL INSERTs must include `CURRENT_TIMESTAMP` for `created_at`/`updated_at`. |
-| File editing | ALWAYS use `filesystem:write_file` -- NEVER `filesystem:edit_file`. The edit tool silently fails on Windows CRLF files, reports success, shows a valid diff, but leaves the file unchanged on disk. |
+| File editing | ALWAYS use `filesystem:write_file` -- NEVER `filesystem:edit_file`. The edit tool silently fails on Windows CRLF files, reports success, shows a valid diff, but leaves the file unchanged on disk. ALSO: write_file overwrites the WHOLE file -- always write back full content, never just the changed section (see Filesystem Rules > Editing). |
 | File deletion | The filesystem MCP has no delete operation -- only `move_file`. Stage removed files in a `_session_XX_removed/` folder at repo root and tell the user to `git rm` them at session close. |
 | Vehicle API shape | No `status` field exists. Filter active vehicles with `v.active === true && !v.retired_at`. Never `v.status === 'ACTIVE'`. |
 
@@ -327,5 +337,4 @@ Address these when touching the relevant area:
 | CSS patch files | `frontend/src/` | `module-card-fix.css`, `submitted-screen-patch.css`, `wizard-station.css`, `wizard.css` in src root -- consolidate into module CSS files |
 | `wizard.css` location | `frontend/src/styles/` | Should be in `modules/check-wizard/` -- move when next modified |
 | `_damagedOverrides` comment | `modules/check-wizard/components/Step3Items.jsx` | Abandoned approach left as comment artifact -- remove on next touch |
-| `_session_AE_removed/` (repo root) | repo root | Session AE (MERGE-1) staging folder for files removed during the member-management merge. Run `git rm -r _session_AE_removed` (or delete + `git add -A`) and remove the folder. |
-| No test coverage for MembersScreen/MemberManagementSection | `frontend/src/modules/admin/__tests__/` | Neither the old admin nor old settings version of these had tests. Worth adding -- multi-role grouping, CSV import, name edit, and the member_id-based remove are all good candidates. |
+| No test coverage for MembersScreen/MemberManagementSection | `frontend/src/modules/admin/__tests__/` | Neither the old admin nor old settings version of these had tests. Worth adding -- multi-role grouping, CSV import, name edit, and the member_id-based remove are all good candidates. (TEST-AE1 in backlog.md) |

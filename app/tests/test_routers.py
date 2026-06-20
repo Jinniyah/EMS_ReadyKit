@@ -25,6 +25,20 @@ CQ-B6 note: check_date format validator still enforces YYYY-MM-DD for string
   inputs (test_create_daily_check_invalid_date_format_returns_422 unchanged).
 CQ-B7 note: create_par_level 409 message no longer contains par_id -- just
   asserts 409 status code now.
+
+Session AF note: test_audit_from_date_tomorrow_returns_empty and
+  test_audit_to_date_yesterday_returns_empty were asserting on the entire,
+  unfiltered audit table ([] expected). Every route handler in this app calls
+  db.commit() (see CLAUDE.md / conftest.py's isolation notes -- db.commit()
+  releases the active SAVEPOINT, so committed rows are never rolled back
+  between tests within a pytest session, by design). With 480+ tests in the
+  suite, many of which write audit events, the global GET /audit endpoint
+  legitimately has hundreds of rows in it by the time these two tests run --
+  that's not a bug in the date filter, it's these two tests not scoping to
+  their own data. Fixed the same way their siblings two tests above already
+  do it (test_list_audit_events_filter_by_severity/_by_action): create a
+  station in the test and filter by station_id so the date-range assertions
+  only see this test's own events.
 """
 
 from __future__ import annotations
@@ -1827,17 +1841,111 @@ class TestAuditEndpoints:
         resp = client.get(f"/api/v1/audit?to_date={today}", headers=auth_supervisor)
         assert resp.status_code == 200
 
-    def test_audit_from_date_tomorrow_returns_empty(self, client, auth_supervisor):
-        tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    def test_audit_from_date_tomorrow_returns_empty(self, client, db, auth_admin):
+        """
+        Session AF fix: scoped to a station this test creates. The global
+        audit table accumulates real, committed rows from hundreds of other
+        tests in the suite (db.commit() inside route handlers is never rolled
+        back between tests -- see CLAUDE.md), so asserting [] against the
+        unfiltered endpoint was never reliable. Filtering by station_id
+        isolates this test to only the event it itself writes, matching the
+        pattern test_list_audit_events_filter_by_severity/_by_action already
+        use above. auth_admin is used (not auth_supervisor) so the station
+        and vehicle this test creates are actually visible to the same
+        identity making the audit query.
+
+        Session AF follow-up fix: the from_date boundary must be computed
+        from UTC "today", not local wall-clock date.today(). The audit
+        event's timestamp is always written as datetime.now(timezone.utc)
+        (core/audit.py), while date.today() uses the system's local
+        timezone. Whenever local time has already rolled past midnight UTC
+        (e.g. any evening hour in US timezones), date.today() + 1 day is
+        still "tomorrow" locally but is actually the *same* UTC calendar day
+        the event was just written on -- so the from_date>=tomorrow filter
+        no longer excludes it. This is a test-data bug, not a defect in the
+        from_date/to_date comparison logic in routers/audit.py (that logic
+        was already verified correct via isolated repro earlier this
+        session -- do not revisit it without new evidence). Confirmed via
+        the captured log timestamp on the failing run, which was already
+        past the UTC day boundary while local date.today() had not rolled
+        over yet.
+        """
+        sr = client.post(
+            "/api/v1/stations",
+            json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"},
+            headers=auth_admin,
+        )
+        sid = sr.json()["station_id"]
+        vr = client.post(
+            "/api/v1/vehicles",
+            json={
+                "station_id": sid,
+                "vehicle_number": f"AMB-{_uid()}",
+                "vehicle_type": "ALS",
+            },
+            headers=auth_admin,
+        )
+        vid = vr.json()["vehicle_id"]
+        client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vid,
+                "station_id": sid,
+                "check_date": datetime.now(timezone.utc).date().isoformat(),
+                "timestamp": _utcnow(),
+            },
+            headers=auth_admin,
+        )
+
+        utc_today = datetime.now(timezone.utc).date()
+        tomorrow = (utc_today + timedelta(days=1)).isoformat()
         resp = client.get(
-            f"/api/v1/audit?from_date={tomorrow}", headers=auth_supervisor
+            f"/api/v1/audit?station_id={sid}&from_date={tomorrow}", headers=auth_admin
         )
         assert resp.status_code == 200
         assert resp.json() == []
 
-    def test_audit_to_date_yesterday_returns_empty(self, client, auth_supervisor):
-        yesterday = (date.today() - timedelta(days=1)).isoformat()
-        resp = client.get(f"/api/v1/audit?to_date={yesterday}", headers=auth_supervisor)
+    def test_audit_to_date_yesterday_returns_empty(self, client, db, auth_admin):
+        """Session AF fix: same station-scoping reasoning as
+        test_audit_from_date_tomorrow_returns_empty above.
+
+        Session AF follow-up fix: yesterday is now computed from UTC
+        "today" rather than local date.today(), for the same reason
+        documented in test_audit_from_date_tomorrow_returns_empty above --
+        the audit event's timestamp is UTC, so the boundary must be too.
+        """
+        sr = client.post(
+            "/api/v1/stations",
+            json={"name": f"S-{_uid()}", "address": "1 St", "region": "R"},
+            headers=auth_admin,
+        )
+        sid = sr.json()["station_id"]
+        vr = client.post(
+            "/api/v1/vehicles",
+            json={
+                "station_id": sid,
+                "vehicle_number": f"AMB-{_uid()}",
+                "vehicle_type": "ALS",
+            },
+            headers=auth_admin,
+        )
+        vid = vr.json()["vehicle_id"]
+        client.post(
+            "/api/v1/checks/daily",
+            json={
+                "vehicle_id": vid,
+                "station_id": sid,
+                "check_date": datetime.now(timezone.utc).date().isoformat(),
+                "timestamp": _utcnow(),
+            },
+            headers=auth_admin,
+        )
+
+        utc_today = datetime.now(timezone.utc).date()
+        yesterday = (utc_today - timedelta(days=1)).isoformat()
+        resp = client.get(
+            f"/api/v1/audit?station_id={sid}&to_date={yesterday}", headers=auth_admin
+        )
         assert resp.status_code == 200
         assert resp.json() == []
 

@@ -621,6 +621,63 @@
   font-size: 16px;
 }
 
+/* ── Station Supply Room reminder strip ─────────────────────────────────── */
+/* Deliberately separate from the vehicle/jump-bag grid — the supply room is
+   counted every few months, not daily, so it doesn't belong in a "missed
+   today" grid. This is a standing visual reminder instead. */
+
+.cal__supply-reminder {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  background: var(--color-surface-raised);
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  margin-top: var(--space-xs);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.cal__supply-reminder:disabled {
+  cursor: default;
+}
+
+.cal__supply-reminder:not(:disabled):hover {
+  background: var(--color-surface);
+  border-color: var(--color-brand);
+}
+
+.cal__supply-reminder__icon {
+  font-size: var(--font-size-lg);
+  flex-shrink: 0;
+}
+
+.cal__supply-reminder__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+}
+
+.cal__supply-reminder__title {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.cal__supply-reminder__meta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.cal__supply-reminder__glyph {
+  font-size: var(--font-size-md);
+  flex-shrink: 0;
+}
+
 /* ── Expiring items panel (SUP-F3) ───────────────────────────────────────── */
 
 .sup-expiry-panel { display: flex; flex-direction: column; }

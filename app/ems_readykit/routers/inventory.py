@@ -25,6 +25,14 @@ CQ-B7: create_par_level pre-check refined.
   required because most SQL databases do not consider NULL==NULL in unique
   constraints, so two location-level pars for the same item would both succeed
   without a pre-check.
+
+PAR-B1 (Session AF): create_par_level reactivates a matching soft-deactivated
+row instead of inserting a duplicate, for the same reason as
+assign_item_to_compartment in admin_items.py -- the uq_par_item_compartment
+unique constraint has no concept of `active`, so re-creating a par level for
+an (item_id, compartment_id) pair that was previously removed always hit the
+IntegrityError fallback and reported "already assigned" even with no active
+duplicate present. See admin_items.py for the parallel fix and full rationale.
 """
 
 from __future__ import annotations
@@ -702,6 +710,12 @@ def create_par_level(
       SQL NULL != NULL in unique constraints, so two rows with the same item_id
       and compartment_id=NULL are not considered duplicates by the DB. A pre-check
       query is required here to detect the duplicate before attempting the INSERT.
+
+    PAR-B1: Before inserting a compartment-scoped par, check for a matching
+    soft-deactivated row and reactivate it instead. Without this, re-adding an
+    item that was previously removed from this exact compartment always fails
+    with the IntegrityError "already exists" fallback below, even though no
+    active duplicate exists -- the unique constraint doesn't know about `active`.
     """
     location = _get_location_or_404(payload.location_id, db)
     require_station_membership(location.station_id, current_user, db)
@@ -726,6 +740,56 @@ def create_par_level(
                     f"at location {payload.location_id} (par_id={existing.par_id})."
                 ),
             )
+    else:
+        # PAR-B1: reactivate a previously-removed compartment-scoped par
+        # rather than inserting a duplicate the unique constraint would reject.
+        inactive_match = (
+            db.query(ParLevel)
+            .filter(
+                ParLevel.item_id == payload.item_id,
+                ParLevel.compartment_id == payload.compartment_id,
+                ParLevel.active.is_(False),
+            )
+            .first()
+        )
+        if inactive_match:
+            inactive_match.location_id = payload.location_id
+            inactive_match.min_quantity = payload.min_quantity
+            inactive_match.max_quantity = payload.max_quantity
+            inactive_match.active = True
+            inactive_match.deactivated_at = None
+            inactive_match.deactivation_reason = None
+            inactive_match.priority_check = payload.priority_check
+            inactive_match.priority_question = payload.priority_question
+            inactive_match.is_damaged = False
+            db.commit()
+            db.refresh(inactive_match)
+            write_audit_event(
+                db,
+                actor=current_user.email or current_user.user_id,
+                action="PAR_REACTIVATED",
+                entity_type="par_level",
+                entity_id=str(inactive_match.par_id),
+                metadata={
+                    "item_id": payload.item_id,
+                    "compartment_id": payload.compartment_id,
+                    "min_quantity": payload.min_quantity,
+                    "max_quantity": payload.max_quantity,
+                },
+            )
+            logger.info(
+                "Par level reactivated: par_id=%s item_id=%s location_id=%s compartment_id=%s",
+                inactive_match.par_id,
+                inactive_match.item_id,
+                inactive_match.location_id,
+                inactive_match.compartment_id,
+                extra={
+                    "action": "PAR_REACTIVATED",
+                    "entity_type": "par_level",
+                    "entity_id": str(inactive_match.par_id),
+                },
+            )
+            return inactive_match
 
     par = ParLevel(
         item_id=payload.item_id,
@@ -733,6 +797,8 @@ def create_par_level(
         compartment_id=payload.compartment_id,
         min_quantity=payload.min_quantity,
         max_quantity=payload.max_quantity,
+        priority_check=payload.priority_check,
+        priority_question=payload.priority_question,
     )
     db.add(par)
     try:

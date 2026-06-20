@@ -23,6 +23,21 @@ Routes (all prefixed /admin via router):
   DELETE /admin/par-levels/{id}               Alias for deactivate
   GET    /admin/vehicles/{id}/compartments     List compartments for a vehicle
   GET    /admin/compartments/{id}/assignments  List par levels for a compartment
+
+BUG FIX (Session AF, PAR-B1): assign_item_to_compartment previously inserted a
+new ParLevel row unconditionally once the active-duplicate pre-check passed,
+relying on the DB unique constraint uq_par_item_compartment (item_id,
+compartment_id) to catch races via IntegrityError -> 409 "already assigned".
+That constraint has no awareness of `active` -- a soft-deactivated row (from
+removing an item via Station Administration or the check-wizard admin screens)
+still occupies the (item_id, compartment_id) slot, so re-adding the same item
+to the same compartment always hit the IntegrityError path and reported
+"already assigned" even though the item was correctly shown as removed
+everywhere active-only rows are displayed (Station Supplies, the check
+wizard's Step 3 Items list, etc). assign_item_to_compartment now reactivates
+the existing inactive row (clearing deactivated_at/deactivation_reason and
+applying the new min/max) instead of inserting a duplicate. create_par_level
+in inventory.py has the same fix for the same reason.
 """
 
 from __future__ import annotations
@@ -762,6 +777,17 @@ def assign_item_to_compartment(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> ParLevelAssignment:
+    """
+    PAR-B1: If an inactive par level already exists for this exact
+    (item_id, compartment_id) pair -- i.e. the item was previously removed
+    from this compartment -- reactivate that row instead of inserting a new
+    one. The DB unique constraint uq_par_item_compartment has no concept of
+    `active`, so a fresh INSERT would always collide with the deactivated
+    row and incorrectly report "already assigned" even though the item is
+    not currently assigned anywhere active. Reactivating also preserves the
+    original par_id (and therefore its history) rather than creating an
+    orphaned duplicate.
+    """
     item = _get_item_or_404(item_id, db)
     if payload.vehicle_id is not None:
         location = (
@@ -818,6 +844,53 @@ def assign_item_to_compartment(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"'{item.name}' is already assigned to this compartment (par_id={existing.par_id}).",
         )
+
+    # PAR-B1: reactivate a previously-removed row for this exact pair, if one
+    # exists, rather than inserting a duplicate that the DB constraint would reject.
+    inactive_match = (
+        db.query(ParLevel)
+        .filter(
+            ParLevel.item_id == item_id,
+            ParLevel.compartment_id == payload.compartment_id,
+            ParLevel.active.is_(False),
+        )
+        .first()
+    )
+    if inactive_match:
+        inactive_match.location_id = location.location_id
+        inactive_match.min_quantity = payload.min_quantity
+        inactive_match.max_quantity = payload.max_quantity
+        inactive_match.active = True
+        inactive_match.deactivated_at = None
+        inactive_match.deactivation_reason = None
+        inactive_match.is_damaged = False
+        db.commit()
+        db.refresh(inactive_match)
+        write_audit_event(
+            db,
+            actor=current_user.email or current_user.user_id,
+            action="PAR_REACTIVATED",
+            entity_type="par_level",
+            entity_id=str(inactive_match.par_id),
+            metadata={
+                "item_id": item_id,
+                "compartment_id": payload.compartment_id,
+                "min_quantity": payload.min_quantity,
+                "max_quantity": payload.max_quantity,
+            },
+        )
+        logger.info(
+            "Par level reactivated: par_id=%s item_id=%s",
+            inactive_match.par_id,
+            item_id,
+            extra={
+                "action": "PAR_REACTIVATED",
+                "entity_type": "par_level",
+                "entity_id": str(inactive_match.par_id),
+            },
+        )
+        return _enrich_par(inactive_match, db, item=item)
+
     par = ParLevel(
         item_id=item_id,
         location_id=location.location_id,
@@ -846,7 +919,7 @@ def assign_item_to_compartment(
             "entity_id": str(par.par_id),
         },
     )
-    return _enrich_par(par, db)
+    return _enrich_par(par, db, item=item)
 
 
 @router.patch(

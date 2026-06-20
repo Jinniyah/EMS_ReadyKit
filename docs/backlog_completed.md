@@ -1,7 +1,70 @@
 # EMS ReadyKit — Completed Items
-# Last updated: 2026-06-19 (Session AD closed; BUG-AD1 retired vehicle leak fixed)
-# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, AB, AC, AD
+# Last updated: 2026-06-19 (Session AE closed; MERGE-1 member management consolidation; verified + deployed to Azure)
+# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, AB, AC, AD, AE
 # Active backlog -> docs/backlog.md
+
+---
+
+## Session AE — Member Management Consolidation (MERGE-1) (2026-06-19)
+
+Jennifer reported that Station Administration → Members and Settings → Team Members
+were two overlapping, confusing screens, and that removing a member in Station
+Administration threw `"Input should be a valid integer, unable to parse string as
+an integer"`.
+
+**Root cause:** the frontend had two independent member-CRUD implementations hitting
+the same backend routes:
+- `modules/admin/api/adminApi.js` — old, broken. Called
+  `DELETE /stations/{id}/members/{userId}` and the equivalent PATCH using a
+  `user_id` (email string). This was correct before ACC-B7 (Session Z), but ACC-B7
+  changed `station_members.py`'s PATCH/DELETE routes to take `member_id` (an integer
+  primary key) so a person could hold multiple roles as separate rows. `adminApi.js`
+  was never updated to match, so every removal sent a string where Pydantic expected
+  an int.
+- `modules/settings/api/membersApi.js` — correct, already `member_id`-based, with
+  fuller functionality (multi-role grouping by person, edit name, CSV import) than
+  the admin module's flat-list version.
+
+No backend changes were needed — `station_members.py` was already correct.
+
+**Fix:** consolidated to one screen and one API module:
+- `MemberManagementSection.jsx`, `EmailAlignmentSection.jsx`, and `membersApi.js`
+  moved from `modules/settings/` to `modules/admin/`.
+- `modules/admin/components/MembersScreen.jsx` rewritten to wrap them (replacing the
+  old `MemberList.jsx` + `AddMemberForm.jsx` pair, retired).
+- The broken `getStationMembers`/`addMember`/`updateMember`/`removeMember` functions
+  removed from `adminApi.js`.
+- `modules/settings/index.jsx` no longer renders any member UI — Settings is now
+  exclusively admin-only station/vehicle configuration (check workflow toggle,
+  station/vehicle/location retirement).
+- CSS: `.settings-section`, `.settings-row`, `.badge`, `.member-*`, and
+  `.email-alignment__*` classes moved from `settings.css` to `index.css` since they
+  became genuinely cross-module (same pattern already used for `.item-combobox`
+  and `.csv-import`).
+- Supervisors can now manage their own station's members (add, edit name, add
+  additional roles, CSV import) without Administrator access — this was already
+  true of the underlying SUPERVISOR_PLUS-gated endpoints; only the split UI was
+  obscuring it. The Email Alignment Check stays Admin-only within the same screen.
+
+Answering Jennifer's question about what removal actually does: removing a member
+in the (working) Settings screen only deactivated that one role row
+(`member.active = False` on that `member_id`) — it never deleted the person. If
+they held other roles, those were untouched; if it was their only role, they lost
+station access but the row persisted, soft-deleted, for audit history.
+
+Six superseded files (old `MemberList.jsx`, `AddMemberForm.jsx`, and the pre-move
+copies of `MemberManagementSection.jsx`, `EmailAlignmentSection.jsx`, `membersApi.js`,
+`EmailAlignmentSection.test.jsx` from `settings/`) were staged in a
+`_session_AE_removed/` folder since the filesystem tooling available had no delete
+operation — confirmed deleted by Jennifer after review.
+
+**Verified:** `cd app; pytest` passing (468+ baseline unchanged — no backend changes),
+`cd frontend; npm test` passing (`EmailAlignmentSection.test.jsx` moved cleanly
+alongside its component), deployed to Azure and confirmed live.
+
+| # | Item | Completed |
+|---|------|-----------|
+| MERGE-1 | Member management consolidated from two screens into Station Administration -> Members; fixed broken member_id/user_id mismatch in adminApi.js; Settings narrowed to admin-only config; pytest + npm test green; deployed to Azure | 2026-06-19 |
 
 ---
 
@@ -77,6 +140,10 @@ account is connected in this environment, so the draft opens via a `mailto:` lin
 in the Admin's own mail app rather than sending automatically. New CSS block added
 to `settings.css` (`.email-alignment__*`), reusing existing color tokens. 17 new
 frontend tests in `EmailAlignmentSection.test.jsx`.
+
+(Session AE later moved `EmailAlignmentSection.jsx` and its test file from
+`settings/` to `admin/` as part of the member-management consolidation — same
+behavior, new home.)
 
 | # | Item | Completed |
 |---|------|-----------|
