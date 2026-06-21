@@ -115,7 +115,7 @@ def vehicle_location(db, station):
 
 
 @pytest.fixture
-def test_item(db):
+def test_item(db, station):
     """
     Get-or-create semantics: after any test that calls db.commit() inside
     a route handler, SQLite's StaticPool may not fully undo the insert on
@@ -123,10 +123,15 @@ def test_item(db):
     items.name without affecting test correctness — each test gets fresh
     StockLots and Stations via auto-increment PKs regardless.
     """
-    item = db.query(Item).filter(Item.name == "Test Gauze Pad").first()
+    item = (
+        db.query(Item)
+        .filter(Item.name == "Test Gauze Pad", Item.station_id == station.station_id)
+        .first()
+    )
     if item is None:
         item = Item(
             name="Test Gauze Pad",
+            station_id=station.station_id,
             category=ItemCategory.CONSUMABLE,
             check_type=ItemCheckType.SUPPLY,
             unit_of_measure="each",
@@ -674,9 +679,8 @@ def test_supply_catalog_excludes_functional_items(
 ):
     from ems_readykit.models.item import ItemCheckType
 
-    func_item = db.query(test_item.__class__).filter_by(name="Test Gauze Pad").first()
     # Temporarily set to FUNCTIONAL — should be excluded from catalog
-    func_item.check_type = ItemCheckType.FUNCTIONAL
+    test_item.check_type = ItemCheckType.FUNCTIONAL
     db.flush()
     r = client.get(
         f"/api/v1/inventory/supply-catalog?station_id={station.station_id}",

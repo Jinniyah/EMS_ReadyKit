@@ -95,8 +95,10 @@ def _get_item_or_404(item_id: int, db: Session) -> Item:
     return item
 
 
-def _conflict_on_name(name: str, db: Session, exclude_id: Optional[int] = None) -> None:
-    q = db.query(Item).filter(Item.name == name)
+def _conflict_on_name(
+    name: str, db: Session, station_id: int, exclude_id: Optional[int] = None
+) -> None:
+    q = db.query(Item).filter(Item.name == name, Item.station_id == station_id)
     if exclude_id is not None:
         q = q.filter(Item.item_id != exclude_id)
     if q.first():
@@ -552,10 +554,11 @@ def create_item(
     db: Session = Depends(get_db),
     _: None = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> Item:
-    _conflict_on_name(payload.name, db)
+    _conflict_on_name(payload.name, db, station_id=payload.station_id)
     _conflict_on_barcode(payload.barcode, db)
     item = Item(
         name=payload.name,
+        station_id=payload.station_id,
         category=payload.category,
         check_type=payload.check_type,
         controlled_substance=payload.controlled_substance,
@@ -608,7 +611,9 @@ def update_item(
 ) -> Item:
     item = _get_item_or_404(item_id, db)
     if payload.name != item.name:
-        _conflict_on_name(payload.name, db, exclude_id=item_id)
+        _conflict_on_name(
+            payload.name, db, station_id=item.station_id, exclude_id=item_id
+        )
     if payload.barcode and payload.barcode != item.barcode:
         _conflict_on_barcode(payload.barcode, db, exclude_id=item_id)
     item.name = payload.name

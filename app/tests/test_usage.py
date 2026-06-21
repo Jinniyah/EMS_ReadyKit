@@ -117,11 +117,16 @@ def supply_room(db, station):
 
 
 @pytest.fixture
-def supply_item(db):
-    item = db.query(Item).filter(Item.name == "Usage Test Gauze").first()
+def supply_item(db, station):
+    item = (
+        db.query(Item)
+        .filter(Item.name == "Usage Test Gauze", Item.station_id == station.station_id)
+        .first()
+    )
     if item is None:
         item = Item(
             name="Usage Test Gauze",
+            station_id=station.station_id,
             category=ItemCategory.CONSUMABLE,
             check_type=ItemCheckType.SUPPLY,
             unit_of_measure="each",
@@ -133,11 +138,18 @@ def supply_item(db):
 
 
 @pytest.fixture
-def functional_item(db):
-    item = db.query(Item).filter(Item.name == "Usage Test Functional").first()
+def functional_item(db, station):
+    item = (
+        db.query(Item)
+        .filter(
+            Item.name == "Usage Test Functional", Item.station_id == station.station_id
+        )
+        .first()
+    )
     if item is None:
         item = Item(
             name="Usage Test Functional",
+            station_id=station.station_id,
             category=ItemCategory.EQUIPMENT,
             check_type=ItemCheckType.FUNCTIONAL,
             unit_of_measure="N/A",
@@ -475,6 +487,7 @@ class TestFrequentItems:
     ):
         item_a = Item(
             name="Freq Test Item A",
+            station_id=station.station_id,
             category=ItemCategory.CONSUMABLE,
             check_type=ItemCheckType.SUPPLY,
             unit_of_measure="each",
@@ -482,6 +495,7 @@ class TestFrequentItems:
         )
         item_b = Item(
             name="Freq Test Item B",
+            station_id=station.station_id,
             category=ItemCategory.CONSUMABLE,
             check_type=ItemCheckType.SUPPLY,
             unit_of_measure="each",
@@ -578,6 +592,7 @@ class TestLastReadingsUsageSubtraction:
 
         item = Item(
             name=f"LR-Supply-Item-{uuid4().hex[:12]}",
+            station_id=station.station_id,
             category=ItemCategory.CONSUMABLE,
             check_type=ItemCheckType.SUPPLY,
             unit_of_measure="each",
@@ -723,6 +738,7 @@ class TestLastReadingsUsageSubtraction:
 
         func_item = Item(
             name=f"LR-Func-Item-{uuid4().hex[:12]}",
+            station_id=station.station_id,
             category=ItemCategory.EQUIPMENT,
             check_type=ItemCheckType.FUNCTIONAL,
             unit_of_measure="N/A",

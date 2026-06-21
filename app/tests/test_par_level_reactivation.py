@@ -145,11 +145,16 @@ def compartment(db, vehicle_location, request):
 
 
 @pytest.fixture
-def test_item(db):
-    item = db.query(Item).filter(Item.name == "PAR-B1 Test Item").first()
+def test_item(db, station):
+    item = (
+        db.query(Item)
+        .filter(Item.name == "PAR-B1 Test Item", Item.station_id == station.station_id)
+        .first()
+    )
     if item is None:
         item = Item(
             name="PAR-B1 Test Item",
+            station_id=station.station_id,
             category=ItemCategory.CONSUMABLE,
             check_type=ItemCheckType.SUPPLY,
             unit_of_measure="each",

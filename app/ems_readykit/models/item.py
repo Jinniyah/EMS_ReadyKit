@@ -71,7 +71,7 @@ from __future__ import annotations
 import enum
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Boolean, String
+from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -102,11 +102,17 @@ class ItemCheckType(str, enum.Enum):
 
 class Item(TimestampMixin, Base):
     __tablename__ = "items"
+    __table_args__ = (
+        UniqueConstraint("station_id", "name", name="uq_items_station_name"),
+    )
 
     item_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    station_id: Mapped[int] = mapped_column(
+        ForeignKey("stations.station_id"), nullable=False
+    )
 
     # Human-readable name matching the paper inventory form label
-    name: Mapped[str] = mapped_column(String(150), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(150), nullable=False)
 
     category: Mapped[ItemCategory] = mapped_column(
         SAEnum(ItemCategory, native_enum=False), nullable=False
@@ -124,6 +130,13 @@ class Item(TimestampMixin, Base):
     controlled_substance: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )
+
+    # Cabinet grouping for the Item Catalog UI (ITM-3).
+    # One of seven values: "Airway & Respiratory", "Wound Care & Trauma Supplies",
+    # "PPE & Cleaning", "Diagnostic & Monitoring Equipment",
+    # "Medications & Controlled Substances", "Documents, Linens & Patient Comfort",
+    # "Vehicle Operations". Nullable — populated by seed.py (ITM-4).
+    category_group: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     # Unit of measure for SUPPLY items (each, box, roll, mg, mL...)
     # For MEASUREMENT items this is the reading unit (PSI, °F, mg/dL...)

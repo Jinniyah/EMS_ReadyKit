@@ -133,6 +133,7 @@ def test_item_and_stock_lot(db):
 
     item = Item(
         name="Epinephrine 1mg/mL",
+        station_id=station.station_id,
         category=ItemCategory.MEDICATION,
         controlled_substance=False,
         unit_of_measure="mg",
@@ -179,7 +180,10 @@ def test_par_level_unique_constraint(db):
     db.flush()
 
     item = Item(
-        name="Gauze 4x4", category=ItemCategory.CONSUMABLE, unit_of_measure="each"
+        name="Gauze 4x4",
+        station_id=station.station_id,
+        category=ItemCategory.CONSUMABLE,
+        unit_of_measure="each",
     )
     db.add(item)
     db.flush()

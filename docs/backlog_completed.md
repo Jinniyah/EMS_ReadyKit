@@ -1,7 +1,152 @@
 # EMS ReadyKit — Completed Items
-# Last updated: 2026-06-19 (Session AF closed; PAR-B1 par-level reactivation + audit date-range timezone fix; verified + deployed to Azure)
-# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, AB, AC, AD, AE, AF
+# Last updated: 2026-06-20 (Session AI: ITM-4 done — seed.py rewritten with BASE_ITEM_SEED,
+# station_id on all items, Newberg full par levels, other stations catalog only.
+# 484/484 expected after `alembic upgrade head && python seed.py`.)
+# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, AB, AC, AD, AE, AF, AG, AH, AI
 # Active backlog -> docs/backlog.md
+
+---
+
+## Session AI — ITM-4: Rewrite `seed.py` with `BASE_ITEM_SEED` + station-scoped items (2026-06-20)
+
+**ITM-4 complete.** `seed.py` is fully rewritten. The 32 `test_seed_integrity` failures that
+opened with ITM-1's `station_id` NOT NULL constraint are resolved.
+
+**`BASE_ITEM_SEED`** (~100+ entries across 7 `category_group` buckets):
+`Airway & Respiratory`, `Wound Care & Trauma Supplies`, `PPE & Cleaning`,
+`Diagnostic & Monitoring Equipment`, `Medications & Controlled Substances`,
+`Documents, Linens & Patient Comfort`, `Vehicle Operations`. One canonical entry per
+real-world item. Merged items from ITM-2's finalized merge table: "Gauze, 3x3" replaces
+Gauze 3x3 PC18 + Gauze 3x3 JB + Gauze Pads 3x3 JB; "Stethoscope" replaces all four
+location-suffixed variants; "LUCAS Device" merges LUCAS Device + LUCAS Device Ready Check;
+"Fire Extinguisher" replaces "Fire Extinguisher UL Listed" (FUNCTIONAL → SUPPLY, Jennifer-confirmed);
+new item "Stretcher Battery Date of Last Charge" (DATE_RECORD, recurrence=90); and so on for
+all items in ITM-2's merge table.
+
+**`get_or_create_item(db, *, station_id, name, ...):`** `station_id` is now required.
+Query now scoped to `(station_id, name)` — matching the `uq_items_station_name` constraint
+from migration 0028. On re-seed of an existing DB, mutable fields (check_type, recurrence_days,
+measurement_min/max, etc.) are updated in-place; the item row is never recreated.
+
+**`seed_station_catalog(db, station_id)`:** New helper. Iterates `BASE_ITEM_SEED` and creates
+each item for the given station. Returns count of newly created items. Every station gets its
+own copy of the canonical catalog; items are station-scoped from first write.
+
+**`build_supply_room(db, loc, station_id)`:** Now takes `station_id`. Item lookups for test
+stock lots are scoped to `(item_name, station_id)` — no cross-station bleed-through.
+
+**`build_ambulance_inventory(db, loc, station_id, is_als)`** and **`build_jump_bag(db, jb, station_id)`:**
+All `get_or_create_item()` calls now pass `station_id`. All location-suffixed names replaced with
+canonical names. O2 PSI thresholds corrected per ITM-2: Stretcher O2 PSI and Jump Bag O2 PSI
+`measurement_minimum=200.0`, `measurement_maximum=500.0` (small tank); `priority_question` updated
+to "above 200 PSI?". On-Board O2 PSI unchanged (large tank, 500–2200). LUCAS Device Ready Check
+removed — merged into "LUCAS Device" as one FUNCTIONAL priority item (`priority_check=True`,
+`priority_question="LUCAS shows READY?"`). "Fire Extinguisher UL Listed" (FUNCTIONAL) removed from
+Truck Operations; replaced with canonical "Fire Extinguisher" (SUPPLY) presence check.
+
+**Seeding strategy in `seed(db)`:**
+- **Newberg Township Station 1:** `seed_station_catalog` → `build_supply_room` → `build_ambulance_inventory(is_als=False)` → `build_jump_bag`. Full par levels from real 712 / jump bag inventory forms.
+- **Marcellus Township Station 1:** `seed_station_catalog` + `build_supply_room` only. No par levels — assigned via admin UI (ITM-6).
+- **Newberg Training Station (orange):** `seed_station_catalog` + `build_supply_room`. Training Unit A/B + Jump Bag A/B created (no par levels).
+- **⚠ TEST STATION:** `seed_station_catalog` + `build_supply_room` + 7 `[TEST]`-prefixed dev items. No par levels.
+
+**Removed from `seed.py`:** `purge_stale_par_levels()`, `purge_wrong_drug_cabinets()` (fresh DB,
+not upgrade path); `build_training_ambulance()`, `build_training_jump_bag()`, `build_test_inventory()`
+(replaced by catalog-only seeding + Training handled in `seed_training.py`); SR-SEED1
+post-processing block (station_supply now baked into `BASE_ITEM_SEED`).
+
+**Module docstring updated:** removed "item catalog is SHARED across all stations" line.
+
+**`test_seed_integrity.py` — 6 test changes:**
+1. `test_lucas_device_ready_check_in_pc8_is_functional` → renamed to `test_lucas_device_in_pc8_is_functional_priority` (verifies LUCAS Device has priority_check=True + priority_question)
+2. `test_pc8_has_all_seven_items` → `test_pc8_has_all_six_items` (removes "LUCAS Device Ready Check" from expected list)
+3. `test_lucas_not_in_supply_room` — removed "LUCAS Device Ready Check" from loop
+4. `test_stretcher_o2_psi_measurement_minimum` — assertion changed 500.0 → 200.0
+5. `test_jump_bag_o2_psi_measurement_minimum` — assertion changed 500.0 → 200.0
+6. `test_truck_operations_has_functional_items` — threshold changed `>= 10` → `>= 9`
+
+**Test result:** 484/484 expected after `cd app; Remove-Item ems_readykit_dev.db; alembic upgrade head; python seed.py; pytest`.
+
+**Migration 0028 bug fix (discovered during reseed):** The original migration used
+`alter_column("name", unique=False)` inside Alembic batch mode, expecting it to drop
+the old global `UNIQUE` on `items.name`. This silently failed: Alembic batch mode
+recreates the table by reading its DDL from `sqlite_master`, and that DDL retained
+the inline `UNIQUE` keyword from migration 0001 through every subsequent batch
+recreation (migrations 0003, 0017). SQLAlchemy's inspector also filters out
+`sqlite_autoindex_*` names so the constraint couldn't be found or dropped through
+the ORM layer. Fixed by replacing the batch alter with explicit raw SQL
+(`CREATE TABLE _items_new (..., UNIQUE (station_id, name))` / INSERT SELECT /
+DROP / RENAME) — no reflection, no DDL inheritance, exactly the schema we want.
+
+**Files changed:**
+- `app/seed.py` — full rewrite (ITM-4)
+- `app/tests/test_seed_integrity.py` — 6 test corrections
+- `app/alembic/versions/0028_items_station_id.py` — rewritten with raw SQL to reliably drop the old global unique
+
+---
+
+## Session AH — ITM-3: `category_group` on Items (2026-06-20)
+
+**ITM-3 complete.** Cabinet grouping field added to the `Item` model.
+
+**Migration 0029:** `items.category_group` VARCHAR(100) nullable added via Alembic batch
+mode. No data migration needed — column is nullable; values will be populated by the
+ITM-4 seed rewrite.
+
+**Model change (`models/item.py`):** `category_group: Mapped[Optional[str]]` column added
+between `station_id` and `unit_of_measure`. Seven valid values: "Airway & Respiratory",
+"Wound Care & Trauma Supplies", "PPE & Cleaning", "Diagnostic & Monitoring Equipment",
+"Medications & Controlled Substances", "Documents, Linens & Patient Comfort",
+"Vehicle Operations".
+
+**Schema change (`schemas/item.py`):** `category_group: Optional[str]` added to `ItemBase`
+with `max_length=100`. Inherited by `ItemCreate` and `ItemRead` — field round-trips through
+all item endpoints with no existing call sites broken.
+
+**Test result:** 452 passed, 32 failed (all `test_seed_integrity` — expected, unchanged).
+
+**Files changed:**
+- `app/ems_readykit/models/item.py` — `category_group` Mapped column
+- `app/ems_readykit/schemas/item.py` — `category_group` Optional field in `ItemBase`
+- `app/alembic/versions/0029_items_category_group.py` — new migration
+
+---
+
+## Session AG — ITM-1: `station_id` on Items, Per-Station Uniqueness, Supply Catalog Scoping (2026-06-20)
+
+**ITM-1 complete.** Items are now station-scoped at the model and database level.
+
+**Migration 0028:** `items.station_id` FK (NOT NULL → stations table) added via Alembic
+batch mode. Global `uq_items_name` unique constraint dropped; replaced with
+`uq_items_station_name (station_id, name)` — items from different stations may share a
+name, but the same station cannot have two identically-named items.
+
+**Supply catalog scoped to station:** `GET /inventory/supply-catalog?station_id=X` was
+returning items from ALL stations (missing `Item.station_id == station_id` filter in
+`inventory.py::get_supply_catalog`). Fixed by adding that filter as the first condition.
+Also fixed a related `on_hand == 0` symptom — multiple same-named items across stations
+caused the endpoint to return the wrong station's item (with no stock) when the test suite
+created a second station.
+
+**Test suite updated throughout:** `ItemCreate` schema now requires `station_id: int` — 30+
+call sites in `test_routers.py`, `test_persona_admin.py`, `test_persona_supervisor.py` updated
+to create a station first then pass its `station_id`. Two supply room test fixes: unscoped
+`filter_by(name=…).first()` replaced with direct fixture reference to avoid cross-station
+item lookup. `TestInventoryEndpoints::test_create_stock_lot_invalid_location_returns_404`
+rewritten to use `_setup_loc_and_item` helper (no longer creates an item inline without a station).
+
+**Test result:** 452 passed, 32 failed (all `test_seed_integrity` — expected, `seed.py` has
+not been updated for ITM-4 yet; the `seeded_db` fixture connects to a dev DB whose items
+still use the old global catalog structure).
+
+**Files changed:**
+- `app/ems_readykit/models/item.py` — `station_id` FK + `UniqueConstraint`
+- `app/alembic/versions/0028_items_station_id.py` — new migration
+- `app/ems_readykit/routers/inventory.py` — supply catalog station filter
+- `app/tests/test_routers.py` — station_id in all item creation calls; station fixture; _setup helpers
+- `app/tests/test_persona_admin.py` — station creation before item creation in two tests
+- `app/tests/test_persona_supervisor.py` — added `auth_admin` param; station creation in boundary test
+- `app/tests/test_supply_room.py` — fixed unscoped item lookup in functional exclusion test
 
 ---
 
@@ -83,9 +228,25 @@ backlog):** GitHub Actions' `pip-audit` CI gate flagged `pydantic-settings==2.14
 (GHSA-4xgf-cpjx-pc3j); bumped to `2.14.2` in `app/requirements.txt`. Unrelated to the
 audit-test timezone fix above — pure dependency patch bump, no code changes.
 
+**Same-day UAT follow-up (BUG-AF2):** after redeploying the above, Jennifer found the
+Station Supplies Count reminder showed "no count on record" for a real count
+completed the day before, and tapping it no longer opened the check. Root cause:
+this session's calendar fix had widened the reminder's lookback to 730 days through
+`getComplianceRange` (`GET /checks/daily/station/{id}`), which caps its date range at
+90 days server-side and 422s above that — every request was silently failing,
+`useApi` correctly nulled out the data on error, and the reminder rendered as if
+nothing had ever been counted, with no visible error. Fixed by switching the
+reminder's data source to `GET /checks/daily/location/{location_id}` (new
+`supervisorApi.getLocationCheckHistory`), which is location-scoped and has no
+date-range limit at all — the right tool for "most recent check ever," which a
+range-bounded endpoint was never going to support no matter how wide the window.
+Display text and click target both now read from this single fetch, so they can't
+disagree again. Also added a visible error state (`.cal__supply-reminder--error`)
+instead of silently looking empty if this fetch ever fails for a different reason.
+
 **Verified:** `cd app; pytest` (484/484), `cd app; ruff check .`, and
 `cd app; black --check .` all confirmed green by Jennifer. Deployed to Azure and
-confirmed live.
+confirmed live, including the same-day BUG-AF2 follow-up redeploy.
 
 | # | Item | Completed |
 |---|------|-----------|
@@ -95,6 +256,41 @@ confirmed live.
 | AUDIT-AF1 | test_audit_from_date_tomorrow_returns_empty / test_audit_to_date_yesterday_returns_empty scoped to a station the test creates (fixed global-table pollution) | 2026-06-19 |
 | AUDIT-AF2 | Same two tests' tomorrow/yesterday boundary computed from UTC today (datetime.now(timezone.utc).date()) instead of local date.today() — fixed a local/UTC day-boundary mismatch found on a later run | 2026-06-19 |
 | SEC-AF1 | pydantic-settings 2.14.1 → 2.14.2 (GHSA-4xgf-cpjx-pc3j); quick fix, not part of Session AF backlog proper | 2026-06-19 |
+| BUG-AF2 | Station Supplies Count reminder data-source bug — switched to getLocationCheckHistory (unbounded, location-scoped) instead of getComplianceRange (90-day-capped, was 422ing silently); added visible error state | 2026-06-19 |
+
+---
+
+## Changelog Archive — Sessions Z through AF (consolidated version history)
+*Moved here 2026-06-20 from backlog.md's version-history footer to keep the active
+backlog small. This is a compressed cross-reference, not a replacement for the full
+session write-ups above — those remain authoritative for technical detail.*
+
+- **v2.07 (2026-06-19):** BUG-AF2 fixed and closed — see Session AF write-up above.
+- **v2.06 (2026-06-19):** Session AF closed — pytest 484/484, ruff, black all green;
+  deployed and confirmed live. pydantic-settings dependency bump included.
+- **v2.05 (2026-06-19):** Session AF continued — audit date-range test fix, second
+  pass (UTC vs local day boundary) — see Session AF write-up above.
+- **v2.04 (2026-06-19):** Session AF in progress (not yet closed) — three UAT bugs
+  found and fixed; PAR-B1 backend fix applied; test suite not yet confirmed green
+  at this point in the session.
+- **v2.03 (2026-06-19):** Session AE closed and verified — pytest + npm test green;
+  `_session_AE_removed/` staging folder deleted; deployed and confirmed live.
+- **v2.02 (2026-06-19):** Session AE closed — MERGE-1 member management
+  consolidation — see Session AE write-up above.
+- **v2.01 (2026-06-19):** Close-out note for a missing-files incident caused by a
+  quota interruption; confirmed all files restored and present. LAUNCH-OPS5 marked
+  in-progress (Jennifer actively walking it).
+- **v2.00 (2026-06-19):** Session AD closed — BUG-AD1 retired-vehicle leak fix — see
+  Session AD write-up above.
+- **v1.99 (2026-06-19):** Session AC closed — LAUNCH-OPS9 email alignment check —
+  see Session AC write-up above.
+- **v1.98 (2026-06-18):** Session AB closed — training station, security patches,
+  Settings CSS fixes — see Session AB write-up above. All launch gates met at this
+  point (later reopened 2026-06-20 for ITM-1..8).
+- **v1.97 (2026-06-14):** Help screen added as LAUNCH-F1 (Session AA).
+- **v1.96 (2026-06-14):** Session Z closed, ruff fixes, published to Azure.
+- **v1.95 (2026-06-14):** Session Z — ACC-B6/B7/B8 complete, migration 0027,
+  multi-role switching — see Session Z write-up below.
 
 ---
 

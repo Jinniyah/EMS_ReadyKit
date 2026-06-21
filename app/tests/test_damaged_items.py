@@ -114,9 +114,10 @@ def _make_compartment(
     return comp
 
 
-def _make_item(db: Session, name: str | None = None) -> Item:
+def _make_item(db: Session, station: Station, name: str | None = None) -> Item:
     item = Item(
         name=name or f"Item-{_uid()}",
+        station_id=station.station_id,
         category=ItemCategory.EQUIPMENT,
         check_type=ItemCheckType.SUPPLY,
         unit_of_measure="each",
@@ -163,7 +164,7 @@ class TestGetDamagedItemsEndpoint:
         _add_member(db, station.station_id, "test-supervisor@ems.local", "Supervisor")
         _vehicle, location = _make_vehicle_location(db, station)
         comp = _make_compartment(db, location)
-        item = _make_item(db)
+        item = _make_item(db, station)
         _make_par(db, item, location, comp, is_damaged=False)
 
         r = client.get(
@@ -179,7 +180,7 @@ class TestGetDamagedItemsEndpoint:
         _add_member(db, station.station_id, "test-supervisor@ems.local", "Supervisor")
         vehicle, location = _make_vehicle_location(db, station)
         comp = _make_compartment(db, location, name="Compartment 2")
-        item = _make_item(db, name="Testing Add Item")
+        item = _make_item(db, station, name="Testing Add Item")
         _make_par(db, item, location, comp, is_damaged=True)
 
         r = client.get(
@@ -203,7 +204,7 @@ class TestGetDamagedItemsEndpoint:
         _add_member(db, station.station_id, "test-supervisor@ems.local", "Supervisor")
         location = _make_portable_location(db, station)
         comp = _make_compartment(db, location, name="Main Pouch")
-        item = _make_item(db, name="Jump Bag Gloves")
+        item = _make_item(db, station, name="Jump Bag Gloves")
         _make_par(db, item, location, comp, is_damaged=True)
 
         r = client.get(
@@ -226,8 +227,8 @@ class TestGetDamagedItemsEndpoint:
         _vehicle, location = _make_vehicle_location(db, station)
         comp1 = _make_compartment(db, location, name="Compartment 1")
         comp2 = _make_compartment(db, location, name="Compartment 2")
-        item1 = _make_item(db, name="AED Pads")
-        item2 = _make_item(db, name="O2 Mask")
+        item1 = _make_item(db, station, name="AED Pads")
+        item2 = _make_item(db, station, name="O2 Mask")
         _make_par(db, item1, location, comp1, is_damaged=True)
         _make_par(db, item2, location, comp2, is_damaged=True)
 
@@ -248,8 +249,8 @@ class TestGetDamagedItemsEndpoint:
         _add_member(db, station.station_id, "test-supervisor@ems.local", "Supervisor")
         _vehicle, location = _make_vehicle_location(db, station)
         comp = _make_compartment(db, location)
-        item_ok = _make_item(db, name="Fine Item")
-        item_dmg = _make_item(db, name="Broken Item")
+        item_ok = _make_item(db, station, name="Fine Item")
+        item_dmg = _make_item(db, station, name="Broken Item")
         _make_par(db, item_ok, location, comp, is_damaged=False)
         _make_par(db, item_dmg, location, comp, is_damaged=True)
 
@@ -269,7 +270,7 @@ class TestGetDamagedItemsEndpoint:
         _add_member(db, station.station_id, "test-supervisor@ems.local", "Supervisor")
         _vehicle, location = _make_vehicle_location(db, station)
         comp = _make_compartment(db, location)
-        item = _make_item(db, name="Deactivated Damaged Item")
+        item = _make_item(db, station, name="Deactivated Damaged Item")
         _make_par(db, item, location, comp, is_damaged=True, active=False)
 
         r = client.get(
@@ -291,7 +292,7 @@ class TestGetDamagedItemsEndpoint:
         db.flush()
 
         comp = _make_compartment(db, location)
-        item = _make_item(db, name="Item on Retired Vehicle")
+        item = _make_item(db, station, name="Item on Retired Vehicle")
         _make_par(db, item, location, comp, is_damaged=True)
 
         r = client.get(
@@ -310,13 +311,13 @@ class TestGetDamagedItemsEndpoint:
         # Damaged item at station B
         _vehicle_b, location_b = _make_vehicle_location(db, station_b)
         comp_b = _make_compartment(db, location_b)
-        item_b = _make_item(db, name="Other Station Item")
+        item_b = _make_item(db, station_b, name="Other Station Item")
         _make_par(db, item_b, location_b, comp_b, is_damaged=True)
 
         # Clean item at station A
         _vehicle_a, location_a = _make_vehicle_location(db, station_a)
         comp_a = _make_compartment(db, location_a)
-        item_a = _make_item(db, name="Own Station Item")
+        item_a = _make_item(db, station_a, name="Own Station Item")
         _make_par(db, item_a, location_a, comp_a, is_damaged=False)
 
         r = client.get(
@@ -376,9 +377,9 @@ class TestGetDamagedItemsEndpoint:
         _add_member(db, station.station_id, "test-supervisor@ems.local", "Supervisor")
         _vehicle, location = _make_vehicle_location(db, station)
         comp = _make_compartment(db, location)
-        item_z = _make_item(db, name="Zebra Bandage")
-        item_a = _make_item(db, name="Ace Wrap")
-        item_m = _make_item(db, name="Morphine Syringe")
+        item_z = _make_item(db, station, name="Zebra Bandage")
+        item_a = _make_item(db, station, name="Ace Wrap")
+        item_m = _make_item(db, station, name="Morphine Syringe")
         _make_par(db, item_z, location, comp, is_damaged=True)
         # Need separate comps for unique constraint (one par per item per compartment)
         comp2 = _make_compartment(db, location)

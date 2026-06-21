@@ -1320,6 +1320,7 @@ def get_supply_catalog(
     items = (
         db.query(Item)
         .filter(
+            Item.station_id == station_id,
             Item.station_supply,
             Item.check_type != ItemCheckType.FUNCTIONAL,
             Item.active,

@@ -108,6 +108,7 @@ def _setup(db: Session):
     ]:
         item = Item(
             name=f"{ct.value}-{_uid()}",
+            station_id=station.station_id,
             category=ItemCategory.EQUIPMENT,
             check_type=ct,
             unit_of_measure="each",

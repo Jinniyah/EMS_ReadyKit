@@ -99,6 +99,7 @@ def _setup(db: Session):
 
     item = Item(
         name=f"Item-{_uid()}",
+        station_id=station.station_id,
         category=ItemCategory.EQUIPMENT,
         check_type=ItemCheckType.FUNCTIONAL,
         unit_of_measure="each",
@@ -381,17 +382,27 @@ class TestSupervisorSupplyCatalog:
 class TestSupervisorRoleBoundary:
 
     def test_supervisor_can_create_items_but_not_deactivate(
-        self, client, auth_supervisor
+        self, client, auth_supervisor, auth_admin
     ):
         """
         POST /api/v1/items is SUPERVISOR_PLUS — supervisors CAN create items.
         Only DEACTIVATE is admin-only. Test that boundary instead.
         """
+        sid = client.post(
+            "/api/v1/stations",
+            json={
+                "name": f"SupRole-{_uid()}",
+                "address": "1 Test St",
+                "region": "Test",
+            },
+            headers=auth_admin,
+        ).json()["station_id"]
         # Creating items: Supervisor+ — should succeed
         r = client.post(
             "/api/v1/items",
             json={
                 "name": f"Supervisor-Created-{_uid()}",
+                "station_id": sid,
                 "category": "Equipment",
                 "unit_of_measure": "each",
             },

@@ -117,16 +117,20 @@ def _item(
     db: Session,
     *,
     name: str,
+    station_id: int,
     check_type: ItemCheckType,
     measurement_minimum: Optional[float] = None,
     recurrence_days: Optional[int] = None,
 ) -> Item:
-    """Get-or-create a named item."""
-    existing = db.query(Item).filter(Item.name == name).first()
+    """Get-or-create a named item scoped to station."""
+    existing = (
+        db.query(Item).filter(Item.name == name, Item.station_id == station_id).first()
+    )
     if existing:
         return existing
     item = Item(
         name=name,
+        station_id=station_id,
         category=ItemCategory.EQUIPMENT,
         check_type=check_type,
         unit_of_measure="each",
@@ -194,7 +198,10 @@ class TestAEDChecks:
         """AED FUNCTIONAL PASS must submit and return a PASS line item status."""
         station, vehicle, location, comp = _setup(db)
         aed = _item(
-            db, name=f"AED Device {_uid()}", check_type=ItemCheckType.FUNCTIONAL
+            db,
+            name=f"AED Device {_uid()}",
+            station_id=station.station_id,
+            check_type=ItemCheckType.FUNCTIONAL,
         )
         _par(
             db,
@@ -231,7 +238,12 @@ class TestAEDChecks:
         The check must not be blocked — tired responders log it and keep going.
         """
         station, vehicle, location, comp = _setup(db)
-        aed = _item(db, name=f"AED Fail {_uid()}", check_type=ItemCheckType.FUNCTIONAL)
+        aed = _item(
+            db,
+            name=f"AED Fail {_uid()}",
+            station_id=station.station_id,
+            check_type=ItemCheckType.FUNCTIONAL,
+        )
         _par(db, item=aed, location=location, comp=comp, priority=True)
 
         r = _submit_check(
@@ -268,6 +280,7 @@ class TestAEDChecks:
         aed_date = _item(
             db,
             name=f"AED Date {_uid()}",
+            station_id=station.station_id,
             check_type=ItemCheckType.DATE_RECORD,
             recurrence_days=365,
         )
@@ -297,7 +310,12 @@ class TestAEDChecks:
     def test_aed_supply_check_submits(self, client, db, auth_responder):
         """AED Pads Adult (SUPPLY) must accept quantity_found."""
         station, vehicle, location, comp = _setup(db)
-        aed_pads = _item(db, name=f"AED Pads {_uid()}", check_type=ItemCheckType.SUPPLY)
+        aed_pads = _item(
+            db,
+            name=f"AED Pads {_uid()}",
+            station_id=station.station_id,
+            check_type=ItemCheckType.SUPPLY,
+        )
         _par(db, item=aed_pads, location=location, comp=comp)
 
         r = _submit_check(
@@ -326,7 +344,10 @@ class TestAEDChecks:
         """
         station, vehicle, location, comp = _setup(db)
         aed = _item(
-            db, name=f"AED Immutable {_uid()}", check_type=ItemCheckType.FUNCTIONAL
+            db,
+            name=f"AED Immutable {_uid()}",
+            station_id=station.station_id,
+            check_type=ItemCheckType.FUNCTIONAL,
         )
         _par(db, item=aed, location=location, comp=comp)
 
@@ -370,7 +391,10 @@ class TestAEDChecks:
         """
         station, vehicle, location, comp = _setup(db)
         aed = _item(
-            db, name=f"AED FAILRecord {_uid()}", check_type=ItemCheckType.FUNCTIONAL
+            db,
+            name=f"AED FAILRecord {_uid()}",
+            station_id=station.station_id,
+            check_type=ItemCheckType.FUNCTIONAL,
         )
         _par(db, item=aed, location=location, comp=comp)
 
@@ -423,7 +447,10 @@ class TestLUCASChecks:
         """LUCAS FUNCTIONAL PASS must submit and record OK."""
         station, vehicle, location, comp = _setup(db)
         lucas = _item(
-            db, name=f"LUCAS Ready {_uid()}", check_type=ItemCheckType.FUNCTIONAL
+            db,
+            name=f"LUCAS Ready {_uid()}",
+            station_id=station.station_id,
+            check_type=ItemCheckType.FUNCTIONAL,
         )
         _par(
             db,
@@ -461,7 +488,10 @@ class TestLUCASChecks:
         """
         station, vehicle, location, comp = _setup(db)
         lucas = _item(
-            db, name=f"LUCAS Fail {_uid()}", check_type=ItemCheckType.FUNCTIONAL
+            db,
+            name=f"LUCAS Fail {_uid()}",
+            station_id=station.station_id,
+            check_type=ItemCheckType.FUNCTIONAL,
         )
         _par(db, item=lucas, location=location, comp=comp, priority=True)
 
@@ -493,6 +523,7 @@ class TestLUCASChecks:
         lucas_date = _item(
             db,
             name=f"LUCAS Date {_uid()}",
+            station_id=station.station_id,
             check_type=ItemCheckType.DATE_RECORD,
             recurrence_days=180,
         )
@@ -523,7 +554,10 @@ class TestLUCASChecks:
         """LUCAS FAIL must not be overwritten when a repair request is resolved."""
         station, vehicle, location, comp = _setup(db)
         lucas = _item(
-            db, name=f"LUCAS Preserve {_uid()}", check_type=ItemCheckType.FUNCTIONAL
+            db,
+            name=f"LUCAS Preserve {_uid()}",
+            station_id=station.station_id,
+            check_type=ItemCheckType.FUNCTIONAL,
         )
         _par(db, item=lucas, location=location, comp=comp)
 
@@ -573,7 +607,10 @@ class TestPriorityFlags:
         """priority_check=True on a par level must be readable from the API."""
         _station, _vehicle, location, comp = _setup(db)
         aed = _item(
-            db, name=f"AED Priority {_uid()}", check_type=ItemCheckType.FUNCTIONAL
+            db,
+            name=f"AED Priority {_uid()}",
+            station_id=_station.station_id,
+            check_type=ItemCheckType.FUNCTIONAL,
         )
         _par(
             db,
@@ -611,7 +648,10 @@ class TestPriorityFlags:
         """
         _station, _vehicle, location, comp = _setup(db)
         item = _item(
-            db, name=f"Priority Patch {_uid()}", check_type=ItemCheckType.FUNCTIONAL
+            db,
+            name=f"Priority Patch {_uid()}",
+            station_id=_station.station_id,
+            check_type=ItemCheckType.FUNCTIONAL,
         )
         _par(db, item=item, location=location, comp=comp)
 

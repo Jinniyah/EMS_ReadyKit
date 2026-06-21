@@ -79,14 +79,21 @@ def jump_bag(db, station):
 
 
 @pytest.fixture
-def item(db):
+def item(db, station):
     # Get-or-create: route handlers call db.commit() which releases the savepoint,
     # so the row persists across tests in the same session despite rollback.
-    existing = db.query(Item).filter(Item.name == "Retirement Test Item").first()
+    existing = (
+        db.query(Item)
+        .filter(
+            Item.name == "Retirement Test Item", Item.station_id == station.station_id
+        )
+        .first()
+    )
     if existing:
         return existing
     i = Item(
         name="Retirement Test Item",
+        station_id=station.station_id,
         category=ItemCategory.CONSUMABLE,
         check_type=ItemCheckType.SUPPLY,
         unit_of_measure="each",

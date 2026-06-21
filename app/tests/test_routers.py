@@ -48,6 +48,7 @@ import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
+import pytest
 from sqlalchemy.orm import Session
 
 from ems_readykit.models import (
@@ -102,9 +103,16 @@ def _vehicle(
     return v
 
 
-def _item(db: Session, *, name: Optional[str] = None, controlled: bool = False) -> Item:
+def _item(
+    db: Session,
+    *,
+    station_id: int,
+    name: Optional[str] = None,
+    controlled: bool = False,
+) -> Item:
     item = Item(
         name=name or f"Item-{_uid()}",
+        station_id=station_id,
         category=ItemCategory.MEDICATION,
         controlled_substance=controlled,
         unit_of_measure="mL",
@@ -422,11 +430,25 @@ class TestVehicleEndpoints:
 
 class TestItemEndpoints:
 
-    def test_create_item_returns_201(self, client, auth_admin):
+    @pytest.fixture
+    def station_id(self, client, auth_admin):
+        r = client.post(
+            "/api/v1/stations",
+            json={
+                "name": f"ItemEndp-{_uid()}",
+                "address": "1 Test St",
+                "region": "Test",
+            },
+            headers=auth_admin,
+        )
+        return r.json()["station_id"]
+
+    def test_create_item_returns_201(self, client, auth_admin, station_id):
         response = client.post(
             "/api/v1/items",
             json={
                 "name": f"Epi-{_uid()}",
+                "station_id": station_id,
                 "category": "Medication",
                 "controlled_substance": True,
                 "unit_of_measure": "mL",
@@ -436,11 +458,18 @@ class TestItemEndpoints:
         assert response.status_code == 201
         assert response.json()["controlled_substance"] is True
 
-    def test_create_item_duplicate_name_returns_409(self, client, auth_admin):
+    def test_create_item_duplicate_name_returns_409(
+        self, client, auth_admin, station_id
+    ):
         name = f"Gauze-{_uid()}"
         client.post(
             "/api/v1/items",
-            json={"name": name, "category": "Consumable", "unit_of_measure": "each"},
+            json={
+                "name": name,
+                "station_id": station_id,
+                "category": "Consumable",
+                "unit_of_measure": "each",
+            },
             headers=auth_admin,
         )
         assert (
@@ -448,6 +477,7 @@ class TestItemEndpoints:
                 "/api/v1/items",
                 json={
                     "name": name,
+                    "station_id": station_id,
                     "category": "Consumable",
                     "unit_of_measure": "each",
                 },
@@ -456,17 +486,23 @@ class TestItemEndpoints:
             == 409
         )
 
-    def test_list_items_filter_by_category(self, client, auth_admin):
+    def test_list_items_filter_by_category(self, client, auth_admin, station_id):
         med_name, equip_name = f"Med-{_uid()}", f"Equip-{_uid()}"
         client.post(
             "/api/v1/items",
-            json={"name": med_name, "category": "Medication", "unit_of_measure": "mL"},
+            json={
+                "name": med_name,
+                "station_id": station_id,
+                "category": "Medication",
+                "unit_of_measure": "mL",
+            },
             headers=auth_admin,
         )
         client.post(
             "/api/v1/items",
             json={
                 "name": equip_name,
+                "station_id": station_id,
                 "category": "Equipment",
                 "unit_of_measure": "each",
             },
@@ -478,12 +514,13 @@ class TestItemEndpoints:
         assert med_name in names
         assert equip_name not in names
 
-    def test_list_items_filter_controlled(self, client, auth_admin):
+    def test_list_items_filter_controlled(self, client, auth_admin, station_id):
         cs_name, non_cs_name = f"CS-{_uid()}", f"NonCS-{_uid()}"
         client.post(
             "/api/v1/items",
             json={
                 "name": cs_name,
+                "station_id": station_id,
                 "category": "Medication",
                 "controlled_substance": True,
                 "unit_of_measure": "mg",
@@ -494,6 +531,7 @@ class TestItemEndpoints:
             "/api/v1/items",
             json={
                 "name": non_cs_name,
+                "station_id": station_id,
                 "category": "Medication",
                 "controlled_substance": False,
                 "unit_of_measure": "mg",
@@ -560,6 +598,7 @@ class TestInventoryEndpoints:
             "/api/v1/items",
             json={
                 "name": f"Item-{_uid()}",
+                "station_id": sid,
                 "category": "Medication",
                 "unit_of_measure": "mL",
             },
@@ -594,20 +633,12 @@ class TestInventoryEndpoints:
         )
 
     def test_create_stock_lot_invalid_location_returns_404(self, client, auth_admin):
-        ir = client.post(
-            "/api/v1/items",
-            json={
-                "name": f"Item-{_uid()}",
-                "category": "Medication",
-                "unit_of_measure": "mL",
-            },
-            headers=auth_admin,
-        )
+        _loc_id, item_id = self._setup_loc_and_item(client, auth_admin)
         assert (
             client.post(
                 "/api/v1/inventory/lots",
                 json={
-                    "item_id": ir.json()["item_id"],
+                    "item_id": item_id,
                     "location_id": 99999999,
                     "quantity": 5,
                 },
@@ -762,6 +793,7 @@ class TestParLevelDeactivate:
             "/api/v1/items",
             json={
                 "name": f"Item-{_uid()}",
+                "station_id": sid,
                 "category": "Consumable",
                 "unit_of_measure": "each",
             },
@@ -997,6 +1029,7 @@ class TestCheckLineItems:
             "/api/v1/items",
             json={
                 "name": f"Item-{_uid()}",
+                "station_id": sid,
                 "category": "Consumable",
                 "unit_of_measure": "each",
             },
@@ -1204,6 +1237,7 @@ class TestCheckLineItems:
             "/api/v1/items",
             json={
                 "name": f"OtherItem-{_uid()}",
+                "station_id": sid,
                 "category": "Consumable",
                 "unit_of_measure": "each",
             },
@@ -1249,6 +1283,7 @@ class TestCheckLineItems:
             "/api/v1/items",
             json={
                 "name": f"Item2-{_uid()}",
+                "station_id": sid,
                 "category": "Consumable",
                 "unit_of_measure": "each",
             },
@@ -1258,6 +1293,7 @@ class TestCheckLineItems:
             "/api/v1/items",
             json={
                 "name": f"Item3-{_uid()}",
+                "station_id": sid,
                 "category": "Consumable",
                 "unit_of_measure": "each",
             },
@@ -2187,6 +2223,7 @@ class TestCheckTypes:
         client,
         auth_admin,
         *,
+        station_id: int,
         check_type: str,
         name: Optional[str] = None,
         measurement_minimum: Optional[float] = None,
@@ -2194,6 +2231,7 @@ class TestCheckTypes:
     ) -> int:
         payload = {
             "name": name or f"Item-{_uid()}",
+            "station_id": station_id,
             "category": "Equipment",
             "unit_of_measure": "each",
             "check_type": check_type,
@@ -2228,7 +2266,11 @@ class TestCheckTypes:
     def test_o2_psi_above_minimum_returns_ok(self, client, auth_admin):
         sid, vid, _loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(
-            client, auth_admin, check_type="MEASUREMENT", measurement_minimum=500.0
+            client,
+            auth_admin,
+            station_id=sid,
+            check_type="MEASUREMENT",
+            measurement_minimum=500.0,
         )
         body = self._submit_check(
             client,
@@ -2253,7 +2295,11 @@ class TestCheckTypes:
     def test_o2_psi_at_minimum_returns_ok(self, client, auth_admin):
         sid, vid, _loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(
-            client, auth_admin, check_type="MEASUREMENT", measurement_minimum=500.0
+            client,
+            auth_admin,
+            station_id=sid,
+            check_type="MEASUREMENT",
+            measurement_minimum=500.0,
         )
         body = self._submit_check(
             client,
@@ -2277,7 +2323,11 @@ class TestCheckTypes:
     def test_o2_psi_below_minimum_returns_low(self, client, auth_admin):
         sid, vid, _loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(
-            client, auth_admin, check_type="MEASUREMENT", measurement_minimum=500.0
+            client,
+            auth_admin,
+            station_id=sid,
+            check_type="MEASUREMENT",
+            measurement_minimum=500.0,
         )
         body = self._submit_check(
             client,
@@ -2301,7 +2351,11 @@ class TestCheckTypes:
     def test_o2_psi_below_minimum_sets_check_needs_restock(self, client, auth_admin):
         sid, vid, _loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(
-            client, auth_admin, check_type="MEASUREMENT", measurement_minimum=500.0
+            client,
+            auth_admin,
+            station_id=sid,
+            check_type="MEASUREMENT",
+            measurement_minimum=500.0,
         )
         body = self._submit_check(
             client,
@@ -2325,7 +2379,11 @@ class TestCheckTypes:
     def test_measurement_missing_value_returns_missing(self, client, auth_admin):
         sid, vid, _loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(
-            client, auth_admin, check_type="MEASUREMENT", measurement_minimum=500.0
+            client,
+            auth_admin,
+            station_id=sid,
+            check_type="MEASUREMENT",
+            measurement_minimum=500.0,
         )
         body = self._submit_check(
             client,
@@ -2348,7 +2406,9 @@ class TestCheckTypes:
 
     def test_battery_ok_true_returns_ok(self, client, auth_admin):
         sid, vid, _loc_id, cid = self._make_env(client, auth_admin)
-        item_id = self._make_item(client, auth_admin, check_type="FUNCTIONAL")
+        item_id = self._make_item(
+            client, auth_admin, station_id=sid, check_type="FUNCTIONAL"
+        )
         body = self._submit_check(
             client,
             auth_admin,
@@ -2371,7 +2431,9 @@ class TestCheckTypes:
 
     def test_battery_ok_false_returns_fail(self, client, auth_admin):
         sid, vid, _loc_id, cid = self._make_env(client, auth_admin)
-        item_id = self._make_item(client, auth_admin, check_type="FUNCTIONAL")
+        item_id = self._make_item(
+            client, auth_admin, station_id=sid, check_type="FUNCTIONAL"
+        )
         body = self._submit_check(
             client,
             auth_admin,
@@ -2393,7 +2455,9 @@ class TestCheckTypes:
 
     def test_functional_fail_sets_check_fail(self, client, auth_admin):
         sid, vid, _loc_id, cid = self._make_env(client, auth_admin)
-        item_id = self._make_item(client, auth_admin, check_type="FUNCTIONAL")
+        item_id = self._make_item(
+            client, auth_admin, station_id=sid, check_type="FUNCTIONAL"
+        )
         body = self._submit_check(
             client,
             auth_admin,
@@ -2415,7 +2479,9 @@ class TestCheckTypes:
 
     def test_functional_missing_value_returns_missing(self, client, auth_admin):
         sid, vid, _loc_id, cid = self._make_env(client, auth_admin)
-        item_id = self._make_item(client, auth_admin, check_type="FUNCTIONAL")
+        item_id = self._make_item(
+            client, auth_admin, station_id=sid, check_type="FUNCTIONAL"
+        )
         body = self._submit_check(
             client,
             auth_admin,
@@ -2438,7 +2504,11 @@ class TestCheckTypes:
     def test_recent_charge_date_returns_ok(self, client, auth_admin):
         sid, vid, _loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(
-            client, auth_admin, check_type="DATE_RECORD", recurrence_days=90
+            client,
+            auth_admin,
+            station_id=sid,
+            check_type="DATE_RECORD",
+            recurrence_days=90,
         )
         recent_date = (date.today() - timedelta(days=10)).isoformat()
         body = self._submit_check(
@@ -2464,7 +2534,11 @@ class TestCheckTypes:
     def test_overdue_charge_date_returns_overdue(self, client, auth_admin):
         sid, vid, _loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(
-            client, auth_admin, check_type="DATE_RECORD", recurrence_days=90
+            client,
+            auth_admin,
+            station_id=sid,
+            check_type="DATE_RECORD",
+            recurrence_days=90,
         )
         overdue_date = (date.today() - timedelta(days=100)).isoformat()
         body = self._submit_check(
@@ -2489,7 +2563,11 @@ class TestCheckTypes:
     def test_overdue_sets_check_fail(self, client, auth_admin):
         sid, vid, _loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(
-            client, auth_admin, check_type="DATE_RECORD", recurrence_days=30
+            client,
+            auth_admin,
+            station_id=sid,
+            check_type="DATE_RECORD",
+            recurrence_days=30,
         )
         overdue_date = (date.today() - timedelta(days=35)).isoformat()
         body = self._submit_check(
@@ -2514,7 +2592,11 @@ class TestCheckTypes:
     def test_date_record_missing_value_returns_missing(self, client, auth_admin):
         sid, vid, _loc_id, cid = self._make_env(client, auth_admin)
         item_id = self._make_item(
-            client, auth_admin, check_type="DATE_RECORD", recurrence_days=90
+            client,
+            auth_admin,
+            station_id=sid,
+            check_type="DATE_RECORD",
+            recurrence_days=90,
         )
         body = self._submit_check(
             client,
@@ -2537,7 +2619,9 @@ class TestCheckTypes:
 
     def test_document_present_returns_ok(self, client, auth_admin):
         sid, vid, _loc_id, cid = self._make_env(client, auth_admin)
-        item_id = self._make_item(client, auth_admin, check_type="DOCUMENT")
+        item_id = self._make_item(
+            client, auth_admin, station_id=sid, check_type="DOCUMENT"
+        )
         body = self._submit_check(
             client,
             auth_admin,
@@ -2559,7 +2643,9 @@ class TestCheckTypes:
 
     def test_document_missing_returns_missing(self, client, auth_admin):
         sid, vid, _loc_id, cid = self._make_env(client, auth_admin)
-        item_id = self._make_item(client, auth_admin, check_type="DOCUMENT")
+        item_id = self._make_item(
+            client, auth_admin, station_id=sid, check_type="DOCUMENT"
+        )
         body = self._submit_check(
             client,
             auth_admin,
@@ -2583,8 +2669,12 @@ class TestCheckTypes:
         self, client, auth_admin
     ):
         sid, vid, _loc_id, cid = self._make_env(client, auth_admin)
-        functional_item = self._make_item(client, auth_admin, check_type="FUNCTIONAL")
-        document_item = self._make_item(client, auth_admin, check_type="DOCUMENT")
+        functional_item = self._make_item(
+            client, auth_admin, station_id=sid, check_type="FUNCTIONAL"
+        )
+        document_item = self._make_item(
+            client, auth_admin, station_id=sid, check_type="DOCUMENT"
+        )
         body = self._submit_check(
             client,
             auth_admin,
@@ -2618,9 +2708,15 @@ class TestCheckTypes:
     ):
         sid, vid, _loc_id, cid = self._make_env(client, auth_admin)
         o2_item = self._make_item(
-            client, auth_admin, check_type="MEASUREMENT", measurement_minimum=500.0
+            client,
+            auth_admin,
+            station_id=sid,
+            check_type="MEASUREMENT",
+            measurement_minimum=500.0,
         )
-        supply_item = self._make_item(client, auth_admin, check_type="SUPPLY")
+        supply_item = self._make_item(
+            client, auth_admin, station_id=sid, check_type="SUPPLY"
+        )
         body = self._submit_check(
             client,
             auth_admin,

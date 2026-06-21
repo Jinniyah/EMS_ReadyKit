@@ -14,12 +14,12 @@ What is verified:
   - Newberg Township Station 1 exists and is active
   - Unit 712 (BLS) exists, belongs to Newberg, has an inventory location
   - Unit 712 Jump Bag exists; Unit 710 Jump Bag does NOT exist at Newberg
-  - PC 8 compartment has all 7 AED/LUCAS items with correct check types
+  - PC 8 compartment has all 6 AED/LUCAS items with correct check types (LUCAS Device Ready Check merged into LUCAS Device)
   - AED Battery has priority_check=True and a priority_question
   - AED Date of Last Charge has recurrence_days=90
   - LUCAS Date of Last Charge has recurrence_days=30
   - AED/LUCAS items have station_supply=False
-  - O2 PSI items have measurement_minimum=500 and correct check types
+  - On-Board O2 PSI has measurement_minimum=500; Stretcher/Jump Bag O2 PSI have 200 (small tank)
   - Truck Operations compartment has requires_full_check=True
   - Marcellus Township Station 1 and Unit 540 (ALS) exist
   - TEST STATION and Unit TEST (QRV) exist
@@ -311,15 +311,19 @@ class TestPC8Integrity:
         item = _item(seeded_db, "LUCAS Device")
         _par_for_item_in_compartment(seeded_db, item, comp)
 
-    def test_lucas_device_ready_check_in_pc8_is_functional(self, seeded_db):
+    def test_lucas_device_in_pc8_is_functional_priority(self, seeded_db):
+        """LUCAS Device Ready Check was merged into LUCAS Device (ITM-2/4).
+        One canonical FUNCTIONAL item with priority_check=True."""
         v = _vehicle(seeded_db, "712")
         loc = _location_for_vehicle(seeded_db, v)
         comp = _compartment(seeded_db, loc, "PC 8")
-        item = _item(seeded_db, "LUCAS Device Ready Check")
+        item = _item(seeded_db, "LUCAS Device")
         assert (
             item.check_type == ItemCheckType.FUNCTIONAL
-        ), f"LUCAS Device Ready Check check_type is {item.check_type} -- must be FUNCTIONAL"
-        _par_for_item_in_compartment(seeded_db, item, comp)
+        ), f"LUCAS Device check_type is {item.check_type} -- must be FUNCTIONAL"
+        par = _par_for_item_in_compartment(seeded_db, item, comp)
+        assert par.priority_check is True, "LUCAS Device priority_check is False -- must be True"
+        assert par.priority_question is not None, "LUCAS Device has no priority_question set"
 
     def test_lucas_date_of_last_charge_in_pc8(self, seeded_db):
         v = _vehicle(seeded_db, "712")
@@ -337,7 +341,6 @@ class TestPC8Integrity:
     def test_lucas_not_in_supply_room(self, seeded_db):
         for name in [
             "LUCAS Device",
-            "LUCAS Device Ready Check",
             "LUCAS Date of Last Charge",
         ]:
             item = _item(seeded_db, name)
@@ -345,8 +348,9 @@ class TestPC8Integrity:
                 item.station_supply is False
             ), f"'{name}' has station_supply=True -- must be False"
 
-    def test_pc8_has_all_seven_items(self, seeded_db):
-        """All seven AED/LUCAS items must be present in PC 8 as par levels."""
+    def test_pc8_has_all_six_items(self, seeded_db):
+        """Six AED/LUCAS items must be present in PC 8. LUCAS Device Ready Check was
+        merged into LUCAS Device (ITM-2/4), reducing from 7 to 6 items."""
         v = _vehicle(seeded_db, "712")
         loc = _location_for_vehicle(seeded_db, v)
         comp = _compartment(seeded_db, loc, "PC 8")
@@ -357,7 +361,6 @@ class TestPC8Integrity:
             "AED Pads Adult",
             "AED Pads Pediatric",
             "LUCAS Device",
-            "LUCAS Device Ready Check",
             "LUCAS Date of Last Charge",
         ]
         for item_name in expected_items:
@@ -396,15 +399,15 @@ class TestO2PSIIntegrity:
         item = _item(seeded_db, "Stretcher O2 PSI")
         assert item.check_type == ItemCheckType.MEASUREMENT
         assert (
-            item.measurement_minimum == 500.0
-        ), f"Stretcher O2 PSI measurement_minimum={item.measurement_minimum} -- must be 500.0 PSI"
+            item.measurement_minimum == 200.0
+        ), f"Stretcher O2 PSI measurement_minimum={item.measurement_minimum} -- must be 200.0 PSI (small tank, ITM-2)"
 
     def test_jump_bag_o2_psi_measurement_minimum(self, seeded_db):
         item = _item(seeded_db, "Jump Bag O2 PSI")
         assert item.check_type == ItemCheckType.MEASUREMENT
         assert (
-            item.measurement_minimum == 500.0
-        ), f"Jump Bag O2 PSI measurement_minimum={item.measurement_minimum} -- must be 500.0 PSI"
+            item.measurement_minimum == 200.0
+        ), f"Jump Bag O2 PSI measurement_minimum={item.measurement_minimum} -- must be 200.0 PSI (small tank, ITM-2)"
 
     def test_on_board_o2_psi_in_driver_side_ec1(self, seeded_db):
         v = _vehicle(seeded_db, "712")
@@ -460,9 +463,9 @@ class TestTruckOperationsIntegrity:
             )
             .count()
         )
-        assert functional_pars >= 10, (
+        assert functional_pars >= 9, (
             f"Truck Operations only has {functional_pars} FUNCTIONAL items -- "
-            "expected at least 10 (Runs and Starts, Lights & Sirens, etc.)"
+            "expected at least 9 (Fire Extinguisher merged to SUPPLY in ITM-2; 9 remain)"
         )
 
     def test_runs_and_starts_in_truck_operations(self, seeded_db):

@@ -56,6 +56,7 @@ def list_items(
 def create_item(payload: ItemCreate, db: Session = Depends(get_db)) -> Item:
     item = Item(
         name=payload.name,
+        station_id=payload.station_id,
         category=payload.category,
         check_type=payload.check_type,
         controlled_substance=payload.controlled_substance,

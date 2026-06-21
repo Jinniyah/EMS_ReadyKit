@@ -4,30 +4,22 @@ Seed data for EMS ReadyKit development database.
 
 Stations seeded:
     1. Newberg Township Station 1 — Ambulance 712 (BLS) + Unit 712 Jump Bag
-    2. Marcellus Township Station 1 — Ambulance 540 (ALS)
-    3. Newberg Training Station (orange) — Training Unit A + Training Unit B (BLS)
-                                           Training Jump Bag A + Training Jump Bag B
-    4. ⚠ TEST STATION — Dev Only (Unit TEST QRV — 2 compartments, 7 items, all check types)
+       Full par levels from real inventory forms (ITM-2/ITM-4).
+    2. Marcellus Township Station 1 — Unit 540 (ALS)
+       Item catalog seeded; par levels assigned via admin UI.
+    3. Newberg Training Station (orange) — Training Unit A + B, Jump Bag A + B
+       Item catalog seeded; par levels assigned via admin UI.
+    4. ⚠ TEST STATION — Dev Only — Unit TEST (QRV)
+       Item catalog seeded; par levels assigned via admin UI.
 
-Jump bags are one-per-ambulance, named "Unit NNN Jump Bag" so they sort
-alphabetically alongside their parent unit in Step 1 of the check wizard.
+Items are station-scoped (items.station_id FK, migration 0028). Each station gets its
+own copy of BASE_ITEM_SEED items — one canonical item per real-world thing, reused
+across compartments via separate ParLevel rows (e.g. "Gauze, 3x3" → ambulance PC18 +
+jump bag Front Pocket + supply room shelf, all pointing at the same item_id).
 
-Training Station (Station 3):
-    Safe playground for crew training. All real item types are represented —
-    SUPPLY, MEASUREMENT, FUNCTIONAL, DATE_RECORD, EXPIRY_DATE, DOCUMENT — plus
-    priority items (AED, LUCAS, O2 PSI). Par quantities are ~1/3 of Unit 712.
-    Only 9 compartments per ambulance and 2 per jump bag so a training check
-    takes ~5 minutes instead of 20. Station color: #e65100 (orange).
-    Members: admin only. Other users added via Settings → Team Members.
-    Always seeded — present in every environment including production.
-
-Note: Unit 710 jump bag was removed from Newberg seed — Unit 710 has no ambulance
-seeded yet and its jump bag appeared as an orphan in the check wizard.
-
-The item catalog is SHARED across all stations. The same item (e.g. "Adult BVM")
-appears in both trucks — but each truck has its own compartments and its own
-par levels. This mirrors real EMS operations: the same supply list, different
-physical locations on different vehicles.
+Newberg gets full par levels from the real 712/jump bag inventory forms. Other stations
+start with the catalog populated but par levels empty — a supervisor creates compartments
+and assigns items via Station Administration once available (ITM-6).
 
 Usage:
     cd app
@@ -72,6 +64,269 @@ from ems_readykit.models import (  # noqa: E402
 )
 from ems_readykit.models.stock_lot import StockLot  # noqa: E402
 
+# Short aliases to keep BASE_ITEM_SEED readable
+_E = ItemCategory.EQUIPMENT
+_C = ItemCategory.CONSUMABLE
+_M = ItemCategory.MEDICATION
+_D = ItemCategory.DOCUMENT
+_SUP = ItemCheckType.SUPPLY
+_MEAS = ItemCheckType.MEASUREMENT
+_FUNC = ItemCheckType.FUNCTIONAL
+_DATE = ItemCheckType.DATE_RECORD
+_DOC = ItemCheckType.DOCUMENT
+_EXP = ItemCheckType.EXPIRY_DATE
+
+# ---------------------------------------------------------------------------
+# BASE_ITEM_SEED
+# One entry per canonical real-world item.  Keys match get_or_create_item()
+# kwargs.  station_supply defaults to True; set False for equipment checks,
+# medications, and controlled-substance items that are not stocked in the
+# supply room.
+# ---------------------------------------------------------------------------
+
+BASE_ITEM_SEED = [
+    # ── Airway & Respiratory ─────────────────────────────────────────────────
+    dict(name="Adult BVM",                           category=_E, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="S/M CPAP",                            category=_E, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="L CPAP",                              category=_E, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Combi-Tube 37F & 41F",                category=_E, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Thomas Tube Holders",                 category=_E, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="set"),
+    dict(name="Adult NAS",                           category=_E, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Adult NRB",                           category=_E, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="OPAs/NPAs",                           category=_C, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Adult Nebulizers",                    category=_E, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="O2 O-Rings",                          category=_E, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="SpO2 Monitor",                        category=_E, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Colorimetric CO2 Detector",           category=_E, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Infant NRB",                          category=_E, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Infant NAS",                          category=_E, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Infant BVM",                          category=_E, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Pediatric NRB",                       category=_E, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Pediatric NAS",                       category=_E, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Pediatric BVM",                       category=_E, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Pediatric Nebulizer",                 category=_E, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Portable Suction Unit",               category=_E, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Soft Suction Tips 6F",                category=_C, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Soft Suction Tips 10F",               category=_C, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Soft Suction Tips 16F",               category=_C, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="6ft Suction Hose",                    category=_E, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Rigid Yankauer",                      category=_C, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Extra Suction Canister",              category=_E, category_group="Airway & Respiratory",                check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Jump Bag O2 Tank w/ Regulator 15LPM", category=_E, category_group="Airway & Respiratory",               check_type=_SUP,  unit_of_measure="each"),
+    # O2 PSI readings — station_supply=False (equipment checks, not stockroom items)
+    # On-Board: large tank, 500–2200 PSI.  Stretcher/Jump Bag: small tanks, 200–500 PSI.
+    dict(name="On-Board O2 PSI",    category=_E, category_group="Airway & Respiratory", check_type=_MEAS, unit_of_measure="PSI", measurement_minimum=500.0, measurement_maximum=2200.0, station_supply=False),
+    dict(name="Stretcher O2 PSI",   category=_E, category_group="Airway & Respiratory", check_type=_MEAS, unit_of_measure="PSI", measurement_minimum=200.0, measurement_maximum=500.0,  station_supply=False),
+    dict(name="Jump Bag O2 PSI",    category=_E, category_group="Airway & Respiratory", check_type=_MEAS, unit_of_measure="PSI", measurement_minimum=200.0, measurement_maximum=500.0,  station_supply=False),
+
+    # ── Wound Care & Trauma Supplies ─────────────────────────────────────────
+    dict(name="Gauze, 3x3",                 category=_C, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="CAT Tourniquet",             category=_E, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="ABD Pad 5x9",               category=_C, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="ABD Pad 8x10",              category=_C, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Tape Various Sizes",         category=_C, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Triangle Bandage",           category=_C, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="ACE Wrap Various Sizes",     category=_C, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Occlusive Dressing",         category=_C, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Bite Stick",                 category=_C, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    # Traction Splint = PS EC2 item (distinct from Adult/Peds Traction Splints in DS EC1)
+    dict(name="Traction Splint",            category=_E, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    # C-Collar, Adult merges C-Collars PC7 + C-Collar Adult JB + C-Collars Adult PS
+    dict(name="C-Collar, Adult",            category=_E, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="C-Collar Bag",              category=_E, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    # Mega-Movers merges Mega-Movers PC14 + Mega-Movers DS3
+    dict(name="Mega-Movers",               category=_E, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    # Emesis Container merges Emesis Containers (ambulance) + Emesis Container JB
+    dict(name="Emesis Container",           category=_C, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Gauze Bandage Various Sizes",category=_C, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Gauze Sponges 4x4",         category=_C, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Kerlix (Various Sizes)",     category=_C, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Kerlix, Large",             category=_C, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Kerlix, Medium",            category=_C, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Kerlix, Small",             category=_C, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Burn Sheets",               category=_C, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Trauma Dressings",          category=_C, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Hot Packs",                 category=_C, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Cold Packs",                category=_C, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="TPOD Pelvic Splint",        category=_E, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Sam Splints",               category=_E, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Long-board Splints",        category=_E, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="K.E.D. Board",             category=_E, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Adult Traction Splint",     category=_E, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Peds Traction Splint",      category=_E, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Sterile Saline Solution",   category=_C, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Long Board",               category=_E, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Short Board",              category=_E, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Board Straps",             category=_E, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="set"),
+    dict(name="Head Blocks",              category=_E, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="set"),
+    dict(name="BleedStop",               category=_C, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Stair Chair",             category=_E, category_group="Wound Care & Trauma Supplies", check_type=_SUP, unit_of_measure="each"),
+
+    # ── PPE & Cleaning ────────────────────────────────────────────────────────
+    # Gloves merge Glove Boxes S/M/L/XL + Gloves S/M/L/XL + Cab Gloves S/M/L
+    dict(name="Gloves, Small",             category=_C, category_group="PPE & Cleaning", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Gloves, Medium",            category=_C, category_group="PPE & Cleaning", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Gloves, Large",             category=_C, category_group="PPE & Cleaning", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Gloves, X-Large",           category=_C, category_group="PPE & Cleaning", check_type=_SUP, unit_of_measure="each"),
+    # Antimicrobial Hand Wipes merges Admin Counter + PC5 items
+    dict(name="Antimicrobial Hand Wipes",  category=_C, category_group="PPE & Cleaning", check_type=_SUP, unit_of_measure="each"),
+    # Infection Control Kit merges PC5 + PC14 items
+    dict(name="Infection Control Kit",     category=_C, category_group="PPE & Cleaning", check_type=_SUP, unit_of_measure="each"),
+    # BioHazard Bags merges Bio-Hazard Bags (ambulance) + BioHazard Bags JB
+    dict(name="BioHazard Bags",            category=_C, category_group="PPE & Cleaning", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Gowns",                     category=_C, category_group="PPE & Cleaning", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Goggles",                   category=_E, category_group="PPE & Cleaning", check_type=_SUP, unit_of_measure="each"),
+    dict(name="N-95 Masks",                category=_C, category_group="PPE & Cleaning", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Fluid Control Solidifier",  category=_C, category_group="PPE & Cleaning", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Paper Towels",              category=_C, category_group="PPE & Cleaning", check_type=_SUP, unit_of_measure="each"),
+    dict(name="E.S.P. Kit",               category=_E, category_group="PPE & Cleaning", check_type=_SUP, unit_of_measure="each"),
+    dict(name="DECON/HAZMAT Suits XL",    category=_C, category_group="PPE & Cleaning", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Evidence Bags",            category=_C, category_group="PPE & Cleaning", check_type=_SUP, unit_of_measure="each"),
+    dict(name="HEPA Masks",               category=_C, category_group="PPE & Cleaning", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Hand Sanitizer",           category=_C, category_group="PPE & Cleaning", check_type=_SUP, unit_of_measure="each"),
+
+    # ── Diagnostic & Monitoring Equipment ────────────────────────────────────
+    # Stethoscope merges Stethoscope + Stethoscope PC18 + Stethoscope JB + Stethoscope Flap JB
+    dict(name="Stethoscope",              category=_E, category_group="Diagnostic & Monitoring Equipment", check_type=_SUP,  unit_of_measure="each"),
+    # Thermometer merges Thermometer PC18 Unit + Thermometer JB + Thermometer EP
+    dict(name="Thermometer",              category=_E, category_group="Diagnostic & Monitoring Equipment", check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Thermometer Probe Covers", category=_C, category_group="Diagnostic & Monitoring Equipment", check_type=_SUP,  unit_of_measure="each"),
+    # Glucometer Lancets merges Glucometer Lancets + Restock Lancets + Glucometer Lancets JB
+    dict(name="Glucometer Lancets",       category=_C, category_group="Diagnostic & Monitoring Equipment", check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Glucometer Test Strips",   category=_C, category_group="Diagnostic & Monitoring Equipment", check_type=_SUP,  unit_of_measure="each"),
+    # Alcohol Prep Pads merges Alcohol Prep PC18 + Restock Alcohol Prep + Alcohol Preps BLS + Alcohol Prep JB
+    dict(name="Alcohol Prep Pads",        category=_C, category_group="Diagnostic & Monitoring Equipment", check_type=_SUP,  unit_of_measure="each"),
+    # Bandaids merges Bandaids PC18 + Restock Bandaids + Bandaids JB
+    dict(name="Bandaids",                 category=_C, category_group="Diagnostic & Monitoring Equipment", check_type=_SUP,  unit_of_measure="each"),
+    # Oral Glucose Tablets merges Oral Glucose + Oral Glucose Tablets (JB)
+    dict(name="Oral Glucose Tablets",     category=_M, category_group="Diagnostic & Monitoring Equipment", check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Oral Glucose Gel",         category=_M, category_group="Diagnostic & Monitoring Equipment", check_type=_SUP,  unit_of_measure="each"),
+    # Trauma Shears merges Trauma Shears + Trauma Shears PC18 + Trauma Shears JB
+    dict(name="Trauma Shears",            category=_E, category_group="Diagnostic & Monitoring Equipment", check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Ring Cutter",              category=_E, category_group="Diagnostic & Monitoring Equipment", check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Replacement Stethoscope Parts", category=_E, category_group="Diagnostic & Monitoring Equipment", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Wrist BP Monitor",         category=_E, category_group="Diagnostic & Monitoring Equipment", check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Multi-Cuff BP Cuff System",category=_E, category_group="Diagnostic & Monitoring Equipment", check_type=_SUP,  unit_of_measure="each"),
+    dict(name="BP Cuff",                  category=_E, category_group="Diagnostic & Monitoring Equipment", check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Extra O2 Tank (no regulator)", category=_E, category_group="Diagnostic & Monitoring Equipment", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Pen Light",               category=_E, category_group="Diagnostic & Monitoring Equipment", check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Pocket Mask",             category=_E, category_group="Diagnostic & Monitoring Equipment", check_type=_SUP,  unit_of_measure="each"),
+    dict(name="Pediatric First-In Bag",  category=_E, category_group="Diagnostic & Monitoring Equipment", check_type=_SUP,  unit_of_measure="each"),
+    dict(name="MI-Medic Cards",          category=_E, category_group="Diagnostic & Monitoring Equipment", check_type=_SUP,  unit_of_measure="each"),
+    # AED / LUCAS — equipment checks, station_supply=False (not stocked in supply room)
+    dict(name="AED Battery",             category=_E, category_group="Diagnostic & Monitoring Equipment", check_type=_FUNC, unit_of_measure="N/A", station_supply=False),
+    dict(name="AED Date of Last Charge", category=_E, category_group="Diagnostic & Monitoring Equipment", check_type=_DATE, unit_of_measure="N/A", recurrence_days=90, station_supply=False),
+    dict(name="AED Pads Adult",          category=_C, category_group="Diagnostic & Monitoring Equipment", check_type=_EXP,  unit_of_measure="N/A", station_supply=False),
+    dict(name="AED Pads Pediatric",      category=_C, category_group="Diagnostic & Monitoring Equipment", check_type=_EXP,  unit_of_measure="N/A", station_supply=False),
+    # LUCAS Device merges LUCAS Device + LUCAS Device Ready Check into one FUNCTIONAL priority item
+    dict(name="LUCAS Device",            category=_E, category_group="Diagnostic & Monitoring Equipment", check_type=_FUNC, unit_of_measure="N/A", station_supply=False),
+    dict(name="LUCAS Date of Last Charge",category=_E, category_group="Diagnostic & Monitoring Equipment", check_type=_DATE, unit_of_measure="N/A", recurrence_days=30, station_supply=False),
+    dict(name="Stretcher Battery Charged",category=_E, category_group="Diagnostic & Monitoring Equipment", check_type=_FUNC, unit_of_measure="N/A", station_supply=False),
+    dict(name="Stretcher Battery Date of Last Charge", category=_E, category_group="Diagnostic & Monitoring Equipment", check_type=_DATE, unit_of_measure="N/A", recurrence_days=90, station_supply=False),
+
+    # ── Medications & Controlled Substances ──────────────────────────────────
+    # All station_supply=False — managed via drug cabinet, not supply room
+    # Syringes merges Extra Syringes + Syringes BLS
+    dict(name="Syringes",               category=_M, category_group="Medications & Controlled Substances", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    dict(name="Needles BLS",            category=_C, category_group="Medications & Controlled Substances", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    # Overdose Rescue Kit (NARCAN) and Intranasal Naloxone are confirmed separate items
+    dict(name="Overdose Rescue Kit (NARCAN)", category=_E, category_group="Medications & Controlled Substances", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    dict(name="Intranasal Naloxone",    category=_M, category_group="Medications & Controlled Substances", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    dict(name="Albuterol Inhalation",   category=_M, category_group="Medications & Controlled Substances", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    dict(name="Low Dose Aspirin",       category=_M, category_group="Medications & Controlled Substances", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    dict(name="Epinephrine IM",         category=_M, category_group="Medications & Controlled Substances", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    dict(name="Nitroglycerin SL",       category=_M, category_group="Medications & Controlled Substances", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    dict(name="BLS Drug Bag (stocked)", category=_E, category_group="Medications & Controlled Substances", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    dict(name="BLS Drug Use Sheets",    category=_D, category_group="Medications & Controlled Substances", check_type=_DOC, unit_of_measure="N/A",  station_supply=False),
+    dict(name="ALS Drug Bag (stocked)", category=_E, category_group="Medications & Controlled Substances", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    dict(name="ALS Drug Use Sheets",    category=_D, category_group="Medications & Controlled Substances", check_type=_DOC, unit_of_measure="N/A",  station_supply=False),
+    dict(name="PT Personal Item Lock-Up",category=_E, category_group="Medications & Controlled Substances", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    dict(name="Morphine",   category=_M, category_group="Medications & Controlled Substances", check_type=_SUP, unit_of_measure="each", controlled_substance=True, station_supply=False),
+    dict(name="Fentanyl",   category=_M, category_group="Medications & Controlled Substances", check_type=_SUP, unit_of_measure="each", controlled_substance=True, station_supply=False),
+    dict(name="Midazolam",  category=_M, category_group="Medications & Controlled Substances", check_type=_SUP, unit_of_measure="each", controlled_substance=True, station_supply=False),
+    dict(name="Diazepam",   category=_M, category_group="Medications & Controlled Substances", check_type=_SUP, unit_of_measure="each", controlled_substance=True, station_supply=False),
+    dict(name="Adenosine",        category=_M, category_group="Medications & Controlled Substances", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    dict(name="Amiodarone",       category=_M, category_group="Medications & Controlled Substances", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    dict(name="Atropine",         category=_M, category_group="Medications & Controlled Substances", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    dict(name="Dopamine",         category=_M, category_group="Medications & Controlled Substances", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    dict(name="Sodium Bicarbonate",category=_M, category_group="Medications & Controlled Substances", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    dict(name="Dextrose 50%",     category=_M, category_group="Medications & Controlled Substances", check_type=_SUP, unit_of_measure="each", station_supply=False),
+
+    # ── Documents, Linens & Patient Comfort ──────────────────────────────────
+    # Clipboard w/ Paperwork merges Clipboard (ambulance Admin Counter) + Clipboard w/ Paperwork JB
+    dict(name="Clipboard w/ Paperwork", category=_D, category_group="Documents, Linens & Patient Comfort", check_type=_DOC, unit_of_measure="N/A"),
+    # Blankets merges Blankets (PC10) + Extra Blankets (Bench)
+    dict(name="Blankets",              category=_E, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    # Towels merges Towels PC11 + Towels PC14
+    dict(name="Towels",                category=_C, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    # Empty Sharps Container merges Empty Sharps Container Bench + Empty Sharps Container JB
+    dict(name="Empty Sharps Container",category=_E, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    # Writing Utensils merges Writing Utensils (Admin Counter) + Writing Utensils JB
+    dict(name="Writing Utensils",      category=_E, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    # Water Bottle merges Water Bottles (DS EC2) + Water Bottle JB
+    dict(name="Water Bottle",          category=_C, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    # Fire Extinguisher merges PS EC2 physical item + Truck Ops FUNCTIONAL check
+    # check_type=SUPPLY confirmed by Jennifer; still appears in Truck Ops as a presence check
+    dict(name="Fire Extinguisher",     category=_E, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Sheets",                category=_E, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Pillow Cases",          category=_E, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Blanket Roll",          category=_E, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Absorbent Pads",        category=_C, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Emergency Blankets",    category=_C, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Survival Wrap Foil Blanket", category=_C, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Triage Tags",           category=_C, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    dict(name="OB Kit",                category=_E, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    dict(name="OB Hat",                category=_C, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    dict(name="OB Warmers",            category=_E, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Bedpan",                category=_E, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    dict(name="ACR Child Harness",     category=_E, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Extra Pillows",         category=_E, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    dict(name="iPad & Charger",        category=_E, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    dict(name="O2 Wrench",             category=_E, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Duct Tape",             category=_C, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Styro-foam Cups",       category=_C, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    dict(name="Glo-Sticks",            category=_C, category_group="Documents, Linens & Patient Comfort", check_type=_SUP, unit_of_measure="each"),
+    dict(name="PCR or HERN PCR",       category=_D, category_group="Documents, Linens & Patient Comfort", check_type=_DOC, unit_of_measure="N/A"),
+    dict(name="Billing Form",          category=_D, category_group="Documents, Linens & Patient Comfort", check_type=_DOC, unit_of_measure="N/A"),
+    dict(name="AMA Form",              category=_D, category_group="Documents, Linens & Patient Comfort", check_type=_DOC, unit_of_measure="N/A"),
+    dict(name="AMA C-Spine Precautions Form", category=_D, category_group="Documents, Linens & Patient Comfort", check_type=_DOC, unit_of_measure="N/A"),
+    dict(name="Transfer Form",         category=_D, category_group="Documents, Linens & Patient Comfort", check_type=_DOC, unit_of_measure="N/A"),
+    dict(name="Claim Submission Form", category=_D, category_group="Documents, Linens & Patient Comfort", check_type=_DOC, unit_of_measure="N/A"),
+    dict(name="Ambulance Transport Cert", category=_D, category_group="Documents, Linens & Patient Comfort", check_type=_DOC, unit_of_measure="N/A"),
+    dict(name="Updated Radio Channel List", category=_D, category_group="Documents, Linens & Patient Comfort", check_type=_DOC, unit_of_measure="N/A"),
+    dict(name="Cass County Protocol Book", category=_D, category_group="Documents, Linens & Patient Comfort", check_type=_DOC, unit_of_measure="N/A"),
+
+    # ── Vehicle Operations ────────────────────────────────────────────────────
+    # FUNCTIONAL and DOCUMENT vehicle-system checks.  station_supply=False — these
+    # are operational checks, not supply room items.
+    dict(name="Runs and Starts",        category=_E, category_group="Vehicle Operations", check_type=_FUNC, unit_of_measure="N/A", station_supply=False),
+    dict(name="External Warning Systems (Lights & Sirens)", category=_E, category_group="Vehicle Operations", check_type=_FUNC, unit_of_measure="N/A", station_supply=False),
+    dict(name="Loading & Unloading Access",          category=_E, category_group="Vehicle Operations", check_type=_FUNC, unit_of_measure="N/A", station_supply=False),
+    dict(name="Ambulance Cot and Straps Secured",    category=_E, category_group="Vehicle Operations", check_type=_FUNC, unit_of_measure="N/A", station_supply=False),
+    dict(name="Patient Compartment Climate Control", category=_E, category_group="Vehicle Operations", check_type=_FUNC, unit_of_measure="N/A", station_supply=False),
+    dict(name="Communication Medcom Compliant",      category=_E, category_group="Vehicle Operations", check_type=_FUNC, unit_of_measure="N/A", station_supply=False),
+    dict(name="Flares or Equivalent Device",         category=_E, category_group="Vehicle Operations", check_type=_FUNC, unit_of_measure="N/A", station_supply=False),
+    dict(name="Portable Two-Way Radio",              category=_E, category_group="Vehicle Operations", check_type=_FUNC, unit_of_measure="N/A", station_supply=False),
+    dict(name="Window Punch Available",              category=_E, category_group="Vehicle Operations", check_type=_FUNC, unit_of_measure="N/A", station_supply=False),
+    dict(name="Mileage Sheet",                       category=_D, category_group="Vehicle Operations", check_type=_DOC,  unit_of_measure="N/A", station_supply=False),
+    dict(name="Insurance Information",               category=_D, category_group="Vehicle Operations", check_type=_DOC,  unit_of_measure="N/A", station_supply=False),
+    dict(name="Hood Hoses",          category=_E, category_group="Vehicle Operations", check_type=_FUNC, unit_of_measure="N/A", station_supply=False),
+    dict(name="Hood Belts",          category=_E, category_group="Vehicle Operations", check_type=_FUNC, unit_of_measure="N/A", station_supply=False),
+    dict(name="Hood Oil Level",      category=_E, category_group="Vehicle Operations", check_type=_FUNC, unit_of_measure="N/A", station_supply=False),
+    dict(name="Hood Steering/Brakes",category=_E, category_group="Vehicle Operations", check_type=_FUNC, unit_of_measure="N/A", station_supply=False),
+    dict(name="Hood Radiator",       category=_E, category_group="Vehicle Operations", check_type=_FUNC, unit_of_measure="N/A", station_supply=False),
+    dict(name="Hood Windshield",     category=_E, category_group="Vehicle Operations", check_type=_FUNC, unit_of_measure="N/A", station_supply=False),
+    dict(name="Hood Battery",        category=_E, category_group="Vehicle Operations", check_type=_FUNC, unit_of_measure="N/A", station_supply=False),
+    dict(name="Broom",           category=_E, category_group="Vehicle Operations", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    dict(name="Jumper Cables",   category=_E, category_group="Vehicle Operations", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    dict(name="Scene Light",     category=_E, category_group="Vehicle Operations", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    dict(name="Peds Jump Bag",   category=_E, category_group="Vehicle Operations", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    dict(name="Patient Restraints", category=_E, category_group="Vehicle Operations", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    dict(name="Cot Battery Charger", category=_E, category_group="Vehicle Operations", check_type=_SUP, unit_of_measure="each", station_supply=False),
+    dict(name="Cot Spare Battery",   category=_E, category_group="Vehicle Operations", check_type=_SUP, unit_of_measure="each", station_supply=False),
+]
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -81,21 +336,29 @@ def get_or_create_item(
     db: Session,
     *,
     name: str,
+    station_id: int,
     category: ItemCategory,
+    category_group: Optional[str] = None,
     check_type: ItemCheckType = ItemCheckType.SUPPLY,
     controlled_substance: bool = False,
     unit_of_measure: str = "each",
     measurement_minimum: Optional[float] = None,
     measurement_maximum: Optional[float] = None,
     recurrence_days: Optional[int] = None,
+    station_supply: bool = True,
 ) -> Item:
-    item = db.query(Item).filter(Item.name == name).first()
+    item = (
+        db.query(Item)
+        .filter(Item.station_id == station_id, Item.name == name)
+        .first()
+    )
     if item:
-        # Update mutable fields on re-seed so existing DBs pick up changes
-        # (e.g. LUCAS Device SUPPLY→FUNCTIONAL, AED Pads gaining recurrence_days).
         item.check_type = check_type
         item.recurrence_days = recurrence_days
         item.unit_of_measure = unit_of_measure
+        item.station_supply = station_supply
+        if category_group is not None:
+            item.category_group = category_group
         if measurement_minimum is not None:
             item.measurement_minimum = measurement_minimum
         if measurement_maximum is not None:
@@ -103,13 +366,16 @@ def get_or_create_item(
         return item
     item = Item(
         name=name,
+        station_id=station_id,
         category=category,
+        category_group=category_group,
         check_type=check_type,
         controlled_substance=controlled_substance,
         unit_of_measure=unit_of_measure,
         measurement_minimum=measurement_minimum,
         measurement_maximum=measurement_maximum,
         recurrence_days=recurrence_days,
+        station_supply=station_supply,
         active=True,
     )
     db.add(item)
@@ -137,7 +403,6 @@ def add_par(
         .first()
     )
     if existing:
-        # Update priority fields on re-seed so existing DBs get the new values.
         existing.priority_check = priority_check
         existing.priority_question = priority_question or None
         return
@@ -176,7 +441,7 @@ def make_compartment(
     )
     if comp:
         comp.requires_full_check = requires_full_check
-        comp.restriction_note = restriction_note  # update on re-seed (e.g. removal)
+        comp.restriction_note = restriction_note
         return comp
     comp = Compartment(
         location_id=location.location_id,
@@ -194,95 +459,9 @@ def make_compartment(
     return comp
 
 
-def purge_stale_par_levels(db: Session, loc: InventoryLocation) -> None:
-    """
-    Remove par levels and empty compartments that were retired in this seed version.
-
-    Retired items (reason):
-      - "Stretcher O2 Tank w/ Regulator" SUPPLY  — replaced by PSI reading only
-      - "On-Board O2 Tank w/ Regulator 15LPM" SUPPLY — duplicate; PSI item is canonical
-      - Compartment "Passenger Side EC 1"   — empty on Unit 712, not used
-    """
-    stale_item_names = [
-        "Stretcher O2 Tank w/ Regulator",
-        "On-Board O2 Tank w/ Regulator 15LPM",
-    ]
-    purged_pars = 0
-    for item_name in stale_item_names:
-        item = db.query(Item).filter(Item.name == item_name).first()
-        if not item:
-            continue
-        deleted = (
-            db.query(ParLevel)
-            .filter(
-                ParLevel.location_id == loc.location_id,
-                ParLevel.item_id == item.item_id,
-            )
-            .delete(synchronize_session=False)
-        )
-        if deleted:
-            purged_pars += deleted
-            print(
-                f"    Purged stale par level: '{item_name}' from location {loc.location_id}"
-            )
-
-    # Remove Passenger Side EC 1 compartment (empty — not used on Unit 712)
-    ps_ec1 = (
-        db.query(Compartment)
-        .filter(
-            Compartment.location_id == loc.location_id,
-            Compartment.name == "Passenger Side EC 1",
-        )
-        .first()
-    )
-    if ps_ec1:
-        db.query(ParLevel).filter(
-            ParLevel.compartment_id == ps_ec1.compartment_id
-        ).delete(synchronize_session=False)
-        db.delete(ps_ec1)
-        print(
-            f"    Removed empty compartment 'Passenger Side EC 1' from location {loc.location_id}"
-        )
-
-    db.flush()
-
-
-def purge_wrong_drug_cabinets(
-    db: Session, loc: InventoryLocation, is_als: bool
-) -> None:
-    """
-    Remove any PC 9 drug cabinet compartments (and their par levels) that belong
-    to the wrong unit type for this location.
-    """
-    wrong_names = (
-        ["PC 9 BLS Drug Cabinet", "BLS Drug Bag"]
-        if is_als
-        else ["PC 9 ALS Drug Cabinet", "ALS Drug Bag"]
-    )
-    for name in wrong_names:
-        comp = (
-            db.query(Compartment)
-            .filter(
-                Compartment.location_id == loc.location_id,
-                Compartment.name == name,
-            )
-            .first()
-        )
-        if comp:
-            db.query(ParLevel).filter(
-                ParLevel.compartment_id == comp.compartment_id
-            ).delete(synchronize_session=False)
-            db.delete(comp)
-            print(
-                f"    Purged stale compartment: '{name}' from location {loc.location_id}"
-            )
-    db.flush()
-
-
 def get_or_create_jump_bag_location(
     db: Session, *, station_id: int, label: str
 ) -> tuple[InventoryLocation, bool]:
-    """Return (location, created) for a jump bag with the given label. Idempotent."""
     loc = (
         db.query(InventoryLocation)
         .filter(
@@ -305,15 +484,36 @@ def get_or_create_jump_bag_location(
 
 
 # ---------------------------------------------------------------------------
+# Catalog seeder — creates BASE_ITEM_SEED items for any station
+# ---------------------------------------------------------------------------
+
+
+def seed_station_catalog(db: Session, station_id: int) -> int:
+    """Create BASE_ITEM_SEED items for a station. Returns count of new items created."""
+    created = 0
+    for entry in BASE_ITEM_SEED:
+        exists = (
+            db.query(Item.item_id)
+            .filter(Item.station_id == station_id, Item.name == entry["name"])
+            .first()
+        )
+        if not exists:
+            get_or_create_item(db, station_id=station_id, **entry)
+            created += 1
+        else:
+            # Update mutable fields on re-seed
+            get_or_create_item(db, station_id=station_id, **entry)
+    db.flush()
+    return created
+
+
+# ---------------------------------------------------------------------------
 # Supply room builder — compartments + test stock lots
 # ---------------------------------------------------------------------------
 
 
-def build_supply_room(db: Session, loc: InventoryLocation) -> None:
-    """
-    Create 4 default cabinet compartments and seed a set of test stock lots
-    for the given STATION_SUPPLY_ROOM location. Idempotent.
-    """
+def build_supply_room(db: Session, loc: InventoryLocation, station_id: int) -> None:
+    """Create 4 default shelf compartments and seed test stock lots. Idempotent."""
     from datetime import date as _date
 
     default_compartments = [
@@ -331,21 +531,24 @@ def build_supply_room(db: Session, loc: InventoryLocation) -> None:
             sort_order=sort_order,
         )
 
-    # Test stock lots — items that already exist in the shared item catalog
     test_stock = [
-        ("Gauze Bandage Various Sizes", "LOT-G2026-001", _date(2027, 6, 30), 24),
-        ("Sterile Saline Solution", "LOT-S2026-001", _date(2027, 3, 15), 12),
-        ("Gloves Medium", None, None, 50),
-        ("ABD Pad 8x10", "LOT-A2026-001", _date(2027, 9, 15), 18),
-        ("N-95 Masks", "LOT-N2026-001", _date(2027, 12, 31), 40),
-        ("KERLIX PC13", "LOT-K2026-001", _date(2027, 8, 31), 16),
-        ("Gloves Large", None, None, 30),
-        ("Tape Various Sizes", "LOT-T2026-001", _date(2027, 6, 30), 20),
-        ("Triangle Bandages", "LOT-TB2026-001", _date(2027, 9, 30), 10),
-        ("CAT Tourniquet", "LOT-C2026-001", _date(2028, 1, 31), 6),
+        ("Gauze Bandage Various Sizes", "LOT-G2026-001", _date(2027, 6, 30),  24),
+        ("Sterile Saline Solution",     "LOT-S2026-001", _date(2027, 3, 15),  12),
+        ("Gloves, Medium",              None,            None,                  50),
+        ("ABD Pad 8x10",                "LOT-A2026-001", _date(2027, 9, 15),  18),
+        ("N-95 Masks",                  "LOT-N2026-001", _date(2027, 12, 31), 40),
+        ("Kerlix (Various Sizes)",      "LOT-K2026-001", _date(2027, 8, 31),  16),
+        ("Gloves, Large",               None,            None,                  30),
+        ("Tape Various Sizes",          "LOT-T2026-001", _date(2027, 6, 30),  20),
+        ("Triangle Bandage",            "LOT-TB2026-001",_date(2027, 9, 30),  10),
+        ("CAT Tourniquet",              "LOT-C2026-001", _date(2028, 1, 31),   6),
     ]
     for item_name, lot_number, expiry, qty in test_stock:
-        item = db.query(Item).filter(Item.name == item_name).first()
+        item = (
+            db.query(Item)
+            .filter(Item.name == item_name, Item.station_id == station_id)
+            .first()
+        )
         if not item:
             continue
         existing = (
@@ -370,958 +573,419 @@ def build_supply_room(db: Session, loc: InventoryLocation) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Ambulance inventory builder
+# Ambulance inventory builder (Newberg — full par levels from real forms)
 # ---------------------------------------------------------------------------
 
 
 def build_ambulance_inventory(
-    db: Session, loc: InventoryLocation, is_als: bool
+    db: Session, loc: InventoryLocation, station_id: int, is_als: bool
 ) -> None:
     """Create all compartments and par levels for a standard ambulance location."""
 
-    pc1 = make_compartment(
-        db,
-        location=loc,
-        name="PC 1 (Airway)",
-        sort_order=1,
-        location_descriptor="Interior, left side, forward",
-    )
+    def item(name: str, **kw) -> Item:
+        return get_or_create_item(db, name=name, station_id=station_id, **kw)
+
+    # ── PC 1 (Airway) ─────────────────────────────────────────────────────────
+    pc1 = make_compartment(db, location=loc, name="PC 1 (Airway)", sort_order=1,
+                           location_descriptor="Interior, left side, forward")
     for name, qty in [("Adult BVM", 1), ("S/M CPAP", 1), ("L CPAP", 1)]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
-            location=loc,
-            compartment=pc1,
-            min_qty=qty,
-        )
+        add_par(db, item=item(name, category=_E), location=loc, compartment=pc1, min_qty=qty)
 
-    pc2 = make_compartment(
-        db,
-        location=loc,
-        name="PC 2 (Airway)",
-        sort_order=2,
-        location_descriptor="Interior, left side",
-    )
+    # ── PC 2 (Airway) ─────────────────────────────────────────────────────────
+    pc2 = make_compartment(db, location=loc, name="PC 2 (Airway)", sort_order=2,
+                           location_descriptor="Interior, left side")
     for name, uom in [
-        ("Combi-Tubes 37F & 41F", "each"),
-        ("Extra Syringes", "each"),
-        ("Thomas-Tube Holders", "set"),
+        ("Combi-Tube 37F & 41F", "each"),
+        ("Syringes",             "each"),   # was: Extra Syringes
+        ("Thomas Tube Holders",  "set"),
     ]:
-        add_par(
-            db,
-            item=get_or_create_item(
-                db, name=name, category=ItemCategory.EQUIPMENT, unit_of_measure=uom
-            ),
-            location=loc,
-            compartment=pc2,
-            min_qty=1,
-        )
+        add_par(db, item=item(name, category=_E, unit_of_measure=uom), location=loc, compartment=pc2, min_qty=1)
 
-    pc3 = make_compartment(
-        db,
-        location=loc,
-        name="PC 3 (Airway)",
-        sort_order=3,
-        location_descriptor="Interior, left side",
-    )
+    # ── PC 3 (Airway) ─────────────────────────────────────────────────────────
+    pc3 = make_compartment(db, location=loc, name="PC 3 (Airway)", sort_order=3,
+                           location_descriptor="Interior, left side")
     for name in ["Adult NAS", "Adult NRB", "Stethoscope"]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
-            location=loc,
-            compartment=pc3,
-            min_qty=1,
-        )
+        add_par(db, item=item(name, category=_E), location=loc, compartment=pc3, min_qty=1)
 
-    pc4 = make_compartment(
-        db,
-        location=loc,
-        name="PC 4 (Airway)",
-        sort_order=4,
-        location_descriptor="Interior, left side",
-    )
+    # ── PC 4 (Airway) ─────────────────────────────────────────────────────────
+    pc4 = make_compartment(db, location=loc, name="PC 4 (Airway)", sort_order=4,
+                           location_descriptor="Interior, left side")
     for name, cat in [
-        ("OPAs/NPAs", ItemCategory.CONSUMABLE),
-        ("Adult Nebulizers", ItemCategory.EQUIPMENT),
-        ("O2 O-Rings", ItemCategory.EQUIPMENT),
+        ("OPAs/NPAs",        _C),
+        ("Adult Nebulizers", _E),
+        ("O2 O-Rings",       _E),
     ]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=cat),
-            location=loc,
-            compartment=pc4,
-            min_qty=1,
-        )
+        add_par(db, item=item(name, category=cat), location=loc, compartment=pc4, min_qty=1)
 
-    admin_counter = make_compartment(
-        db,
-        location=loc,
-        name="Admin Counter",
-        sort_order=5,
-        location_descriptor="Interior, admin counter near driver",
-    )
+    # ── Admin Counter ──────────────────────────────────────────────────────────
+    admin_counter = make_compartment(db, location=loc, name="Admin Counter", sort_order=5,
+                                     location_descriptor="Interior, admin counter near driver")
     for name, cat, ct, qty in [
-        ("iPad & Charger", ItemCategory.EQUIPMENT, ItemCheckType.SUPPLY, 1),
-        ("Clipboard", ItemCategory.EQUIPMENT, ItemCheckType.SUPPLY, 1),
-        ("Hand Sanitizer", ItemCategory.CONSUMABLE, ItemCheckType.SUPPLY, 1),
-        ("Antimicrobial Hand Wipes", ItemCategory.CONSUMABLE, ItemCheckType.SUPPLY, 1),
-        ("Writing Utensils", ItemCategory.EQUIPMENT, ItemCheckType.SUPPLY, 1),
-        ("Trauma Shears", ItemCategory.EQUIPMENT, ItemCheckType.SUPPLY, 1),
-        ("Duct Tape", ItemCategory.CONSUMABLE, ItemCheckType.SUPPLY, 1),
-        ("O2 Wrench", ItemCategory.EQUIPMENT, ItemCheckType.SUPPLY, 1),
-        ("PCR or HERN PCR", ItemCategory.DOCUMENT, ItemCheckType.DOCUMENT, 1),
-        ("Billing Form", ItemCategory.DOCUMENT, ItemCheckType.DOCUMENT, 1),
-        ("AMA Form", ItemCategory.DOCUMENT, ItemCheckType.DOCUMENT, 1),
-        (
-            "AMA C-Spine Precautions Form",
-            ItemCategory.DOCUMENT,
-            ItemCheckType.DOCUMENT,
-            1,
-        ),
-        ("Transfer Form", ItemCategory.DOCUMENT, ItemCheckType.DOCUMENT, 1),
-        ("Claim Submission Form", ItemCategory.DOCUMENT, ItemCheckType.DOCUMENT, 1),
-        ("Ambulance Transport Cert", ItemCategory.DOCUMENT, ItemCheckType.DOCUMENT, 1),
-        (
-            "Updated Radio Channel List",
-            ItemCategory.DOCUMENT,
-            ItemCheckType.DOCUMENT,
-            1,
-        ),
+        ("iPad & Charger",            _E, _SUP, 1),
+        ("Clipboard w/ Paperwork",    _D, _DOC, 1),   # was: Clipboard
+        ("Hand Sanitizer",            _C, _SUP, 1),
+        ("Antimicrobial Hand Wipes",  _C, _SUP, 1),
+        ("Writing Utensils",          _E, _SUP, 1),
+        ("Trauma Shears",             _E, _SUP, 1),
+        ("Duct Tape",                 _C, _SUP, 1),
+        ("O2 Wrench",                 _E, _SUP, 1),
+        ("PCR or HERN PCR",           _D, _DOC, 1),
+        ("Billing Form",              _D, _DOC, 1),
+        ("AMA Form",                  _D, _DOC, 1),
+        ("AMA C-Spine Precautions Form", _D, _DOC, 1),
+        ("Transfer Form",             _D, _DOC, 1),
+        ("Claim Submission Form",     _D, _DOC, 1),
+        ("Ambulance Transport Cert",  _D, _DOC, 1),
+        ("Updated Radio Channel List",_D, _DOC, 1),
     ]:
-        uom = "N/A" if ct == ItemCheckType.DOCUMENT else "each"
-        add_par(
-            db,
-            item=get_or_create_item(
-                db, name=name, category=cat, check_type=ct, unit_of_measure=uom
-            ),
-            location=loc,
-            compartment=admin_counter,
-            min_qty=qty,
-        )
+        uom = "N/A" if ct == _DOC else "each"
+        add_par(db, item=item(name, category=cat, check_type=ct, unit_of_measure=uom),
+                location=loc, compartment=admin_counter, min_qty=qty)
 
-    suction = make_compartment(
-        db,
-        location=loc,
-        name="Suction Drawer",
-        sort_order=6,
-        location_descriptor="Interior, suction drawer",
-    )
+    # ── Suction Drawer ─────────────────────────────────────────────────────────
+    suction = make_compartment(db, location=loc, name="Suction Drawer", sort_order=6,
+                               location_descriptor="Interior, suction drawer")
     for name, qty in [
-        ("Soft Suction Tips 6F", 3),
+        ("Soft Suction Tips 6F",  3),
         ("Soft Suction Tips 10F", 3),
         ("Soft Suction Tips 16F", 3),
-        ("6ft Suction Hose", 1),
-        ("Rigid Yankauer", 3),
+        ("6ft Suction Hose",      1),
+        ("Rigid Yankauer",        3),
     ]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.CONSUMABLE),
-            location=loc,
-            compartment=suction,
-            min_qty=qty,
-        )
+        add_par(db, item=item(name, category=_C), location=loc, compartment=suction, min_qty=qty)
 
-    admin_cab = make_compartment(
-        db,
-        location=loc,
-        name="Admin Cabinet",
-        sort_order=7,
-        location_descriptor="Interior, behind airway seat",
-    )
+    # ── Admin Cabinet ──────────────────────────────────────────────────────────
+    admin_cab = make_compartment(db, location=loc, name="Admin Cabinet", sort_order=7,
+                                 location_descriptor="Interior, behind airway seat")
     for name, cat, ct in [
-        ("Evidence Bags", ItemCategory.CONSUMABLE, ItemCheckType.SUPPLY),
-        ("HEPA Masks", ItemCategory.CONSUMABLE, ItemCheckType.SUPPLY),
-        ("Cass County Protocol Book", ItemCategory.DOCUMENT, ItemCheckType.DOCUMENT),
-        ("ACR Child Harness", ItemCategory.EQUIPMENT, ItemCheckType.SUPPLY),
+        ("Evidence Bags",          _C, _SUP),
+        ("HEPA Masks",             _C, _SUP),
+        ("Cass County Protocol Book", _D, _DOC),
+        ("ACR Child Harness",      _E, _SUP),
     ]:
-        uom = "N/A" if ct == ItemCheckType.DOCUMENT else "each"
-        add_par(
-            db,
-            item=get_or_create_item(
-                db, name=name, category=cat, check_type=ct, unit_of_measure=uom
-            ),
-            location=loc,
-            compartment=admin_cab,
-            min_qty=1,
-        )
+        uom = "N/A" if ct == _DOC else "each"
+        add_par(db, item=item(name, category=cat, check_type=ct, unit_of_measure=uom),
+                location=loc, compartment=admin_cab, min_qty=1)
 
-    pc5 = make_compartment(
-        db,
-        location=loc,
-        name="PC 5 (PPE)",
-        sort_order=8,
-        location_descriptor="Interior, PPE compartment",
-    )
+    # ── PC 5 (PPE) ────────────────────────────────────────────────────────────
+    pc5 = make_compartment(db, location=loc, name="PC 5 (PPE)", sort_order=8,
+                           location_descriptor="Interior, PPE compartment")
     for name in [
-        "Glove Boxes Small",
-        "Glove Boxes Medium",
-        "Glove Boxes Large",
-        "Glove Boxes X-Large",
-        "Gowns",
-        "Goggles",
-        "N-95 Masks",
-        "Fluid Control Solidifier",
-        "Paper Towels",
-        "Antimicrobial Hand Wipes PC5",
+        "Gloves, Small", "Gloves, Medium", "Gloves, Large", "Gloves, X-Large",
+        "Gowns", "Goggles", "N-95 Masks", "Fluid Control Solidifier", "Paper Towels",
+        "Antimicrobial Hand Wipes",  # was: Antimicrobial Hand Wipes PC5
         "E.S.P. Kit",
-        "Infection Control Kits PC5",
+        "Infection Control Kit",     # was: Infection Control Kits PC5
     ]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.CONSUMABLE),
-            location=loc,
-            compartment=pc5,
-            min_qty=1,
-        )
+        cat = _E if name in ("Goggles", "E.S.P. Kit") else _C
+        add_par(db, item=item(name, category=cat), location=loc, compartment=pc5, min_qty=1)
 
-    pc6 = make_compartment(
-        db,
-        location=loc,
-        name="PC 6",
-        sort_order=9,
-        location_descriptor="Interior",
-    )
+    # ── PC 6 ──────────────────────────────────────────────────────────────────
+    pc6 = make_compartment(db, location=loc, name="PC 6", sort_order=9,
+                           location_descriptor="Interior")
     for name, cat in [
-        ("Wrist BP Monitor", ItemCategory.EQUIPMENT),
-        ("Pocket Mask", ItemCategory.EQUIPMENT),
-        ("OB Kit", ItemCategory.EQUIPMENT),
-        ("OB Hat", ItemCategory.CONSUMABLE),
-        ("OB Warmers", ItemCategory.EQUIPMENT),
+        ("Wrist BP Monitor", _E), ("Pocket Mask", _E),
+        ("OB Kit", _E), ("OB Hat", _C), ("OB Warmers", _E),
     ]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=cat),
-            location=loc,
-            compartment=pc6,
-            min_qty=1,
-        )
+        add_par(db, item=item(name, category=cat), location=loc, compartment=pc6, min_qty=1)
 
-    pc7 = make_compartment(
-        db,
-        location=loc,
-        name="PC 7",
-        sort_order=10,
-        location_descriptor="Interior, patient compartment",
-    )
+    # ── PC 7 ──────────────────────────────────────────────────────────────────
+    pc7 = make_compartment(db, location=loc, name="PC 7", sort_order=10,
+                           location_descriptor="Interior, patient compartment")
     for name, qty in [
-        ("Emesis Containers", 20),
+        ("Emesis Container", 20),    # was: Emesis Containers
         ("Bedpan", 1),
-        ("C-Collars PC7", 1),
+        ("C-Collar, Adult", 1),      # was: C-Collars PC7
         ("Extra Suction Canister", 1),
         ("C-Collar Bag", 1),
     ]:
-        cat = ItemCategory.CONSUMABLE if "Emesis" in name else ItemCategory.EQUIPMENT
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=cat),
-            location=loc,
-            compartment=pc7,
-            min_qty=qty,
-        )
+        cat = _C if name == "Emesis Container" else _E
+        add_par(db, item=item(name, category=cat), location=loc, compartment=pc7, min_qty=qty)
 
-    pc8 = make_compartment(
-        db,
-        location=loc,
-        name="PC 8",
-        sort_order=11,
-        location_descriptor="Interior, driver side",
-    )
-    add_par(
-        db,
-        item=get_or_create_item(
-            db, name="Portable Suction Unit", category=ItemCategory.EQUIPMENT
-        ),
-        location=loc,
-        compartment=pc8,
-        min_qty=1,
-    )
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="AED Battery",
-            category=ItemCategory.EQUIPMENT,
-            check_type=ItemCheckType.FUNCTIONAL,
-            unit_of_measure="N/A",
-        ),
-        location=loc,
-        compartment=pc8,
-        min_qty=1,
-        priority_check=True,
-        priority_question="AED shows READY?",
-    )
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="AED Date of Last Charge",
-            category=ItemCategory.EQUIPMENT,
-            check_type=ItemCheckType.DATE_RECORD,
-            unit_of_measure="N/A",
-            recurrence_days=90,
-        ),
-        location=loc,
-        compartment=pc8,
-        min_qty=1,
-    )
-    # AED Pads — EXPIRY_DATE: date_value is the printed expiry date on the package.
-    # EXPIRED when today > date_value. Same/Different buttons on compartment card.
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="AED Pads Adult",
-            category=ItemCategory.CONSUMABLE,
-            check_type=ItemCheckType.EXPIRY_DATE,
-            unit_of_measure="N/A",
-            recurrence_days=None,
-        ),
-        location=loc,
-        compartment=pc8,
-        min_qty=1,
-    )
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="AED Pads Pediatric",
-            category=ItemCategory.CONSUMABLE,
-            check_type=ItemCheckType.EXPIRY_DATE,
-            unit_of_measure="N/A",
-            recurrence_days=None,
-        ),
-        location=loc,
-        compartment=pc8,
-        min_qty=1,
-    )
-    # LUCAS Device — FUNCTIONAL Pass/Fail, shown as a priority item at check start.
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="LUCAS Device",
-            category=ItemCategory.EQUIPMENT,
-            check_type=ItemCheckType.FUNCTIONAL,
-            unit_of_measure="N/A",
-        ),
-        location=loc,
-        compartment=pc8,
-        min_qty=1,
-        priority_check=True,
-        priority_question="LUCAS shows READY?",
-    )
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="LUCAS Date of Last Charge",
-            category=ItemCategory.EQUIPMENT,
-            check_type=ItemCheckType.DATE_RECORD,
-            unit_of_measure="N/A",
-            recurrence_days=30,
-        ),
-        location=loc,
-        compartment=pc8,
-        min_qty=1,
-    )
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="LUCAS Device Ready Check",
-            category=ItemCategory.EQUIPMENT,
-            check_type=ItemCheckType.FUNCTIONAL,
-            unit_of_measure="N/A",
-        ),
-        location=loc,
-        compartment=pc8,
-        min_qty=1,
-    )
+    # ── PC 8 — AED + LUCAS priority items ─────────────────────────────────────
+    pc8 = make_compartment(db, location=loc, name="PC 8", sort_order=11,
+                           location_descriptor="Interior, driver side")
+    add_par(db, item=item("Portable Suction Unit", category=_E),
+            location=loc, compartment=pc8, min_qty=1)
+    add_par(db,
+            item=item("AED Battery", category=_E, check_type=_FUNC, unit_of_measure="N/A", station_supply=False),
+            location=loc, compartment=pc8, min_qty=1,
+            priority_check=True, priority_question="AED shows READY?")
+    add_par(db,
+            item=item("AED Date of Last Charge", category=_E, check_type=_DATE,
+                      unit_of_measure="N/A", recurrence_days=90, station_supply=False),
+            location=loc, compartment=pc8, min_qty=1)
+    add_par(db,
+            item=item("AED Pads Adult", category=_C, check_type=_EXP,
+                      unit_of_measure="N/A", station_supply=False),
+            location=loc, compartment=pc8, min_qty=1)
+    add_par(db,
+            item=item("AED Pads Pediatric", category=_C, check_type=_EXP,
+                      unit_of_measure="N/A", station_supply=False),
+            location=loc, compartment=pc8, min_qty=1)
+    # LUCAS Device: one canonical FUNCTIONAL priority item (merges former "LUCAS Device Ready Check")
+    add_par(db,
+            item=item("LUCAS Device", category=_E, check_type=_FUNC,
+                      unit_of_measure="N/A", station_supply=False),
+            location=loc, compartment=pc8, min_qty=1,
+            priority_check=True, priority_question="LUCAS shows READY?")
+    add_par(db,
+            item=item("LUCAS Date of Last Charge", category=_E, check_type=_DATE,
+                      unit_of_measure="N/A", recurrence_days=30, station_supply=False),
+            location=loc, compartment=pc8, min_qty=1)
 
-    # Purge retired par levels and empty compartments from prior seed versions.
-    purge_stale_par_levels(db, loc)
-    purge_wrong_drug_cabinets(db, loc, is_als)
-
+    # ── PC 9 — Drug Cabinet (BLS or ALS) ──────────────────────────────────────
     if is_als:
-        pc9 = make_compartment(
-            db,
-            location=loc,
-            name="PC 9 ALS Drug Cabinet",
-            sort_order=12,
-            location_descriptor="Interior, ALS drug cabinet",
-            restriction_note="Dual signature required — ALS personnel only",
-            als_only=True,
-        )
+        pc9 = make_compartment(db, location=loc, name="PC 9 ALS Drug Cabinet", sort_order=12,
+                               location_descriptor="Interior, ALS drug cabinet",
+                               restriction_note="Dual signature required — ALS personnel only",
+                               als_only=True)
         for name, cat, controlled in [
-            ("ALS Drug Bag (stocked)", ItemCategory.EQUIPMENT, False),
-            ("ALS Drug Use Sheets", ItemCategory.DOCUMENT, False),
-            ("PT Personal Item Lock-Up", ItemCategory.EQUIPMENT, False),
-            ("Morphine", ItemCategory.MEDICATION, True),
-            ("Fentanyl", ItemCategory.MEDICATION, True),
-            ("Midazolam", ItemCategory.MEDICATION, True),
-            ("Diazepam", ItemCategory.MEDICATION, True),
+            ("ALS Drug Bag (stocked)", _E, False),
+            ("ALS Drug Use Sheets",    _D, False),
+            ("PT Personal Item Lock-Up", _E, False),
+            ("Morphine",   _M, True),
+            ("Fentanyl",   _M, True),
+            ("Midazolam",  _M, True),
+            ("Diazepam",   _M, True),
         ]:
-            ct = ItemCheckType.DOCUMENT if "Sheets" in name else ItemCheckType.SUPPLY
-            uom = "N/A" if ct == ItemCheckType.DOCUMENT else "each"
-            add_par(
-                db,
-                item=get_or_create_item(
-                    db,
-                    name=name,
-                    category=cat,
-                    check_type=ct,
-                    unit_of_measure=uom,
-                    controlled_substance=controlled,
-                ),
-                location=loc,
-                compartment=pc9,
-                min_qty=1,
-            )
+            ct = _DOC if "Sheets" in name else _SUP
+            uom = "N/A" if ct == _DOC else "each"
+            add_par(db, item=item(name, category=cat, check_type=ct, unit_of_measure=uom,
+                                  controlled_substance=controlled, station_supply=False),
+                    location=loc, compartment=pc9, min_qty=1)
 
-        als_drug = make_compartment(
-            db,
-            location=loc,
-            name="ALS Drug Bag",
-            sort_order=13,
-            location_descriptor="Interior, PC 9 ALS drug cabinet",
-            als_only=True,
-        )
-        for name, controlled in [
-            ("Intranasal Naloxone", False),
-            ("Albuterol Inhalation", False),
-            ("Low Dose Aspirin", False),
-            ("Epinephrine IM", False),
-            ("Adenosine", False),
-            ("Amiodarone", False),
-            ("Atropine", False),
-            ("Dopamine", False),
-            ("Sodium Bicarbonate", False),
-            ("Dextrose 50%", False),
-            ("Nitroglycerin SL", False),
-            ("Syringes BLS", False),
-            ("Needles BLS", False),
-            ("Alcohol Preps BLS", False),
-        ]:
-            add_par(
-                db,
-                item=get_or_create_item(
-                    db,
-                    name=name,
-                    category=ItemCategory.MEDICATION,
-                    controlled_substance=controlled,
-                ),
-                location=loc,
-                compartment=als_drug,
-                min_qty=1,
-            )
+        als_drug = make_compartment(db, location=loc, name="ALS Drug Bag", sort_order=13,
+                                    location_descriptor="Interior, PC 9 ALS drug cabinet",
+                                    als_only=True)
+        for name in ["Intranasal Naloxone", "Albuterol Inhalation", "Low Dose Aspirin",
+                     "Epinephrine IM", "Adenosine", "Amiodarone", "Atropine", "Dopamine",
+                     "Sodium Bicarbonate", "Dextrose 50%", "Nitroglycerin SL",
+                     "Syringes", "Needles BLS", "Alcohol Prep Pads"]:
+            add_par(db, item=item(name, category=_M, station_supply=False),
+                    location=loc, compartment=als_drug, min_qty=1)
     else:
-        pc9 = make_compartment(
-            db,
-            location=loc,
-            name="PC 9 BLS Drug Cabinet",
-            sort_order=12,
-            location_descriptor="Interior, BLS drug cabinet",
-        )
+        pc9 = make_compartment(db, location=loc, name="PC 9 BLS Drug Cabinet", sort_order=12,
+                               location_descriptor="Interior, BLS drug cabinet")
         for name, cat, ct in [
-            ("BLS Drug Bag (stocked)", ItemCategory.EQUIPMENT, ItemCheckType.SUPPLY),
-            ("BLS Drug Use Sheets", ItemCategory.DOCUMENT, ItemCheckType.DOCUMENT),
-            ("PT Personal Item Lock-Up", ItemCategory.EQUIPMENT, ItemCheckType.SUPPLY),
+            ("BLS Drug Bag (stocked)", _E, _SUP),
+            ("BLS Drug Use Sheets",    _D, _DOC),
+            ("PT Personal Item Lock-Up", _E, _SUP),
         ]:
-            uom = "N/A" if ct == ItemCheckType.DOCUMENT else "each"
-            add_par(
-                db,
-                item=get_or_create_item(
-                    db, name=name, category=cat, check_type=ct, unit_of_measure=uom
-                ),
-                location=loc,
-                compartment=pc9,
-                min_qty=1,
-            )
+            uom = "N/A" if ct == _DOC else "each"
+            add_par(db, item=item(name, category=cat, check_type=ct, unit_of_measure=uom,
+                                  station_supply=False),
+                    location=loc, compartment=pc9, min_qty=1)
 
-        bls_drug = make_compartment(
-            db,
-            location=loc,
-            name="BLS Drug Bag",
-            sort_order=13,
-            location_descriptor="Interior, PC 9 BLS drug cabinet",
-        )
-        for name in [
-            "Intranasal Naloxone",
-            "Albuterol Inhalation",
-            "Low Dose Aspirin",
-            "Epinephrine IM",
-            "Syringes BLS",
-            "Needles BLS",
-            "Alcohol Preps BLS",
-            "Nitroglycerin SL",
-        ]:
-            add_par(
-                db,
-                item=get_or_create_item(
-                    db, name=name, category=ItemCategory.MEDICATION
-                ),
-                location=loc,
-                compartment=bls_drug,
-                min_qty=1,
-            )
+        bls_drug = make_compartment(db, location=loc, name="BLS Drug Bag", sort_order=13,
+                                    location_descriptor="Interior, PC 9 BLS drug cabinet")
+        for name in ["Intranasal Naloxone", "Albuterol Inhalation", "Low Dose Aspirin",
+                     "Epinephrine IM", "Syringes", "Needles BLS",
+                     "Alcohol Prep Pads", "Nitroglycerin SL"]:
+            add_par(db, item=item(name, category=_M, station_supply=False),
+                    location=loc, compartment=bls_drug, min_qty=1)
 
-    pc10 = make_compartment(
-        db,
-        location=loc,
-        name="PC 10 (Linens)",
-        sort_order=14,
-        location_descriptor="Interior, linen storage",
-    )
+    # ── PC 10 (Linens) ─────────────────────────────────────────────────────────
+    pc10 = make_compartment(db, location=loc, name="PC 10 (Linens)", sort_order=14,
+                            location_descriptor="Interior, linen storage")
     for name in ["Sheets", "Blankets"]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
-            location=loc,
-            compartment=pc10,
-            min_qty=1,
-        )
+        add_par(db, item=item(name, category=_E), location=loc, compartment=pc10, min_qty=1)
 
-    pc11 = make_compartment(
-        db,
-        location=loc,
-        name="PC 11 (Linens)",
-        sort_order=15,
-        location_descriptor="Interior, linen storage",
-    )
-    for name in ["Pillow Cases", "Towels PC11"]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
-            location=loc,
-            compartment=pc11,
-            min_qty=1,
-        )
+    # ── PC 11 (Linens) ─────────────────────────────────────────────────────────
+    pc11 = make_compartment(db, location=loc, name="PC 11 (Linens)", sort_order=15,
+                            location_descriptor="Interior, linen storage")
+    for name in ["Pillow Cases", "Towels"]:   # Towels merges Towels PC11 + Towels PC14
+        add_par(db, item=item(name, category=_E), location=loc, compartment=pc11, min_qty=1)
 
-    bench = make_compartment(
-        db,
-        location=loc,
-        name="Bench",
-        sort_order=16,
-        location_descriptor="Interior, squad bench",
-    )
+    # ── Bench ──────────────────────────────────────────────────────────────────
+    bench = make_compartment(db, location=loc, name="Bench", sort_order=16,
+                             location_descriptor="Interior, squad bench")
     for name, qty in [
-        ("Multi-Cuff BP Cuff System", 1),
-        ("SpO2 Monitor", 1),
-        ("Extra Pillows", 1),
-        ("Extra O2 Tank (no regulator)", 1),
-        ("Empty Sharps Container Bench", 1),
-        ("Blanket Roll", 1),
-        ("Extra Blankets", 2),
+        ("Multi-Cuff BP Cuff System",      1),
+        ("SpO2 Monitor",                   1),
+        ("Extra Pillows",                  1),
+        ("Extra O2 Tank (no regulator)",   1),
+        ("Empty Sharps Container",         1),   # was: Empty Sharps Container Bench
+        ("Blanket Roll",                   1),
+        ("Blankets",                       2),   # was: Extra Blankets (same item)
     ]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
-            location=loc,
-            compartment=bench,
-            min_qty=qty,
-        )
+        add_par(db, item=item(name, category=_E), location=loc, compartment=bench, min_qty=qty)
 
-    glove_comp = make_compartment(
-        db,
-        location=loc,
-        name="Glove Compartment",
-        sort_order=17,
-        location_descriptor="Interior, glove storage",
-    )
+    # ── Glove Compartment ──────────────────────────────────────────────────────
+    glove_comp = make_compartment(db, location=loc, name="Glove Compartment", sort_order=17,
+                                  location_descriptor="Interior, glove storage")
     for size in ["Small", "Medium", "Large", "X-Large"]:
-        add_par(
-            db,
-            item=get_or_create_item(
-                db, name=f"Gloves {size}", category=ItemCategory.CONSUMABLE
-            ),
-            location=loc,
-            compartment=glove_comp,
-            min_qty=1,
-        )
+        add_par(db, item=item(f"Gloves, {size}", category=_C),
+                location=loc, compartment=glove_comp, min_qty=1)
 
-    pc12 = make_compartment(
-        db,
-        location=loc,
-        name="PC 12 (Trauma)",
-        sort_order=18,
-        location_descriptor="Interior, trauma supplies",
-    )
+    # ── PC 12 (Trauma) ─────────────────────────────────────────────────────────
+    pc12 = make_compartment(db, location=loc, name="PC 12 (Trauma)", sort_order=18,
+                            location_descriptor="Interior, trauma supplies")
     for name, qty in [
-        ("Burn Sheets", 1),
-        ("Trauma Dressings", 1),
-        ("Hot Packs", 1),
-        ("Cold Packs", 1),
-        ("TPOD Pelvic Splint", 1),
-        ("Sam Splints", 4),
+        ("Burn Sheets", 1), ("Trauma Dressings", 1), ("Hot Packs", 1),
+        ("Cold Packs", 1), ("TPOD Pelvic Splint", 1), ("Sam Splints", 4),
     ]:
-        cat = (
-            ItemCategory.CONSUMABLE
-            if any(x in name for x in ["Pack", "Sheet", "Dress"])
-            else ItemCategory.EQUIPMENT
-        )
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=cat),
-            location=loc,
-            compartment=pc12,
-            min_qty=qty,
-        )
+        cat = _C if any(x in name for x in ["Pack", "Sheet", "Dress"]) else _E
+        add_par(db, item=item(name, category=cat), location=loc, compartment=pc12, min_qty=qty)
 
-    pc13 = make_compartment(
-        db,
-        location=loc,
-        name="PC 13 (Trauma)",
-        sort_order=19,
-        location_descriptor="Interior, trauma supplies",
-    )
+    # ── PC 13 (Trauma) ─────────────────────────────────────────────────────────
+    pc13 = make_compartment(db, location=loc, name="PC 13 (Trauma)", sort_order=19,
+                            location_descriptor="Interior, trauma supplies")
     for name, qty in [
-        ("ABD Pad 8x10", 6),
-        ("ABD Pad 5x9", 8),
-        ("Gauze Bandage Various Sizes", 10),
-        ("KERLIX PC13", 8),
-        ("Tape Various Sizes", 10),
-        ("CAT Tourniquet", 2),
-        ("Gauze Sponges 4x4", 25),
-        ("Triangle Bandages", 2),
-        ("ACE Wraps Various Sizes", 6),
-        ("Occlusive Dressing", 3),
-        ("Sterile Saline Solution", 4),
+        ("ABD Pad 8x10",              6),
+        ("ABD Pad 5x9",               8),
+        ("Gauze Bandage Various Sizes",10),
+        ("Kerlix (Various Sizes)",     8),   # was: KERLIX PC13
+        ("Tape Various Sizes",        10),
+        ("CAT Tourniquet",             2),
+        ("Gauze Sponges 4x4",         25),
+        ("Triangle Bandage",           2),   # was: Triangle Bandages
+        ("ACE Wrap Various Sizes",     6),   # was: ACE Wraps Various Sizes
+        ("Occlusive Dressing",         3),
+        ("Sterile Saline Solution",    4),
     ]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.CONSUMABLE),
-            location=loc,
-            compartment=pc13,
-            min_qty=qty,
-        )
+        add_par(db, item=item(name, category=_C), location=loc, compartment=pc13, min_qty=qty)
 
-    pc14 = make_compartment(
-        db,
-        location=loc,
-        name="PC 14",
-        sort_order=20,
-        location_descriptor="Interior, rear",
-    )
+    # ── PC 14 ──────────────────────────────────────────────────────────────────
+    pc14 = make_compartment(db, location=loc, name="PC 14", sort_order=20,
+                            location_descriptor="Interior, rear")
     for name, qty in [
-        ("Mega-Movers PC14", 1),
-        ("Towels PC14", 1),
-        ("Absorbent Pads", 1),
-        ("Emergency Blankets", 3),
-        ("DECON/HAZMAT Suits XL", 3),
-        ("Infection Control Kits PC14", 4),
-        ("Triage Tags", 1),
+        ("Mega-Movers",              1),   # was: Mega-Movers PC14
+        ("Towels",                   1),   # was: Towels PC14
+        ("Absorbent Pads",           1),
+        ("Emergency Blankets",       3),
+        ("DECON/HAZMAT Suits XL",    3),
+        ("Infection Control Kit",    4),   # was: Infection Control Kits PC14
+        ("Triage Tags",              1),
         ("Survival Wrap Foil Blanket", 1),
     ]:
-        cat = (
-            ItemCategory.CONSUMABLE
-            if any(x in name for x in ["Blanket", "Wrap", "Pad"])
-            else ItemCategory.EQUIPMENT
-        )
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=cat),
-            location=loc,
-            compartment=pc14,
-            min_qty=qty,
-        )
+        cat = _C if any(x in name for x in ["Blanket", "Wrap", "Pad"]) else (
+              _C if name in ("DECON/HAZMAT Suits XL", "Triage Tags", "Infection Control Kit",
+                             "Towels") else _E)
+        add_par(db, item=item(name, category=cat), location=loc, compartment=pc14, min_qty=qty)
 
-    pc15 = make_compartment(
-        db,
-        location=loc,
-        name="PC 15 (Infant Airway)",
-        sort_order=21,
-        location_descriptor="Interior",
-    )
+    # ── PC 15 (Infant Airway) ──────────────────────────────────────────────────
+    pc15 = make_compartment(db, location=loc, name="PC 15 (Infant Airway)", sort_order=21,
+                            location_descriptor="Interior")
     for name in ["Infant NRB", "Infant NAS", "Infant BVM"]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
-            location=loc,
-            compartment=pc15,
-            min_qty=1,
-        )
+        add_par(db, item=item(name, category=_E), location=loc, compartment=pc15, min_qty=1)
 
-    pc16 = make_compartment(
-        db,
-        location=loc,
-        name="PC 16 (Pediatric Airway)",
-        sort_order=22,
-        location_descriptor="Interior",
-    )
-    for name in [
-        "Pediatric NRB",
-        "Pediatric NAS",
-        "Pediatric BVM",
-        "Pediatric Nebulizer",
-    ]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
-            location=loc,
-            compartment=pc16,
-            min_qty=1,
-        )
+    # ── PC 16 (Pediatric Airway) ───────────────────────────────────────────────
+    pc16 = make_compartment(db, location=loc, name="PC 16 (Pediatric Airway)", sort_order=22,
+                            location_descriptor="Interior")
+    for name in ["Pediatric NRB", "Pediatric NAS", "Pediatric BVM", "Pediatric Nebulizer"]:
+        add_par(db, item=item(name, category=_E), location=loc, compartment=pc16, min_qty=1)
 
-    charger = make_compartment(
-        db,
-        location=loc,
-        name="Charger Counter",
-        sort_order=23,
-        location_descriptor="Interior, charger counter",
-    )
-    for name in [
-        "Pediatric First-In Bag",
-        "Cot Battery Charger",
-        "Cot Spare Battery",
-        "MI-Medic Cards",
-    ]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
-            location=loc,
-            compartment=charger,
-            min_qty=1,
-        )
+    # ── Charger Counter ────────────────────────────────────────────────────────
+    charger = make_compartment(db, location=loc, name="Charger Counter", sort_order=23,
+                               location_descriptor="Interior, charger counter")
+    for name in ["Pediatric First-In Bag", "Cot Battery Charger", "Cot Spare Battery",
+                 "MI-Medic Cards"]:
+        add_par(db, item=item(name, category=_E), location=loc, compartment=charger, min_qty=1)
 
-    pc17 = make_compartment(
-        db, location=loc, name="PC 17", sort_order=24, location_descriptor="Interior"
-    )
-    add_par(
-        db,
-        item=get_or_create_item(
-            db, name="Patient Restraints", category=ItemCategory.EQUIPMENT
-        ),
-        location=loc,
-        compartment=pc17,
-        min_qty=1,
-    )
+    # ── PC 17 ──────────────────────────────────────────────────────────────────
+    pc17 = make_compartment(db, location=loc, name="PC 17", sort_order=24,
+                            location_descriptor="Interior")
+    add_par(db, item=item("Patient Restraints", category=_E),
+            location=loc, compartment=pc17, min_qty=1)
 
-    pc18 = make_compartment(
-        db,
-        location=loc,
-        name="PC 18 (Tools)",
-        sort_order=25,
-        location_descriptor="Interior",
-    )
-    for name in [
-        "Stethoscope PC18",
-        "Thermometer PC18",
-        "Ring Cutter",
-        "Trauma Shears PC18",
-        "Replacement Stethoscope Parts",
-    ]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
-            location=loc,
-            compartment=pc18,
-            min_qty=1,
-        )
+    # ── PC 18 (Tools) ──────────────────────────────────────────────────────────
+    # Stethoscope, Thermometer, Trauma Shears use canonical names shared with other compartments.
+    # Alcohol Prep Pads, Bandaids, Glucometer Lancets replace the PC18-specific + Restock items.
+    pc18 = make_compartment(db, location=loc, name="PC 18 (Tools)", sort_order=25,
+                            location_descriptor="Interior")
+    for name in ["Stethoscope", "Ring Cutter", "Trauma Shears",
+                 "Replacement Stethoscope Parts"]:
+        add_par(db, item=item(name, category=_E), location=loc, compartment=pc18, min_qty=1)
     for name, qty in [
-        ("Glucometer Lancets", 6),
-        ("Alcohol Prep PC18", 6),
-        ("Bandaids PC18", 6),
-        ("Gauze 3x3 PC18", 3),
-        ("Glucometer Test Strips", 6),
-        ("Restock Lancets", 20),
-        ("Bite Stick", 2),
-        ("Restock Alcohol Prep", 20),
-        ("Restock Bandaids", 20),
-        ("Oral Glucose", 2),
+        ("Glucometer Lancets",    6),   # merges Glucometer Lancets + Restock Lancets
+        ("Alcohol Prep Pads",     6),   # merges Alcohol Prep PC18 + Restock Alcohol Prep
+        ("Bandaids",              6),   # merges Bandaids PC18 + Restock Bandaids
+        ("Gauze, 3x3",            3),   # was: Gauze 3x3 PC18
+        ("Glucometer Test Strips",6),
+        ("Bite Stick",            2),
+        ("Oral Glucose Tablets",  2),   # was: Oral Glucose
+        ("Thermometer",           1),   # was: Thermometer PC18 Unit
     ]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.CONSUMABLE),
-            location=loc,
-            compartment=pc18,
-            min_qty=qty,
-        )
-    add_par(
-        db,
-        item=get_or_create_item(
-            db, name="Thermometer PC18 Unit", category=ItemCategory.EQUIPMENT
-        ),
-        location=loc,
-        compartment=pc18,
-        min_qty=1,
-    )
+        cat = _C if name not in ("Thermometer",) else _E
+        add_par(db, item=item(name, category=cat), location=loc, compartment=pc18, min_qty=qty)
 
-    stretcher = make_compartment(
-        db,
-        location=loc,
-        name="Stretcher",
-        sort_order=26,
-        location_descriptor="Patient stretcher / cot",
-    )
-    # Stretcher O2 — PSI reading only; the regulator is confirmed by taking the reading.
-    # The old SUPPLY item "Stretcher O2 Tank w/ Regulator" is intentionally removed here;
-    # existing par levels for it are purged below in purge_stale_par_levels().
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="Stretcher O2 PSI",
-            category=ItemCategory.EQUIPMENT,
-            check_type=ItemCheckType.MEASUREMENT,
-            unit_of_measure="PSI",
-            measurement_minimum=500.0,
-            measurement_maximum=2200.0,
-        ),
-        location=loc,
-        compartment=stretcher,
-        min_qty=1,
-        priority_check=True,
-        priority_question="Stretcher O2 above 500 PSI?",
-    )
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="Stretcher Battery Charged",
-            category=ItemCategory.EQUIPMENT,
-            check_type=ItemCheckType.FUNCTIONAL,
-            unit_of_measure="N/A",
-        ),
-        location=loc,
-        compartment=stretcher,
-        min_qty=1,
-    )
+    # ── Stretcher ──────────────────────────────────────────────────────────────
+    stretcher = make_compartment(db, location=loc, name="Stretcher", sort_order=26,
+                                 location_descriptor="Patient stretcher / cot")
+    # Stretcher O2 PSI: small tank — corrected thresholds 200–500 PSI (was 500–2200)
+    add_par(db,
+            item=item("Stretcher O2 PSI", category=_E, check_type=_MEAS, unit_of_measure="PSI",
+                      measurement_minimum=200.0, measurement_maximum=500.0, station_supply=False),
+            location=loc, compartment=stretcher, min_qty=1,
+            priority_check=True, priority_question="Stretcher O2 above 200 PSI?")
+    add_par(db,
+            item=item("Stretcher Battery Charged", category=_E, check_type=_FUNC,
+                      unit_of_measure="N/A", station_supply=False),
+            location=loc, compartment=stretcher, min_qty=1)
+    add_par(db,
+            item=item("Stretcher Battery Date of Last Charge", category=_E, check_type=_DATE,
+                      unit_of_measure="N/A", recurrence_days=90, station_supply=False),
+            location=loc, compartment=stretcher, min_qty=1)
 
-    ds_ec1 = make_compartment(
-        db,
-        location=loc,
-        name="Driver Side EC 1",
-        sort_order=30,
-        location_descriptor="Exterior, driver side, forward bay",
-    )
-    for name in [
-        "Long-board Splints",
-        "K.E.D. Board",
-        "Adult Traction Splint",
-        "Peds Traction Splint",
-        "Broom",
-    ]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
-            location=loc,
-            compartment=ds_ec1,
-            min_qty=1,
-        )
-    # On-Board O2 — PSI reading only; duplicate SUPPLY item removed.
-    # "On-Board O2 Tank w/ Regulator 15LPM" par level is purged in purge_stale_par_levels().
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="On-Board O2 PSI",
-            category=ItemCategory.EQUIPMENT,
-            check_type=ItemCheckType.MEASUREMENT,
-            unit_of_measure="PSI",
-            measurement_minimum=500.0,
-            measurement_maximum=2200.0,
-        ),
-        location=loc,
-        compartment=ds_ec1,
-        min_qty=1,
-    )
+    # ── Driver Side EC 1 ───────────────────────────────────────────────────────
+    ds_ec1 = make_compartment(db, location=loc, name="Driver Side EC 1", sort_order=30,
+                              location_descriptor="Exterior, driver side, forward bay")
+    for name in ["Long-board Splints", "K.E.D. Board", "Adult Traction Splint",
+                 "Peds Traction Splint", "Broom"]:
+        add_par(db, item=item(name, category=_E), location=loc, compartment=ds_ec1, min_qty=1)
+    # On-Board O2: large tank — thresholds 500–2200 PSI (unchanged)
+    add_par(db,
+            item=item("On-Board O2 PSI", category=_E, check_type=_MEAS, unit_of_measure="PSI",
+                      measurement_minimum=500.0, measurement_maximum=2200.0, station_supply=False),
+            location=loc, compartment=ds_ec1, min_qty=1)
 
-    ds_ec2 = make_compartment(
-        db,
-        location=loc,
-        name="Driverside EC 2",
-        sort_order=31,
-        location_descriptor="Exterior, driver side, middle bay",
-    )
+    # ── Driverside EC 2 ────────────────────────────────────────────────────────
+    ds_ec2 = make_compartment(db, location=loc, name="Driverside EC 2", sort_order=31,
+                              location_descriptor="Exterior, driver side, middle bay")
     for name, qty in [
-        ("Scene Light", 1),
-        ("Water Bottles", 10),
-        ("Bio-Hazard Bags", 1),
-        ("Styro-foam Cups", 1),
-        ("Glo-Sticks", 1),
-        ("Peds Jump Bag", 1),
+        ("Scene Light",    1),
+        ("Water Bottle",  10),   # was: Water Bottles
+        ("BioHazard Bags", 1),   # was: Bio-Hazard Bags
+        ("Styro-foam Cups",1),
+        ("Glo-Sticks",     1),
+        ("Peds Jump Bag",  1),
     ]:
-        cat = (
-            ItemCategory.EQUIPMENT
-            if any(x in name for x in ["Light", "Bag"])
-            else ItemCategory.CONSUMABLE
-        )
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=cat),
-            location=loc,
-            compartment=ds_ec2,
-            min_qty=qty,
-        )
+        cat = _E if name in ("Scene Light", "Peds Jump Bag") else _C
+        add_par(db, item=item(name, category=cat), location=loc, compartment=ds_ec2, min_qty=qty)
 
-    ds_ec3 = make_compartment(
-        db,
-        location=loc,
-        name="Driver Side EC 3",
-        sort_order=32,
-        location_descriptor="Exterior, driver side, rear bay",
-    )
-    for name in ["Mega-Movers DS3", "Stair Chair"]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
-            location=loc,
-            compartment=ds_ec3,
-            min_qty=1,
-        )
+    # ── Driver Side EC 3 ───────────────────────────────────────────────────────
+    ds_ec3 = make_compartment(db, location=loc, name="Driver Side EC 3", sort_order=32,
+                              location_descriptor="Exterior, driver side, rear bay")
+    for name in ["Mega-Movers", "Stair Chair"]:   # Mega-Movers was: Mega-Movers DS3
+        add_par(db, item=item(name, category=_E), location=loc, compartment=ds_ec3, min_qty=1)
 
-    # Passenger Side EC 1 is empty — not used on Unit 712. Compartment is not
-    # created; existing rows are purged in purge_stale_par_levels() below.
+    # ── Passenger Side EC 2 ────────────────────────────────────────────────────
+    ps_ec2 = make_compartment(db, location=loc, name="Passenger Side EC 2", sort_order=34,
+                              location_descriptor="Exterior, passenger side, middle bay")
+    for name in ["Fire Extinguisher", "Jumper Cables", "Traction Splint"]:
+        # Fire Extinguisher: SUPPLY (not FUNCTIONAL) — confirmed by Jennifer
+        # Traction Splint: distinct from Adult/Peds Traction Splints in DS EC1
+        add_par(db, item=item(name, category=_E), location=loc, compartment=ps_ec2, min_qty=1)
 
-    ps_ec2 = make_compartment(
-        db,
-        location=loc,
-        name="Passenger Side EC 2",
-        sort_order=34,
-        location_descriptor="Exterior, passenger side, middle bay",
-    )
-    for name in ["Fire Extinguisher", "Jumper Cables", "Traction Splint PS"]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
-            location=loc,
-            compartment=ps_ec2,
-            min_qty=1,
-        )
-
-    ps_ec3 = make_compartment(
-        db,
-        location=loc,
-        name="Passenger Side EC 3",
-        sort_order=35,
-        location_descriptor="Exterior, passenger side, rear bay",
-    )
+    # ── Passenger Side EC 3 ────────────────────────────────────────────────────
+    ps_ec3 = make_compartment(db, location=loc, name="Passenger Side EC 3", sort_order=35,
+                              location_descriptor="Exterior, passenger side, rear bay")
     for name, qty in [
-        ("Long Board", 2),
-        ("Short Board", 2),
-        ("Board Straps", 2),
-        ("Head Blocks", 2),
-        ("C-Collars Adult PS", 2),
+        ("Long Board",      2), ("Short Board",   2),
+        ("Board Straps",    2), ("Head Blocks",   2),
+        ("C-Collar, Adult", 2),   # was: C-Collars Adult PS
     ]:
         uom = "set" if name in ("Board Straps", "Head Blocks") else "each"
-        add_par(
-            db,
-            item=get_or_create_item(
-                db, name=name, category=ItemCategory.EQUIPMENT, unit_of_measure=uom
-            ),
-            location=loc,
-            compartment=ps_ec3,
-            min_qty=qty,
-        )
+        add_par(db, item=item(name, category=_E, unit_of_measure=uom),
+                location=loc, compartment=ps_ec3, min_qty=qty)
 
-    truck_ops = make_compartment(
-        db,
-        location=loc,
-        name="Truck Operations",
-        sort_order=40,
-        location_descriptor="Operational vehicle systems check",
-        requires_full_check=True,
-    )
+    # ── Truck Operations ───────────────────────────────────────────────────────
+    # requires_full_check=True blocks No Change for this compartment.
+    # Fire Extinguisher UL Listed (old FUNCTIONAL) → Fire Extinguisher (SUPPLY, canonical).
+    truck_ops = make_compartment(db, location=loc, name="Truck Operations", sort_order=40,
+                                 location_descriptor="Operational vehicle systems check",
+                                 requires_full_check=True)
     for name in [
         "Runs and Starts",
         "External Warning Systems (Lights & Sirens)",
@@ -1329,968 +993,167 @@ def build_ambulance_inventory(
         "Ambulance Cot and Straps Secured",
         "Patient Compartment Climate Control",
         "Communication Medcom Compliant",
-        "Fire Extinguisher UL Listed",
         "Flares or Equivalent Device",
         "Portable Two-Way Radio",
         "Window Punch Available",
-        "Mileage Sheet",
-        "Insurance Information",
     ]:
-        cat = (
-            ItemCategory.DOCUMENT
-            if any(x in name for x in ["Sheet", "Information"])
-            else ItemCategory.EQUIPMENT
-        )
-        ct = (
-            ItemCheckType.DOCUMENT
-            if cat == ItemCategory.DOCUMENT
-            else ItemCheckType.FUNCTIONAL
-        )
-        add_par(
-            db,
-            item=get_or_create_item(
-                db, name=name, category=cat, check_type=ct, unit_of_measure="N/A"
-            ),
-            location=loc,
-            compartment=truck_ops,
-            min_qty=1,
-        )
+        add_par(db, item=item(name, category=_E, check_type=_FUNC, unit_of_measure="N/A",
+                              station_supply=False),
+                location=loc, compartment=truck_ops, min_qty=1)
+    for name in ["Mileage Sheet", "Insurance Information"]:
+        add_par(db, item=item(name, category=_D, check_type=_DOC, unit_of_measure="N/A",
+                              station_supply=False),
+                location=loc, compartment=truck_ops, min_qty=1)
+    # Fire Extinguisher: SUPPLY presence check (merged from "Fire Extinguisher UL Listed" FUNCTIONAL)
+    add_par(db, item=item("Fire Extinguisher", category=_E, check_type=_SUP, unit_of_measure="each"),
+            location=loc, compartment=truck_ops, min_qty=1)
+    # Gloves in cab — Gloves, Small/Medium/Large (canonical, same item as PC5 + Glove Compartment)
     for size in ["Small", "Medium", "Large"]:
-        add_par(
-            db,
-            item=get_or_create_item(
-                db, name=f"Cab Gloves {size}", category=ItemCategory.CONSUMABLE
-            ),
-            location=loc,
-            compartment=truck_ops,
-            min_qty=1,
-        )
+        add_par(db, item=item(f"Gloves, {size}", category=_C),
+                location=loc, compartment=truck_ops, min_qty=1)
 
-    # Under Hood — restriction note removed (not enforced). requires_full_check=True
-    # suppresses inline reading rows on the outer card; items appear in Step 3 only.
-    under_hood = make_compartment(
-        db,
-        location=loc,
-        name="Under Hood",
-        sort_order=99,
-        location_descriptor="Engine compartment",
-        restriction_note=None,
-        requires_full_check=True,
-    )
-    for name in [
-        "Hoses",
-        "Belts",
-        "Oil Level",
-        "Steering/Brakes",
-        "Radiator",
-        "Windshield",
-        "Battery",
-    ]:
-        add_par(
-            db,
-            item=get_or_create_item(
-                db,
-                name=f"Hood {name}",
-                category=ItemCategory.EQUIPMENT,
-                check_type=ItemCheckType.FUNCTIONAL,
-                unit_of_measure="N/A",
-            ),
-            location=loc,
-            compartment=under_hood,
-            min_qty=1,
-        )
+    # ── Under Hood ─────────────────────────────────────────────────────────────
+    under_hood = make_compartment(db, location=loc, name="Under Hood", sort_order=99,
+                                  location_descriptor="Engine compartment",
+                                  restriction_note=None,
+                                  requires_full_check=True)
+    for name in ["Hoses", "Belts", "Oil Level", "Steering/Brakes",
+                 "Radiator", "Windshield", "Battery"]:
+        add_par(db,
+                item=item(f"Hood {name}", category=_E, check_type=_FUNC,
+                          unit_of_measure="N/A", station_supply=False),
+                location=loc, compartment=under_hood, min_qty=1)
 
 
 # ---------------------------------------------------------------------------
-# Jump bag inventory builder
+# Jump bag inventory builder (Newberg — full par levels from real forms)
 # ---------------------------------------------------------------------------
 
 
-def build_jump_bag(db: Session, jb: InventoryLocation) -> None:
+def build_jump_bag(db: Session, jb: InventoryLocation, station_id: int) -> None:
     """Build the standard jump bag compartments and par levels."""
-    jb_left = make_compartment(
-        db,
-        location=jb,
-        name="Left Pocket",
-        sort_order=1,
-        location_descriptor="Left exterior pocket of jump bag",
-    )
-    add_par(
-        db,
-        item=get_or_create_item(
-            db, name="Empty Sharps Container JB", category=ItemCategory.EQUIPMENT
-        ),
-        location=jb,
-        compartment=jb_left,
-        min_qty=1,
-    )
 
-    jb_back = make_compartment(
-        db,
-        location=jb,
-        name="Back Pocket",
-        sort_order=2,
-        location_descriptor="Rear pocket of jump bag",
-    )
+    def item(name: str, **kw) -> Item:
+        return get_or_create_item(db, name=name, station_id=station_id, **kw)
+
+    # ── Left Pocket ────────────────────────────────────────────────────────────
+    jb_left = make_compartment(db, location=jb, name="Left Pocket", sort_order=1,
+                               location_descriptor="Left exterior pocket of jump bag")
+    add_par(db, item=item("Empty Sharps Container", category=_E),   # was: Empty Sharps Container JB
+            location=jb, compartment=jb_left, min_qty=1)
+
+    # ── Back Pocket ────────────────────────────────────────────────────────────
+    jb_back = make_compartment(db, location=jb, name="Back Pocket", sort_order=2,
+                               location_descriptor="Rear pocket of jump bag")
     for name, qty in [
-        ("OPAs/NPAs JB", 1),
-        ("Water Bottle JB", 1),
+        ("OPAs/NPAs",           1),   # was: OPAs/NPAs JB
+        ("Water Bottle",        1),   # was: Water Bottle JB
         ("Colorimetric CO2 Detector", 1),
-        ("Combi-Tube JB", 1),
-        ("Thomas Tube Holders JB", 2),
+        ("Combi-Tube 37F & 41F",2),   # was: Combi-Tube JB
+        ("Thomas Tube Holders", 2),   # was: Thomas Tube Holders JB
     ]:
-        cat = (
-            ItemCategory.EQUIPMENT
-            if any(x in name for x in ["Holder", "OPA", "Bottle"])
-            else ItemCategory.CONSUMABLE
-        )
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=cat),
-            location=jb,
-            compartment=jb_back,
-            min_qty=qty,
-        )
+        cat = _E if name in ("OPAs/NPAs", "Thomas Tube Holders", "Colorimetric CO2 Detector",
+                             "Water Bottle") else _C
+        add_par(db, item=item(name, category=cat), location=jb, compartment=jb_back, min_qty=qty)
 
-    jb_front = make_compartment(
-        db,
-        location=jb,
-        name="Front Pocket",
-        sort_order=3,
-        location_descriptor="Front pocket of jump bag",
-    )
+    # ── Front Pocket ───────────────────────────────────────────────────────────
+    jb_front = make_compartment(db, location=jb, name="Front Pocket", sort_order=3,
+                                location_descriptor="Front pocket of jump bag")
     for name, qty in [
-        ("C-Collar Adult JB", 1),
-        ("Overdose Rescue Kit NARCAN", 1),
-        ("SPo2 Monitor JB", 1),
-        ("Glucometer Lancets JB", 6),
-        ("Alcohol Prep JB", 6),
-        ("Bandaids JB", 6),
-        ("Gauze 3x3 JB", 3),
-        ("Glucometer Test Strips JB", 6),
-        ("Thermometer JB", 1),
+        ("C-Collar, Adult",        1),   # was: C-Collar Adult JB
+        ("Overdose Rescue Kit (NARCAN)", 1),
+        ("SpO2 Monitor",           1),   # was: SPo2 Monitor JB
+        ("Glucometer Lancets",     6),   # was: Glucometer Lancets JB
+        ("Alcohol Prep Pads",      6),   # was: Alcohol Prep JB
+        ("Bandaids",               6),   # was: Bandaids JB
+        ("Gauze, 3x3",             3),   # was: Gauze 3x3 JB
+        ("Glucometer Test Strips", 6),   # was: Glucometer Test Strips JB
+        ("Thermometer",            1),   # was: Thermometer JB
         ("Thermometer Probe Covers", 1),
-        ("BioHazard Bags JB", 1),
+        ("BioHazard Bags",         1),   # was: BioHazard Bags JB
     ]:
-        cat = (
-            ItemCategory.MEDICATION
-            if "NARCAN" in name
-            else (
-                ItemCategory.CONSUMABLE
-                if any(x in name for x in ["Gauze", "Bandaid", "Prep", "Strips"])
-                else ItemCategory.EQUIPMENT
-            )
-        )
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=cat),
-            location=jb,
-            compartment=jb_front,
-            min_qty=qty,
-        )
+        cat = _E if name in ("C-Collar, Adult", "SpO2 Monitor", "Thermometer",
+                             "Thermometer Probe Covers", "Overdose Rescue Kit (NARCAN)") else _C
+        if "NARCAN" in name:
+            cat = _E
+        add_par(db, item=item(name, category=cat), location=jb, compartment=jb_front, min_qty=qty)
 
-    jb_main = make_compartment(
-        db,
-        location=jb,
-        name="Main Pocket",
-        sort_order=10,
-        location_descriptor="Main compartment of jump bag",
-    )
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="Jump Bag O2 Tank w/ Regulator 15LPM",
-            category=ItemCategory.EQUIPMENT,
-        ),
-        location=jb,
-        compartment=jb_main,
-        min_qty=1,
-    )
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="Jump Bag O2 PSI",
-            category=ItemCategory.EQUIPMENT,
-            check_type=ItemCheckType.MEASUREMENT,
-            unit_of_measure="PSI",
-            measurement_minimum=500.0,
-            measurement_maximum=2200.0,
-        ),
-        location=jb,
-        compartment=jb_main,
-        min_qty=1,
-        priority_check=True,
-        priority_question="Jump Bag O2 above 500 PSI?",
-    )
+    # ── Main Pocket ────────────────────────────────────────────────────────────
+    jb_main = make_compartment(db, location=jb, name="Main Pocket", sort_order=10,
+                               location_descriptor="Main compartment of jump bag")
+    add_par(db, item=item("Jump Bag O2 Tank w/ Regulator 15LPM", category=_E),
+            location=jb, compartment=jb_main, min_qty=1)
+    # Jump Bag O2 PSI: small tank — corrected thresholds 200–500 PSI (was 500–2200)
+    add_par(db,
+            item=item("Jump Bag O2 PSI", category=_E, check_type=_MEAS, unit_of_measure="PSI",
+                      measurement_minimum=200.0, measurement_maximum=500.0, station_supply=False),
+            location=jb, compartment=jb_main, min_qty=1,
+            priority_check=True, priority_question="Jump Bag O2 above 200 PSI?")
     for name, qty in [
-        ("Kerlix Large JB", 3),
-        ("Kerlix Medium JB", 3),
-        ("Stethoscope JB", 1),
-        ("BP Cuff JB", 1),
-        ("Clipboard w/ Paperwork JB", 1),
+        ("Kerlix, Large",          3),   # was: Kerlix Large JB
+        ("Kerlix, Medium",         3),   # was: Kerlix Medium JB
+        ("Stethoscope",            1),   # was: Stethoscope JB
+        ("BP Cuff",                1),   # was: BP Cuff JB
+        ("Clipboard w/ Paperwork", 1),   # was: Clipboard w/ Paperwork JB
     ]:
-        cat = ItemCategory.DOCUMENT if "Paperwork" in name else ItemCategory.EQUIPMENT
-        ct = (
-            ItemCheckType.DOCUMENT
-            if cat == ItemCategory.DOCUMENT
-            else ItemCheckType.SUPPLY
-        )
-        uom = "N/A" if ct == ItemCheckType.DOCUMENT else "each"
-        add_par(
-            db,
-            item=get_or_create_item(
-                db, name=name, category=cat, check_type=ct, unit_of_measure=uom
-            ),
-            location=jb,
-            compartment=jb_main,
-            min_qty=qty,
-        )
+        cat = _D if name == "Clipboard w/ Paperwork" else _E
+        ct = _DOC if cat == _D else _SUP
+        uom = "N/A" if ct == _DOC else "each"
+        add_par(db, item=item(name, category=cat, check_type=ct, unit_of_measure=uom),
+                location=jb, compartment=jb_main, min_qty=qty)
 
-    jb_ep_back = make_compartment(
-        db,
-        location=jb,
-        name="Main Pocket — Elastic Pouches Back",
-        sort_order=11,
-        parent=jb_main,
-        location_descriptor="Elastic pouches, rear of main pocket",
-    )
+    # ── Main Pocket — Elastic Pouches Back ─────────────────────────────────────
+    jb_ep_back = make_compartment(db, location=jb, name="Main Pocket — Elastic Pouches Back",
+                                  sort_order=11, parent=jb_main,
+                                  location_descriptor="Elastic pouches, rear of main pocket")
     for name, qty in [
-        ("Tourniquet JB", 2),
-        ("Kerlix Small JB", 4),
-        ("Emesis Container JB", 2),
+        ("CAT Tourniquet",   2),   # was: Tourniquet JB
+        ("Kerlix, Small",    4),   # was: Kerlix Small JB
+        ("Emesis Container", 2),   # was: Emesis Container JB
     ]:
-        cat = (
-            ItemCategory.CONSUMABLE
-            if any(x in name for x in ["Emesis", "Kerlix"])
-            else ItemCategory.EQUIPMENT
-        )
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=cat),
-            location=jb,
-            compartment=jb_ep_back,
-            min_qty=qty,
-        )
+        cat = _C if name in ("Kerlix, Small", "Emesis Container") else _E
+        add_par(db, item=item(name, category=cat), location=jb, compartment=jb_ep_back, min_qty=qty)
 
-    jb_ep_front = make_compartment(
-        db,
-        location=jb,
-        name="Main Pocket — Elastic Pouches Front",
-        sort_order=12,
-        parent=jb_main,
-        location_descriptor="Elastic pouches, front of main pocket",
-    )
+    # ── Main Pocket — Elastic Pouches Front ────────────────────────────────────
+    jb_ep_front = make_compartment(db, location=jb, name="Main Pocket — Elastic Pouches Front",
+                                   sort_order=12, parent=jb_main,
+                                   location_descriptor="Elastic pouches, front of main pocket")
     for name, qty in [
-        ("Writing Utensils JB", 1),
-        ("Pen Light JB", 2),
-        ("Occlusive Dressing JB", 2),
-        ("Bite Stick JB", 1),
-        ("Oral Glucose Gel", 2),
-        ("Oral Glucose Tablets", 1),
-        ("BleedStop", 1),
-        ("Thermometer EP", 1),
-        ("Tape Various Sizes JB", 3),
-        ("Trauma Shears JB", 2),
-        ("Triangle Bandage JB", 2),
-        ("ABD Pads 5x9 JB", 2),
-        ("Gauze Pads 3x3 JB", 6),
-        ("ACE Wrap JB", 2),
+        ("Writing Utensils",      1),   # was: Writing Utensils JB
+        ("Pen Light",             2),   # was: Pen Light JB
+        ("Occlusive Dressing",    2),   # was: Occlusive Dressing JB
+        ("Bite Stick",            1),   # was: Bite Stick JB
+        ("Oral Glucose Gel",      2),
+        ("Oral Glucose Tablets",  1),
+        ("BleedStop",             1),
+        ("Thermometer",           1),   # was: Thermometer EP
+        ("Tape Various Sizes",    3),   # was: Tape Various Sizes JB
+        ("Trauma Shears",         2),   # was: Trauma Shears JB
+        ("Triangle Bandage",      2),   # was: Triangle Bandage JB
+        ("ABD Pad 5x9",           2),   # was: ABD Pads 5x9 JB
+        ("Gauze, 3x3",            6),   # was: Gauze Pads 3x3 JB
+        ("ACE Wrap Various Sizes",2),   # was: ACE Wrap JB
     ]:
-        cat = ItemCategory.MEDICATION if "Glucose" in name else ItemCategory.CONSUMABLE
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=cat),
-            location=jb,
-            compartment=jb_ep_front,
-            min_qty=qty,
-        )
+        cat = _M if "Glucose" in name else (_E if name in ("Trauma Shears", "Pen Light") else _C)
+        add_par(db, item=item(name, category=cat), location=jb, compartment=jb_ep_front, min_qty=qty)
 
-    jb_flap_left = make_compartment(
-        db,
-        location=jb,
-        name="Main Pocket — Flap Left",
-        sort_order=13,
-        parent=jb_main,
-        location_descriptor="Left flap of main pocket",
-    )
+    # ── Main Pocket — Flap Left ────────────────────────────────────────────────
+    jb_flap_left = make_compartment(db, location=jb, name="Main Pocket — Flap Left",
+                                    sort_order=13, parent=jb_main,
+                                    location_descriptor="Left flap of main pocket")
     for name, qty in [
-        ("NRB Adult JB", 3),
-        ("NAS Adult JB", 5),
-        ("Stethoscope Flap JB", 1),
+        ("Adult NRB", 3),   # was: NRB Adult JB
+        ("Adult NAS", 5),   # was: NAS Adult JB
+        ("Stethoscope", 1), # was: Stethoscope Flap JB
     ]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
-            location=jb,
-            compartment=jb_flap_left,
-            min_qty=qty,
-        )
+        add_par(db, item=item(name, category=_E), location=jb, compartment=jb_flap_left, min_qty=qty)
 
-    jb_flap_right = make_compartment(
-        db,
-        location=jb,
-        name="Main Pocket — Flap Right",
-        sort_order=14,
-        parent=jb_main,
-        location_descriptor="Right flap of main pocket",
-    )
-    add_par(
-        db,
-        item=get_or_create_item(
-            db, name="BVM Adult JB", category=ItemCategory.EQUIPMENT
-        ),
-        location=jb,
-        compartment=jb_flap_right,
-        min_qty=1,
-    )
-
-
-# ---------------------------------------------------------------------------
-# Training ambulance inventory builder (~1/3 of Unit 712, all check types)
-# ---------------------------------------------------------------------------
-#
-# Compartment selection (9 of 26):
-#   PC 8            — priority items: AED (FUNCTIONAL + DATE_RECORD + EXPIRY_DATE)
-#                     and LUCAS (FUNCTIONAL + DATE_RECORD), plus AED Pads expiry
-#   PC 1 (Airway)   — SUPPLY items (airway equipment)
-#   Admin Counter   — SUPPLY + DOCUMENT items
-#   PC 5 (PPE)      — SUPPLY consumables
-#   PC 13 (Trauma)  — SUPPLY consumables, reduced quantities
-#   Stretcher       — MEASUREMENT (O2 PSI priority) + FUNCTIONAL
-#   Driver Side EC1 — MEASUREMENT (on-board O2 PSI)
-#   Truck Operations — FUNCTIONAL + DOCUMENT, requires_full_check=True
-#   Under Hood      — FUNCTIONAL, requires_full_check=True
-#
-# Par quantities: ~1/3 of Unit 712, minimum 1.
-# ---------------------------------------------------------------------------
-
-
-def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
-    """
-    Build training ambulance compartments and par levels.
-    Covers all check types. ~9 compartments, ~1/3 par quantities.
-    Idempotent — safe to re-run.
-    """
-
-    # ── PC 8 — AED + LUCAS priority items (all special check types) ───────────
-    pc8 = make_compartment(
-        db,
-        location=loc,
-        name="PC 8",
-        sort_order=1,
-        location_descriptor="Interior, driver side — AED and LUCAS",
-    )
-    # AED: FUNCTIONAL priority
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="AED Battery",
-            category=ItemCategory.EQUIPMENT,
-            check_type=ItemCheckType.FUNCTIONAL,
-            unit_of_measure="N/A",
-        ),
-        location=loc,
-        compartment=pc8,
-        min_qty=1,
-        priority_check=True,
-        priority_question="AED shows READY?",
-    )
-    # AED: DATE_RECORD
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="AED Date of Last Charge",
-            category=ItemCategory.EQUIPMENT,
-            check_type=ItemCheckType.DATE_RECORD,
-            unit_of_measure="N/A",
-            recurrence_days=90,
-        ),
-        location=loc,
-        compartment=pc8,
-        min_qty=1,
-    )
-    # AED Pads Adult: EXPIRY_DATE
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="AED Pads Adult",
-            category=ItemCategory.CONSUMABLE,
-            check_type=ItemCheckType.EXPIRY_DATE,
-            unit_of_measure="N/A",
-        ),
-        location=loc,
-        compartment=pc8,
-        min_qty=1,
-    )
-    # AED Pads Pediatric: EXPIRY_DATE
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="AED Pads Pediatric",
-            category=ItemCategory.CONSUMABLE,
-            check_type=ItemCheckType.EXPIRY_DATE,
-            unit_of_measure="N/A",
-        ),
-        location=loc,
-        compartment=pc8,
-        min_qty=1,
-    )
-    # LUCAS Device: FUNCTIONAL priority
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="LUCAS Device",
-            category=ItemCategory.EQUIPMENT,
-            check_type=ItemCheckType.FUNCTIONAL,
-            unit_of_measure="N/A",
-        ),
-        location=loc,
-        compartment=pc8,
-        min_qty=1,
-        priority_check=True,
-        priority_question="LUCAS shows READY?",
-    )
-    # LUCAS: DATE_RECORD
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="LUCAS Date of Last Charge",
-            category=ItemCategory.EQUIPMENT,
-            check_type=ItemCheckType.DATE_RECORD,
-            unit_of_measure="N/A",
-            recurrence_days=30,
-        ),
-        location=loc,
-        compartment=pc8,
-        min_qty=1,
-    )
-    # Portable suction: SUPPLY
-    add_par(
-        db,
-        item=get_or_create_item(
-            db, name="Portable Suction Unit", category=ItemCategory.EQUIPMENT
-        ),
-        location=loc,
-        compartment=pc8,
-        min_qty=1,
-    )
-
-    # ── PC 1 (Airway) — SUPPLY items ─────────────────────────────────────────
-    pc1 = make_compartment(
-        db,
-        location=loc,
-        name="PC 1 (Airway)",
-        sort_order=2,
-        location_descriptor="Interior, left side, forward — airway equipment",
-    )
-    for name in ["Adult BVM", "Adult NAS", "Adult NRB"]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
-            location=loc,
-            compartment=pc1,
-            min_qty=1,
-        )
-
-    # ── Admin Counter — SUPPLY + DOCUMENT ─────────────────────────────────────
-    admin_counter = make_compartment(
-        db,
-        location=loc,
-        name="Admin Counter",
-        sort_order=3,
-        location_descriptor="Interior, admin counter near driver",
-    )
-    for name, cat, ct in [
-        ("iPad & Charger", ItemCategory.EQUIPMENT, ItemCheckType.SUPPLY),
-        ("Hand Sanitizer", ItemCategory.CONSUMABLE, ItemCheckType.SUPPLY),
-        ("Trauma Shears", ItemCategory.EQUIPMENT, ItemCheckType.SUPPLY),
-        ("O2 Wrench", ItemCategory.EQUIPMENT, ItemCheckType.SUPPLY),
-        ("PCR or HERN PCR", ItemCategory.DOCUMENT, ItemCheckType.DOCUMENT),
-        ("Billing Form", ItemCategory.DOCUMENT, ItemCheckType.DOCUMENT),
-        ("Updated Radio Channel List", ItemCategory.DOCUMENT, ItemCheckType.DOCUMENT),
-    ]:
-        uom = "N/A" if ct == ItemCheckType.DOCUMENT else "each"
-        add_par(
-            db,
-            item=get_or_create_item(
-                db, name=name, category=cat, check_type=ct, unit_of_measure=uom
-            ),
-            location=loc,
-            compartment=admin_counter,
-            min_qty=1,
-        )
-
-    # ── PC 5 (PPE) — SUPPLY consumables ──────────────────────────────────────
-    pc5 = make_compartment(
-        db,
-        location=loc,
-        name="PC 5 (PPE)",
-        sort_order=4,
-        location_descriptor="Interior, PPE compartment",
-    )
-    for name in [
-        "Glove Boxes Medium",
-        "Glove Boxes Large",
-        "Gowns",
-        "N-95 Masks",
-        "Goggles",
-    ]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.CONSUMABLE),
-            location=loc,
-            compartment=pc5,
-            min_qty=1,
-        )
-
-    # ── PC 13 (Trauma) — SUPPLY consumables, reduced qty ─────────────────────
-    pc13 = make_compartment(
-        db,
-        location=loc,
-        name="PC 13 (Trauma)",
-        sort_order=5,
-        location_descriptor="Interior, trauma supplies",
-    )
-    for name, qty in [
-        ("ABD Pad 8x10", 2),
-        ("Gauze Bandage Various Sizes", 3),
-        ("KERLIX PC13", 3),
-        ("Tape Various Sizes", 3),
-        ("CAT Tourniquet", 1),
-        ("Gauze Sponges 4x4", 8),
-        ("Triangle Bandages", 1),
-        ("Sterile Saline Solution", 1),
-    ]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.CONSUMABLE),
-            location=loc,
-            compartment=pc13,
-            min_qty=qty,
-        )
-
-    # ── Stretcher — MEASUREMENT (O2 PSI) priority + FUNCTIONAL ───────────────
-    stretcher = make_compartment(
-        db,
-        location=loc,
-        name="Stretcher",
-        sort_order=6,
-        location_descriptor="Patient stretcher / cot",
-    )
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="Stretcher O2 PSI",
-            category=ItemCategory.EQUIPMENT,
-            check_type=ItemCheckType.MEASUREMENT,
-            unit_of_measure="PSI",
-            measurement_minimum=500.0,
-            measurement_maximum=2200.0,
-        ),
-        location=loc,
-        compartment=stretcher,
-        min_qty=1,
-        priority_check=True,
-        priority_question="Stretcher O2 above 500 PSI?",
-    )
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="Stretcher Battery Charged",
-            category=ItemCategory.EQUIPMENT,
-            check_type=ItemCheckType.FUNCTIONAL,
-            unit_of_measure="N/A",
-        ),
-        location=loc,
-        compartment=stretcher,
-        min_qty=1,
-    )
-
-    # ── Driver Side EC 1 — On-board O2 MEASUREMENT ────────────────────────────
-    ds_ec1 = make_compartment(
-        db,
-        location=loc,
-        name="Driver Side EC 1",
-        sort_order=7,
-        location_descriptor="Exterior, driver side, forward bay",
-    )
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="On-Board O2 PSI",
-            category=ItemCategory.EQUIPMENT,
-            check_type=ItemCheckType.MEASUREMENT,
-            unit_of_measure="PSI",
-            measurement_minimum=500.0,
-            measurement_maximum=2200.0,
-        ),
-        location=loc,
-        compartment=ds_ec1,
-        min_qty=1,
-    )
-    for name in ["Long-board Splints", "Fire Extinguisher"]:
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
-            location=loc,
-            compartment=ds_ec1,
-            min_qty=1,
-        )
-
-    # ── Truck Operations — FUNCTIONAL + DOCUMENT, requires_full_check ─────────
-    truck_ops = make_compartment(
-        db,
-        location=loc,
-        name="Truck Operations",
-        sort_order=8,
-        location_descriptor="Operational vehicle systems check",
-        requires_full_check=True,
-    )
-    for name in [
-        "Runs and Starts",
-        "External Warning Systems (Lights & Sirens)",
-        "Ambulance Cot and Straps Secured",
-        "Communication Medcom Compliant",
-        "Fire Extinguisher UL Listed",
-        "Portable Two-Way Radio",
-        "Mileage Sheet",
-        "Insurance Information",
-    ]:
-        cat = (
-            ItemCategory.DOCUMENT
-            if any(x in name for x in ["Sheet", "Information"])
-            else ItemCategory.EQUIPMENT
-        )
-        ct = (
-            ItemCheckType.DOCUMENT
-            if cat == ItemCategory.DOCUMENT
-            else ItemCheckType.FUNCTIONAL
-        )
-        add_par(
-            db,
-            item=get_or_create_item(
-                db, name=name, category=cat, check_type=ct, unit_of_measure="N/A"
-            ),
-            location=loc,
-            compartment=truck_ops,
-            min_qty=1,
-        )
-    for size in ["Small", "Medium", "Large"]:
-        add_par(
-            db,
-            item=get_or_create_item(
-                db, name=f"Cab Gloves {size}", category=ItemCategory.CONSUMABLE
-            ),
-            location=loc,
-            compartment=truck_ops,
-            min_qty=1,
-        )
-
-    # ── Under Hood — FUNCTIONAL, requires_full_check ──────────────────────────
-    under_hood = make_compartment(
-        db,
-        location=loc,
-        name="Under Hood",
-        sort_order=9,
-        location_descriptor="Engine compartment",
-        restriction_note=None,
-        requires_full_check=True,
-    )
-    for name in ["Hoses", "Belts", "Oil Level", "Radiator", "Battery"]:
-        add_par(
-            db,
-            item=get_or_create_item(
-                db,
-                name=f"Hood {name}",
-                category=ItemCategory.EQUIPMENT,
-                check_type=ItemCheckType.FUNCTIONAL,
-                unit_of_measure="N/A",
-            ),
-            location=loc,
-            compartment=under_hood,
-            min_qty=1,
-        )
-
-
-# ---------------------------------------------------------------------------
-# Training jump bag inventory builder (~1/3 of Unit 712 jump bag)
-# ---------------------------------------------------------------------------
-#
-# Compartments (2 of 6):
-#   Main Pocket   — O2 PSI priority (MEASUREMENT) + key SUPPLY items
-#   Front Pocket  — consumable SUPPLY items (glucometer, bandaids, etc.)
-# ---------------------------------------------------------------------------
-
-
-def build_training_jump_bag(db: Session, jb: InventoryLocation) -> None:
-    """
-    Build training jump bag compartments and par levels.
-    2 compartments, ~1/3 quantities. Idempotent.
-    """
-
-    # ── Main Pocket — O2 PSI priority + SUPPLY ────────────────────────────────
-    jb_main = make_compartment(
-        db,
-        location=jb,
-        name="Main Pocket",
-        sort_order=1,
-        location_descriptor="Main compartment of jump bag",
-    )
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="Jump Bag O2 PSI",
-            category=ItemCategory.EQUIPMENT,
-            check_type=ItemCheckType.MEASUREMENT,
-            unit_of_measure="PSI",
-            measurement_minimum=500.0,
-            measurement_maximum=2200.0,
-        ),
-        location=jb,
-        compartment=jb_main,
-        min_qty=1,
-        priority_check=True,
-        priority_question="Jump Bag O2 above 500 PSI?",
-    )
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="Jump Bag O2 Tank w/ Regulator 15LPM",
-            category=ItemCategory.EQUIPMENT,
-        ),
-        location=jb,
-        compartment=jb_main,
-        min_qty=1,
-    )
-    for name, qty in [
-        ("Kerlix Large JB", 1),
-        ("Stethoscope JB", 1),
-        ("BP Cuff JB", 1),
-        ("Clipboard w/ Paperwork JB", 1),
-        ("Tourniquet JB", 1),
-        ("BVM Adult JB", 1),
-    ]:
-        cat = ItemCategory.DOCUMENT if "Paperwork" in name else ItemCategory.EQUIPMENT
-        ct = (
-            ItemCheckType.DOCUMENT
-            if cat == ItemCategory.DOCUMENT
-            else ItemCheckType.SUPPLY
-        )
-        uom = "N/A" if ct == ItemCheckType.DOCUMENT else "each"
-        add_par(
-            db,
-            item=get_or_create_item(
-                db, name=name, category=cat, check_type=ct, unit_of_measure=uom
-            ),
-            location=jb,
-            compartment=jb_main,
-            min_qty=qty,
-        )
-
-    # ── Front Pocket — consumable SUPPLY items ────────────────────────────────
-    jb_front = make_compartment(
-        db,
-        location=jb,
-        name="Front Pocket",
-        sort_order=2,
-        location_descriptor="Front pocket of jump bag",
-    )
-    for name, qty in [
-        ("C-Collar Adult JB", 1),
-        ("Overdose Rescue Kit NARCAN", 1),
-        ("Glucometer Lancets JB", 2),
-        ("Alcohol Prep JB", 2),
-        ("Bandaids JB", 2),
-        ("Gauze 3x3 JB", 1),
-        ("Glucometer Test Strips JB", 2),
-        ("Thermometer JB", 1),
-        ("Trauma Shears JB", 1),
-        ("Occlusive Dressing JB", 1),
-    ]:
-        cat = (
-            ItemCategory.MEDICATION
-            if "NARCAN" in name
-            else (
-                ItemCategory.CONSUMABLE
-                if any(x in name for x in ["Gauze", "Bandaid", "Prep", "Strips"])
-                else ItemCategory.EQUIPMENT
-            )
-        )
-        add_par(
-            db,
-            item=get_or_create_item(db, name=name, category=cat),
-            location=jb,
-            compartment=jb_front,
-            min_qty=qty,
-        )
-
-
-# ---------------------------------------------------------------------------
-# TEST unit inventory builder
-# ---------------------------------------------------------------------------
-
-
-def build_test_inventory(db: Session, loc: InventoryLocation) -> None:
-    """
-    Build a minimal test inventory covering all 5 check types plus a
-    deliberate SHORT item (to trigger the Reconcile step) and a deliberate
-    FUNCTIONAL FAIL item (to show the supervisor section in Reconcile).
-
-    Layout:
-        Compartment 1 — Check Type Sampler  (5 items, all green if counted correctly)
-            [TEST] Supply Item         SUPPLY       need 3
-            [TEST] O2 PSI Reading      MEASUREMENT  min 500 PSI
-            [TEST] Equipment Battery   FUNCTIONAL   pass/fail
-            [TEST] Last Service Date   DATE_RECORD
-            [TEST] Protocol Document   DOCUMENT     need 1
-
-        Compartment 2 — Reconcile Trigger   (2 items, always forces Reconcile step)
-            [TEST] Short Supply        SUPPLY       need 5  ← intentionally short at 2
-            [TEST] Broken Equipment    FUNCTIONAL   ← intentionally fails → supervisor section
-
-    All item names are prefixed [TEST] so they are identifiable in any list.
-    """
-
-    # ── Compartment 1 — Check Type Sampler ───────────────────────────────────
-    comp1 = make_compartment(
-        db,
-        location=loc,
-        name="Compartment 1 — Check Types",
-        sort_order=1,
-        location_descriptor="⚠ Test data only — covers all 5 check types",
-    )
-
-    # SUPPLY: count-based item — tap + three times to meet par
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="[TEST] Supply Item",
-            category=ItemCategory.CONSUMABLE,
-            check_type=ItemCheckType.SUPPLY,
-            unit_of_measure="each",
-        ),
-        location=loc,
-        compartment=comp1,
-        min_qty=3,
-    )
-
-    # MEASUREMENT: PSI reading — enter any number ≥ 500
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="[TEST] O2 PSI Reading",
-            category=ItemCategory.EQUIPMENT,
-            check_type=ItemCheckType.MEASUREMENT,
-            unit_of_measure="PSI",
-            measurement_minimum=500.0,
-            measurement_maximum=2200.0,
-        ),
-        location=loc,
-        compartment=comp1,
-        min_qty=1,
-    )
-
-    # FUNCTIONAL: pass/fail — tap Pass to clear green
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="[TEST] Equipment Battery",
-            category=ItemCategory.EQUIPMENT,
-            check_type=ItemCheckType.FUNCTIONAL,
-            unit_of_measure="N/A",
-        ),
-        location=loc,
-        compartment=comp1,
-        min_qty=1,
-    )
-
-    # DATE_RECORD: pick today's date
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="[TEST] Last Service Date",
-            category=ItemCategory.EQUIPMENT,
-            check_type=ItemCheckType.DATE_RECORD,
-            unit_of_measure="N/A",
-            recurrence_days=30,
-        ),
-        location=loc,
-        compartment=comp1,
-        min_qty=1,
-    )
-
-    # DOCUMENT: presence check — tap All 1 present to clear green
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="[TEST] Protocol Document",
-            category=ItemCategory.DOCUMENT,
-            check_type=ItemCheckType.DOCUMENT,
-            unit_of_measure="N/A",
-        ),
-        location=loc,
-        compartment=comp1,
-        min_qty=1,
-    )
-
-    # ── Compartment 2 — Reconcile Trigger ─────────────────────────────────────
-    comp2 = make_compartment(
-        db,
-        location=loc,
-        name="Compartment 2 — Reconcile Trigger",
-        sort_order=2,
-        location_descriptor="⚠ Intentional short + fail — forces Reconcile step",
-    )
-
-    # SHORT SUPPLY: need 5 — the responder will see this as yellow on Step 2
-    # and will land on Step 4 Reconcile. Tap + five times to clear it.
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="[TEST] Short Supply",
-            category=ItemCategory.CONSUMABLE,
-            check_type=ItemCheckType.SUPPLY,
-            unit_of_measure="each",
-        ),
-        location=loc,
-        compartment=comp2,
-        min_qty=5,
-    )
-
-    # FUNCTIONAL FAIL: tap Fail to exercise the red/supervisor section in Reconcile.
-    # This item does NOT block submission — it appears read-only in Reconcile.
-    add_par(
-        db,
-        item=get_or_create_item(
-            db,
-            name="[TEST] Broken Equipment",
-            category=ItemCategory.EQUIPMENT,
-            check_type=ItemCheckType.FUNCTIONAL,
-            unit_of_measure="N/A",
-        ),
-        location=loc,
-        compartment=comp2,
-        min_qty=1,
-    )
+    # ── Main Pocket — Flap Right ───────────────────────────────────────────────
+    jb_flap_right = make_compartment(db, location=jb, name="Main Pocket — Flap Right",
+                                     sort_order=14, parent=jb_main,
+                                     location_descriptor="Right flap of main pocket")
+    add_par(db, item=item("Adult BVM", category=_E),   # was: BVM Adult JB
+            location=jb, compartment=jb_flap_right, min_qty=1)
 
 
 # ---------------------------------------------------------------------------
@@ -2302,7 +1165,8 @@ def seed(db: Session) -> None:
 
     # =========================================================================
     # STATION 1 — Newberg Township
-    # Ambulance 712 (BLS) + Unit 712 Jump Bag + Unit 710 Jump Bag
+    # Ambulance 712 (BLS) + Unit 712 Jump Bag
+    # Full par levels from real inventory forms.
     # =========================================================================
     print("Seeding Newberg Township Station 1...")
 
@@ -2337,7 +1201,12 @@ def seed(db: Session) -> None:
         db.add(newberg_supply)
         db.flush()
         print("  Created Newberg supply room")
-    build_supply_room(db, newberg_supply)
+
+    print("  Seeding Newberg item catalog...")
+    catalog_count = seed_station_catalog(db, newberg.station_id)
+    print(f"    {catalog_count} new items created")
+
+    build_supply_room(db, newberg_supply, newberg.station_id)
 
     v712 = db.query(Vehicle).filter(Vehicle.vehicle_number == "712").first()
     if not v712:
@@ -2373,6 +1242,7 @@ def seed(db: Session) -> None:
             loc712.label = "Unit 712 BLS"
             db.flush()
 
+    # Rename legacy shared jump bag if it exists
     old_shared_jb = (
         db.query(InventoryLocation)
         .filter(
@@ -2394,9 +1264,9 @@ def seed(db: Session) -> None:
         print("  Created Unit 712 Jump Bag location")
 
     print("  Building Unit 712 ambulance inventory...")
-    build_ambulance_inventory(db, loc712, is_als=False)
+    build_ambulance_inventory(db, loc712, station_id=newberg.station_id, is_als=False)
     print("  Building Unit 712 Jump Bag inventory...")
-    build_jump_bag(db, jb_712)
+    build_jump_bag(db, jb_712, station_id=newberg.station_id)
 
     newberg_comp_count = (
         db.query(Compartment)
@@ -2411,7 +1281,7 @@ def seed(db: Session) -> None:
 
     # =========================================================================
     # STATION 2 — Marcellus Township
-    # Ambulance 540 (ALS)
+    # Unit 540 (ALS) — item catalog only; par levels assigned via admin UI
     # =========================================================================
     print("\nSeeding Marcellus Township Station 1...")
 
@@ -2446,7 +1316,12 @@ def seed(db: Session) -> None:
         db.add(marcellus_supply)
         db.flush()
         print("  Created Marcellus supply room")
-    build_supply_room(db, marcellus_supply)
+
+    print("  Seeding Marcellus item catalog...")
+    marc_cat = seed_station_catalog(db, marcellus.station_id)
+    print(f"    {marc_cat} new items created")
+
+    build_supply_room(db, marcellus_supply, marcellus.station_id)
 
     v540 = db.query(Vehicle).filter(Vehicle.vehicle_number == "540").first()
     if not v540:
@@ -2477,36 +1352,12 @@ def seed(db: Session) -> None:
             print(f"  Renaming 540 location: '{loc540.label}' → 'Unit 540 ALS'")
             loc540.label = "Unit 540 ALS"
             db.flush()
-
-    print("  Building Unit 540 ambulance inventory...")
-    build_ambulance_inventory(db, loc540, is_als=True)
-
-    marcellus_comp_count = (
-        db.query(Compartment)
-        .filter(Compartment.location_id == loc540.location_id)
-        .count()
-    )
-    marcellus_par_count = (
-        db.query(ParLevel).filter(ParLevel.location_id == loc540.location_id).count()
-    )
+    print("  (Unit 540 — catalog seeded; supervisor assigns par levels via admin UI)")
 
     # =========================================================================
     # STATION 3 — Newberg Training Station
-    #
-    # Purpose: Safe playground for crew training. Use this station to learn
-    # EMS ReadyKit before touching real Unit 712 data. Nothing here affects
-    # real compliance records. Station color: #e65100 (orange) so it is
-    # immediately distinct from the real blue stations.
-    #
-    # Vehicles: Training Unit A (BLS) + Training Unit B (BLS)
-    # Jump bags: Training Jump Bag A + Training Jump Bag B
-    #
-    # Compartments per ambulance: 9 (vs 26 on Unit 712) — all check types
-    # represented so trainees learn every kind of interaction.
-    # Par quantities: ~1/3 of Unit 712 so a training check takes ~5 minutes.
-    #
-    # Always seeded — present in every environment including production.
-    # Members: admin only (jinniyah@gmail.com). Add crew via Settings → Team Members.
+    # Training Unit A + B, Jump Bag A + B
+    # Item catalog only; par levels assigned via admin UI
     # =========================================================================
     print("\nSeeding Newberg Training Station...")
 
@@ -2519,13 +1370,12 @@ def seed(db: Session) -> None:
             address="Newberg Township, Michigan",
             region="Cass County — Training",
             active=True,
-            primary_color="#e65100",  # orange — visually distinct from real stations
+            primary_color="#e65100",
         )
         db.add(training)
         db.flush()
         print(f"  Created station: {training.name}")
     else:
-        # Ensure color is set on re-seed of existing DB
         if training.primary_color != "#e65100":
             training.primary_color = "#e65100"
             print("  Updated training station color to #e65100 (orange)")
@@ -2547,124 +1397,62 @@ def seed(db: Session) -> None:
         db.add(training_supply)
         db.flush()
         print("  Created Training supply room")
-    build_supply_room(db, training_supply)
+
+    print("  Seeding Training item catalog...")
+    train_cat = seed_station_catalog(db, training.station_id)
+    print(f"    {train_cat} new items created")
+
+    build_supply_room(db, training_supply, training.station_id)
 
     # Training Unit A
     v_train_a = (
         db.query(Vehicle)
-        .filter(
-            Vehicle.vehicle_number == "TRAIN-A",
-            Vehicle.station_id == training.station_id,
-        )
+        .filter(Vehicle.vehicle_number == "TRAIN-A", Vehicle.station_id == training.station_id)
         .first()
     )
     if not v_train_a:
-        v_train_a = Vehicle(
-            station_id=training.station_id,
-            vehicle_number="TRAIN-A",
-            vehicle_type=VehicleType.BLS,
-            active=True,
-        )
+        v_train_a = Vehicle(station_id=training.station_id, vehicle_number="TRAIN-A",
+                            vehicle_type=VehicleType.BLS, active=True)
         db.add(v_train_a)
         db.flush()
-        loc_train_a = InventoryLocation(
-            location_type=LocationType.VEHICLE,
-            station_id=training.station_id,
-            vehicle_id=v_train_a.vehicle_id,
-            label="Training Unit A",
-        )
-        db.add(loc_train_a)
+        db.add(InventoryLocation(location_type=LocationType.VEHICLE,
+                                 station_id=training.station_id,
+                                 vehicle_id=v_train_a.vehicle_id, label="Training Unit A"))
         db.flush()
         print("  Created Training Unit A (BLS)")
-    else:
-        loc_train_a = (
-            db.query(InventoryLocation)
-            .filter(InventoryLocation.vehicle_id == v_train_a.vehicle_id)
-            .first()
-        )
 
     # Training Unit B
     v_train_b = (
         db.query(Vehicle)
-        .filter(
-            Vehicle.vehicle_number == "TRAIN-B",
-            Vehicle.station_id == training.station_id,
-        )
+        .filter(Vehicle.vehicle_number == "TRAIN-B", Vehicle.station_id == training.station_id)
         .first()
     )
     if not v_train_b:
-        v_train_b = Vehicle(
-            station_id=training.station_id,
-            vehicle_number="TRAIN-B",
-            vehicle_type=VehicleType.BLS,
-            active=True,
-        )
+        v_train_b = Vehicle(station_id=training.station_id, vehicle_number="TRAIN-B",
+                            vehicle_type=VehicleType.BLS, active=True)
         db.add(v_train_b)
         db.flush()
-        loc_train_b = InventoryLocation(
-            location_type=LocationType.VEHICLE,
-            station_id=training.station_id,
-            vehicle_id=v_train_b.vehicle_id,
-            label="Training Unit B",
-        )
-        db.add(loc_train_b)
+        db.add(InventoryLocation(location_type=LocationType.VEHICLE,
+                                 station_id=training.station_id,
+                                 vehicle_id=v_train_b.vehicle_id, label="Training Unit B"))
         db.flush()
         print("  Created Training Unit B (BLS)")
-    else:
-        loc_train_b = (
-            db.query(InventoryLocation)
-            .filter(InventoryLocation.vehicle_id == v_train_b.vehicle_id)
-            .first()
-        )
 
-    # Training Jump Bag A
-    jb_train_a, created_jba = get_or_create_jump_bag_location(
-        db, station_id=training.station_id, label="Training Jump Bag A"
-    )
-    if created_jba:
+    jb_train_a, cja = get_or_create_jump_bag_location(
+        db, station_id=training.station_id, label="Training Jump Bag A")
+    if cja:
         print("  Created Training Jump Bag A")
-
-    # Training Jump Bag B
-    jb_train_b, created_jbb = get_or_create_jump_bag_location(
-        db, station_id=training.station_id, label="Training Jump Bag B"
-    )
-    if created_jbb:
+    jb_train_b, cjb = get_or_create_jump_bag_location(
+        db, station_id=training.station_id, label="Training Jump Bag B")
+    if cjb:
         print("  Created Training Jump Bag B")
 
-    print("  Building Training Unit A inventory...")
-    build_training_ambulance(db, loc_train_a)
-    print("  Building Training Unit B inventory...")
-    build_training_ambulance(db, loc_train_b)
-    print("  Building Training Jump Bag A inventory...")
-    build_training_jump_bag(db, jb_train_a)
-    print("  Building Training Jump Bag B inventory...")
-    build_training_jump_bag(db, jb_train_b)
-
-    training_loc_ids = [
-        loc_train_a.location_id,
-        loc_train_b.location_id,
-        jb_train_a.location_id,
-        jb_train_b.location_id,
-    ]
-    training_comp_count = (
-        db.query(Compartment)
-        .filter(Compartment.location_id.in_(training_loc_ids))
-        .count()
-    )
-    training_par_count = (
-        db.query(ParLevel).filter(ParLevel.location_id.in_(training_loc_ids)).count()
-    )
+    print("  (Training units — catalog seeded; supervisor assigns par levels via admin UI)")
 
     # =========================================================================
     # STATION 4 — ⚠ TEST STATION (Dev Only)
-    #
-    # Purpose: fast end-to-end testing of all 5 wizard steps in under 5 min.
-    # Contains 2 compartments and 7 items covering all check types plus a
-    # deliberate SHORT (forces Reconcile) and deliberate FAIL (shows supervisor
-    # section in Reconcile). DO NOT use for real inventory checks.
-    #
-    # Unit TEST QRV shows in Step 1 alongside real vehicles. Station name and
-    # vehicle number make it impossible to mistake for real operational data.
+    # Unit TEST (QRV) — catalog + [TEST] items seeded
+    # Par levels assigned via admin UI
     # =========================================================================
     print("\nSeeding ⚠ TEST STATION — Dev Only...")
 
@@ -2699,99 +1487,70 @@ def seed(db: Session) -> None:
         db.add(test_supply)
         db.flush()
         print("  Created TEST supply room")
-    build_supply_room(db, test_supply)
+
+    print("  Seeding TEST item catalog...")
+    test_cat = seed_station_catalog(db, test_station.station_id)
+    print(f"    {test_cat} new items created")
+
+    build_supply_room(db, test_supply, test_station.station_id)
+
+    # [TEST]-prefixed items for dev wizard testing — test station only
+    test_items = [
+        dict(name="[TEST] Supply Item",       category=_C, check_type=_SUP,  unit_of_measure="each"),
+        dict(name="[TEST] O2 PSI Reading",    category=_E, check_type=_MEAS, unit_of_measure="PSI",
+             measurement_minimum=500.0, measurement_maximum=2200.0),
+        dict(name="[TEST] Equipment Battery", category=_E, check_type=_FUNC, unit_of_measure="N/A"),
+        dict(name="[TEST] Last Service Date", category=_E, check_type=_DATE, unit_of_measure="N/A",
+             recurrence_days=30),
+        dict(name="[TEST] Protocol Document", category=_D, check_type=_DOC,  unit_of_measure="N/A"),
+        dict(name="[TEST] Short Supply",      category=_C, check_type=_SUP,  unit_of_measure="each"),
+        dict(name="[TEST] Broken Equipment",  category=_E, check_type=_FUNC, unit_of_measure="N/A"),
+    ]
+    for entry in test_items:
+        get_or_create_item(db, station_id=test_station.station_id,
+                           category_group=None, **entry)
+    db.flush()
 
     v_test = db.query(Vehicle).filter(Vehicle.vehicle_number == "TEST").first()
     if not v_test:
-        v_test = Vehicle(
-            station_id=test_station.station_id,
-            vehicle_number="TEST",
-            vehicle_type=VehicleType.QRV,
-            active=True,
-        )
+        v_test = Vehicle(station_id=test_station.station_id, vehicle_number="TEST",
+                         vehicle_type=VehicleType.QRV, active=True)
         db.add(v_test)
         db.flush()
-        loc_test = InventoryLocation(
-            location_type=LocationType.VEHICLE,
-            station_id=test_station.station_id,
-            vehicle_id=v_test.vehicle_id,
-            label="Unit TEST ⚠ Dev Only",
-        )
-        db.add(loc_test)
+        db.add(InventoryLocation(location_type=LocationType.VEHICLE,
+                                 station_id=test_station.station_id,
+                                 vehicle_id=v_test.vehicle_id, label="Unit TEST ⚠ Dev Only"))
         db.flush()
         print("  Created Unit TEST (QRV)")
-    else:
-        loc_test = (
-            db.query(InventoryLocation)
-            .filter(InventoryLocation.vehicle_id == v_test.vehicle_id)
-            .first()
-        )
 
-    print("  Building Unit TEST inventory (2 compartments, 7 items)...")
-    build_test_inventory(db, loc_test)
-
-    test_comp_count = (
-        db.query(Compartment)
-        .filter(Compartment.location_id == loc_test.location_id)
-        .count()
-    )
-    test_par_count = (
-        db.query(ParLevel).filter(ParLevel.location_id == loc_test.location_id).count()
-    )
+    print("  (Unit TEST — catalog seeded; supervisor assigns par levels via admin UI)")
 
     # =========================================================================
     # STATION MEMBERSHIP — Bootstrap admin user
-    #
-    # Assigns jinniyah@gmail.com (Administrator) to all stations so the app
-    # is immediately usable after a fresh deploy without manual DB intervention.
-    # Additional users are assigned via the Admin UI once it is built (B-ACCESS1).
-    #
-    # Training Station: admin only. Other members are added via
-    # Settings → Team Members after trainees join the team.
-    #
-    # To add more bootstrap members, duplicate the block below with the
-    # appropriate user_id, preferred_name, role, and station list.
     # =========================================================================
     print("\nSeeding station memberships...")
 
     BOOTSTRAP_ADMIN = "jinniyah@gmail.com"
     BOOTSTRAP_NAME = "Jinni Allen"
-    SEED_USER = "seed.py"  # assigned_by value for seed-created rows
+    SEED_USER = "seed.py"
 
-    # Dev test users — emails must match what _validate_test_token() generates:
-    # f"test-{role_label.lower()}@ems.local" where role_label = token.replace("test-","").capitalize()
-    # test-administrator → test-administrator@ems.local
-    # test-supervisor    → test-supervisor@ems.local
-    # test-responder     → test-responder@ems.local
     DEV_MEMBERS = [
         ("test-administrator@ems.local", "Test Administrator", "Administrator"),
-        ("test-supervisor@ems.local", "Test Supervisor", "Supervisor"),
-        ("test-responder@ems.local", "Test Responder", "Responder"),
+        ("test-supervisor@ems.local",    "Test Supervisor",    "Supervisor"),
+        ("test-responder@ems.local",     "Test Responder",     "Responder"),
     ]
 
-    # Real operational stations + training get the bootstrap admin.
-    # Dev test users go to all stations (including training) for test token access.
     for station in [newberg, marcellus, training, test_station]:
-        # Bootstrap admin
         existing = (
             db.query(StationMember)
-            .filter(
-                StationMember.station_id == station.station_id,
-                StationMember.user_id == BOOTSTRAP_ADMIN,
-            )
+            .filter(StationMember.station_id == station.station_id,
+                    StationMember.user_id == BOOTSTRAP_ADMIN)
             .first()
         )
         if not existing:
-            db.add(
-                StationMember(
-                    station_id=station.station_id,
-                    user_id=BOOTSTRAP_ADMIN,
-                    preferred_name=BOOTSTRAP_NAME,
-                    role="Administrator",
-                    assigned_by=SEED_USER,
-                    active=True,
-                )
-            )
+            db.add(StationMember(station_id=station.station_id, user_id=BOOTSTRAP_ADMIN,
+                                 preferred_name=BOOTSTRAP_NAME, role="Administrator",
+                                 assigned_by=SEED_USER, active=True))
             print(f"  Assigned {BOOTSTRAP_ADMIN} → {station.name}")
         elif not existing.active:
             existing.active = True
@@ -2799,27 +1558,17 @@ def seed(db: Session) -> None:
         else:
             print(f"  {BOOTSTRAP_ADMIN} already member of {station.name} — skipping")
 
-        # Dev test users
         for uid, name, role in DEV_MEMBERS:
             existing_dev = (
                 db.query(StationMember)
-                .filter(
-                    StationMember.station_id == station.station_id,
-                    StationMember.user_id == uid,
-                )
+                .filter(StationMember.station_id == station.station_id,
+                        StationMember.user_id == uid)
                 .first()
             )
             if not existing_dev:
-                db.add(
-                    StationMember(
-                        station_id=station.station_id,
-                        user_id=uid,
-                        preferred_name=name,
-                        role=role,
-                        assigned_by=SEED_USER,
-                        active=True,
-                    )
-                )
+                db.add(StationMember(station_id=station.station_id, user_id=uid,
+                                     preferred_name=name, role=role,
+                                     assigned_by=SEED_USER, active=True))
                 print(f"  Assigned {uid} → {station.name}")
             elif not existing_dev.active:
                 existing_dev.active = True
@@ -2830,114 +1579,39 @@ def seed(db: Session) -> None:
     db.flush()
 
     # =========================================================================
-    # SR-SEED1: Flag non-stockable items — not tracked in station supply room.
-    # Medications, drug bags, and AED/LUCAS equipment are managed separately.
-    # FUNCTIONAL items are also excluded from the supply catalog by SR-B1 query,
-    # but station_supply=False is set explicitly for belt-and-suspenders clarity.
-    # =========================================================================
-    print("\nApplying SR-SEED1: flagging non-supply-room items...")
-    _non_supply_names = [
-        # AED / LUCAS — equipment checks, not station stock
-        "AED Battery",
-        "AED Pads Adult",
-        "AED Pads Pediatric",
-        "AED Date of Last Charge",
-        "LUCAS Device",
-        "LUCAS Date of Last Charge",
-        "LUCAS Device Ready Check",
-        # Drug bags and their contents — controlled substance management, not supply room
-        "ALS Drug Bag (stocked)",
-        "ALS Drug Use Sheets",
-        "BLS Drug Bag (stocked)",
-        "BLS Drug Use Sheets",
-        "PT Personal Item Lock-Up",
-        "Morphine",
-        "Fentanyl",
-        "Midazolam",
-        "Diazepam",
-        "Intranasal Naloxone",
-        "Albuterol Inhalation",
-        "Low Dose Aspirin",
-        "Epinephrine IM",
-        "Adenosine",
-        "Amiodarone",
-        "Atropine",
-        "Dopamine",
-        "Sodium Bicarbonate",
-        "Dextrose 50%",
-        "Nitroglycerin SL",
-        "Syringes BLS",
-        "Needles BLS",
-        "Alcohol Preps BLS",
-    ]
-    _flagged = 0
-    for _name in _non_supply_names:
-        _item = db.query(Item).filter(Item.name == _name).first()
-        if _item and _item.station_supply:
-            _item.station_supply = False
-            _flagged += 1
-    if _flagged:
-        print(f"  Flagged {_flagged} items as station_supply=False")
-    db.flush()
-
-    # =========================================================================
     # Commit and report
     # =========================================================================
     db.commit()
 
-    total_items = db.query(Item).count()
+    total_items_newberg = db.query(Item).filter(
+        Item.station_id == newberg.station_id).count()
 
     print(f"""
   ✓ Seed complete.
 
-  Global item catalog:    {total_items} items
-
   Newberg Township Station 1:
+    Station ID:           {newberg.station_id}
     Unit 712 BLS:         location_id={loc712.location_id}
     Unit 712 Jump Bag:    location_id={jb_712.location_id}
-    Compartments (all):   {newberg_comp_count}
-    Par levels (all):     {newberg_par_count}
-    Station ID:           {newberg.station_id}
+    Compartments (712+JB):{newberg_comp_count}
+    Par levels (712+JB):  {newberg_par_count}
+    Items in catalog:     {total_items_newberg}
 
   Marcellus Township Station 1:
-    Unit 540 ALS:         location_id={loc540.location_id}
-    Compartments:         {marcellus_comp_count}
-    Par levels:           {marcellus_par_count}
     Station ID:           {marcellus.station_id}
+    Unit 540 ALS:         catalog seeded, no par levels (assign via admin UI)
 
   Newberg Training Station (orange — #e65100):
-    Training Unit A:      location_id={loc_train_a.location_id}
-    Training Unit B:      location_id={loc_train_b.location_id}
-    Training Jump Bag A:  location_id={jb_train_a.location_id}
-    Training Jump Bag B:  location_id={jb_train_b.location_id}
-    Compartments (all):   {training_comp_count}
-    Par levels (all):     {training_par_count}
     Station ID:           {training.station_id}
+    Training Unit A/B + Jump Bag A/B: catalog seeded, no par levels
 
   ⚠ TEST STATION — Dev Only:
-    Unit TEST (QRV):      location_id={loc_test.location_id}
-    Compartments:         {test_comp_count}
-    Par levels:           {test_par_count}
     Station ID:           {test_station.station_id}
+    Unit TEST (QRV):      catalog + [TEST] items seeded, no par levels
 
-  Training walkthrough (~5 min):
-    Step 1 — Select "Newberg Training Station" → "Training Unit A"
-    Step 2 — Priority items first: confirm AED READY, LUCAS READY, Stretcher O2 PSI
-    Step 3 — 9 compartments (vs 26 on Unit 712). Count trauma supplies, check
-              AED pads expiry dates, enter O2 PSI readings, confirm Truck Ops items.
-    Step 4 — Reconcile any flagged items (short or fail)
-    Step 5 — Submit check — try adding notes, see the confirmation screen
-
-  Test walkthrough (< 5 min):
-    Step 1 — Select "⚠ TEST STATION" → "Unit TEST ⚠ Dev Only"
-    Step 2 — Two compartments shown
-    Step 3a — Compartment 1: tap through each check type (Supply x3,
-              PSI reading ≥500, Pass for battery, pick today's date, doc present)
-    Step 3b — Compartment 2: count [TEST] Short Supply to anything < 5 (yellow),
-              tap Fail for [TEST] Broken Equipment (red)
-    Step 4 — Reconcile: tap + on Short Supply until count = 5; Broken Equipment
-              shows read-only in supervisor section; "Continue to Submit →" unlocks
-    Step 5 — Submit: add notes if desired, tap "Submit check"
+  Next steps for Marcellus, Training, Test stations:
+    1. Admin creates compartments via Station Administration → Vehicles
+    2. Admin assigns par levels via Station Administration → Items
 """)
 
 

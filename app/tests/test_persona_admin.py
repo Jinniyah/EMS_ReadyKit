@@ -113,6 +113,7 @@ def _setup(db: Session):
 
     supply_item = Item(
         name=f"Supply-{_uid()}",
+        station_id=station.station_id,
         category=ItemCategory.CONSUMABLE,
         check_type=ItemCheckType.SUPPLY,
         unit_of_measure="each",
@@ -262,10 +263,20 @@ class TestAdminOnlyCapabilities:
 
     def test_admin_can_create_item_in_catalog(self, client, auth_admin):
         """Jennifer can add items to the shared item catalog."""
+        sid = client.post(
+            "/api/v1/stations",
+            json={
+                "name": f"AdminItems-{_uid()}",
+                "address": "1 Test St",
+                "region": "Test",
+            },
+            headers=auth_admin,
+        ).json()["station_id"]
         r = client.post(
             "/api/v1/items",
             json={
                 "name": f"Admin-Created-Item-{_uid()}",
+                "station_id": sid,
                 "category": "Equipment",
                 "check_type": "SUPPLY",
                 "unit_of_measure": "each",
@@ -419,11 +430,21 @@ class TestAdminOnlyCapabilities:
         Item deactivation is Admin only.
         Supervisor can CREATE items (SUPERVISOR_PLUS) but not deactivate them.
         """
+        sid = client.post(
+            "/api/v1/stations",
+            json={
+                "name": f"DeactTest-{_uid()}",
+                "address": "1 Test St",
+                "region": "Test",
+            },
+            headers=auth_admin,
+        ).json()["station_id"]
         # Create an item as supervisor - should succeed (SUPERVISOR_PLUS)
         r = client.post(
             "/api/v1/items",
             json={
                 "name": f"Deactivation-Test-{_uid()}",
+                "station_id": sid,
                 "category": "Equipment",
                 "unit_of_measure": "each",
             },
@@ -601,6 +622,7 @@ class TestSupplyRoomDecrement:
 
         functional = Item(
             name=f"FUNCTIONAL-Excluded-{_uid()}",
+            station_id=station.station_id,
             category=ItemCategory.EQUIPMENT,
             check_type=ItemCheckType.FUNCTIONAL,
             unit_of_measure="each",

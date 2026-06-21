@@ -112,10 +112,11 @@ def _setup(db: Session):
 
 
 def _measurement_item(
-    db: Session, *, name: str, minimum: float, maximum: float = 2200.0
+    db: Session, *, name: str, station_id: int, minimum: float, maximum: float = 2200.0
 ) -> Item:
     item = Item(
         name=name,
+        station_id=station_id,
         category=ItemCategory.EQUIPMENT,
         check_type=ItemCheckType.MEASUREMENT,
         unit_of_measure="PSI",
@@ -128,9 +129,12 @@ def _measurement_item(
     return item
 
 
-def _date_record_item(db: Session, *, name: str, recurrence_days: int) -> Item:
+def _date_record_item(
+    db: Session, *, name: str, station_id: int, recurrence_days: int
+) -> Item:
     item = Item(
         name=name,
+        station_id=station_id,
         category=ItemCategory.EQUIPMENT,
         check_type=ItemCheckType.DATE_RECORD,
         unit_of_measure="N/A",
@@ -142,9 +146,10 @@ def _date_record_item(db: Session, *, name: str, recurrence_days: int) -> Item:
     return item
 
 
-def _functional_item(db: Session, *, name: str) -> Item:
+def _functional_item(db: Session, *, name: str, station_id: int) -> Item:
     item = Item(
         name=name,
+        station_id=station_id,
         category=ItemCategory.EQUIPMENT,
         check_type=ItemCheckType.FUNCTIONAL,
         unit_of_measure="N/A",
@@ -197,7 +202,9 @@ class TestO2PSIBelowMinimum:
     def test_o2_psi_at_minimum_is_ok(self, client, db, auth_responder):
         """Exactly at minimum (500 PSI) must be OK."""
         station, vehicle, location, comp = _setup(db)
-        item = _measurement_item(db, name=f"O2 PSI {_uid()}", minimum=500.0)
+        item = _measurement_item(
+            db, name=f"O2 PSI {_uid()}", station_id=station.station_id, minimum=500.0
+        )
         _par(db, item=item, location=location, comp=comp)
 
         r = _submit(
@@ -225,7 +232,9 @@ class TestO2PSIBelowMinimum:
     def test_o2_psi_above_minimum_is_ok(self, client, db, auth_responder):
         """1800 PSI (full tank) must be OK."""
         station, vehicle, location, comp = _setup(db)
-        item = _measurement_item(db, name=f"O2 PSI {_uid()}", minimum=500.0)
+        item = _measurement_item(
+            db, name=f"O2 PSI {_uid()}", station_id=station.station_id, minimum=500.0
+        )
         _par(db, item=item, location=location, comp=comp)
 
         r = _submit(
@@ -253,7 +262,9 @@ class TestO2PSIBelowMinimum:
         A truck must not go out with this reading silently passing.
         """
         station, vehicle, location, comp = _setup(db)
-        item = _measurement_item(db, name=f"O2 PSI {_uid()}", minimum=500.0)
+        item = _measurement_item(
+            db, name=f"O2 PSI {_uid()}", station_id=station.station_id, minimum=500.0
+        )
         _par(db, item=item, location=location, comp=comp)
 
         r = _submit(
@@ -287,7 +298,9 @@ class TestO2PSIBelowMinimum:
     def test_o2_psi_zero_is_low(self, client, db, auth_responder):
         """0 PSI (empty tank) must be LOW — not OK, not MISSING."""
         station, vehicle, location, comp = _setup(db)
-        item = _measurement_item(db, name=f"O2 PSI {_uid()}", minimum=500.0)
+        item = _measurement_item(
+            db, name=f"O2 PSI {_uid()}", station_id=station.station_id, minimum=500.0
+        )
         _par(db, item=item, location=location, comp=comp)
 
         r = _submit(
@@ -314,7 +327,9 @@ class TestO2PSIBelowMinimum:
     def test_o2_psi_missing_reading_is_missing(self, client, db, auth_responder):
         """No reading submitted at all (measurement_value omitted) must be MISSING."""
         station, vehicle, location, comp = _setup(db)
-        item = _measurement_item(db, name=f"O2 PSI {_uid()}", minimum=500.0)
+        item = _measurement_item(
+            db, name=f"O2 PSI {_uid()}", station_id=station.station_id, minimum=500.0
+        )
         _par(db, item=item, location=location, comp=comp)
 
         r = _submit(
@@ -361,7 +376,12 @@ class TestDateRecurrenceOverdue:
     def test_aed_date_within_recurrence_is_ok(self, client, db, auth_responder):
         """Date 10 days ago against 90-day recurrence must be OK."""
         station, vehicle, location, comp = _setup(db)
-        item = _date_record_item(db, name=f"AED Date {_uid()}", recurrence_days=90)
+        item = _date_record_item(
+            db,
+            name=f"AED Date {_uid()}",
+            station_id=station.station_id,
+            recurrence_days=90,
+        )
         _par(db, item=item, location=location, comp=comp)
 
         recent = (date.today() - timedelta(days=10)).isoformat()
@@ -389,7 +409,12 @@ class TestDateRecurrenceOverdue:
     def test_aed_date_exactly_at_recurrence_is_ok(self, client, db, auth_responder):
         """Date exactly 90 days ago against 90-day recurrence must be OK (boundary)."""
         station, vehicle, location, comp = _setup(db)
-        item = _date_record_item(db, name=f"AED Date {_uid()}", recurrence_days=90)
+        item = _date_record_item(
+            db,
+            name=f"AED Date {_uid()}",
+            station_id=station.station_id,
+            recurrence_days=90,
+        )
         _par(db, item=item, location=location, comp=comp)
 
         boundary = (date.today() - timedelta(days=90)).isoformat()
@@ -424,7 +449,12 @@ class TestDateRecurrenceOverdue:
         This must never silently pass.
         """
         station, vehicle, location, comp = _setup(db)
-        item = _date_record_item(db, name=f"AED Date {_uid()}", recurrence_days=90)
+        item = _date_record_item(
+            db,
+            name=f"AED Date {_uid()}",
+            station_id=station.station_id,
+            recurrence_days=90,
+        )
         _par(db, item=item, location=location, comp=comp)
 
         overdue = (date.today() - timedelta(days=91)).isoformat()
@@ -458,7 +488,12 @@ class TestDateRecurrenceOverdue:
     def test_aed_date_heavily_overdue_is_overdue(self, client, db, auth_responder):
         """Date 200 days ago against 90-day recurrence — clearly overdue."""
         station, vehicle, location, comp = _setup(db)
-        item = _date_record_item(db, name=f"AED Date {_uid()}", recurrence_days=90)
+        item = _date_record_item(
+            db,
+            name=f"AED Date {_uid()}",
+            station_id=station.station_id,
+            recurrence_days=90,
+        )
         _par(db, item=item, location=location, comp=comp)
 
         old = (date.today() - timedelta(days=200)).isoformat()
@@ -487,7 +522,12 @@ class TestDateRecurrenceOverdue:
         LUCAS drives CPR — an uncharged device on a cardiac call is catastrophic.
         """
         station, vehicle, location, comp = _setup(db)
-        item = _date_record_item(db, name=f"LUCAS Date {_uid()}", recurrence_days=30)
+        item = _date_record_item(
+            db,
+            name=f"LUCAS Date {_uid()}",
+            station_id=station.station_id,
+            recurrence_days=30,
+        )
         _par(db, item=item, location=location, comp=comp)
 
         overdue = (date.today() - timedelta(days=31)).isoformat()
@@ -518,7 +558,12 @@ class TestDateRecurrenceOverdue:
     def test_date_record_no_date_submitted_is_missing(self, client, db, auth_responder):
         """Omitting date_value entirely must be MISSING -> check FAIL."""
         station, vehicle, location, comp = _setup(db)
-        item = _date_record_item(db, name=f"Date Missing {_uid()}", recurrence_days=90)
+        item = _date_record_item(
+            db,
+            name=f"Date Missing {_uid()}",
+            station_id=station.station_id,
+            recurrence_days=90,
+        )
         _par(db, item=item, location=location, comp=comp)
 
         r = _submit(
@@ -596,8 +641,12 @@ class TestRequiresFullCheck:
         db.add(full_comp)
         db.flush()
 
-        item1 = _functional_item(db, name=f"Runs {_uid()}")
-        item2 = _functional_item(db, name=f"Lights {_uid()}")
+        item1 = _functional_item(
+            db, name=f"Runs {_uid()}", station_id=station.station_id
+        )
+        item2 = _functional_item(
+            db, name=f"Lights {_uid()}", station_id=station.station_id
+        )
         for item in [item1, item2]:
             db.add(
                 ParLevel(
@@ -661,7 +710,9 @@ class TestRequiresFullCheck:
         db.add(full_comp)
         db.flush()
 
-        item = _functional_item(db, name=f"Must Check {_uid()}")
+        item = _functional_item(
+            db, name=f"Must Check {_uid()}", station_id=station.station_id
+        )
         db.add(
             ParLevel(
                 item_id=item.item_id,

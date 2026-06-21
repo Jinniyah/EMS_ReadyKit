@@ -61,6 +61,17 @@ class ItemBase(BaseModel):
         default=False,
         description="True for medications under dual-signature CS tracking (ALS only)",
     )
+    category_group: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description=(
+            "Cabinet grouping for the Item Catalog UI. One of: "
+            "'Airway & Respiratory', 'Wound Care & Trauma Supplies', "
+            "'PPE & Cleaning', 'Diagnostic & Monitoring Equipment', "
+            "'Medications & Controlled Substances', "
+            "'Documents, Linens & Patient Comfort', 'Vehicle Operations'."
+        ),
+    )
     unit_of_measure: str = Field(
         ...,
         min_length=1,
@@ -145,7 +156,7 @@ class ItemBase(BaseModel):
 class ItemCreate(ItemBase):
     """Request body for POST /items."""
 
-    pass
+    station_id: int = Field(..., description="Station this item belongs to")
 
 
 class ItemRead(ItemBase):
@@ -154,6 +165,7 @@ class ItemRead(ItemBase):
     model_config = ConfigDict(from_attributes=True)
 
     item_id: int
+    station_id: int
     created_at: datetime
     updated_at: datetime
     assignment_count: int = 0
