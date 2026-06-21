@@ -1,9 +1,150 @@
 # EMS ReadyKit — Completed Items
-# Last updated: 2026-06-20 (Session AI: ITM-4 done — seed.py rewritten with BASE_ITEM_SEED,
-# station_id on all items, Newberg full par levels, other stations catalog only.
-# 484/484 expected after `alembic upgrade head && python seed.py`.)
-# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, AB, AC, AD, AE, AF, AG, AH, AI
+# Last updated: 2026-06-21 (Session AK: ITM-6 done — ItemCatalog station-scoped; cabinet-group chips;
+# ItemAssignments "Where" picker (vehicle/jump bag/supply room); searchItems station_id threading;
+# 4 new ItemCatalog cabinet tests; frontend tests green.)
+# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, AB, AC, AD, AE, AF, AG, AH, AI, AJ, AK
 # Active backlog -> docs/backlog.md
+
+---
+
+## Session AK — ITM-6: Frontend Item Catalog station scoping + jump-bag/supply-room assign (2026-06-21)
+
+**ITM-6 complete.** Four goals from the session brief all shipped.
+
+### 1. `adminApi.listItems` and `adminApi.searchItems` — `station_id` param
+
+Both API functions now accept a `stationId` option and append `station_id=` to their query
+strings. Without this, `GET /admin/items` and `GET /admin/items/search` returned 422 (required
+query param added in ITM-5 backend). No call site was previously passing this param.
+
+### 2. `ItemCatalog.jsx` — station-scoped, cabinet-group chip filters
+
+- `adminApi.listItems(getToken, { stationId, active })` — `stationId` from the catalog's prop.
+  Dep array extended to include `stationId` so re-fetches on station change.
+- **Cabinet chip filters** replace the old 4-category chips ("All / Medication / Consumable /
+  Equipment / Document"). New chips: All + 7 abbreviated labels matching `category_group` values
+  from `BASE_ITEM_SEED` (Airway, Wound Care, PPE, Diagnostic, Medications, Documents, Vehicle Ops).
+- **Grouped list** now groups by `item.category_group` (falling back to `item.category` when null,
+  so items with no cabinet group still render under their type heading). Each item card still
+  shows the `category` badge (Medication / Consumable / Equipment / Document).
+- New `useApi` call for `adminApi.getStationLocations(stationId)` fetches jump bags + supply room;
+  `locations` array passed to every `ItemAssignments` instance.
+
+### 3. `ItemAssignments.jsx` — "Where" picker (vehicle / jump bag / supply room)
+
+`AddAssignmentForm` and `EditRow` both replaced their vehicle-only `<select>` with a 4-step form:
+1. **Where** — `<select>` with "Vehicle", "Jump Bag" (if any exist), "Station Supply Room"
+   (if one exists).
+2. **Pick specific location** — vehicle picker (same as before) or jump bag picker; supply room
+   auto-selects (only one per station) and shows a label instead of a dropdown.
+3. **Compartment** — loaded lazily via `adminApi.getVehicleCompartments` (vehicles) or
+   `adminApi.getLocationCompartments` (jump bag / supply room). One `useApi` call dispatching
+   on `locType`.
+4. **Min / Max quantities** (unchanged).
+
+Payload: vehicles send `{ vehicle_id, compartment_id, min_quantity, max_quantity }`; jump bags
+and supply room send `{ location_id, compartment_id, min_quantity, max_quantity }`. Backend
+`POST /admin/items/{id}/assign` already accepted both shapes (ITM-5 confirmed no backend change needed).
+
+`EditRow` detects the initial location type from the existing assignment (`vehicle_id != null` →
+vehicle; otherwise looks up `location_type` from the `locations` prop). The "changed" check
+covers type changes as well as vehicle/location/compartment changes.
+
+Assignment display row now shows `a.vehicle_number ?? a.location_label ?? 'Unknown'` so jump-bag
+and supply-room assignments render their location label instead of a blank.
+
+"+ Assign to vehicle" button renamed to "+ Add assignment".
+
+`CSS`: `.assignment-location-label` added to `admin.css` for the supply room name display.
+
+### 4. `adminApi.searchItems` / `ItemSearchCombobox.jsx` — station scoping
+
+`ItemSearchCombobox` gains a `stationId` prop (optional, default `undefined`) passed through to
+`adminApi.searchItems`. Threaded through every call site:
+- `CompartmentParLevels` → `AddItemToCompartmentForm` → `ItemSearchCombobox`
+- `ReceiveStockPanel` → `ItemSearchCombobox`
+Call sites: `VehiclesScreen`, `StationSuppliesScreen`, `PortableLocationsScreen`, `SupplyCatalogView`,
+and `supply-room/index.jsx` all pass `stationId`.
+
+### Tests
+
+`ItemCatalog.test.jsx` updated:
+- `setupApiMocks` now mocks 3 `useApi` calls (vehicles, items, locations).
+- `ITEMS_WITH_CABINET` fixture added with `category_group` set on two items.
+- `ItemCatalog — cabinet group chip filters` describe block (4 tests): All chip default, cabinet
+  headings when `category_group` is set, chip filter hides off-group items, All restores all.
+- Existing 11 tests pass unchanged (test items have null `category_group`, fall back to `category`
+  for headings — same behavior as before).
+
+**Frontend test count: +4 (from 199 to 203 across all frontend tests — pending user confirmation).**
+
+**Files changed (frontend only — no backend changes):**
+- `frontend/src/modules/admin/api/adminApi.js` — `stationId` in `listItems`, `searchItems`
+- `frontend/src/shared/components/ItemSearchCombobox.jsx` — `stationId` prop
+- `frontend/src/modules/admin/components/CompartmentParLevels.jsx` — `stationId` prop + thread
+- `frontend/src/modules/admin/components/VehiclesScreen.jsx` — pass `stationId` to CompartmentParLevels
+- `frontend/src/modules/admin/components/StationSuppliesScreen.jsx` — same
+- `frontend/src/modules/admin/components/PortableLocationsScreen.jsx` — same
+- `frontend/src/modules/supply-room/components/SupplyCatalogView.jsx` — same
+- `frontend/src/modules/supply-room/components/ReceiveStockPanel.jsx` — `stationId` prop
+- `frontend/src/modules/supply-room/index.jsx` — pass `stationId` to ReceiveStockPanel
+- `frontend/src/modules/admin/components/ItemCatalog.jsx` — station-scoped, cabinet chips, fetch locations
+- `frontend/src/modules/admin/components/ItemAssignments.jsx` — "Where" picker
+- `frontend/src/modules/admin/admin.css` — `.assignment-location-label`
+- `frontend/src/modules/admin/__tests__/ItemCatalog.test.jsx` — 3 useApi mocks, 4 new tests
+
+---
+
+## Session AJ — ITM-5: Backend station scoping for item endpoints (2026-06-21)
+
+**ITM-5 complete.** All 11 routes in `admin_items.py` are now scoped to the caller's station.
+`test_item_station_scoping.py` added (14 tests). 498 tests passing after ITM-5 changes.
+
+**`GET /admin/items`** and **`GET /admin/items/search`:** `station_id: int = Query(...)` added
+as a required query parameter. `require_station_membership(station_id, current_user, db)` called
+immediately after role check. `Item.station_id == station_id` filter added to the query. Non-members
+get 403; Admins bypass automatically.
+
+**`POST /admin/items`:** `require_station_membership(payload.station_id, current_user, db)` called
+before conflict checks. `_conflict_on_name` now queries `(Item.name == payload.name,
+Item.station_id == payload.station_id)` — per-station name uniqueness. `_conflict_on_barcode`
+remains global (a physical barcode is still one product, no cross-station barcodes allowed).
+
+**`POST /admin/items/import` (CSV import):** `station_id: int = Query(...)` required.
+Membership checked. Per-station name dedup applied. All new items created with `station_id=station_id`.
+
+**All single-item routes** (`GET`, `PATCH`, `DELETE`, `PATCH activate/deactivate`,
+`GET /assign` count + list, `POST /assign`, `GET /assignments`): `item = _get_item_or_404(item_id, db)` result
+now captured (was being discarded in two routes that used `_`). Then `require_station_membership(item.station_id, current_user, db)` called before any mutation. The `assign_item_to_compartment` route also checks membership for the item's station before its existing location membership check.
+
+**Per-station name uniqueness:** enforced by `uq_items_station_name(station_id, name)` DB constraint
+(migration 0028) + `_conflict_on_name` pre-check scoped to `(name, station_id)`. Same name at two
+different stations is allowed — produces two distinct `item_id` rows. Barcode remains globally unique.
+
+**Test file: `app/tests/test_item_station_scoping.py`** (14 tests, 5 classes):
+- `TestListScopedToStation` (3): list returns only caller's station items; Station B → 403 for Station A supervisor; Admin can list any.
+- `TestSearchScopedToStation` (3): search scoped; cross-station → 403; Admin unrestricted.
+- `TestCreateScopedToStation` (2): no membership → 403; membership → 201 with correct `station_id`.
+- `TestPerStationNameUniqueness` (2): same name at two stations → 2× 201; same name same station → 409.
+- `TestGetEditScopedToStation` (4): get/edit other station's item → 403; own station → 200; Admin always 200.
+
+**Bugs found and fixed during this session (all test-side, not app-side):**
+1. `two_stations` fixture missing `assigned_by="test"` on `StationMember(...)` — column is NOT NULL → `NOT NULL constraint failed`. Fixed by adding `assigned_by="test"`.
+2. `test_admin_items.py::station_id` fixture called `POST /stations/{id}/members` with `"role": "SUPERVISOR"` (all-caps) but `VALID_ROLES = {"Administrator", "Supervisor", "Responder"}` requires title-case — membership never got created, causing a downstream 403. Fixed: `"role": "Supervisor"`.
+3. `test_deactivated_item_excluded_from_active_list` called `GET /admin/items?active=true` without required `station_id` param → 422 (not a list) → `TypeError: string indices must be integers`. Fixed: added `station_id={station_id}` to the URL.
+
+**ruff fixes in `seed.py`:** 7× RUF003 EN-dash (`–` → `-`) in comments; 2× RUF059 unused
+unpacked variables (`jb_train_a`, `jb_train_b` → `_jb_train_a`, `_jb_train_b`); 203× C408
+`dict(k=v)` → `{"k": v}` auto-fixed by `ruff check . --unsafe-fixes --fix`.
+
+**Test result:** 498 passing (484 baseline + 14 new `test_item_station_scoping.py`).
+`ruff check .` and `black --check .` both confirmed green.
+
+**Files changed:**
+- `app/ems_readykit/routers/admin_items.py` — 11 routes scoped to station (ITM-5)
+- `app/tests/test_item_station_scoping.py` — new, 14 tests (ITM-5/8)
+- `app/tests/test_admin_items.py` — 2 test fixes (role case, missing station_id param)
+- `app/seed.py` — ruff: 9 manual fixes (RUF003/RUF059) + 203 auto-fixed (C408)
 
 ---
 

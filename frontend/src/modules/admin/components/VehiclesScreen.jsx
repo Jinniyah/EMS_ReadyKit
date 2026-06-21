@@ -733,6 +733,7 @@ function VehicleAdminCard({ vehicle: initialVehicle, onVehicleUpdated }) {
                           <CompartmentParLevels
                             compartmentId={comp.compartment_id}
                             vehicleId={vehicle.vehicle_id}
+                            stationId={station.station_id}
                           />
                         </>
                       )}

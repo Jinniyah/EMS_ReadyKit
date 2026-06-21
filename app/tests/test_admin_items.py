@@ -42,14 +42,20 @@ def _item(name: str, **kwargs) -> dict:
 
 @pytest.fixture
 def station_id(client, auth_admin):
-    """Create a fresh station per test so item names don't collide across tests."""
+    """Create a fresh station per test and add supervisor as a member."""
     r = client.post(
         "/api/v1/stations",
         json={"name": f"AdminItems-{_uid()}", "address": "1 Test St", "region": "Test"},
         headers=auth_admin,
     )
     assert r.status_code == 201
-    return r.json()["station_id"]
+    sid = r.json()["station_id"]
+    client.post(
+        f"/api/v1/stations/{sid}/members",
+        json={"user_id": "test-supervisor@ems.local", "role": "Supervisor"},
+        headers=auth_admin,
+    )
+    return sid
 
 
 class TestListItems:
@@ -58,7 +64,9 @@ class TestListItems:
         client.post(
             BASE, json=_item("Kerlix Large", station_id=station_id), headers=auth_admin
         )
-        resp = client.get(f"{BASE}?active=true", headers=auth_admin)
+        resp = client.get(
+            f"{BASE}?station_id={station_id}&active=true", headers=auth_admin
+        )
         assert resp.status_code == 200
         names = [i["name"] for i in resp.json()]
         assert "Kerlix Large" in names
@@ -74,7 +82,9 @@ class TestListItems:
             json=_item("Test Consumable", station_id=station_id, category="Consumable"),
             headers=auth_admin,
         )
-        resp = client.get(f"{BASE}?category=Medication", headers=auth_admin)
+        resp = client.get(
+            f"{BASE}?station_id={station_id}&category=Medication", headers=auth_admin
+        )
         assert resp.status_code == 200
         categories = {i["category"] for i in resp.json()}
         assert categories == {"Medication"}
@@ -90,7 +100,9 @@ class TestListItems:
             ),
             headers=auth_admin,
         )
-        resp = client.get(f"{BASE}?check_type=MEASUREMENT", headers=auth_admin)
+        resp = client.get(
+            f"{BASE}?station_id={station_id}&check_type=MEASUREMENT", headers=auth_admin
+        )
         assert resp.status_code == 200
         types = {i["check_type"] for i in resp.json()}
         assert types == {"MEASUREMENT"}
@@ -104,14 +116,16 @@ class TestListItems:
         item_id = r.json()["item_id"]
         client.patch(f"{BASE}/{item_id}/deactivate", headers=auth_admin)
         # active=true should exclude it
-        resp_active = client.get(f"{BASE}?active=true", headers=auth_admin)
+        resp_active = client.get(
+            f"{BASE}?station_id={station_id}&active=true", headers=auth_admin
+        )
         assert not any(i["item_id"] == item_id for i in resp_active.json())
         # no active param returns all items including inactive
-        resp_all = client.get(BASE, headers=auth_admin)
+        resp_all = client.get(f"{BASE}?station_id={station_id}", headers=auth_admin)
         assert any(i["item_id"] == item_id for i in resp_all.json())
 
-    def test_responder_cannot_list(self, client, auth_responder):
-        resp = client.get(BASE, headers=auth_responder)
+    def test_responder_cannot_list(self, client, auth_responder, station_id):
+        resp = client.get(f"{BASE}?station_id={station_id}", headers=auth_responder)
         assert resp.status_code == 403
 
 
@@ -126,7 +140,9 @@ class TestSearchItems:
         client.post(
             BASE, json=_item("BVM Adult", station_id=station_id), headers=auth_admin
         )
-        resp = client.get(f"{BASE}/search?q=NRB", headers=auth_admin)
+        resp = client.get(
+            f"{BASE}/search?q=NRB&station_id={station_id}", headers=auth_admin
+        )
         assert resp.status_code == 200
         names = [i["name"] for i in resp.json()]
         assert "NRB Mask Adult" in names
@@ -142,7 +158,10 @@ class TestSearchItems:
             ),
             headers=auth_admin,
         )
-        resp = client.get(f"{BASE}/search?q=non-rebreather", headers=auth_admin)
+        resp = client.get(
+            f"{BASE}/search?q=non-rebreather&station_id={station_id}",
+            headers=auth_admin,
+        )
         assert resp.status_code == 200
         names = [i["name"] for i in resp.json()]
         assert "Non-Rebreather Mask" in names
@@ -157,7 +176,9 @@ class TestSearchItems:
             ),
             headers=auth_admin,
         )
-        resp = client.get(f"{BASE}/search?q=hemostatic", headers=auth_admin)
+        resp = client.get(
+            f"{BASE}/search?q=hemostatic&station_id={station_id}", headers=auth_admin
+        )
         assert resp.status_code == 200
         names = [i["name"] for i in resp.json()]
         assert "CAT Tourniquet" in names
@@ -166,7 +187,9 @@ class TestSearchItems:
         client.post(
             BASE, json=_item("Kerlix Roll", station_id=station_id), headers=auth_admin
         )
-        resp = client.get(f"{BASE}/search?q=kerlix", headers=auth_admin)
+        resp = client.get(
+            f"{BASE}/search?q=kerlix&station_id={station_id}", headers=auth_admin
+        )
         assert resp.status_code == 200
         names = [i["name"] for i in resp.json()]
         assert "Kerlix Roll" in names
@@ -177,7 +200,9 @@ class TestSearchItems:
         )
         item_id = r.json()["item_id"]
         client.patch(f"{BASE}/{item_id}/deactivate", headers=auth_admin)
-        resp = client.get(f"{BASE}/search?q=Old BP Cuff", headers=auth_admin)
+        resp = client.get(
+            f"{BASE}/search?q=Old+BP+Cuff&station_id={station_id}", headers=auth_admin
+        )
         assert resp.status_code == 200
         assert not any(i["item_id"] == item_id for i in resp.json())
 
@@ -192,7 +217,8 @@ class TestSearchItems:
         item_id = r.json()["item_id"]
         client.patch(f"{BASE}/{item_id}/deactivate", headers=auth_admin)
         resp = client.get(
-            f"{BASE}/search?q=Retired Splint&active_only=false", headers=auth_admin
+            f"{BASE}/search?q=Retired+Splint&station_id={station_id}&active_only=false",
+            headers=auth_admin,
         )
         assert resp.status_code == 200
         assert any(i["item_id"] == item_id for i in resp.json())
@@ -204,7 +230,9 @@ class TestSearchItems:
                 json=_item(f"Gauze Pad {i}cm", station_id=station_id),
                 headers=auth_admin,
             )
-        resp = client.get(f"{BASE}/search?q=Gauze&limit=3", headers=auth_admin)
+        resp = client.get(
+            f"{BASE}/search?q=Gauze&station_id={station_id}&limit=3", headers=auth_admin
+        )
         assert resp.status_code == 200
         assert len(resp.json()) <= 3
 
@@ -441,7 +469,9 @@ class TestDeactivateItem:
         )
         item_id = r.json()["item_id"]
         client.patch(f"{BASE}/{item_id}/deactivate", headers=auth_admin)
-        resp = client.get(f"{BASE}?active=true", headers=auth_admin)
+        resp = client.get(
+            f"{BASE}?station_id={station_id}&active=true", headers=auth_admin
+        )
         assert not any(i["item_id"] == item_id for i in resp.json())
 
 

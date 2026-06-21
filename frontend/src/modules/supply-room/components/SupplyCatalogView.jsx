@@ -479,6 +479,7 @@ export default function SupplyCatalogView({ stationId, locationId, items, loadin
             <CompartmentParLevels
               compartmentId={shelf.id}
               locationId={locationId}
+              stationId={stationId}
             />
           )}
         </div>

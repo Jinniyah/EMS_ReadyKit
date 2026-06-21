@@ -498,6 +498,7 @@
 .assignment-edit-actions { display: flex; gap: var(--space-sm); }
 .assignment-error { font-size: var(--font-size-sm); color: var(--color-danger); font-weight: 600; margin: 0; }
 .assignment-loading, .assignment-empty { font-size: var(--font-size-sm); color: var(--color-text-muted); margin: 0; }
+.assignment-location-label { font-size: var(--font-size-sm); font-weight: 600; color: var(--color-text); margin: 0; padding: var(--space-sm) 0; }
 .add-assignment-form { background: var(--color-surface-raised); border: 1px dashed var(--color-border); border-radius: var(--radius-md); padding: var(--space-md); display: flex; flex-direction: column; gap: var(--space-sm); }
 .add-assignment-form__title { font-size: var(--font-size-sm); font-weight: 700; color: var(--color-text); margin: 0; }
 .assignment-field { display: flex; flex-direction: column; gap: 4px; }

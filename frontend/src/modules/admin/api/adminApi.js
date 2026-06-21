@@ -35,17 +35,19 @@ export const adminApi = {
 
   // ── Item catalog ──────────────────────────────────────────────────────────
 
-  listItems: (getToken, { category, checkType, active = true } = {}) => {
+  listItems: (getToken, { stationId, category, checkType, active = true } = {}) => {
     const params = new URLSearchParams()
-    if (category  != null) params.set('category',   category)
-    if (checkType != null) params.set('check_type', checkType)
-    if (active    != null) params.set('active',      active)
+    if (stationId  != null) params.set('station_id', stationId)
+    if (category   != null) params.set('category',   category)
+    if (checkType  != null) params.set('check_type', checkType)
+    if (active     != null) params.set('active',      active)
     const qs = params.toString() ? `?${params}` : ''
     return apiGet(`${ADMIN}/items${qs}`, getToken)
   },
 
-  searchItems: (q, getToken, { activeOnly = true, limit = 20 } = {}) => {
+  searchItems: (q, getToken, { stationId, activeOnly = true, limit = 20 } = {}) => {
     const params = new URLSearchParams({ q, active_only: activeOnly, limit })
+    if (stationId != null) params.set('station_id', stationId)
     return apiGet(`${ADMIN}/items/search?${params}`, getToken)
   },
 

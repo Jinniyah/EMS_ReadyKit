@@ -1,5 +1,5 @@
 # CLAUDE.md — AI Development Rules for EMS ReadyKit
-# Last updated: 2026-06-20 — Session AI closed (ITM-4: seed.py rewritten with BASE_ITEM_SEED; 484/484 expected after reseed; ITM-5 is next)
+# Last updated: 2026-06-21 — Session AK closed (ITM-6: ItemCatalog station-scoped; cabinet-group chips; ItemAssignments "Where" picker; searchItems station_id; 4 new catalog tests; ITM-8 is next)
 # Load alongside CODEBASE_INDEX.md at the start of every session. Compacted 2026-06-19 — same rules, less prose.
 
 ---

@@ -127,7 +127,7 @@ function EditCompartmentParRow({ assignment, onSaved, onCancel }) {
 // Compartment and vehicle are already known — user just picks the item and
 // sets quantities. Quantities appear only after an item is selected.
 
-function AddItemToCompartmentForm({ compartmentId, vehicleId, locationId, onAdded, onCancel }) {
+function AddItemToCompartmentForm({ compartmentId, vehicleId, locationId, stationId, onAdded, onCancel }) {
   const { getToken }                      = useAuth()
   const [selectedItem, setSelectedItem]   = useState(null)
   const [min, setMin]                     = useState('1')
@@ -169,6 +169,7 @@ function AddItemToCompartmentForm({ compartmentId, vehicleId, locationId, onAdde
           placeholder="Type to search items…"
           disabled={submitting}
           autoFocus
+          stationId={stationId}
         />
       </div>
       {selectedItem && (
@@ -265,7 +266,7 @@ function ConfirmRemoveRow({ itemName, onConfirm, onCancel }) {
 
 // ── CompartmentParLevels ──────────────────────────────────────────────────────
 
-export default function CompartmentParLevels({ compartmentId, vehicleId, locationId }) {
+export default function CompartmentParLevels({ compartmentId, vehicleId, locationId, stationId }) {
   const { getToken }                          = useAuth()
   const [expanded, setExpanded]               = useState(false)
   const [listKey, setListKey]                 = useState(0)
@@ -397,6 +398,7 @@ export default function CompartmentParLevels({ compartmentId, vehicleId, locatio
                   compartmentId={compartmentId}
                   vehicleId={vehicleId}
                   locationId={locationId}
+                  stationId={stationId}
                   onAdded={refresh}
                   onCancel={() => setShowAddForm(false)}
                 />

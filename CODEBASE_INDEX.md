@@ -1,14 +1,15 @@
 # EMS ReadyKit — Codebase Index
-# Last updated: 2026-06-20 — Session AI closed (ITM-4: seed.py rewritten with BASE_ITEM_SEED,
-# station-scoped items, Newberg full par levels, Marcellus/Training/Test catalog only.
-# ITM-1/2/3/4 ✅ done. 484/484 expected after reseed. Next: ITM-5 + ITM-6.)
+# Last updated: 2026-06-21 — Session AK closed (ITM-6: ItemCatalog station-scoped; cabinet-group
+# chips; ItemAssignments "Where" picker (vehicle/jump bag/supply room); searchItems station_id
+# threading; 4 new ItemCatalog tests; frontend tests green.
+# ITM-1..6 ✅ done. Next: ITM-8 (remaining tests + docs; close launch gate).)
 # PURPOSE: Load this file at the start of every session to orient quickly.
 # After reading this, load only the sections relevant to the current task.
 # Full project state → docs/project_index.md | Open work → docs/backlog.md
 
 ---
 
-## ⚠ PENDING: Item model rework ITM-5..8 in progress (see docs/backlog.md)
+## ⚠ PENDING: Item model rework ITM-7..8 in progress (ITM-1..6 ✅ complete — see docs/backlog.md)
 **ITM-1 ✅ DONE (Session AG):** `station_id` FK + `UniqueConstraint("station_id", "name")`
 added to `Item`; migration 0028 applied; supply catalog scoped to station; test suite updated.
 **ITM-3 ✅ DONE (Session AH):** `category_group` VARCHAR(100) nullable added to `Item`;
@@ -18,7 +19,16 @@ groups, `get_or_create_item(station_id=...)` required, `seed_station_catalog()`,
 names, corrected O2 PSI thresholds, LUCAS merge, Fire Extinguisher SUPPLY. 32
 `test_seed_integrity` failures resolved. Reseed required: `Remove-Item ems_readykit_dev.db;
 alembic upgrade head; python seed.py`.
-**ITM-5** (backend station scoping for item endpoints) is next.
+**ITM-5 ✅ DONE (Session AJ):** All 11 routes in `admin_items.py` station-scoped via
+`require_station_membership`. `_conflict_on_name` per-station. `_conflict_on_barcode` global.
+`test_item_station_scoping.py` added (14 tests). 498 tests passing.
+**ITM-6 ✅ DONE (Session AK):** `adminApi.listItems`/`searchItems` pass `station_id`. `ItemCatalog.jsx`
+scoped to station; 4-category chips replaced with 7 cabinet-group chips; grouping by `category_group`
+(falls back to `category`); fetches and passes `locations` to `ItemAssignments`. `ItemAssignments.jsx`
+`AddAssignmentForm`/`EditRow` have a "Where" picker (Vehicle/Jump Bag/Supply Room); assignment display
+shows `vehicle_number ?? location_label`. `ItemSearchCombobox` gains `stationId` prop threaded through
+all callers. `admin.css` adds `.assignment-location-label`. 4 new `ItemCatalog` cabinet tests.
+**ITM-8** (remaining tests + docs; close launch gate) is next.
 
 ---
 
@@ -34,7 +44,7 @@ EMS_ReadyKit/
 │   │   ├── schemas/            # Pydantic request/response schemas
 │   │   └── main.py             # App factory, middleware, router registration
 │   ├── alembic/                # DB migrations (versions/ subdirectory)
-│   ├── tests/                  # pytest suite (484 collected; 484 passing after reseed — ITM-4 resolved all 32 seed_integrity failures)
+│   ├── tests/                  # pytest suite (498 collected; 498 passing after reseed — ITM-4 resolved all 32 seed_integrity failures; ITM-5 added 14 more)
 │   ├── seed.py                 # Dev seed data — ITM-4 rewrite complete (Session AI). BASE_ITEM_SEED, station-scoped items, Newberg full par levels, Marcellus/Training/Test catalog only.
 │   ├── seed_training.py        # Training station seed — always run, including production (Session AB)
 │   ├── initial_stock.csv       # 10 seed stock items — upload via Receive New Stock → CSV
@@ -48,7 +58,7 @@ EMS_ReadyKit/
 ├── docs/                       # All project documentation
 │   ├── backlog.md              # ALL open work items — single source of truth
 │   ├── project_index.md        # Technical reference, API structure, stack
-│   ├── backlog_completed.md    # Completed items (Sessions A–AF) + changelog archive
+│   ├── backlog_completed.md    # Completed items (Sessions A–AJ) + changelog archive
 │   ├── models/                 # Real inventory checklist photos (712, jump bag) — ITM-2 source
 │   ├── uat_test_cases.md       # UAT test cases
 │   └── adr/                   # Architecture Decision Records (ADR-001–006)
@@ -76,8 +86,8 @@ All routes are prefixed `/api/v1/`. Router registration order in main.py matters
 | `check_history.py` | 7 KB | `/checks/daily` | All / Supervisor+ | Read-only history; soft-delete; acknowledgement; hard-delete (Admin only); `my-history` accepts optional `station_id` filter |
 | `repair_requests.py` | 9 KB | `/vehicles/{id}/repair-requests` | All roles | File, update, resolve repair requests; `resolution_notes` required on RESOLVED |
 | `inventory.py` | 28 KB | `/inventory` | All + membership | Locations, compartments, par levels, lots, stock summary, CSV receive. `GET /supply-catalog?station_id=` (SR-B1). `PATCH /supply-catalog/items/{id}/count` (SR-B2). `PUT /lots/{id}` (SR-F7). `PATCH /inventory/items/{id}/status` marks/clears damaged. `PATCH /locations/{id}/retire` (Admin, RET-B2). `GET /lots/retired?location_id=` (Supervisor+, RET-B6). `PATCH /lots/{id}/retire` (Supervisor+, RET-B5) — registered BEFORE `/lots/{lot_id}` to avoid path ambiguity. `PATCH /par-levels/{id}` soft-deactivate with reason + membership check (B-E9). `POST /par-levels` (`create_par_level`) reactivates a matching soft-deactivated `(item_id, compartment_id)` row instead of inserting a duplicate (PAR-B1, Session AF) — see note below. |
-| `items.py` | 3 KB | `/items` | Supervisor+ (create/edit) / All (read) | Item catalog; `POST /items` is SUPERVISOR_PLUS (not admin-only); deactivation is ADMIN_ONLY via admin router. ⚠ Will need `station_id` scoping — see ITM-5 in `docs/backlog.md`. |
-| `admin_items.py` | — | `/admin` | Admin (most) / Supervisor+ | Item catalog admin, par levels, CSV import (split from monolithic admin.py, CQ-B5). `POST /admin/items/{id}/assign` (`assign_item_to_compartment`) reactivates a matching soft-deactivated `(item_id, compartment_id)` par level instead of inserting a duplicate (PAR-B1, Session AF) — see note below. Already accepts `location_id` for any `InventoryLocation` (vehicle, jump bag, or supply room), not just `vehicle_id` — confirmed during ITM planning; the frontend (`ItemAssignments.jsx`) just never exposes that option yet (ITM-6). ⚠ `list_items`/`search_items`/`_conflict_on_name` will need `station_id` scoping — see ITM-5. |
+| `items.py` | 3 KB | `/items` | Supervisor+ (create/edit) / All (read) | Item catalog; `POST /items` is SUPERVISOR_PLUS (not admin-only); deactivation is ADMIN_ONLY via admin router. Note: `GET /items` is not station-scoped (it's a lightweight read-only catalog; scoping lives in the admin routes via ITM-5). |
+| `admin_items.py` | — | `/admin` | Admin (most) / Supervisor+ | Item catalog admin, par levels, CSV import (split from monolithic admin.py, CQ-B5). **ITM-5 ✅ (Session AJ):** All 11 routes now require `station_id` and call `require_station_membership` before any data access. `_conflict_on_name` is per-station; `_conflict_on_barcode` remains global. `POST /admin/items/{id}/assign` (`assign_item_to_compartment`) reactivates a matching soft-deactivated `(item_id, compartment_id)` par level instead of inserting a duplicate (PAR-B1, Session AF) — see note below. Already accepts `location_id` for any `InventoryLocation` (vehicle, jump bag, or supply room) — the frontend (`ItemAssignments.jsx`) just never exposes jump-bag/supply-room options yet (ITM-6). |
 | `admin_vehicles.py` | — | `/admin` | Admin | Vehicle color and details admin (split from monolithic admin.py, CQ-B5) |
 | `admin_stations.py` | — | `/admin` | Admin | `POST /admin/stations` (ADMIN-B15, auto-creates supply room + StationMember). `PATCH /admin/locations/{id}` renames a location label (SS-B1). `GET /admin/retired?type=&station_id=` lists retired vehicles/locations/stations (RET-B4). `GET /admin/email-alignment-check?station_id=&include_inactive=` — flags StationMember rows whose `user_id` doesn't look like a valid email (blank, contains whitespace, missing `@`/domain, not lowercase); read-only diagnostic for catching display-name-instead-of-email mistakes from manual add or CSV import (LAUNCH-OPS9, Session AC). |
 | `usage.py` | 9 KB | `/checks` | All + membership | `POST /checks/usage` (log items used, FIFO decrement); `GET /checks/usage/station/{id}` (history); `GET /checks/usage/station/{id}/frequent` (top 10 items, 90-day window) |
@@ -227,7 +237,8 @@ AuditEvent     (immutable log)
 | `test_station_membership.py` | 15 KB | RBAC + station membership enforcement | `db` |
 | `test_member_management.py` | — | ACC-B6/B7/B8: edit member name, multi-role, CSV import; 32 tests | `db` |
 | `test_check_history.py` | 15 KB | Check history, soft-delete, acknowledgement | `db` |
-| `test_admin_items.py` | 12 KB | Admin item management, par levels, CSV | `db` |
+| `test_admin_items.py` | 12 KB | Admin item management, par levels, CSV. Session AJ: 2 test fixes (role case "SUPERVISOR"→"Supervisor" in station_id fixture; missing `station_id=` param in deactivated-item list test). | `db` |
+| `test_item_station_scoping.py` | — | NEW (Session AJ, ITM-5/8). 14 tests, 5 classes: list/search scoped to station; create without membership → 403; per-station name uniqueness; get/edit cross-station → 403; Admin bypasses all checks. `two_stations` fixture creates Station A+B, adds supervisor to A only. | `db` |
 | `test_models.py` | 7 KB | Model-level unit tests | `db` |
 | `test_priority_items.py` | — | AED + LUCAS all check types; legal immutability; FAIL preservation; priority flag DB persistence | `db` |
 | `test_persona_responder.py` | — | Jamie (Responder): all 5 check types; FAIL+comment+continue; multiple checks/day; role boundary | `db` |
@@ -240,7 +251,7 @@ AuditEvent     (immutable log)
 | `test_damaged_items.py` | — | SUP-DMG1: damaged items endpoint; happy path; retired excluded; inactive excluded; station isolation; RBAC. 13 tests. | `db` |
 | `test_email_alignment.py` | — | LAUNCH-OPS9: `GET /admin/email-alignment-check` — valid emails pass clean; display-name/malformed/uppercase/blank user_id flagged; inactive row inclusion toggle; cross-station scan; RBAC (Admin only). 12 tests. (Session AC) | `db` |
 
-**Run:** `cd app; pytest` — 484 tests collected, **484 passing** (expected after `alembic upgrade head; python seed.py`). ⚠ ITM-5..8 still ahead — `test_item_station_scoping.py` (ITM-8) will add to this count once backend scoping (ITM-5) and frontend (ITM-6) are done. `ruff check .` and `black --check .` confirmed green at Session AF close; run again after ITM-5 changes.
+**Run:** `cd app; pytest` — 498 tests collected, **498 passing** (expected after `alembic upgrade head; python seed.py`). `ruff check .` and `black --check .` confirmed green at Session AJ close. No backend changes in Session AK — count unchanged.
 
 **Two DB fixtures — do not mix:**
 - `db` — in-memory SQLite, empty, rolls back after each test. Use for all API/logic tests.
@@ -297,14 +308,14 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 | `components/MemberManagementSection.jsx` | — | Moved from `settings/` (Session AE). Member list grouped by person, edit name, multi-role chips with per-role remove, CSV import. ACC-B6/B7/B8. No test file yet — see TEST-AE1 in `docs/backlog.md`. |
 | `components/EmailAlignmentSection.jsx` | — | Moved from `settings/` (Session AE). LAUNCH-OPS9 diagnostic — flags malformed `user_id` entries; notify-panel with mailto draft. Admin only. |
 | `components/VehiclesScreen.jsx` | 25 KB | Vehicle + compartment CRUD, par assignment entry. Display filter excludes retired vehicles outright (`!v.retired_at`), independent of the "Show out-of-service vehicles" toggle (BUG-AD1, Session AD). `VehicleAdminCard` shows a "Retired" badge + retirement reason and hides Edit/Color-still-shown/OOS-RTS/compartment-edit controls for retired vehicles. |
-| `components/ItemCatalog.jsx` | 9 KB | Item search + list (also reused as View Supplies interface in supply room). ⚠ Currently fetches the unscoped global catalog — no `station_id` passed to `adminApi.listItems`. See ITM-6 in `docs/backlog.md`. |
+| `components/ItemCatalog.jsx` | — | Item catalog browser. **ITM-6 ✅ (Session AK):** station-scoped (`stationId` → `adminApi.listItems`); 7 cabinet-group chip filters (Airway/Wound Care/PPE/Diagnostic/Medications/Documents/Vehicle Ops) replace old 4-category chips; groups items by `category_group` (falls back to `category` when null); fetches `getStationLocations` and passes `locations` to each `ItemAssignments`. |
 | `components/ItemForm.jsx` | 16 KB | Add/edit item form |
-| `components/ItemAssignments.jsx` | 18 KB | Par level assignment — item-centric. "Add assignment" goes through `adminApi.assignItem` → `POST /admin/items/{id}/assign`, which now reactivates a soft-deactivated row instead of erroring (PAR-B1, Session AF). ⚠ `AddAssignmentForm`/`EditRow` currently render a vehicle-only `<select>` — no jump bag or supply room option, even though the backend endpoint already accepts `location_id` for either. See ITM-6 in `docs/backlog.md` — this is the planning session's confirmed UI gap, frontend-only fix. |
+| `components/ItemAssignments.jsx` | — | Par level assignment — item-centric. **ITM-6 ✅ (Session AK):** `AddAssignmentForm`/`EditRow` now have a "Where" picker (Vehicle / Jump Bag / Station Supply Room). Vehicles use `vehicle_id`; jump bags and supply room use `location_id`. Supply room auto-selects. Compartments loaded via `getVehicleCompartments` (vehicle) or `getLocationCompartments` (other). Assignment display row shows `vehicle_number ?? location_label`. Button renamed to "+ Add assignment". |
 | `components/CompartmentParLevels.jsx` | — | Par level assignment — per-compartment item list. Accepts `vehicleId` OR `locationId` (for supply room / portable locations). Priority checkbox + question field (RX-F12). Remove → re-add round trip fixed by PAR-B1 (Session AF) — this was the exact UI path the bug was reported through. |
 | `components/StationSuppliesScreen.jsx` | — | SS-F1: Admin screen — manage supply room shelves and their par levels. Fetches supply room → compartments → CompartmentParLevels per shelf. |
 | `components/PortableLocationsScreen.jsx` | — | ADMIN-F7: Full CRUD for portable locations (Jump Bags). List → create → rename + ShelfManager (compartment CRUD + par levels). |
 | `components/CsvImport.jsx` | 8 KB | Bulk item import with template download |
-| `api/adminApi.js` | — | Station CRUD, item catalog, par levels, vehicles, portable locations. **No longer has member endpoints** — those moved to `api/membersApi.js` (Session AE). `listItems` has no `station_id` param yet — see ITM-6. |
+| `api/adminApi.js` | — | Station CRUD, item catalog, par levels, vehicles, portable locations. **No longer has member endpoints** — those moved to `api/membersApi.js` (Session AE). **ITM-6 ✅:** `listItems` and `searchItems` now accept `stationId` option and append `station_id=` to the query string. |
 | `api/membersApi.js` | — | Moved from `settings/api/` (Session AE). Member CRUD by `member_id` + CSV import/template (ACC-B6/B7/B8); `checkEmailAlignment` (LAUNCH-OPS9). The only frontend module that should call `/stations/{id}/members*` endpoints. |
 
 ### supply-room/  (Station Supplies — redesigned Session K)
@@ -380,7 +391,7 @@ the same-day BUG-AF2 follow-up).
 | `modules/check-wizard/__tests__/Step1Vehicle.test.jsx` | 8 | Vehicle list, supply room auto-advance, OOS |
 | `modules/supervisor/__tests__/SupplyLowStockPanel.test.jsx` | 11 | Hidden, amber/red alerts, expand/collapse |
 | `modules/vehicles/__tests__/VehicleCard.test.jsx` | 12 | OOS badge, repair count, RTS/OOS role-gating, Report an Issue. Session AD adds 4 regression cases for retired vehicles (BUG-AD1): Retired badge, no Return to Service, no Report an Issue, retirement reason shown. |
-| `modules/admin/__tests__/ItemCatalog.test.jsx` | 11 | Item list, search, Add button role-gating |
+| `modules/admin/__tests__/ItemCatalog.test.jsx` | 15 | Item list, search, Add button role-gating, Admin inactive toggle. **ITM-6 ✅ (Session AK):** 3-mock `setupApiMocks` (vehicles/items/locations); `ITEMS_WITH_CABINET` fixture; 4 new cabinet chip filter tests. |
 | `modules/admin/__tests__/VehiclesScreen.test.jsx` | 3 | New file, Session AD (BUG-AD1) — this screen had no prior test coverage. Retired vehicle excluded by default; still excluded after toggling "Show out-of-service vehicles"; empty-state message reflects only active vehicles. |
 | `modules/admin/__tests__/EmailAlignmentSection.test.jsx` | 17 | Moved from `modules/settings/__tests__/` (Session AE) — same coverage, new home. LAUNCH-OPS9 UI: Run Check button + clean/flagged states; Notify panel recipient checkboxes (excludes flagged person); custom email chips; Draft Email enable/disable; drafted preview with mailto link. |
 | `modules/check-history/__tests__/CheckHistory.test.jsx` | 9 | My Checks, All Checks tab (Supervisor+), Deleted tab |
@@ -420,7 +431,7 @@ including the BUG-AF2 data-source fix) — see TEST-AF1 in the same backlog.
 | File | Purpose |
 |------|---------|
 | `UserPill.jsx` | Auth'd user display + role badge; role switcher fetches `/stations/my/roles` (ACC-B7) |
-| `ItemSearchCombobox.jsx` | Typeahead search with 150ms debounce, keyboard nav, text highlighting |
+| `ItemSearchCombobox.jsx` | Typeahead search with 150ms debounce, keyboard nav, text highlighting. **ITM-6 ✅:** `stationId` prop (optional) passed to `adminApi.searchItems` so results are scoped to the caller's station. Threaded through all callers: `CompartmentParLevels` + `ReceiveStockPanel`. |
 | `LastCheckBanner.jsx` | Last check status banner for home screen |
 | `ColorPickerWidget.jsx` | Station/vehicle color picker |
 | `ErrorBoundary.jsx` | Top-level error boundary |
@@ -529,7 +540,7 @@ confirmed green before this deploy. **BUG-AF2 redeploy also confirmed live the s
 Jennifer re-tested the Station Supplies Count reminder after the first deploy, found the
 data-source bug, and confirmed the `getLocationCheckHistory` fix after redeploying.
 
-⚠ No deploy since this planning session — ITM-1..8 has not been built yet.
+⚠ No deploy since Session AF — ITM-5 + ITM-6 complete; ITM-8 (tests/docs) is next before deploying. Deploy after ITM-8 closes the launch gate.
 
 ---
 
@@ -556,6 +567,7 @@ files) has been reviewed and deleted — no longer flagged.
 | ✅ **AG** (done) | ITM-1: migration | Added `station_id` FK + per-station unique on `items` (migration 0028); supply catalog scoped to station; all non-seed tests passing (452/484; 32 seed_integrity expected until ITM-4). |
 | ✅ **AH** (done) | ITM-3: category_group | Added `category_group` VARCHAR(100) nullable to `Item` (migration 0029); schema updated. 452/484 still passing. |
 | ✅ **AI** (done) | ITM-4: seed.py rewrite | `seed.py` fully rewritten: `BASE_ITEM_SEED`, `get_or_create_item(station_id=...)`, `seed_station_catalog()`, canonical names, O2 PSI corrections, LUCAS merge, Fire Extinguisher SUPPLY. `test_seed_integrity.py` 6 test corrections. 484/484 expected after reseed. |
-| **AJ** | ITM-5 + ITM-6 | Backend item-endpoint station scoping; frontend Item Catalog scoping + jump-bag/supply-room assignment UI. |
-| AJ/AK | ITM-8 | `test_item_station_scoping.py` + doc updates; close the reopened launch gate. |
-| *(deferred)* | Post-launch engineering backlog | F-5G3 (CSV export), ADMIN-F10 (member search), TEST-AE1, TEST-AF1, or operational walkthroughs (LAUNCH-OPS1-6) handled directly by the chief — all still waiting behind ITM-1..8. |
+| ✅ **AJ** (done) | ITM-5: backend station scoping | All 11 `admin_items.py` routes scoped to station; `_conflict_on_name` per-station; `test_item_station_scoping.py` added (14 tests); ruff + black green. 498/498 passing. |
+| ✅ **AK** (done) | ITM-6: frontend | `ItemCatalog.jsx` station-scoped + cabinet chips; `ItemAssignments.jsx` "Where" picker; `adminApi` + `ItemSearchCombobox` station_id threading; 4 new catalog tests. |
+| **AL** | ITM-8: remaining tests + docs | Any frontend coverage gaps after ITM-6 (especially ItemAssignments "Where" picker interaction tests); update docs; close the launch gate; deploy. |
+| *(deferred)* | Post-launch engineering backlog | F-5G3 (CSV export), ADMIN-F10 (member search), TEST-AE1, TEST-AF1, or operational walkthroughs (LAUNCH-OPS1-6) handled directly by the chief — all still waiting behind ITM-6..8. |

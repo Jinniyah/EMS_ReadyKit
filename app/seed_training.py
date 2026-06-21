@@ -41,6 +41,17 @@ Members:
     jinniyah@gmail.com (Administrator) — always seeded.
     Other members added via Settings → Team Members.
 
+Session AG+ note: items are station-scoped (items.station_id FK, migration
+0028 / ITM-1). get_or_create_item() below requires station_id and scopes all
+lookups/creates to it — items here are a separate per-station catalog copy,
+not shared with Newberg 712 or any other station. Item names were also
+updated to match the canonical BASE_ITEM_SEED names from seed.py (ITM-2 merge
+rules) instead of the old pre-merge "JB"/location-suffixed names this script
+used previously (e.g. "Tourniquet JB" -> "CAT Tourniquet"), and the
+Stretcher/Jump Bag O2 PSI thresholds were corrected to 200-500 PSI (small
+tanks) to match the values confirmed during ITM-2 — this script still had
+the old 500-2200 (large tank / On-Board) thresholds.
+
 Usage:
     cd app
     python seed_training.py
@@ -83,6 +94,7 @@ def get_or_create_item(
     db: Session,
     *,
     name: str,
+    station_id: int,
     category: ItemCategory,
     check_type: ItemCheckType = ItemCheckType.SUPPLY,
     unit_of_measure: str = "each",
@@ -90,7 +102,9 @@ def get_or_create_item(
     measurement_maximum: Optional[float] = None,
     recurrence_days: Optional[int] = None,
 ) -> Item:
-    item = db.query(Item).filter(Item.name == name).first()
+    item = (
+        db.query(Item).filter(Item.station_id == station_id, Item.name == name).first()
+    )
     if item:
         item.check_type = check_type
         item.recurrence_days = recurrence_days
@@ -102,6 +116,7 @@ def get_or_create_item(
         return item
     item = Item(
         name=name,
+        station_id=station_id,
         category=category,
         check_type=check_type,
         unit_of_measure=unit_of_measure,
@@ -213,8 +228,13 @@ def get_or_create_jump_bag_location(
 # ---------------------------------------------------------------------------
 
 
-def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
+def build_training_ambulance(
+    db: Session, loc: InventoryLocation, station_id: int
+) -> None:
     """9 compartments covering all check types. ~1/3 par quantities. Idempotent."""
+
+    def item(name: str, **kw) -> Item:
+        return get_or_create_item(db, name=name, station_id=station_id, **kw)
 
     # ── PC 8 — AED + LUCAS priority items ─────────────────────────────────────
     pc8 = make_compartment(
@@ -226,9 +246,8 @@ def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
     )
     add_par(
         db,
-        item=get_or_create_item(
-            db,
-            name="AED Battery",
+        item=item(
+            "AED Battery",
             category=ItemCategory.EQUIPMENT,
             check_type=ItemCheckType.FUNCTIONAL,
             unit_of_measure="N/A",
@@ -241,9 +260,8 @@ def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
     )
     add_par(
         db,
-        item=get_or_create_item(
-            db,
-            name="AED Date of Last Charge",
+        item=item(
+            "AED Date of Last Charge",
             category=ItemCategory.EQUIPMENT,
             check_type=ItemCheckType.DATE_RECORD,
             unit_of_measure="N/A",
@@ -255,9 +273,8 @@ def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
     )
     add_par(
         db,
-        item=get_or_create_item(
-            db,
-            name="AED Pads Adult",
+        item=item(
+            "AED Pads Adult",
             category=ItemCategory.CONSUMABLE,
             check_type=ItemCheckType.EXPIRY_DATE,
             unit_of_measure="N/A",
@@ -268,9 +285,8 @@ def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
     )
     add_par(
         db,
-        item=get_or_create_item(
-            db,
-            name="AED Pads Pediatric",
+        item=item(
+            "AED Pads Pediatric",
             category=ItemCategory.CONSUMABLE,
             check_type=ItemCheckType.EXPIRY_DATE,
             unit_of_measure="N/A",
@@ -281,9 +297,8 @@ def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
     )
     add_par(
         db,
-        item=get_or_create_item(
-            db,
-            name="LUCAS Device",
+        item=item(
+            "LUCAS Device",
             category=ItemCategory.EQUIPMENT,
             check_type=ItemCheckType.FUNCTIONAL,
             unit_of_measure="N/A",
@@ -296,9 +311,8 @@ def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
     )
     add_par(
         db,
-        item=get_or_create_item(
-            db,
-            name="LUCAS Date of Last Charge",
+        item=item(
+            "LUCAS Date of Last Charge",
             category=ItemCategory.EQUIPMENT,
             check_type=ItemCheckType.DATE_RECORD,
             unit_of_measure="N/A",
@@ -310,9 +324,7 @@ def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
     )
     add_par(
         db,
-        item=get_or_create_item(
-            db, name="Portable Suction Unit", category=ItemCategory.EQUIPMENT
-        ),
+        item=item("Portable Suction Unit", category=ItemCategory.EQUIPMENT),
         location=loc,
         compartment=pc8,
         min_qty=1,
@@ -329,7 +341,7 @@ def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
     for name in ["Adult BVM", "Adult NAS", "Adult NRB"]:
         add_par(
             db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
+            item=item(name, category=ItemCategory.EQUIPMENT),
             location=loc,
             compartment=pc1,
             min_qty=1,
@@ -355,15 +367,14 @@ def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
         uom = "N/A" if ct == ItemCheckType.DOCUMENT else "each"
         add_par(
             db,
-            item=get_or_create_item(
-                db, name=name, category=cat, check_type=ct, unit_of_measure=uom
-            ),
+            item=item(name, category=cat, check_type=ct, unit_of_measure=uom),
             location=loc,
             compartment=admin_counter,
             min_qty=1,
         )
 
     # ── PC 5 (PPE) — SUPPLY consumables ───────────────────────────────────────
+    # Canonical names: "Glove Boxes Medium/Large" -> "Gloves, Medium/Large"
     pc5 = make_compartment(
         db,
         location=loc,
@@ -372,21 +383,23 @@ def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
         location_descriptor="Interior, PPE compartment",
     )
     for name in [
-        "Glove Boxes Medium",
-        "Glove Boxes Large",
+        "Gloves, Medium",
+        "Gloves, Large",
         "Gowns",
         "N-95 Masks",
         "Goggles",
     ]:
         add_par(
             db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.CONSUMABLE),
+            item=item(name, category=ItemCategory.CONSUMABLE),
             location=loc,
             compartment=pc5,
             min_qty=1,
         )
 
     # ── PC 13 (Trauma) — SUPPLY consumables, ~1/3 quantities ──────────────────
+    # Canonical names: "KERLIX PC13" -> "Kerlix (Various Sizes)";
+    # "Triangle Bandages" -> "Triangle Bandage" (singular)
     pc13 = make_compartment(
         db,
         location=loc,
@@ -397,22 +410,24 @@ def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
     for name, qty in [
         ("ABD Pad 8x10", 2),
         ("Gauze Bandage Various Sizes", 3),
-        ("KERLIX PC13", 3),
+        ("Kerlix (Various Sizes)", 3),
         ("Tape Various Sizes", 3),
         ("CAT Tourniquet", 1),
         ("Gauze Sponges 4x4", 8),
-        ("Triangle Bandages", 1),
+        ("Triangle Bandage", 1),
         ("Sterile Saline Solution", 1),
     ]:
         add_par(
             db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.CONSUMABLE),
+            item=item(name, category=ItemCategory.CONSUMABLE),
             location=loc,
             compartment=pc13,
             min_qty=qty,
         )
 
     # ── Stretcher — MEASUREMENT (O2 PSI priority) + FUNCTIONAL ────────────────
+    # Stretcher O2 PSI threshold corrected to 200-500 (small tank) — this
+    # script previously had 500-2200 (large/On-Board tank thresholds).
     stretcher = make_compartment(
         db,
         location=loc,
@@ -422,26 +437,24 @@ def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
     )
     add_par(
         db,
-        item=get_or_create_item(
-            db,
-            name="Stretcher O2 PSI",
+        item=item(
+            "Stretcher O2 PSI",
             category=ItemCategory.EQUIPMENT,
             check_type=ItemCheckType.MEASUREMENT,
             unit_of_measure="PSI",
-            measurement_minimum=500.0,
-            measurement_maximum=2200.0,
+            measurement_minimum=200.0,
+            measurement_maximum=500.0,
         ),
         location=loc,
         compartment=stretcher,
         min_qty=1,
         priority_check=True,
-        priority_question="Stretcher O2 above 500 PSI?",
+        priority_question="Stretcher O2 above 200 PSI?",
     )
     add_par(
         db,
-        item=get_or_create_item(
-            db,
-            name="Stretcher Battery Charged",
+        item=item(
+            "Stretcher Battery Charged",
             category=ItemCategory.EQUIPMENT,
             check_type=ItemCheckType.FUNCTIONAL,
             unit_of_measure="N/A",
@@ -452,6 +465,7 @@ def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
     )
 
     # ── Driver Side EC 1 — MEASUREMENT (on-board O2 PSI) + SUPPLY ─────────────
+    # Canonical name: "Fire Extinguisher UL Listed" merged into "Fire Extinguisher"
     ds_ec1 = make_compartment(
         db,
         location=loc,
@@ -461,9 +475,8 @@ def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
     )
     add_par(
         db,
-        item=get_or_create_item(
-            db,
-            name="On-Board O2 PSI",
+        item=item(
+            "On-Board O2 PSI",
             category=ItemCategory.EQUIPMENT,
             check_type=ItemCheckType.MEASUREMENT,
             unit_of_measure="PSI",
@@ -477,13 +490,15 @@ def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
     for name in ["Long-board Splints", "Fire Extinguisher"]:
         add_par(
             db,
-            item=get_or_create_item(db, name=name, category=ItemCategory.EQUIPMENT),
+            item=item(name, category=ItemCategory.EQUIPMENT),
             location=loc,
             compartment=ds_ec1,
             min_qty=1,
         )
 
     # ── Truck Operations — FUNCTIONAL + DOCUMENT, requires_full_check ──────────
+    # Canonical names: "Fire Extinguisher UL Listed" removed (now in DS EC1 as
+    # SUPPLY "Fire Extinguisher"); "Cab Gloves X" -> "Gloves, X"
     truck_ops = make_compartment(
         db,
         location=loc,
@@ -497,7 +512,6 @@ def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
         "External Warning Systems (Lights & Sirens)",
         "Ambulance Cot and Straps Secured",
         "Communication Medcom Compliant",
-        "Fire Extinguisher UL Listed",
         "Portable Two-Way Radio",
         "Mileage Sheet",
         "Insurance Information",
@@ -514,9 +528,7 @@ def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
         )
         add_par(
             db,
-            item=get_or_create_item(
-                db, name=name, category=cat, check_type=ct, unit_of_measure="N/A"
-            ),
+            item=item(name, category=cat, check_type=ct, unit_of_measure="N/A"),
             location=loc,
             compartment=truck_ops,
             min_qty=1,
@@ -524,9 +536,7 @@ def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
     for size in ["Small", "Medium", "Large"]:
         add_par(
             db,
-            item=get_or_create_item(
-                db, name=f"Cab Gloves {size}", category=ItemCategory.CONSUMABLE
-            ),
+            item=item(f"Gloves, {size}", category=ItemCategory.CONSUMABLE),
             location=loc,
             compartment=truck_ops,
             min_qty=1,
@@ -544,9 +554,8 @@ def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
     for name in ["Hoses", "Belts", "Oil Level", "Radiator", "Battery"]:
         add_par(
             db,
-            item=get_or_create_item(
-                db,
-                name=f"Hood {name}",
+            item=item(
+                f"Hood {name}",
                 category=ItemCategory.EQUIPMENT,
                 check_type=ItemCheckType.FUNCTIONAL,
                 unit_of_measure="N/A",
@@ -562,10 +571,21 @@ def build_training_ambulance(db: Session, loc: InventoryLocation) -> None:
 # ---------------------------------------------------------------------------
 
 
-def build_training_jump_bag(db: Session, jb: InventoryLocation) -> None:
+def build_training_jump_bag(
+    db: Session, jb: InventoryLocation, station_id: int
+) -> None:
     """2 compartments. Idempotent."""
 
+    def item(name: str, **kw) -> Item:
+        return get_or_create_item(db, name=name, station_id=station_id, **kw)
+
     # ── Main Pocket — O2 PSI priority + SUPPLY ────────────────────────────────
+    # Jump Bag O2 PSI threshold corrected to 200-500 (small tank) — this
+    # script previously had 500-2200 (large/On-Board tank thresholds).
+    # Canonical names: "Kerlix Large JB" -> "Kerlix, Large"; "Stethoscope JB"
+    # -> "Stethoscope"; "BP Cuff JB" -> "BP Cuff"; "Clipboard w/ Paperwork JB"
+    # -> "Clipboard w/ Paperwork"; "Tourniquet JB" -> "CAT Tourniquet";
+    # "BVM Adult JB" -> "Adult BVM"
     jb_main = make_compartment(
         db,
         location=jb,
@@ -575,26 +595,24 @@ def build_training_jump_bag(db: Session, jb: InventoryLocation) -> None:
     )
     add_par(
         db,
-        item=get_or_create_item(
-            db,
-            name="Jump Bag O2 PSI",
+        item=item(
+            "Jump Bag O2 PSI",
             category=ItemCategory.EQUIPMENT,
             check_type=ItemCheckType.MEASUREMENT,
             unit_of_measure="PSI",
-            measurement_minimum=500.0,
-            measurement_maximum=2200.0,
+            measurement_minimum=200.0,
+            measurement_maximum=500.0,
         ),
         location=jb,
         compartment=jb_main,
         min_qty=1,
         priority_check=True,
-        priority_question="Jump Bag O2 above 500 PSI?",
+        priority_question="Jump Bag O2 above 200 PSI?",
     )
     add_par(
         db,
-        item=get_or_create_item(
-            db,
-            name="Jump Bag O2 Tank w/ Regulator 15LPM",
+        item=item(
+            "Jump Bag O2 Tank w/ Regulator 15LPM",
             category=ItemCategory.EQUIPMENT,
         ),
         location=jb,
@@ -602,14 +620,18 @@ def build_training_jump_bag(db: Session, jb: InventoryLocation) -> None:
         min_qty=1,
     )
     for name, qty in [
-        ("Kerlix Large JB", 1),
-        ("Stethoscope JB", 1),
-        ("BP Cuff JB", 1),
-        ("Clipboard w/ Paperwork JB", 1),
-        ("Tourniquet JB", 1),
-        ("BVM Adult JB", 1),
+        ("Kerlix, Large", 1),
+        ("Stethoscope", 1),
+        ("BP Cuff", 1),
+        ("Clipboard w/ Paperwork", 1),
+        ("CAT Tourniquet", 1),
+        ("Adult BVM", 1),
     ]:
-        cat = ItemCategory.DOCUMENT if "Paperwork" in name else ItemCategory.EQUIPMENT
+        cat = (
+            ItemCategory.DOCUMENT
+            if name == "Clipboard w/ Paperwork"
+            else ItemCategory.EQUIPMENT
+        )
         ct = (
             ItemCheckType.DOCUMENT
             if cat == ItemCategory.DOCUMENT
@@ -618,15 +640,14 @@ def build_training_jump_bag(db: Session, jb: InventoryLocation) -> None:
         uom = "N/A" if ct == ItemCheckType.DOCUMENT else "each"
         add_par(
             db,
-            item=get_or_create_item(
-                db, name=name, category=cat, check_type=ct, unit_of_measure=uom
-            ),
+            item=item(name, category=cat, check_type=ct, unit_of_measure=uom),
             location=jb,
             compartment=jb_main,
             min_qty=qty,
         )
 
     # ── Front Pocket — consumable SUPPLY ──────────────────────────────────────
+    # Canonical names: drop "JB" suffix to match seed.py's BASE_ITEM_SEED
     jb_front = make_compartment(
         db,
         location=jb,
@@ -635,19 +656,19 @@ def build_training_jump_bag(db: Session, jb: InventoryLocation) -> None:
         location_descriptor="Front pocket of jump bag",
     )
     for name, qty in [
-        ("C-Collar Adult JB", 1),
-        ("Overdose Rescue Kit NARCAN", 1),
-        ("Glucometer Lancets JB", 2),
-        ("Alcohol Prep JB", 2),
-        ("Bandaids JB", 2),
-        ("Gauze 3x3 JB", 1),
-        ("Glucometer Test Strips JB", 2),
-        ("Thermometer JB", 1),
-        ("Trauma Shears JB", 1),
-        ("Occlusive Dressing JB", 1),
+        ("C-Collar, Adult", 1),
+        ("Overdose Rescue Kit (NARCAN)", 1),
+        ("Glucometer Lancets", 2),
+        ("Alcohol Prep Pads", 2),
+        ("Bandaids", 2),
+        ("Gauze, 3x3", 1),
+        ("Glucometer Test Strips", 2),
+        ("Thermometer", 1),
+        ("Trauma Shears", 1),
+        ("Occlusive Dressing", 1),
     ]:
         cat = (
-            ItemCategory.MEDICATION
+            ItemCategory.EQUIPMENT
             if "NARCAN" in name
             else (
                 ItemCategory.CONSUMABLE
@@ -657,7 +678,7 @@ def build_training_jump_bag(db: Session, jb: InventoryLocation) -> None:
         )
         add_par(
             db,
-            item=get_or_create_item(db, name=name, category=cat),
+            item=item(name, category=cat),
             location=jb,
             compartment=jb_front,
             min_qty=qty,
@@ -816,10 +837,10 @@ def seed_training(db: Session) -> None:
         print("  Created Training Jump Bag B")
 
     # ── Inventory ──────────────────────────────────────────────────────────────
-    build_training_ambulance(db, loc_train_a)
-    build_training_ambulance(db, loc_train_b)
-    build_training_jump_bag(db, jb_train_a)
-    build_training_jump_bag(db, jb_train_b)
+    build_training_ambulance(db, loc_train_a, training.station_id)
+    build_training_ambulance(db, loc_train_b, training.station_id)
+    build_training_jump_bag(db, jb_train_a, training.station_id)
+    build_training_jump_bag(db, jb_train_b, training.station_id)
 
     # ── Bootstrap admin membership ─────────────────────────────────────────────
     existing = (
@@ -856,7 +877,11 @@ def seed_training(db: Session) -> None:
         "LUCAS Date of Last Charge",
     ]
     for _name in _non_supply:
-        _item = db.query(Item).filter(Item.name == _name).first()
+        _item = (
+            db.query(Item)
+            .filter(Item.station_id == training.station_id, Item.name == _name)
+            .first()
+        )
         if _item and _item.station_supply:
             _item.station_supply = False
 

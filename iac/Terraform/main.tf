@@ -67,6 +67,22 @@ data "azurerm_storage_account" "tfstate" {
   resource_group_name = "tfstate-rg"
 }
 
+# ── Static Web App ─────────────────────────────────────────────────────────────
+# Must be in centralus — northcentralus is not supported by Azure Static Web Apps.
+# The policy now allows both northcentralus and centralus so no exemption is needed.
+# Declared here (ahead of identity_rbac) because identity_rbac's App Registration
+# needs the frontend URL for its SPA redirect URI / homepage URL.
+module "static_web_app" {
+  source = "./modules/static_web_app"
+
+  resource_group_name        = azurerm_resource_group.ems_rg.name
+  location                   = "centralus"
+  name_prefix                = local.name_prefix
+  sku_tier                   = var.static_web_app_sku
+  log_analytics_workspace_id = module.logging.workspace_id
+  tags                       = local.common_tags
+}
+
 module "identity_rbac" {
   source = "./modules/identity_rbac"
 
@@ -74,6 +90,7 @@ module "identity_rbac" {
   subscription_id            = local.subscription_id
   tenant_id                  = data.azurerm_client_config.current.tenant_id
   tfstate_storage_account_id = data.azurerm_storage_account.tfstate.id
+  frontend_url               = module.static_web_app.url
   tags                       = local.common_tags
 }
 
@@ -157,20 +174,6 @@ module "data" {
   tags                       = local.common_tags
 
   depends_on = [azurerm_key_vault_secret.pg_admin_password]
-}
-
-# ── Static Web App ─────────────────────────────────────────────────────────────
-# Must be in centralus — northcentralus is not supported by Azure Static Web Apps.
-# The policy now allows both northcentralus and centralus so no exemption is needed.
-module "static_web_app" {
-  source = "./modules/static_web_app"
-
-  resource_group_name        = azurerm_resource_group.ems_rg.name
-  location                   = "centralus"
-  name_prefix                = local.name_prefix
-  sku_tier                   = var.static_web_app_sku
-  log_analytics_workspace_id = module.logging.workspace_id
-  tags                       = local.common_tags
 }
 
 module "app" {

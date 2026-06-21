@@ -2,21 +2,19 @@
  * modules/admin/components/ItemAssignments.jsx
  *
  * Collapsible assignments panel shown on each item card in ItemCatalog.
- * Displays which vehicle compartments this item is assigned to and
- * allows supervisors to add, edit, or remove assignments.
+ * Displays which compartments this item is assigned to (vehicle, jump bag,
+ * or station supply room) and allows supervisors to add, edit, or remove
+ * assignments.
  *
- * Session F Block 5 (ADMIN-B6, ADMIN-B7, ADMIN-B8):
- *   - Pre-loads assignment count on mount via GET /admin/items/{id}/assignments/count
- *     so the toggle button shows "Assigned to N compartments" before expanding.
- *   - Removal now calls the canonical PATCH /deactivate (ADMIN-B8) and falls
- *     back to DELETE if that fails (backward compatibility).
- *   - _enrich_par() helper extracted in backend keeps the list endpoint lean.
+ * ITM-6: "Where" picker replaced the vehicle-only select. The backend
+ * POST /admin/items/{id}/assign accepts either vehicle_id (vehicle) or
+ * location_id (jump bag / supply room) — the frontend now exposes all three.
  *
  * UX principles (tired crew / end-of-shift user):
  *   - Panel is collapsed by default — doesn't clutter the catalog list
  *   - Count shown on toggle immediately — no need to expand to see if assigned
- *   - Add assignment is a 3-step inline form: vehicle → compartment → quantities
- *   - Each step narrows — compartment list only shown after vehicle is picked
+ *   - Add assignment is a 3-step inline form: where → compartment → quantities
+ *   - Each step narrows — compartment list only shown after location is picked
  *   - Edit and Remove are per-row — no navigation required
  *   - Confirmations are inline — no modals to dismiss
  *
@@ -24,9 +22,10 @@
  *   item          — the full item object
  *   stationId     — current station (scopes vehicle list)
  *   vehicles      — all vehicles at the station (passed from ItemCatalog)
+ *   locations     — all inventory locations at the station (jump bags + supply room)
  */
 
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { useAuth } from '../../../shared/hooks/useAuth.jsx'
 import { useApi } from '../../../shared/hooks/useApi.js'
 import { adminApi } from '../api/adminApi.js'
@@ -43,33 +42,69 @@ function QtyBadge({ min, max }) {
   )
 }
 
+// ── Derive location type from an existing assignment ──────────────────────────
+
+function deriveLocType(assignment, locations) {
+  if (assignment.vehicle_id != null) return 'vehicle'
+  const loc = (locations ?? []).find(l => l.location_id === assignment.location_id)
+  return loc?.location_type === 'JUMP_BAG' ? 'jump_bag' : 'supply_room'
+}
+
 // ── EditRow ───────────────────────────────────────────────────────────────────
 
-function EditRow({ assignment, item, vehicles, onSaved, onCancel }) {
+function EditRow({ assignment, item, vehicles, locations, onSaved, onCancel }) {
   const { getToken } = useAuth()
 
-  const [vehicleId, setVehicleId]         = useState(String(assignment.vehicle_id ?? ''))
+  const jumpBags   = (locations ?? []).filter(l => l.location_type === 'JUMP_BAG' && !l.retired_at)
+  const supplyRoom = (locations ?? []).find(l => l.location_type === 'STATION_SUPPLY_ROOM' && !l.retired_at)
+
+  const initLocType = deriveLocType(assignment, locations)
+
+  const [locType, setLocType]           = useState(initLocType)
+  const [vehicleId, setVehicleId]       = useState(String(assignment.vehicle_id ?? ''))
+  const [locationId, setLocationId]     = useState(initLocType !== 'vehicle' ? String(assignment.location_id ?? '') : '')
   const [compartmentId, setCompartmentId] = useState(String(assignment.compartment_id ?? ''))
-  const [min, setMin]                     = useState(String(assignment.min_quantity))
-  const [max, setMax]                     = useState(String(assignment.max_quantity))
-  const [error, setError]                 = useState(null)
-  const [submitting, setSubmitting]       = useState(false)
+  const [min, setMin]                   = useState(String(assignment.min_quantity))
+  const [max, setMax]                   = useState(String(assignment.max_quantity))
+  const [error, setError]               = useState(null)
+  const [submitting, setSubmitting]     = useState(false)
+
+  // Auto-select supply room when that type is chosen
+  useEffect(() => {
+    if (locType === 'supply_room' && supplyRoom) {
+      setLocationId(String(supplyRoom.location_id))
+    }
+  }, [locType, supplyRoom?.location_id])
 
   const { data: compartments, isLoading: loadingCompartments } = useApi(
-    () => vehicleId ? adminApi.getVehicleCompartments(vehicleId, getToken) : Promise.resolve([]),
-    [vehicleId]
+    () => {
+      if (locType === 'vehicle' && vehicleId) return adminApi.getVehicleCompartments(vehicleId, getToken)
+      if (locType !== 'vehicle' && locationId) return adminApi.getLocationCompartments(locationId, getToken)
+      return Promise.resolve([])
+    },
+    [locType, vehicleId, locationId]
   )
 
-  function handleVehicleChange(e) {
-    setVehicleId(e.target.value)
+  function handleLocTypeChange(e) {
+    setLocType(e.target.value)
+    setVehicleId('')
+    setLocationId('')
+    setCompartmentId('')
+    setError(null)
+  }
+
+  function handleVehicleOrLocationChange(e) {
+    if (locType === 'vehicle') setVehicleId(e.target.value)
+    else setLocationId(e.target.value)
     setCompartmentId('')
     setError(null)
   }
 
   async function handleSave(e) {
     e.preventDefault()
-    if (!vehicleId)     { setError('Please select a vehicle.'); return }
-    if (!compartmentId) { setError('Please select a compartment.'); return }
+    const hasLocation = locType === 'vehicle' ? !!vehicleId : !!locationId
+    if (!hasLocation)    { setError('Please select a location.'); return }
+    if (!compartmentId)  { setError('Please select a compartment.'); return }
     const minN = parseInt(min, 10)
     const maxN = parseInt(max, 10)
     if (isNaN(minN) || minN < 1)    { setError('Min must be at least 1.'); return }
@@ -77,20 +112,24 @@ function EditRow({ assignment, item, vehicles, onSaved, onCancel }) {
 
     setSubmitting(true); setError(null)
     try {
-      const vehicleChanged     = String(assignment.vehicle_id)     !== vehicleId
+      const vehicleChanged     = locType === 'vehicle' && String(assignment.vehicle_id) !== vehicleId
+      const locationChanged    = locType !== 'vehicle' && String(assignment.location_id) !== locationId
       const compartmentChanged = String(assignment.compartment_id) !== compartmentId
+      const typeChanged        = deriveLocType(assignment, locations) !== locType
 
-      if (vehicleChanged || compartmentChanged) {
-        // Moving to a different compartment: deactivate old, create new
+      if (vehicleChanged || locationChanged || compartmentChanged || typeChanged) {
+        // Moving to a different location/compartment: deactivate old, create new
         await adminApi.deactivateParLevel(assignment.par_id, getToken)
-        await adminApi.assignItem(item.item_id, {
-          vehicle_id:     parseInt(vehicleId, 10),
+        const payload = {
           compartment_id: parseInt(compartmentId, 10),
           min_quantity:   minN,
           max_quantity:   maxN,
-        }, getToken)
+        }
+        if (locType === 'vehicle') payload.vehicle_id  = parseInt(vehicleId,  10)
+        else                       payload.location_id = parseInt(locationId, 10)
+        await adminApi.assignItem(item.item_id, payload, getToken)
       } else {
-        // Same compartment — just update quantities
+        // Same location/compartment — just update quantities
         await adminApi.updateParLevel(assignment.par_id, {
           min_quantity: minN,
           max_quantity: maxN,
@@ -104,27 +143,72 @@ function EditRow({ assignment, item, vehicles, onSaved, onCancel }) {
     }
   }
 
+  const pickerValue     = locType === 'vehicle' ? vehicleId : locationId
+  const hasPickerValue  = !!pickerValue
+
   return (
     <form className="assignment-edit-row" onSubmit={handleSave} noValidate>
 
+      {/* Step 1 — Where (location type) */}
       <div className="assignment-field">
-        <label className="assignment-field__label">Vehicle</label>
+        <label className="assignment-field__label">Where</label>
         <select
           className="assignment-field__select"
-          value={vehicleId}
-          onChange={handleVehicleChange}
+          value={locType}
+          onChange={handleLocTypeChange}
           disabled={submitting}
         >
-          <option value="">— Select vehicle —</option>
-          {(vehicles ?? []).filter(v => v.active).map(v => (
-            <option key={v.vehicle_id} value={v.vehicle_id}>
-              {v.vehicle_number} ({v.vehicle_type})
-            </option>
-          ))}
+          <option value="vehicle">Vehicle</option>
+          {jumpBags.length > 0 && <option value="jump_bag">Jump Bag</option>}
+          {supplyRoom && <option value="supply_room">Station Supply Room</option>}
         </select>
       </div>
 
-      {vehicleId && (
+      {/* Step 2 — Pick specific vehicle or jump bag (supply room auto-selects) */}
+      {locType === 'vehicle' && (
+        <div className="assignment-field">
+          <label className="assignment-field__label">Vehicle</label>
+          <select
+            className="assignment-field__select"
+            value={vehicleId}
+            onChange={handleVehicleOrLocationChange}
+            disabled={submitting}
+          >
+            <option value="">— Select vehicle —</option>
+            {(vehicles ?? []).filter(v => v.active && !v.retired_at).map(v => (
+              <option key={v.vehicle_id} value={v.vehicle_id}>
+                {v.vehicle_number} ({v.vehicle_type})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {locType === 'jump_bag' && (
+        <div className="assignment-field">
+          <label className="assignment-field__label">Jump Bag</label>
+          <select
+            className="assignment-field__select"
+            value={locationId}
+            onChange={handleVehicleOrLocationChange}
+            disabled={submitting}
+          >
+            <option value="">— Select jump bag —</option>
+            {jumpBags.map(l => (
+              <option key={l.location_id} value={l.location_id}>
+                {l.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {locType === 'supply_room' && supplyRoom && (
+        <p className="assignment-location-label">{supplyRoom.label}</p>
+      )}
+
+      {/* Step 3 — Pick compartment */}
+      {hasPickerValue && (
         <div className="assignment-field">
           <label className="assignment-field__label">Compartment</label>
           {loadingCompartments ? (
@@ -147,7 +231,8 @@ function EditRow({ assignment, item, vehicles, onSaved, onCancel }) {
         </div>
       )}
 
-      {vehicleId && compartmentId && (
+      {/* Step 4 — Quantities */}
+      {hasPickerValue && compartmentId && (
         <div className="assignment-edit-fields">
           <label className="assignment-edit-label">
             Needs at least
@@ -176,7 +261,7 @@ function EditRow({ assignment, item, vehicles, onSaved, onCancel }) {
         <button
           type="submit"
           className="btn btn--primary btn--sm"
-          disabled={submitting || !vehicleId || !compartmentId}
+          disabled={submitting || !hasPickerValue || !compartmentId}
         >
           {submitting ? 'Saving…' : 'Save'}
         </button>
@@ -191,29 +276,56 @@ function EditRow({ assignment, item, vehicles, onSaved, onCancel }) {
 
 // ── AddAssignmentForm ─────────────────────────────────────────────────────────
 
-function AddAssignmentForm({ item, vehicles, onAdded, onCancel }) {
+function AddAssignmentForm({ item, vehicles, locations, onAdded, onCancel }) {
   const { getToken } = useAuth()
+
+  const jumpBags   = (locations ?? []).filter(l => l.location_type === 'JUMP_BAG' && !l.retired_at)
+  const supplyRoom = (locations ?? []).find(l => l.location_type === 'STATION_SUPPLY_ROOM' && !l.retired_at)
+
+  const [locType, setLocType]             = useState('vehicle')
   const [vehicleId, setVehicleId]         = useState('')
+  const [locationId, setLocationId]       = useState('')
   const [compartmentId, setCompartmentId] = useState('')
   const [min, setMin]                     = useState('1')
   const [max, setMax]                     = useState('4')
   const [error, setError]                 = useState(null)
   const [submitting, setSubmitting]       = useState(false)
 
+  // Auto-select supply room when that type is chosen
+  useEffect(() => {
+    if (locType === 'supply_room' && supplyRoom) {
+      setLocationId(String(supplyRoom.location_id))
+    }
+  }, [locType, supplyRoom?.location_id])
+
   const { data: compartments, isLoading: loadingCompartments } = useApi(
-    () => vehicleId ? adminApi.getVehicleCompartments(vehicleId, getToken) : Promise.resolve([]),
-    [vehicleId]
+    () => {
+      if (locType === 'vehicle' && vehicleId) return adminApi.getVehicleCompartments(vehicleId, getToken)
+      if (locType !== 'vehicle' && locationId) return adminApi.getLocationCompartments(locationId, getToken)
+      return Promise.resolve([])
+    },
+    [locType, vehicleId, locationId]
   )
 
-  function handleVehicleChange(e) {
-    setVehicleId(e.target.value)
+  function handleLocTypeChange(e) {
+    setLocType(e.target.value)
+    setVehicleId('')
+    setLocationId('')
+    setCompartmentId('')
+    setError(null)
+  }
+
+  function handleVehicleOrLocationChange(e) {
+    if (locType === 'vehicle') setVehicleId(e.target.value)
+    else setLocationId(e.target.value)
     setCompartmentId('')
     setError(null)
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!vehicleId)     { setError('Please select a vehicle.'); return }
+    const hasLocation = locType === 'vehicle' ? !!vehicleId : !!locationId
+    if (!hasLocation)   { setError('Please select a location.'); return }
     if (!compartmentId) { setError('Please select a compartment.'); return }
     const minN = parseInt(min, 10)
     const maxN = parseInt(max, 10)
@@ -222,12 +334,14 @@ function AddAssignmentForm({ item, vehicles, onAdded, onCancel }) {
 
     setSubmitting(true); setError(null)
     try {
-      await adminApi.assignItem(item.item_id, {
-        vehicle_id:     parseInt(vehicleId, 10),
+      const payload = {
         compartment_id: parseInt(compartmentId, 10),
         min_quantity:   minN,
         max_quantity:   maxN,
-      }, getToken)
+      }
+      if (locType === 'vehicle') payload.vehicle_id  = parseInt(vehicleId,  10)
+      else                       payload.location_id = parseInt(locationId, 10)
+      await adminApi.assignItem(item.item_id, payload, getToken)
       onAdded()
     } catch (err) {
       setError(err.message)
@@ -236,30 +350,73 @@ function AddAssignmentForm({ item, vehicles, onAdded, onCancel }) {
     }
   }
 
+  const pickerValue    = locType === 'vehicle' ? vehicleId : locationId
+  const hasPickerValue = !!pickerValue
+
   return (
     <form className="add-assignment-form" onSubmit={handleSubmit} noValidate>
-      <p className="add-assignment-form__title">Assign to vehicle compartment</p>
+      <p className="add-assignment-form__title">Add assignment</p>
 
-      {/* Step 1 — Pick vehicle */}
+      {/* Step 1 — Where (location type) */}
       <div className="assignment-field">
-        <label className="assignment-field__label">Vehicle</label>
+        <label className="assignment-field__label">Where</label>
         <select
           className="assignment-field__select"
-          value={vehicleId}
-          onChange={handleVehicleChange}
+          value={locType}
+          onChange={handleLocTypeChange}
           disabled={submitting}
         >
-          <option value="">— Select vehicle —</option>
-          {(vehicles ?? []).filter(v => v.active).map(v => (
-            <option key={v.vehicle_id} value={v.vehicle_id}>
-              {v.vehicle_number} ({v.vehicle_type})
-            </option>
-          ))}
+          <option value="vehicle">Vehicle</option>
+          {jumpBags.length > 0 && <option value="jump_bag">Jump Bag</option>}
+          {supplyRoom && <option value="supply_room">Station Supply Room</option>}
         </select>
       </div>
 
-      {/* Step 2 — Pick compartment (only shown after vehicle selected) */}
-      {vehicleId && (
+      {/* Step 2 — Pick specific vehicle or jump bag */}
+      {locType === 'vehicle' && (
+        <div className="assignment-field">
+          <label className="assignment-field__label">Vehicle</label>
+          <select
+            className="assignment-field__select"
+            value={vehicleId}
+            onChange={handleVehicleOrLocationChange}
+            disabled={submitting}
+          >
+            <option value="">— Select vehicle —</option>
+            {(vehicles ?? []).filter(v => v.active && !v.retired_at).map(v => (
+              <option key={v.vehicle_id} value={v.vehicle_id}>
+                {v.vehicle_number} ({v.vehicle_type})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {locType === 'jump_bag' && (
+        <div className="assignment-field">
+          <label className="assignment-field__label">Jump Bag</label>
+          <select
+            className="assignment-field__select"
+            value={locationId}
+            onChange={handleVehicleOrLocationChange}
+            disabled={submitting}
+          >
+            <option value="">— Select jump bag —</option>
+            {jumpBags.map(l => (
+              <option key={l.location_id} value={l.location_id}>
+                {l.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {locType === 'supply_room' && supplyRoom && (
+        <p className="assignment-location-label">{supplyRoom.label}</p>
+      )}
+
+      {/* Step 3 — Pick compartment */}
+      {hasPickerValue && (
         <div className="assignment-field">
           <label className="assignment-field__label">Compartment</label>
           {loadingCompartments ? (
@@ -282,8 +439,8 @@ function AddAssignmentForm({ item, vehicles, onAdded, onCancel }) {
         </div>
       )}
 
-      {/* Step 3 — Quantities (only shown after compartment selected) */}
-      {vehicleId && compartmentId && (
+      {/* Step 4 — Quantities */}
+      {hasPickerValue && compartmentId && (
         <div className="assignment-qty-row">
           <label className="assignment-edit-label">
             Needs at least
@@ -312,7 +469,7 @@ function AddAssignmentForm({ item, vehicles, onAdded, onCancel }) {
         <button
           type="submit"
           className="btn btn--primary btn--sm"
-          disabled={submitting || !vehicleId || !compartmentId}
+          disabled={submitting || !hasPickerValue || !compartmentId}
         >
           {submitting ? 'Saving…' : 'Assign'}
         </button>
@@ -327,7 +484,7 @@ function AddAssignmentForm({ item, vehicles, onAdded, onCancel }) {
 
 // ── ItemAssignments ───────────────────────────────────────────────────────────
 
-export default function ItemAssignments({ item, stationId, vehicles, initialCount = null }) {
+export default function ItemAssignments({ item, stationId, vehicles, locations, initialCount = null }) {
   const { getToken } = useAuth()
   const [expanded, setExpanded]           = useState(false)
   const [editingParId, setEditingParId]   = useState(null)
@@ -351,7 +508,6 @@ export default function ItemAssignments({ item, stationId, vehicles, initialCoun
   async function handleRemove(parId) {
     setRemovingParId(parId)
     try {
-      // Canonical ADMIN-B8: PATCH /deactivate
       await adminApi.deactivateParLevel(parId, getToken)
       refresh()
     } catch (err) {
@@ -361,8 +517,6 @@ export default function ItemAssignments({ item, stationId, vehicles, initialCoun
   }
 
   // ── Toggle label ──────────────────────────────────────────────────────────
-  // Uses the count embedded in the item list response, then switches to live
-  // data once the panel has been expanded.
   const liveCount = assignments?.length ?? null
   const count     = liveCount ?? initialCount
 
@@ -408,6 +562,7 @@ export default function ItemAssignments({ item, stationId, vehicles, initialCoun
                           assignment={a}
                           item={item}
                           vehicles={vehicles}
+                          locations={locations}
                           onSaved={refresh}
                           onCancel={() => setEditingParId(null)}
                         />
@@ -415,7 +570,7 @@ export default function ItemAssignments({ item, stationId, vehicles, initialCoun
                         <>
                           <div className="assignment-row__info">
                             <span className="assignment-row__vehicle">
-                              {a.vehicle_number}
+                              {a.vehicle_number ?? a.location_label ?? 'Unknown'}
                             </span>
                             <span className="assignment-row__sep">›</span>
                             <span className="assignment-row__compartment">
@@ -452,6 +607,7 @@ export default function ItemAssignments({ item, stationId, vehicles, initialCoun
                 <AddAssignmentForm
                   item={item}
                   vehicles={vehicles}
+                  locations={locations}
                   onAdded={refresh}
                   onCancel={() => setShowAddForm(false)}
                 />
@@ -461,7 +617,7 @@ export default function ItemAssignments({ item, stationId, vehicles, initialCoun
                   className="btn btn--secondary btn--sm item-assignments__add-btn"
                   onClick={() => { setShowAddForm(true); setEditingParId(null) }}
                 >
-                  + Assign to vehicle
+                  + Add assignment
                 </button>
               )}
             </>

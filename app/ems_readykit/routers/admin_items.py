@@ -188,12 +188,14 @@ def _enrich_par(
     summary="List all items in the catalog (ADMIN-B1)",
 )
 def list_items(
+    station_id: int = Query(...),
     category: Optional[ItemCategory] = Query(default=None),
     check_type: Optional[ItemCheckType] = Query(default=None),
     active: Optional[bool] = Query(default=None),
     db: Session = Depends(get_db),
-    _: None = Depends(require_role(*SUPERVISOR_PLUS)),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> List[Dict]:
+    require_station_membership(station_id, current_user, db)
     count_sq = (
         db.query(ParLevel.item_id, func.count(ParLevel.par_id).label("cnt"))
         .filter(ParLevel.active.is_(True))
@@ -203,6 +205,7 @@ def list_items(
     q = db.query(
         Item, func.coalesce(count_sq.c.cnt, 0).label("assignment_count")
     ).outerjoin(count_sq, Item.item_id == count_sq.c.item_id)
+    q = q.filter(Item.station_id == station_id)
     if category is not None:
         q = q.filter(Item.category == category)
     if check_type is not None:
@@ -225,18 +228,21 @@ def list_items(
 )
 def search_items(
     q: str = Query(..., min_length=1, max_length=100),
+    station_id: int = Query(...),
     active_only: bool = Query(default=True),
     limit: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
-    _: None = Depends(require_role(*SUPERVISOR_PLUS)),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> List[Item]:
+    require_station_membership(station_id, current_user, db)
     term = f"%{q.strip()}%"
     query = db.query(Item).filter(
+        Item.station_id == station_id,
         or_(
             Item.name.ilike(term),
             Item.alternate_names.ilike(term),
             Item.ai_tags.ilike(term),
-        )
+        ),
     )
     if active_only:
         query = query.filter(Item.active.is_(True))
@@ -385,10 +391,12 @@ def _parse_optional_int(
 
 @router.post("/items/import", summary="Bulk import items from CSV (ADMIN-B17)")
 async def import_items_csv(
+    station_id: int = Query(...),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    _: None = Depends(require_role(*SUPERVISOR_PLUS)),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> Dict[str, Any]:
+    require_station_membership(station_id, current_user, db)
     raw = await file.read(MAX_IMPORT_BYTES + 1)
     if len(raw) > MAX_IMPORT_BYTES:
         raise HTTPException(
@@ -434,7 +442,11 @@ async def import_items_csv(
         if not name:
             errors.append({"row": row_num, "name": "", "error": "name is required"})
             continue
-        if db.query(Item).filter(Item.name == name).first():
+        if (
+            db.query(Item)
+            .filter(Item.name == name, Item.station_id == station_id)
+            .first()
+        ):
             skipped += 1
             continue
         category_raw = (row.get("category") or "").strip()
@@ -502,6 +514,7 @@ async def import_items_csv(
         db.add(
             Item(
                 name=name,
+                station_id=station_id,
                 category=category_raw,
                 check_type=check_type_raw,
                 unit_of_measure=unit,
@@ -535,9 +548,11 @@ async def import_items_csv(
 def get_item(
     item_id: int,
     db: Session = Depends(get_db),
-    _: None = Depends(require_role(*SUPERVISOR_PLUS)),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> Item:
-    return _get_item_or_404(item_id, db)
+    item = _get_item_or_404(item_id, db)
+    require_station_membership(item.station_id, current_user, db)
+    return item
 
 
 # -- ADMIN-B2: Create item -----------------------------------------------------
@@ -552,8 +567,9 @@ def get_item(
 def create_item(
     payload: ItemCreate,
     db: Session = Depends(get_db),
-    _: None = Depends(require_role(*SUPERVISOR_PLUS)),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> Item:
+    require_station_membership(payload.station_id, current_user, db)
     _conflict_on_name(payload.name, db, station_id=payload.station_id)
     _conflict_on_barcode(payload.barcode, db)
     item = Item(
@@ -607,9 +623,10 @@ def update_item(
     item_id: int,
     payload: ItemCreate,
     db: Session = Depends(get_db),
-    _: None = Depends(require_role(*SUPERVISOR_PLUS)),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> Item:
     item = _get_item_or_404(item_id, db)
+    require_station_membership(item.station_id, current_user, db)
     if payload.name != item.name:
         _conflict_on_name(
             payload.name, db, station_id=item.station_id, exclude_id=item_id
@@ -662,9 +679,10 @@ def update_item(
 def deactivate_item(
     item_id: int,
     db: Session = Depends(get_db),
-    _: None = Depends(require_role(*ADMIN_ONLY)),
+    current_user: CurrentUser = Depends(require_role(*ADMIN_ONLY)),
 ) -> Item:
     item = _get_item_or_404(item_id, db)
+    require_station_membership(item.station_id, current_user, db)
     if not item.active:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -707,6 +725,7 @@ def update_item_ai_fields(
     current_user: CurrentUser = Depends(require_role(*ADMIN_ONLY)),
 ) -> Item:
     item = _get_item_or_404(item_id, db)
+    require_station_membership(item.station_id, current_user, db)
     fields = payload.model_fields_set
     if "barcode" in fields and payload.barcode:
         _conflict_on_barcode(payload.barcode, db, exclude_id=item_id)
@@ -741,9 +760,10 @@ def update_item_ai_fields(
 def count_item_assignments(
     item_id: int,
     db: Session = Depends(get_db),
-    _: None = Depends(require_role(*SUPERVISOR_PLUS)),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> Dict[str, int]:
-    _get_item_or_404(item_id, db)
+    item = _get_item_or_404(item_id, db)
+    require_station_membership(item.station_id, current_user, db)
     count = (
         db.query(ParLevel)
         .filter(ParLevel.item_id == item_id, ParLevel.active.is_(True))
@@ -761,9 +781,10 @@ def list_item_assignments(
     item_id: int,
     active_only: bool = Query(default=True),
     db: Session = Depends(get_db),
-    _: None = Depends(require_role(*SUPERVISOR_PLUS)),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> List[ParLevelAssignment]:
-    _get_item_or_404(item_id, db)
+    item = _get_item_or_404(item_id, db)
+    require_station_membership(item.station_id, current_user, db)
     query = db.query(ParLevel).filter(ParLevel.item_id == item_id)
     if active_only:
         query = query.filter(ParLevel.active.is_(True))
@@ -794,6 +815,7 @@ def assign_item_to_compartment(
     orphaned duplicate.
     """
     item = _get_item_or_404(item_id, db)
+    require_station_membership(item.station_id, current_user, db)
     if payload.vehicle_id is not None:
         location = (
             db.query(InventoryLocation)

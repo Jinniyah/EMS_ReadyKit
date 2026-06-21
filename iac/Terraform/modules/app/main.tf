@@ -31,6 +31,16 @@ resource "random_string" "kv_suffix" {
   upper   = false
 }
 
+# SEC-4: main.py asserts secret_key != "change-me-in-production" whenever
+# APP_ENV=production, and crashes app startup if the assertion fails. Generate
+# a real value here so a future production cutover doesn't boot-loop on this.
+# Not currently read for any cryptographic purpose in the app — it exists to
+# satisfy the SEC-4 startup guard — but treat it as a real secret regardless.
+resource "random_password" "app_secret_key" {
+  length  = 48
+  special = true
+}
+
 resource "azurerm_key_vault" "ems_kv" {
   name                       = "kv-${random_string.kv_suffix.result}"
   resource_group_name        = var.resource_group_name
@@ -98,8 +108,9 @@ resource "azurerm_linux_web_app" "ems_app" {
     "ENABLE_ORYX_BUILD"              = "true"
     "STORAGE_ACCOUNT_NAME"           = var.storage_account_name
     "KEY_VAULT_URI"                  = azurerm_key_vault.ems_kv.vault_uri
-    "APP_ENV"                        = "production"
+    "APP_ENV"                        = local.is_dev ? "development" : "production"
     "LOG_LEVEL"                      = "INFO"
+    "SECRET_KEY"                     = random_password.app_secret_key.result
     "DATABASE_URL"                   = var.sql_connection_string
     "AZURE_AD_TENANT_ID"             = var.tenant_id
     "AZURE_AD_CLIENT_ID"             = var.client_id
@@ -134,6 +145,13 @@ resource "azurerm_role_assignment" "app_kv_secrets_user" {
 resource "azurerm_key_vault_secret" "sql_connection" {
   name         = "sql-connection-string"
   value        = var.sql_connection_string
+  key_vault_id = azurerm_key_vault.ems_kv.id
+  depends_on   = [azurerm_role_assignment.terraform_kv_secrets_officer]
+}
+
+resource "azurerm_key_vault_secret" "app_secret_key" {
+  name         = "app-secret-key"
+  value        = random_password.app_secret_key.result
   key_vault_id = azurerm_key_vault.ems_kv.id
   depends_on   = [azurerm_role_assignment.terraform_kv_secrets_officer]
 }

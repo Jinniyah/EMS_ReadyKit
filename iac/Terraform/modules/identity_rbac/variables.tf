@@ -20,6 +20,11 @@ variable "tfstate_storage_account_id" {
   description = "Resource ID of the storage account holding Terraform state — grants CI/CD service principal Storage Blob Data Contributor so it can read/write state with azuread_auth"
 }
 
+variable "frontend_url" {
+  type        = string
+  description = "Full HTTPS URL of the deployed Static Web App frontend — used as a SPA redirect URI and homepage URL on the App Registration"
+}
+
 variable "tags" {
   type        = map(string)
   description = "Tags to apply to taggable resources"

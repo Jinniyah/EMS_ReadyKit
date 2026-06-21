@@ -1,6 +1,7 @@
 /**
  * tests/ItemCatalog.test.jsx
- * Item catalog: list renders, search filters, add button role-gating.
+ * Item catalog: list renders, search filters, cabinet chip filters,
+ * add button role-gating.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -38,6 +39,7 @@ const ITEMS = [
     item_id:       1,
     name:          'Bandage',
     category:      'Consumable',
+    category_group: null,
     check_type:    'SUPPLY',
     unit_of_measure: 'ea',
     active:        true,
@@ -48,6 +50,7 @@ const ITEMS = [
     item_id:       2,
     name:          'AED Battery',
     category:      'Equipment',
+    category_group: null,
     check_type:    'FUNCTIONAL',
     unit_of_measure: 'ea',
     active:        true,
@@ -58,6 +61,7 @@ const ITEMS = [
     item_id:       3,
     name:          'Morphine',
     category:      'Medication',
+    category_group: null,
     check_type:    'SUPPLY',
     unit_of_measure: 'mg',
     active:        true,
@@ -66,11 +70,37 @@ const ITEMS = [
   },
 ]
 
-function setupApiMocks() {
-  // First call → vehicles (empty); second call → items
+const ITEMS_WITH_CABINET = [
+  {
+    item_id:       10,
+    name:          'NRB Mask',
+    category:      'Consumable',
+    category_group: 'Airway & Respiratory',
+    check_type:    'SUPPLY',
+    unit_of_measure: 'ea',
+    active:        true,
+    controlled_substance: false,
+    assignment_count: 0,
+  },
+  {
+    item_id:       11,
+    name:          'Morphine 10mg',
+    category:      'Medication',
+    category_group: 'Medications & Controlled Substances',
+    check_type:    'SUPPLY',
+    unit_of_measure: 'vial',
+    active:        true,
+    controlled_substance: true,
+    assignment_count: 0,
+  },
+]
+
+function setupApiMocks(items = ITEMS) {
+  // Three useApi calls in component order: vehicles, locations, items
   useApi
-    .mockReturnValueOnce({ data: [],   isLoading: false, error: null, refetch: vi.fn() })
-    .mockReturnValue(   { data: ITEMS, isLoading: false, error: null, refetch: vi.fn() })
+    .mockReturnValueOnce({ data: [],   isLoading: false, error: null, refetch: vi.fn() })  // vehicles
+    .mockReturnValueOnce({ data: [],   isLoading: false, error: null, refetch: vi.fn() })  // locations
+    .mockReturnValue(   { data: items, isLoading: false, error: null, refetch: vi.fn() })  // items + fallback
 }
 
 function asJamie() {
@@ -114,9 +144,9 @@ describe('ItemCatalog — item list renders', () => {
     expect(screen.getByText(/\(3\)/)).toBeTruthy()
   })
 
-  it('shows category group headings', () => {
+  it('shows category group headings (falls back to category when category_group is null)', () => {
     render(<ItemCatalog stationId={1} />)
-    // Use heading role to distinguish the h3 from category filter chips and item badges
+    // Items without category_group fall back to category for the group heading
     expect(screen.getByRole('heading', { level: 3, name: 'Consumable' })).toBeTruthy()
     expect(screen.getByRole('heading', { level: 3, name: 'Equipment' })).toBeTruthy()
   })
@@ -147,6 +177,42 @@ describe('ItemCatalog — search filters results', () => {
     render(<ItemCatalog stationId={1} />)
     await user.type(screen.getByRole('searchbox', { name: /search items/i }), 'zzznomatch')
     expect(screen.getByText(/no items match/i)).toBeTruthy()
+  })
+})
+
+describe('ItemCatalog — cabinet group chip filters', () => {
+  beforeEach(() => { asEarl() })
+
+  it('shows All chip selected by default', () => {
+    setupApiMocks()
+    render(<ItemCatalog stationId={1} />)
+    expect(screen.getByRole('button', { name: 'All' })).toBeTruthy()
+  })
+
+  it('shows cabinet group headings when items have category_group set', () => {
+    setupApiMocks(ITEMS_WITH_CABINET)
+    render(<ItemCatalog stationId={1} />)
+    expect(screen.getByRole('heading', { level: 3, name: 'Airway & Respiratory' })).toBeTruthy()
+    expect(screen.getByRole('heading', { level: 3, name: 'Medications & Controlled Substances' })).toBeTruthy()
+  })
+
+  it('chip filter hides items outside the selected cabinet', async () => {
+    const user = userEvent.setup()
+    setupApiMocks(ITEMS_WITH_CABINET)
+    render(<ItemCatalog stationId={1} />)
+    await user.click(screen.getByRole('button', { name: 'Airway' }))
+    expect(screen.getByText('NRB Mask')).toBeTruthy()
+    expect(screen.queryByText('Morphine 10mg')).toBeNull()
+  })
+
+  it('clicking All restores all items', async () => {
+    const user = userEvent.setup()
+    setupApiMocks(ITEMS_WITH_CABINET)
+    render(<ItemCatalog stationId={1} />)
+    await user.click(screen.getByRole('button', { name: 'Airway' }))
+    await user.click(screen.getByRole('button', { name: 'All' }))
+    expect(screen.getByText('NRB Mask')).toBeTruthy()
+    expect(screen.getByText('Morphine 10mg')).toBeTruthy()
   })
 })
 

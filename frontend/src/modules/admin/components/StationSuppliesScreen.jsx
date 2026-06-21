@@ -144,6 +144,7 @@ export default function StationSuppliesScreen({ station, onBack }) {
               <CompartmentParLevels
                 compartmentId={comp.compartment_id}
                 locationId={supplyRoom.location_id}
+                stationId={station.station_id}
               />
             </div>
           ))}

@@ -322,8 +322,12 @@ class TestPC8Integrity:
             item.check_type == ItemCheckType.FUNCTIONAL
         ), f"LUCAS Device check_type is {item.check_type} -- must be FUNCTIONAL"
         par = _par_for_item_in_compartment(seeded_db, item, comp)
-        assert par.priority_check is True, "LUCAS Device priority_check is False -- must be True"
-        assert par.priority_question is not None, "LUCAS Device has no priority_question set"
+        assert (
+            par.priority_check is True
+        ), "LUCAS Device priority_check is False -- must be True"
+        assert (
+            par.priority_question is not None
+        ), "LUCAS Device has no priority_question set"
 
     def test_lucas_date_of_last_charge_in_pc8(self, seeded_db):
         v = _vehicle(seeded_db, "712")

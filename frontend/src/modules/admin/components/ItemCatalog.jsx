@@ -1,13 +1,13 @@
 /**
  * modules/admin/components/ItemCatalog.jsx
  *
- * Item catalog browser with typeahead search, category filter,
+ * Item catalog browser with typeahead search, cabinet-group filter chips,
  * active/inactive toggle, and add/edit form.
  *
  * UX principles (tired crew / end-of-shift user):
  *   - Items shown as large, easy-to-read cards — not a table
  *   - Search bar at top — type to filter instantly client-side
- *   - Category filter chips below search — one tap to narrow
+ *   - Cabinet filter chips below search — one tap to narrow by physical location
  *   - Each card shows the essential fields at a glance:
  *       name · category badge · check type · unit
  *   - Edit button on each card — one tap to enter edit mode
@@ -42,7 +42,17 @@ const CHECK_TYPE_LABEL = {
   DOCUMENT:    { label: 'Present/Missing', icon: '📄' },
 }
 
-const CATEGORIES = ['All', 'Medication', 'Consumable', 'Equipment', 'Document']
+// Cabinet groups from BASE_ITEM_SEED (ITM-3 / migration 0029)
+const CABINET_CHIPS = [
+  { value: 'All',                                     label: 'All' },
+  { value: 'Airway & Respiratory',                    label: 'Airway' },
+  { value: 'Wound Care & Trauma Supplies',            label: 'Wound Care' },
+  { value: 'PPE & Cleaning',                          label: 'PPE' },
+  { value: 'Diagnostic & Monitoring Equipment',       label: 'Diagnostic' },
+  { value: 'Medications & Controlled Substances',     label: 'Medications' },
+  { value: 'Documents, Linens & Patient Comfort',     label: 'Documents' },
+  { value: 'Vehicle Operations',                      label: 'Vehicle Ops' },
+]
 
 export default function ItemCatalog({ stationId }) {
   const { user, getToken } = useAuth()
@@ -52,7 +62,7 @@ export default function ItemCatalog({ stationId }) {
   const [showInactive, setShowInactive]     = useState(false)
   const [editingItem, setEditingItem]       = useState(null)
   const [searchQuery, setSearchQuery]       = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('All')
+  const [cabinetFilter, setCabinetFilter]   = useState('All')
   const [catalogKey, setCatalogKey]         = useState(0)
 
   // Vehicles fetched once — passed down to ItemAssignments for the cascade picker
@@ -61,13 +71,21 @@ export default function ItemCatalog({ stationId }) {
     [stationId]
   )
 
+  // Locations (jump bags + supply room) — passed to ItemAssignments for the "Where" picker
+  const { data: locations } = useApi(
+    () => stationId ? adminApi.getStationLocations(stationId, getToken) : Promise.resolve([]),
+    [stationId]
+  )
+
   const {
     data: items,
     isLoading,
     error,
   } = useApi(
-    () => adminApi.listItems(getToken, { active: showInactive ? null : true }),
-    [catalogKey, showInactive]
+    () => stationId
+      ? adminApi.listItems(getToken, { stationId, active: showInactive ? null : true })
+      : Promise.resolve([]),
+    [catalogKey, showInactive, stationId]
   )
 
   // ── Client-side filter ──────────────────────────────────────────────────────
@@ -76,26 +94,27 @@ export default function ItemCatalog({ stationId }) {
     if (!items) return []
     const q = searchQuery.trim().toLowerCase()
     return items.filter(item => {
-      const matchesCategory = categoryFilter === 'All' || item.category === categoryFilter
-      const matchesSearch   = !q
+      const matchesCabinet = cabinetFilter === 'All' || item.category_group === cabinetFilter
+      const matchesSearch  = !q
         || item.name.toLowerCase().includes(q)
         || item.alternate_names?.toLowerCase().includes(q)
         || item.ai_tags?.toLowerCase().includes(q)
-      return matchesCategory && matchesSearch
+      return matchesCabinet && matchesSearch
     })
-  }, [items, searchQuery, categoryFilter])
+  }, [items, searchQuery, cabinetFilter])
 
-  // Group by category for display
+  // Group by category_group (physical cabinet); fall back to category for items missing it
   const grouped = useMemo(() => {
     const groups = {}
     for (const item of filtered) {
-      if (!groups[item.category]) groups[item.category] = []
-      groups[item.category].push(item)
+      const key = item.category_group ?? item.category ?? 'Other'
+      if (!groups[key]) groups[key] = []
+      groups[key].push(item)
     }
     return groups
   }, [filtered])
 
-  function handleSaved(savedItem) {
+  function handleSaved() {
     setEditingItem(null)
     setCatalogKey(k => k + 1)
   }
@@ -153,16 +172,16 @@ export default function ItemCatalog({ stationId }) {
         />
       </div>
 
-      {/* Category filter chips */}
-      <div className="item-catalog__filters" role="group" aria-label="Filter by category">
-        {CATEGORIES.map(cat => (
+      {/* Cabinet filter chips */}
+      <div className="item-catalog__filters" role="group" aria-label="Filter by cabinet">
+        {CABINET_CHIPS.map(chip => (
           <button
-            key={cat}
+            key={chip.value}
             type="button"
-            className={`item-catalog__chip ${categoryFilter === cat ? 'item-catalog__chip--active' : ''}`}
-            onClick={() => setCategoryFilter(cat)}
+            className={`item-catalog__chip ${cabinetFilter === chip.value ? 'item-catalog__chip--active' : ''}`}
+            onClick={() => setCabinetFilter(chip.value)}
           >
-            {cat}
+            {chip.label}
           </button>
         ))}
       </div>
@@ -193,11 +212,11 @@ export default function ItemCatalog({ stationId }) {
             : 'No items in the catalog yet. Add one above.'}
         </div>
       ) : (
-        Object.entries(grouped).map(([category, catItems]) => (
-          <div key={category} className="item-catalog__group">
-            <h3 className="item-catalog__group-title">{category}</h3>
+        Object.entries(grouped).map(([groupName, groupItems]) => (
+          <div key={groupName} className="item-catalog__group">
+            <h3 className="item-catalog__group-title">{groupName}</h3>
             <div className="item-catalog__cards">
-              {catItems.map(item => {
+              {groupItems.map(item => {
                 const ctMeta  = CHECK_TYPE_LABEL[item.check_type] ?? { label: item.check_type, icon: '' }
                 const badgeCls = CATEGORY_BADGE[item.category] ?? ''
                 return (
@@ -245,6 +264,7 @@ export default function ItemCatalog({ stationId }) {
                       item={item}
                       stationId={stationId}
                       vehicles={vehicles ?? []}
+                      locations={locations ?? []}
                       initialCount={item.assignment_count ?? 0}
                     />
                   </div>

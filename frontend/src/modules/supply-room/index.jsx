@@ -239,6 +239,7 @@ export default function SupplyRoomScreen({ station, onBack, onCountSupplies }) {
           {activeSection === 'RECEIVE' && (
             <ReceiveStockPanel
               locationId={supplyRoom.location_id}
+              stationId={station?.station_id}
               onStockAdded={loadCatalog}
             />
           )}

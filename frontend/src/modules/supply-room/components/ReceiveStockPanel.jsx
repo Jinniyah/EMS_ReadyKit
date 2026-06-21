@@ -15,7 +15,7 @@ import ItemSearchCombobox from '../../../shared/components/ItemSearchCombobox.js
 import { supplyApi } from '../api/supplyApi.js'
 import { useAuth } from '../../../shared/hooks/useAuth.jsx'
 
-export default function ReceiveStockPanel({ locationId, onStockAdded }) {
+export default function ReceiveStockPanel({ locationId, stationId, onStockAdded }) {
   const { getToken } = useAuth()
 
   // Manual form state
@@ -257,6 +257,7 @@ export default function ReceiveStockPanel({ locationId, onStockAdded }) {
             onSelect={setSelectedItem}
             initialItem={selectedItem}
             placeholder="Type to search items..."
+            stationId={stationId}
           />
         </div>
 

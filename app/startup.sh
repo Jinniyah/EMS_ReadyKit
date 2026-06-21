@@ -99,14 +99,26 @@ if [ -f "seed.py" ]; then
         echo "Pass 1: APP_ENV=production — skipping operational seed."
     else
         echo "Pass 1: Checking if operational seed is needed..."
+        # IMPORTANT: SQLAlchemy's engine logger writes to stdout (not stderr)
+        # by default, so a bare `2>/dev/null` does NOT suppress it — it gets
+        # captured into STATION_COUNT along with the real number, corrupting
+        # the later string comparison and silently routing every deploy into
+        # the "skip" branch even when the table is genuinely empty. Explicitly
+        # raise the sqlalchemy.engine logger level to WARNING before querying,
+        # and strip whitespace/newlines from the captured value as a second
+        # layer of defense.
         STATION_COUNT=$(python -c "
+import logging
+logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
+logging.getLogger('sqlalchemy.pool').setLevel(logging.WARNING)
+
 from ems_readykit.core.database import SessionLocal
 from sqlalchemy import text
 db = SessionLocal()
 result = db.execute(text('SELECT COUNT(*) FROM stations')).scalar()
 db.close()
 print(result)
-" 2>/dev/null || echo "0")
+" 2>/dev/null | tr -d '[:space:]' || echo "0")
         echo "  Station count: $STATION_COUNT"
 
         if [ "$STATION_COUNT" = "0" ]; then

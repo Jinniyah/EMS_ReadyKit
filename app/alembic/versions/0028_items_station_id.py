@@ -112,9 +112,7 @@ def upgrade() -> None:
             sa.text("ALTER TABLE items DROP CONSTRAINT IF EXISTS items_name_key")
         )
         # Also try the SQLAlchemy auto-name in case a naming convention was active.
-        op.execute(
-            sa.text("ALTER TABLE items DROP CONSTRAINT IF EXISTS uq_items_name")
-        )
+        op.execute(sa.text("ALTER TABLE items DROP CONSTRAINT IF EXISTS uq_items_name"))
 
         op.create_unique_constraint(
             "uq_items_station_name", "items", ["station_id", "name"]

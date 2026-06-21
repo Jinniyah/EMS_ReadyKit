@@ -112,6 +112,7 @@ function ShelfManager({ location, getToken }) {
           <CompartmentParLevels
             compartmentId={comp.compartment_id}
             locationId={location.location_id}
+            stationId={station.station_id}
           />
         </div>
       ))}

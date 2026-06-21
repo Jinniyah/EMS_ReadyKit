@@ -66,6 +66,7 @@ export default function ItemSearchCombobox({
   placeholder  = 'Type to search items…',
   disabled     = false,
   autoFocus    = false,
+  stationId    = undefined,
 }) {
   const { getToken } = useAuth()
   const comboId = useId()
@@ -86,7 +87,7 @@ export default function ItemSearchCombobox({
   const runSearch = useCallback(async (q) => {
     if (!q.trim()) { setResults([]); setOpen(false); return }
     try {
-      const items = await adminApi.searchItems(q, getToken, { limit: 10 })
+      const items = await adminApi.searchItems(q, getToken, { limit: 10, stationId })
       setResults(items ?? [])
       setOpen((items?.length ?? 0) > 0)
       setActiveIdx(-1)
