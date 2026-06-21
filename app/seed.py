@@ -3,9 +3,9 @@ seed.py
 Seed data for EMS ReadyKit development database.
 
 Stations seeded:
-    1. Newberg Township Station 1 — Ambulance 712 (BLS) + Unit 712 Jump Bag
+    1. Newberg Township Station — Ambulance 712 (BLS) + Unit 712 Jump Bag
        Full par levels from real inventory forms (ITM-2/ITM-4).
-    2. Marcellus Township Station 1 — Unit 540 (ALS)
+    2. Marcellus Township Station — Unit 540 (ALS)
        Item catalog seeded; par levels assigned via admin UI.
     3. Newberg Training Station (orange) — Training Unit A + B, Jump Bag A + B
        Item catalog seeded; par levels assigned via admin UI.
@@ -3063,14 +3063,14 @@ def seed(db: Session) -> None:
     # Ambulance 712 (BLS) + Unit 712 Jump Bag
     # Full par levels from real inventory forms.
     # =========================================================================
-    print("Seeding Newberg Township Station 1...")
+    print("Seeding Newberg Township Station...")
 
     newberg = (
-        db.query(Station).filter(Station.name == "Newberg Township Station 1").first()
+        db.query(Station).filter(Station.name == "Newberg Township Station").first()
     )
     if not newberg:
         newberg = Station(
-            name="Newberg Township Station 1",
+            name="Newberg Township Station",
             address="Newberg Township, Michigan",
             region="Cass County",
             active=True,
@@ -3178,14 +3178,14 @@ def seed(db: Session) -> None:
     # STATION 2 — Marcellus Township
     # Unit 540 (ALS) — item catalog only; par levels assigned via admin UI
     # =========================================================================
-    print("\nSeeding Marcellus Township Station 1...")
+    print("\nSeeding Marcellus Township Station...")
 
     marcellus = (
-        db.query(Station).filter(Station.name == "Marcellus Township Station 1").first()
+        db.query(Station).filter(Station.name == "Marcellus Township Station").first()
     )
     if not marcellus:
         marcellus = Station(
-            name="Marcellus Township Station 1",
+            name="Marcellus Township Station",
             address="Marcellus Township, Michigan",
             region="Cass County",
             active=True,
@@ -3577,7 +3577,7 @@ def seed(db: Session) -> None:
     print(f"""
   ✓ Seed complete.
 
-  Newberg Township Station 1:
+  Newberg Township Station:
     Station ID:           {newberg.station_id}
     Unit 712 BLS:         location_id={loc712.location_id}
     Unit 712 Jump Bag:    location_id={jb_712.location_id}
@@ -3585,7 +3585,7 @@ def seed(db: Session) -> None:
     Par levels (712+JB):  {newberg_par_count}
     Items in catalog:     {total_items_newberg}
 
-  Marcellus Township Station 1:
+  Marcellus Township Station:
     Station ID:           {marcellus.station_id}
     Unit 540 ALS:         catalog seeded, no par levels (assign via admin UI)
 

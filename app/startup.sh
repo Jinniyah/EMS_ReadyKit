@@ -10,10 +10,22 @@
 # Seed strategy (two independent passes):
 #
 #   Pass 1 — Operational seed (dev/staging only, skipped in production):
-#     Runs seed.py when stations table is empty. Creates real operational
-#     stations (Newberg 712, Marcellus 540) and the TEST STATION.
+#     Runs seed.py when the real operational stations (Newberg Township Station
+#     and Marcellus Township Station) do not both already exist. Creates those
+#     two stations plus the Newberg Training Station and TEST STATION.
 #     Skipped in production because real station data is entered by the admin
 #     after first login, not auto-seeded.
+#
+#     IMPORTANT — do NOT gate this on a generic "is the stations table empty"
+#     row count. Pass 2 (training seed) always runs and always creates exactly
+#     one station (Newberg Training Station), so after the first successful
+#     boot the stations table is never empty again — a row-count gate would
+#     then skip Pass 1 forever, on every future boot, even immediately after a
+#     full database wipe, depending purely on which pass's restart cycle
+#     reaches the table first. This caused operational stations (Newberg,
+#     Marcellus) to silently never get seeded after a DB reset on 2026-06-21.
+#     Checking for the two operational stations BY NAME avoids this — Pass 2
+#     creating the training station can never satisfy this check.
 #
 #   Pass 2 — Training seed (always runs, including production):
 #     Calls seed_training.py to ensure the Newberg Training Station exists.
@@ -88,10 +100,11 @@ alembic upgrade head
 echo "Migrations complete."
 
 # ── Pass 1: Operational seed (dev/staging only) ────────────────────────────────
-# Runs seed.py only when the stations table is empty AND APP_ENV != production.
-# In production, real station data is entered by the administrator after first
-# login — not auto-seeded. The TEST STATION and Newberg/Marcellus operational
-# data should never appear in production.
+# Runs seed.py only when at least one of the two real operational stations is
+# missing, AND APP_ENV != production. In production, real station data is
+# entered by the administrator after first login — not auto-seeded. The TEST
+# STATION and Newberg/Marcellus operational data should never appear in
+# production.
 if [ -f "seed.py" ]; then
     APP_ENV_LOWER=$(echo "${APP_ENV:-}" | tr '[:upper:]' '[:lower:]')
 
@@ -99,40 +112,36 @@ if [ -f "seed.py" ]; then
         echo "Pass 1: APP_ENV=production — skipping operational seed."
     else
         echo "Pass 1: Checking if operational seed is needed..."
-        # IMPORTANT: core/database.py sets engine echo=True whenever
-        # APP_ENV != production (intentional — gives full SQL logging in
-        # dev). echo=True is SQLAlchemy's OWN logging mechanism, separate
-        # from Python's `logging` module: it forces the engine's logger to
-        # INFO internally and is NOT suppressed by
-        # logging.getLogger('sqlalchemy.engine').setLevel(...).
+        # Check for the two operational stations BY NAME, not a row count.
+        # See the comment block at the top of this file for why a row count
+        # is wrong here: Pass 2 always creates exactly one station (Newberg
+        # Training Station), so the table is never empty after the first
+        # successful boot.
         #
-        # In practice the entire SQL echo dump for this query (BEGIN,
-        # SELECT, COMMIT/ROLLBACK, etc.) arrives as ONE continuous line with
-        # no embedded newlines, immediately followed by the real digit from
-        # print(result) — e.g.:
-        #   ...EngineROLLBACK0
-        # `tail -n 1` does nothing here since there's only ever one line.
-        # `tr -d '[:space:]'` doesn't help either since the noise itself has
-        # no whitespace to strip. The only reliable extraction is to grab
-        # the digits at the very end of the string, since print(result)
-        # always executes last and is never followed by anything else:
-        STATION_COUNT=$(python -c "
+        # core/database.py sets engine echo=True whenever APP_ENV !=
+        # production, which prints the full SQL log to stdout — same as the
+        # earlier station-count check, so the extraction needs the same
+        # trailing-digit-only approach via grep -oE '[0-9]+$'.
+        OPERATIONAL_COUNT=$(python -c "
 from ems_readykit.core.database import SessionLocal
 from sqlalchemy import text
 db = SessionLocal()
-result = db.execute(text('SELECT COUNT(*) FROM stations')).scalar()
+result = db.execute(text(
+    \"SELECT COUNT(*) FROM stations WHERE name IN \"
+    \"('Newberg Township Station', 'Marcellus Township Station')\"
+)).scalar()
 db.close()
 print(result)
 " 2>/dev/null | grep -oE '[0-9]+$' | tail -n 1)
-        STATION_COUNT="${STATION_COUNT:-0}"
-        echo "  Station count: $STATION_COUNT"
+        OPERATIONAL_COUNT="${OPERATIONAL_COUNT:-0}"
+        echo "  Operational stations present: $OPERATIONAL_COUNT / 2"
 
-        if [ "$STATION_COUNT" = "0" ]; then
-            echo "  Database is empty — running operational seed..."
+        if [ "$OPERATIONAL_COUNT" = "2" ]; then
+            echo "  Both operational stations already exist — skipping operational seed."
+        else
+            echo "  One or both operational stations missing — running operational seed..."
             python seed.py && echo "  Operational seed complete." \
                 || echo "  WARNING: Operational seed failed — continuing startup."
-        else
-            echo "  Database already has $STATION_COUNT station(s) — skipping operational seed."
         fi
     fi
 else
