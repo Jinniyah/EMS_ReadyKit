@@ -99,26 +99,32 @@ if [ -f "seed.py" ]; then
         echo "Pass 1: APP_ENV=production — skipping operational seed."
     else
         echo "Pass 1: Checking if operational seed is needed..."
-        # IMPORTANT: SQLAlchemy's engine logger writes to stdout (not stderr)
-        # by default, so a bare `2>/dev/null` does NOT suppress it — it gets
-        # captured into STATION_COUNT along with the real number, corrupting
-        # the later string comparison and silently routing every deploy into
-        # the "skip" branch even when the table is genuinely empty. Explicitly
-        # raise the sqlalchemy.engine logger level to WARNING before querying,
-        # and strip whitespace/newlines from the captured value as a second
-        # layer of defense.
+        # IMPORTANT: core/database.py sets engine echo=True whenever
+        # APP_ENV != production (intentional — gives full SQL logging in
+        # dev). echo=True is SQLAlchemy's OWN logging mechanism, separate
+        # from Python's `logging` module: it forces the engine's logger to
+        # INFO internally and is NOT suppressed by
+        # logging.getLogger('sqlalchemy.engine').setLevel(...).
+        #
+        # In practice the entire SQL echo dump for this query (BEGIN,
+        # SELECT, COMMIT/ROLLBACK, etc.) arrives as ONE continuous line with
+        # no embedded newlines, immediately followed by the real digit from
+        # print(result) — e.g.:
+        #   ...EngineROLLBACK0
+        # `tail -n 1` does nothing here since there's only ever one line.
+        # `tr -d '[:space:]'` doesn't help either since the noise itself has
+        # no whitespace to strip. The only reliable extraction is to grab
+        # the digits at the very end of the string, since print(result)
+        # always executes last and is never followed by anything else:
         STATION_COUNT=$(python -c "
-import logging
-logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
-logging.getLogger('sqlalchemy.pool').setLevel(logging.WARNING)
-
 from ems_readykit.core.database import SessionLocal
 from sqlalchemy import text
 db = SessionLocal()
 result = db.execute(text('SELECT COUNT(*) FROM stations')).scalar()
 db.close()
 print(result)
-" 2>/dev/null | tr -d '[:space:]' || echo "0")
+" 2>/dev/null | grep -oE '[0-9]+$' | tail -n 1)
+        STATION_COUNT="${STATION_COUNT:-0}"
         echo "  Station count: $STATION_COUNT"
 
         if [ "$STATION_COUNT" = "0" ]; then

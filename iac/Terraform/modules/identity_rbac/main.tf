@@ -34,6 +34,33 @@
 // expects. If the frontend is ever migrated to request user_impersonation
 // instead, api.access can be retired then — not before.
 //
+// CRITICAL — identifier_uris / azuread_application_identifier_uri:
+// This is the Application ID URI ("api://{client_id}") shown on the
+// Expose an API page. The frontend's MSAL token request asks for scope
+// "api://{client_id}/api.access" — if no identifier_uri matching that
+// App ID URI exists, Azure AD cannot resolve a resource principal for the
+// scope at all, and EVERY sign-in fails with AADSTS500011 "resource
+// principal not found", regardless of account type, regardless of consent
+// status, regardless of anything else being configured correctly. This
+// caused a full site-wide login outage on 2026-06-21 (Session AG/AH) —
+// identifier_uris was never set in this resource's history, so it was
+// always empty live; the failure was latent until something (cache?
+// re-issued tokens?) forced it to surface that day.
+//
+// identifier_uris CANNOT be set as a literal attribute inside
+// azuread_application directly: the URI must contain the application's own
+// client_id, which Terraform cannot know until AFTER the application is
+// created — a circular dependency the provider cannot resolve in a single
+// resource (see hashicorp/terraform-provider-azuread#428). The provider's
+// own documented workaround is the separate azuread_application_identifier_uri
+// resource below, paired with ignore_changes on identifier_uris in the main
+// resource so Terraform doesn't fight itself over which one owns the value.
+//
+// DO NOT remove azuread_application_identifier_uri or its ignore_changes
+// pairing. DO NOT attempt to set identifier_uris directly on
+// azuread_application again — it cannot work for a self-referential URI
+// and removing it (as happened on 2026-06-21) silently breaks ALL sign-in.
+//
 // required_resource_access / single_page_application / web — NOT managed
 // here, deliberately, for two different reasons:
 //
@@ -59,12 +86,11 @@
 //   version here would pass `terraform plan` but break real sign-in,
 //   including for personal Microsoft accounts.
 //
-// ignore_changes excludes all three blocks from drift detection so
-// Terraform stops trying to "fix" the working manual config on every apply.
-// If this is ever revisited, the right fix is upstream — either wait for a
-// decoupled required_resource_access resource in a future provider version,
-// or get MSAL's redirect handling and the provider's validation to agree on
-// a single canonical form — not just override one side by hand again.
+// ignore_changes excludes required_resource_access, single_page_application,
+// web, and identifier_uris from drift detection on azuread_application so
+// Terraform stops trying to "fix" the working manual config (or, for
+// identifier_uris, fighting the separate resource that actually owns it)
+// on every apply.
 
 resource "azuread_application" "ems_readykit" {
   display_name     = "EMS ReadyKit API"
@@ -128,8 +154,19 @@ resource "azuread_application" "ems_readykit" {
       required_resource_access,
       single_page_application,
       web,
+      identifier_uris,
     ]
   }
+}
+
+# Sets the Application ID URI to api://{client_id} — see the long comment
+# block above for why this must be a separate resource rather than a literal
+# attribute on azuread_application. Without this, EVERY sign-in fails with
+# AADSTS500011 "resource principal not found" because the scope the frontend
+# requests (api://{client_id}/api.access) cannot resolve to anything.
+resource "azuread_application_identifier_uri" "ems_readykit" {
+  application_id = azuread_application.ems_readykit.id
+  identifier_uri  = "api://${azuread_application.ems_readykit.client_id}"
 }
 
 resource "azuread_service_principal" "ems_readykit" {
