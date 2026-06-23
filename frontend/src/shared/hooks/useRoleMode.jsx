@@ -37,7 +37,15 @@ export function useRoleMode(stationId = null, getToken = null) {
   // Reading it here keeps useRoleMode in sync with canAccess automatically.
   const activeRole = user?.activeRole ?? user?.role ?? ROLE_RESPONDER
 
-  const [availableRoles, setAvailableRoles] = useState([user?.role].filter(Boolean))
+  // Administrators always hold all three roles (the backend confirms this via
+  // list_my_roles_at_station which hard-codes all three for any Admin JWT).
+  // Initialise immediately so the switcher appears without waiting for a
+  // stationId or an API call — neither is available at header render time.
+  const [availableRoles, setAvailableRoles] = useState(() =>
+    user?.role === ROLE_ADMINISTRATOR
+      ? [ROLE_ADMINISTRATOR, ROLE_SUPERVISOR, ROLE_RESPONDER]
+      : [user?.role].filter(Boolean)
+  )
   const [loading, setLoading] = useState(false)
 
   // Fetch available roles from the API when stationId is known (production only).
