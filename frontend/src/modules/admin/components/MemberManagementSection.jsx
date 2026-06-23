@@ -204,62 +204,177 @@ function AddMemberForm({ stationId, isAdmin, getToken, onAdded }) {
 // ── CSV import row ────────────────────────────────────────────────────────────
 
 function CsvImportRow({ stationId, getToken, onImported }) {
-  const fileRef             = useRef(null)
-  const [importing, setImporting] = useState(false)
-  const [result, setResult]       = useState(null)
-  const [error, setError]         = useState(null)
+  const fileRef = useRef(null)
 
-  async function handleFileChange(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setImporting(true)
+  const [expanded, setExpanded]       = useState(false)
+  const [file, setFile]               = useState(null)
+  const [uploading, setUploading]     = useState(false)
+  const [result, setResult]           = useState(null)
+  const [uploadError, setUploadError] = useState(null)
+  const [showErrors, setShowErrors]   = useState(false)
+
+  async function handleTemplateDownload(e) {
+    e.preventDefault()
+    const token = await getToken()
+    const res = await fetch(`/api/v1/stations/${stationId}/members/import/template`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) { alert('Could not download template. Please try again.'); return }
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'ems_readykit_members_template.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function handleFileChange(e) {
+    const selected = e.target.files?.[0] ?? null
+    setFile(selected)
     setResult(null)
-    setError(null)
+    setUploadError(null)
+    setShowErrors(false)
+  }
+
+  async function handleUpload() {
+    if (!file) return
+    setUploading(true)
+    setResult(null)
+    setUploadError(null)
+    setShowErrors(false)
     try {
       const res = await membersApi.importCsv(stationId, file, getToken)
       setResult(res)
+      setFile(null)
+      if (fileRef.current) fileRef.current.value = ''
       onImported()
     } catch (e) {
-      setError(e.message)
+      setUploadError(e.message ?? 'Upload failed. Please try again.')
     } finally {
-      setImporting(false)
-      if (fileRef.current) fileRef.current.value = ''
+      setUploading(false)
     }
   }
 
   return (
-    <div className="member-csv-row">
-      <a
-        className="member-csv-row__template-link"
-        href={membersApi.templateUrl(stationId)}
-        download
-      >
-        Download CSV template
-      </a>
-      <span className="member-csv-row__separator">·</span>
+    <div className="csv-import">
       <button
-        className="btn btn--secondary member-csv-row__btn"
-        onClick={() => fileRef.current?.click()}
-        disabled={importing}
         type="button"
+        className="csv-import__toggle"
+        onClick={() => setExpanded(v => !v)}
+        aria-expanded={expanded}
       >
-        {importing ? 'Importing…' : 'Import CSV'}
+        <span>↑ Import from CSV</span>
+        <span className="csv-import__toggle-hint" aria-hidden="true">
+          {expanded ? 'Hide' : 'Bulk load members from a spreadsheet'}
+        </span>
+        <span aria-hidden="true">{expanded ? '▲' : '▼'}</span>
       </button>
-      <input
-        ref={fileRef}
-        type="file"
-        accept=".csv"
-        onChange={handleFileChange}
-        style={{ display: 'none' }}
-        aria-hidden="true"
-      />
-      {result && (
-        <p className="member-csv-row__result" role="status">
-          Added {result.created}, reactivated {result.reactivated}, skipped {result.skipped}.
-          {result.errors?.length > 0 && ` ${result.errors.length} row(s) had errors.`}
-        </p>
+
+      {expanded && (
+        <div className="csv-import__panel">
+          <div className="csv-import__step">
+            <p className="csv-import__step-label">Step 1 — Download the template</p>
+            <p className="csv-import__hint">
+              Fill it out in Excel or Google Sheets, then come back and upload it.
+              Don't change the column headers.
+            </p>
+            <button
+              type="button"
+              className="btn btn--secondary btn--full"
+              onClick={handleTemplateDownload}
+            >
+              ↓ Download Template (CSV)
+            </button>
+          </div>
+
+          <div className="csv-import__step">
+            <p className="csv-import__step-label">Step 2 — Choose your completed file</p>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="csv-import__file-input"
+              onChange={handleFileChange}
+              disabled={uploading}
+              aria-label="Choose CSV file to upload"
+            />
+            {file && (
+              <p className="csv-import__filename">
+                📄 {file.name} ({(file.size / 1024).toFixed(1)} KB)
+              </p>
+            )}
+          </div>
+
+          <div className="csv-import__step">
+            <p className="csv-import__step-label">Step 3 — Upload</p>
+            <button
+              type="button"
+              className="btn btn--primary btn--full"
+              onClick={handleUpload}
+              disabled={!file || uploading}
+            >
+              {uploading ? 'Uploading…' : '↑ Upload and Import'}
+            </button>
+          </div>
+
+          {uploadError && (
+            <div className="csv-import__error" role="alert">
+              ⚠ {uploadError}
+            </div>
+          )}
+
+          {result && (
+            <div className="csv-import__results">
+              {result.created > 0 && (
+                <div className="csv-import__result csv-import__result--success">
+                  ✓ {result.created} member{result.created !== 1 ? 's' : ''} added
+                </div>
+              )}
+              {result.reactivated > 0 && (
+                <div className="csv-import__result csv-import__result--success">
+                  ✓ {result.reactivated} member{result.reactivated !== 1 ? 's' : ''} reactivated
+                </div>
+              )}
+              {result.skipped > 0 && (
+                <div className="csv-import__result csv-import__result--warning">
+                  ⚠ {result.skipped} row{result.skipped !== 1 ? 's' : ''} skipped — already exist
+                </div>
+              )}
+              {result.errors?.length > 0 && (
+                <div className="csv-import__result csv-import__result--error">
+                  <div className="csv-import__result-header">
+                    <span>✗ {result.errors.length} row{result.errors.length !== 1 ? 's' : ''} had errors</span>
+                    <button
+                      type="button"
+                      className="csv-import__show-errors"
+                      onClick={() => setShowErrors(v => !v)}
+                    >
+                      {showErrors ? 'Hide details' : 'Show details'}
+                    </button>
+                  </div>
+                  {showErrors && (
+                    <ul className="csv-import__error-list">
+                      {result.errors.map((e, i) => (
+                        <li key={i} className="csv-import__error-row">
+                          <span className="csv-import__error-row-num">Row {e.row}</span>
+                          {e.email && <span className="csv-import__error-name">{e.email}</span>}
+                          <span className="csv-import__error-msg">{e.error}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+              {result.created === 0 && result.reactivated === 0 && result.skipped === 0 && result.errors?.length === 0 && (
+                <div className="csv-import__result csv-import__result--warning">
+                  The file was processed but contained no data rows.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
-      {error && <p className="member-csv-row__error" role="alert">{error}</p>}
     </div>
   )
 }

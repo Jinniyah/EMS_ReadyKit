@@ -1,10 +1,8 @@
 # EMS ReadyKit — Active Backlog
-# v3.14 | Updated: 2026-06-23 | PortableLocationsScreen had the same `station is
-# not defined` ReferenceError as VehiclesScreen (Session AM) — ShelfManager
-# never received a station prop. Fixed using location.station_id. Confirmed
-# via npm test + npm run build, deployed. StationSuppliesScreen checked and
-# confirmed clean (station is a real top-level prop there, no nested helper
-# component). All three CompartmentParLevels consumers now verified correct.
+# v3.16 | Updated: 2026-06-23 | CLEANUP-AM1 ✅ confirmed — _session_AM_removed/
+# is gone from the repo root, dead routers/admin.py fully deleted via git rm.
+# No remaining cleanup items from Session AM. Backlog is now entirely
+# post-launch operational + engineering items.
 # Version-history footer (v1.95-v2.07) moved to backlog_completed.md
 # to keep this file small — see that file's "Changelog Archive" section for history.
 # Completed items -> backlog_completed.md
@@ -19,31 +17,11 @@
 ## The first time Earl sees it, it must work without explanation.
 ##
 ## ITM-1..8 ✅ all complete (Sessions AG–AN). VERIFY-AL1 ✅ confirmed.
-## Production deploy live and confirmed working (Session AO sweep; AM-era
-## VehiclesScreen + compartment-PATCH fixes verified live; PortableLocationsScreen
-## ReferenceError fix pushed and pending live verification).
-
----
-
-## VERIFY NEXT SESSION (or immediately, if still in this one)
-
-### VERIFY-AM2 — Confirm Jump Bag compartments load on live site
-| Field | Value |
-|---|---|
-| Priority | High (until confirmed) |
-| Status | 📋 Not started |
-| Notes | `PortableLocationsScreen.jsx`'s `ShelfManager` had the same `ReferenceError: station is not defined` bug as `VehiclesScreen.jsx`'s `VehicleAdminCard` (Session AM) — `stationId={station.station_id}` referenced a `station` that was never in scope inside the nested helper component. Fixed with `location.station_id` instead, confirmed via `npm test` + `npm run build`, and pushed. Confirm live: Station Administration → Jump Bags → expand Unit 712 Jump Bag → compartments load with no console error. |
-
----
-
-## CLEANUP — carried forward from Session AM
-
-### CLEANUP-AM1 — Finalize dead routers/admin.py removal
-| Field | Value |
-|---|---|
-| Priority | Low |
-| Status | 📋 Not started |
-| Notes | `routers/admin.py` — the pre-split monolithic admin router superseded by `admin_items.py`/`admin_stations.py`/`admin_vehicles.py` since Session X — was confirmed unreferenced by `main.py` and moved out of `app/ems_readykit/routers/` into `_session_AM_removed/admin.py` at the repo root (filesystem MCP has no delete; this is the project's standard staging pattern). Run `git rm -r _session_AM_removed` (or `git rm _session_AM_removed/admin.py` followed by removing the now-empty directory) to finalize. Confirmed safe: 0% coverage on 436 dead statements was distorting the project-wide coverage total by roughly nine points; removing it does not change `main.py`'s router-include list or any test, since nothing imported it. |
+## Production deploy live and confirmed working: Session AO sweep deployed clean;
+## Session AM's VehiclesScreen crash, compartment-PATCH bug, and
+## PortableLocationsScreen crash (same root-cause pattern, found and fixed in the
+## same session) are all fixed and confirmed live. No known outstanding bugs.
+## Dead routers/admin.py fully removed (CLEANUP-AM1 ✅).
 
 ---
 
@@ -83,9 +61,8 @@
 ## Summary
 | Area | Count |
 |------|-------|
-| Pre-launch | 0 — ITM-1..8 ✅ all complete (Sessions AG–AN); launch gate closed; production deploy live |
-| Verify next | 1 — VERIFY-AM2 (confirm Jump Bag fix live, high priority until confirmed) |
-| Cleanup carried forward | 1 — CLEANUP-AM1 (finalize staged dead-file removal, low priority) |
+| Pre-launch | 0 — ITM-1..8 ✅ all complete (Sessions AG–AN); launch gate closed; production deploy live and fully verified, no known outstanding bugs |
+| Cleanup carried forward | 0 — CLEANUP-AM1 ✅ confirmed complete |
 | Post-launch operational | 6 (1 🔄 in progress, 2 previously blocked now unblocked) |
 | Post-launch engineering | 15 |
-| **Total remaining** | **23** |
+| **Total remaining** | **21** |

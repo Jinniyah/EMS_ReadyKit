@@ -315,8 +315,8 @@ function AdminHome({ stations, selectedId, onSelectStation, onBack, onNavigate, 
     { id: 'members',   icon: '👥', label: 'Members',            hint: 'Manage crew access' },
     { id: 'catalog',   icon: '📦', label: 'Item Catalog',       hint: 'Add and manage inventory items' },
     { id: 'vehicles',  icon: '🚑', label: 'Vehicles',           hint: 'Add vehicles and compartments' },
-    { id: 'supplies',  icon: '🏪', label: 'Station Supplies',   hint: 'Manage supply room shelves and items' },
     { id: 'portable',  icon: '🎒', label: 'Jump Bags',          hint: 'Manage portable locations and compartments' },
+    { id: 'supplies',  icon: '🏪', label: 'Station Supplies',   hint: 'Manage supply room shelves and items' },
   ]
 
   function handleSaved(s) {
