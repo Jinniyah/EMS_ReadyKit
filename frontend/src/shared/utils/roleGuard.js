@@ -31,7 +31,11 @@ const ROLE_LEVEL = {
  */
 export function canAccess(user, required) {
   if (!user) return false
-  const userLevel     = ROLE_LEVEL[user.role] ?? 0
+  // Prefer activeRole (set by the role switcher) over the JWT role so that a
+  // user who holds multiple roles in Azure AD sees the correct gated UI after
+  // switching roles in the UserPill dropdown.
+  const effectiveRole = user.activeRole ?? user.role
+  const userLevel     = ROLE_LEVEL[effectiveRole] ?? 0
   const requiredLevel = ROLE_LEVEL[_normalise(required)] ?? 99
   return userLevel >= requiredLevel
 }

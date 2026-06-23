@@ -23,7 +23,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth, ROLE_ADMINISTRATOR, ROLE_SUPERVISOR, ROLE_RESPONDER } from './useAuth.jsx'
 import { apiGet } from '../api/client.js'
 
-const STORAGE_KEY = 'ems_active_role'
 const ROLE_LEVEL  = { Administrator: 3, Supervisor: 2, Responder: 1 }
 
 function highestRole(roles) {
@@ -32,16 +31,13 @@ function highestRole(roles) {
 }
 
 export function useRoleMode(stationId = null, getToken = null) {
-  const { user, _isDev } = useAuth()
+  const { user, _isDev, setActiveRole } = useAuth()
 
-  // In dev mode, available roles are the three fixed personas — no API call needed.
-  const [availableRoles, setAvailableRoles] = useState(() =>
-    _isDev ? [user?.role].filter(Boolean) : [user?.role].filter(Boolean)
-  )
-  const [activeRole, setActiveRoleState] = useState(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    return stored ?? user?.role ?? ROLE_RESPONDER
-  })
+  // activeRole lives in useAuth (persisted via localStorage + React state).
+  // Reading it here keeps useRoleMode in sync with canAccess automatically.
+  const activeRole = user?.activeRole ?? user?.role ?? ROLE_RESPONDER
+
+  const [availableRoles, setAvailableRoles] = useState([user?.role].filter(Boolean))
   const [loading, setLoading] = useState(false)
 
   // Fetch available roles from the API when stationId is known (production only).
@@ -54,25 +50,17 @@ export function useRoleMode(stationId = null, getToken = null) {
       .then(roles => {
         if (!Array.isArray(roles) || roles.length === 0) return
         setAvailableRoles(roles)
-        // If the stored role is not in available roles, reset to highest available.
-        const stored = localStorage.getItem(STORAGE_KEY)
-        if (!stored || !roles.includes(stored)) {
-          const best = highestRole(roles)
-          localStorage.setItem(STORAGE_KEY, best)
-          setActiveRoleState(best)
+        // If the current active role is not among the station's roles, reset to highest.
+        if (!roles.includes(activeRole)) {
+          setActiveRole(highestRole(roles))
         }
       })
       .catch(() => {
-        // Fall back to JWT role — non-fatal
         setAvailableRoles([user?.role].filter(Boolean))
       })
       .finally(() => setLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stationId, getToken, user?.email, _isDev])
-
-  const setActiveRole = useCallback((role) => {
-    localStorage.setItem(STORAGE_KEY, role)
-    setActiveRoleState(role)
-  }, [])
 
   // Backward-compat: crew mode = user has a higher role but is working as Responder
   const canSwitch = availableRoles.length > 1
@@ -83,7 +71,6 @@ export function useRoleMode(stationId = null, getToken = null) {
   const toggleCrewMode = useCallback(() => {
     if (!canSwitch) return
     if (isCrewMode) {
-      // Switch to highest non-Responder role
       const higher = availableRoles.filter(r => r !== ROLE_RESPONDER)
       setActiveRole(highestRole(higher.length ? higher : availableRoles))
     } else {
@@ -97,7 +84,6 @@ export function useRoleMode(stationId = null, getToken = null) {
     setActiveRole,
     canSwitch,
     loading,
-    // Backward compat
     isCrewMode,
     isSupervisorMode,
     toggleCrewMode,

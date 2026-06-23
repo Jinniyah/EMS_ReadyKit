@@ -87,3 +87,42 @@ describe('canAccess — Administrator', () => {
     expect(canAccess(administrator, 'Administrator')).toBe(true)
   })
 })
+
+describe('canAccess — activeRole override (ACC-B7 multi-role regression)', () => {
+  // When a user holds all three roles in Azure AD, user.role is always
+  // Administrator (highest-privilege wins in _extractRole). The role switcher
+  // sets activeRole to let them see lower-privilege views.  canAccess must
+  // respect activeRole so that switching to Responder actually hides admin UI.
+  const adminSwitchedToResponder = { role: 'Administrator', activeRole: 'Responder' }
+  const adminSwitchedToSupervisor = { role: 'Administrator', activeRole: 'Supervisor' }
+  const adminNoOverride = { role: 'Administrator', activeRole: 'Administrator' }
+
+  it('admin switched to Responder: can access responder routes', () => {
+    expect(canAccess(adminSwitchedToResponder, 'responder')).toBe(true)
+  })
+
+  it('admin switched to Responder: cannot access supervisor routes', () => {
+    expect(canAccess(adminSwitchedToResponder, 'supervisor')).toBe(false)
+  })
+
+  it('admin switched to Responder: cannot access administrator routes', () => {
+    expect(canAccess(adminSwitchedToResponder, 'administrator')).toBe(false)
+  })
+
+  it('admin switched to Supervisor: can access supervisor routes', () => {
+    expect(canAccess(adminSwitchedToSupervisor, 'supervisor')).toBe(true)
+  })
+
+  it('admin switched to Supervisor: cannot access administrator routes', () => {
+    expect(canAccess(adminSwitchedToSupervisor, 'administrator')).toBe(false)
+  })
+
+  it('admin with activeRole=Administrator: still has full access', () => {
+    expect(canAccess(adminNoOverride, 'administrator')).toBe(true)
+  })
+
+  it('user with no activeRole field falls back to role', () => {
+    expect(canAccess({ role: 'Supervisor' }, 'administrator')).toBe(false)
+    expect(canAccess({ role: 'Supervisor' }, 'supervisor')).toBe(true)
+  })
+})

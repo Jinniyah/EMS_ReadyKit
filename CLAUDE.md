@@ -132,6 +132,7 @@ At session close:
 | File deletion | `move_file` to `_session_XX_removed/`, then `git rm` at close |
 | Vehicle API shape | No `status` field — `v.active === true && !v.retired_at` only |
 | Audit timestamp boundary | UTC always — `datetime.now(timezone.utc).date()`, never local `date.today()` (Session AF) |
+| No hard delete on items | **By design.** `items.item_id` is a NOT NULL FK in `check_line_items`, `stock_lots`, `stock_transfers`, and `usage_event_items`. Hard-deleting would require cascade-destroying check history (data loss) or making `item_id` nullable across four tables (migration + orphan-handling throughout the app). The right lifecycle is: deactivate (hides from all crew views; Admin can see via "Show inactive" toggle in Item Catalog). Do not add a `DELETE /admin/items/{id}` route. |
 
 ---
 

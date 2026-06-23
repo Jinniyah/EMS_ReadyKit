@@ -29,7 +29,7 @@
  * }
  */
 
-import React, { createContext, useContext, useCallback } from 'react'
+import React, { createContext, useContext, useCallback, useState, useEffect } from 'react'
 import { useMsal, useIsAuthenticated } from '@azure/msal-react'
 import { InteractionRequiredAuthError } from '@azure/msal-browser'
 import { apiTokenRequest } from '../api/authConfig.js'
@@ -84,13 +84,18 @@ export function DevAuthProvider({ children }) {
     setRoleKey(key)
   }, [])
 
+  // In dev mode the whole user object changes when switching (different email/role/token),
+  // so activeRole always equals user.role — no separate override is needed.
+  const devUser = isAuthenticated ? { ...user, activeRole: user.role } : null
+
   const value = {
     isAuthenticated,
     isLoading: false,
-    user: isAuthenticated ? user : null,
+    user: devUser,
     getToken,
     login,
     logout,
+    setActiveRole: () => {},   // no-op in dev; role switching uses _switchRole
     _isDev: true,
     _devRoleKey: roleKey,
     _switchRole: switchRole,
@@ -113,6 +118,9 @@ export function useAuth() {
 }
 
 // ── Production MSAL implementation ────────────────────────────────────────────
+const _VALID_ROLES = new Set([ROLE_ADMINISTRATOR, ROLE_SUPERVISOR, ROLE_RESPONDER])
+const _ACTIVE_ROLE_KEY = 'ems_active_role'
+
 function useMsalAuth() {
   const { instance, accounts, inProgress } = useMsal()
   const isAuthenticated = useIsAuthenticated()
@@ -120,12 +128,41 @@ function useMsalAuth() {
   const account = accounts[0] ?? null
   const role    = _extractRole(account?.idTokenClaims?.roles)
 
+  // Active role override — set by the role switcher, persisted in localStorage.
+  // Defaults to the JWT role (highest privilege) if nothing is stored or stored
+  // value is not a valid role.
+  const [activeRoleOverride, setActiveRoleOverride] = useState(() => {
+    const stored = localStorage.getItem(_ACTIVE_ROLE_KEY)
+    return (stored && _VALID_ROLES.has(stored)) ? stored : null
+  })
+
+  // Sync override when another tab changes the stored role
+  useEffect(() => {
+    function handler(e) {
+      if (e.key === _ACTIVE_ROLE_KEY) {
+        setActiveRoleOverride(e.newValue && _VALID_ROLES.has(e.newValue) ? e.newValue : null)
+      }
+    }
+    window.addEventListener('storage', handler)
+    return () => window.removeEventListener('storage', handler)
+  }, [])
+
+  const setActiveRole = useCallback((r) => {
+    localStorage.setItem(_ACTIVE_ROLE_KEY, r)
+    setActiveRoleOverride(r)
+  }, [])
+
+  const activeRole = (activeRoleOverride && _VALID_ROLES.has(activeRoleOverride))
+    ? activeRoleOverride
+    : role
+
   const user = account
     ? {
-        name:     account.name ?? account.username,
-        email:    account.username,
-        role,
-        initials: _initials(account.name ?? account.username),
+        name:       account.name ?? account.username,
+        email:      account.username,
+        role,        // JWT role — never changes, used to determine API permissions
+        activeRole,  // display role — may be overridden by the role switcher
+        initials:   _initials(account.name ?? account.username),
       }
     : null
 
@@ -171,6 +208,7 @@ function useMsalAuth() {
     getToken,
     login,
     logout,
+    setActiveRole,
     _isDev: false,
   }
 }

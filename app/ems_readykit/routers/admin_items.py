@@ -671,6 +671,22 @@ def update_item(
 # -- ADMIN-B4: Deactivate item -------------------------------------------------
 
 
+# ── Why there is no DELETE /items/{id} ───────────────────────────────────────
+#
+# items.item_id is a NOT NULL FK in check_line_items, stock_lots,
+# stock_transfers, and usage_event_items.  Hard-deleting an item would require
+# either (a) cascade-deleting all check history that included it (data loss) or
+# (b) making item_id nullable across four tables and handling the null case
+# everywhere.  Neither is acceptable.
+#
+# The correct lifecycle for an item that is no longer in service is:
+#   PATCH /admin/items/{id}/deactivate  →  sets active=False
+#
+# Deactivated items are hidden from all crew views.  Admins can still see them
+# via the "Show inactive items" toggle in the Item Catalog.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
 @router.patch(
     "/items/{item_id}/deactivate",
     response_model=ItemRead,
