@@ -159,6 +159,23 @@ class ItemCreate(ItemBase):
     station_id: int = Field(..., description="Station this item belongs to")
 
 
+class ItemUpdate(ItemBase):
+    """
+    Request body for PATCH /admin/items/{id}.
+
+    Deliberately does NOT include station_id. An item's station is set once
+    at creation and is immutable thereafter -- it is never read from the
+    client on edit, only from the existing row server-side. ItemCreate (which
+    requires station_id) was previously reused for PATCH as well, which meant
+    every edit request had to supply a station_id it had no business
+    changing, and a request that omitted it failed Pydantic validation with a
+    generic 422 "Field required" before update_item() ever ran (LAUNCH-OPS2
+    follow-up, found while editing Window Punch Available's check_type).
+    This mirrors the same client-trust boundary CLAUDE.md already establishes
+    for performed_by: server-derived identity, never client-supplied.
+    """
+
+
 class ItemRead(ItemBase):
     """Response model for item endpoints."""
 

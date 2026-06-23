@@ -38,6 +38,16 @@ wizard's Step 3 Items list, etc). assign_item_to_compartment now reactivates
 the existing inactive row (clearing deactivated_at/deactivation_reason and
 applying the new min/max) instead of inserting a duplicate. create_par_level
 in inventory.py has the same fix for the same reason.
+
+BUG FIX (LAUNCH-OPS2 follow-up): update_item previously validated its request
+body against ItemCreate, which requires station_id (a create-only, immutable
+field). Every edit request therefore had to supply a station_id it had no
+business changing, and any request that omitted it (as the frontend
+ItemForm always did) failed Pydantic validation with a generic 422 "Field
+required" before update_item() ever ran. update_item now takes ItemUpdate,
+which omits station_id entirely -- the item's station is read from the
+existing row server-side and is never accepted from the client on edit, the
+same client-trust boundary already established for performed_by.
 """
 
 from __future__ import annotations
@@ -70,7 +80,7 @@ from ems_readykit.routers.deps import (
     require_station_membership,
 )
 from ems_readykit.schemas.compartment import CompartmentRead
-from ems_readykit.schemas.item import ItemCreate, ItemRead
+from ems_readykit.schemas.item import ItemCreate, ItemRead, ItemUpdate
 from ems_readykit.schemas.par_level import (
     AssignItemRequest,
     ParLevelAssignment,
@@ -621,7 +631,7 @@ def create_item(
 )
 def update_item(
     item_id: int,
-    payload: ItemCreate,
+    payload: ItemUpdate,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> Item:
