@@ -4,8 +4,30 @@
 # Each entry summarizes the goal, root cause, and resolution for a completed
 # session. Bug/item tracking-ID tables and step-by-step debugging narratives have
 # been removed in favor of prose summaries suitable for external review.
-# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, AB, AC, AD, AE, AF, AG, AH, AI, AJ, AK, AL, AM, AN, AO
+# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, AB, AC, AD, AE, AF, AG, AH, AI, AJ, AK, AL, AM, AN, AO, AP, AQ
 # Active backlog -> docs/backlog.md
+
+---
+
+## Session AQ — F-5C2: Help & Tutorial Screen (2026-06-23)
+
+Goal: replace the greyed-out "Help & Tutorial" placeholder card on the home screen with a fully working Help screen.
+
+`modules/help/index.jsx` and `modules/help/help.css` were created as a new self-contained module. The screen is a single scrollable page with role-aware sections: "For Every Crew Member" (seven accordion items covering the shift-start check flow, after-call logging, status colors, missed checks, missing/expired items, reporting repairs, and auto-save draft behavior) and "For Supervisors" (four accordion items — compliance dashboard overview, FAIL check triage, adding crew members, and supply room stock review — shown only when `canAccess(user, 'supervisor')` is true). A static Quick Reference grid lists every home screen button with its icon and one-sentence description, also role-filtered for supervisor-only cards. A "Show me the basics again" button and a matching header button launch the existing `Tutorial` component as a full-screen overlay; when dismissed, the user stays on the Help screen (the `onDone` callback just closes the overlay, does not navigate away, and does not clear `ems_tutorial_complete` from localStorage).
+
+In `HomePage.jsx`: a lazy import for `HelpScreen` was added; a new `if (activeModule === 'help')` render block passes `onBack` and `user` props; the Help card was changed from a disabled placeholder (no button, "Coming in Phase 5C" badge) to a live card with a standard Open button and no `disabled={!selectedStation}` guard since help content is station-independent. The contextual per-wizard-step bottom sheet variant remains deferred (F-5C2 was delivering this full screen as its first-delivery scope).
+
+No backend changes. No new tests required (static content, no logic paths). Backlog count: 14 post-launch engineering items, 16 total remaining.
+
+---
+
+## Session AP — LAUNCH-OPS1–4 Closure and Item-Edit 422 Fix (2026-06-23)
+
+Goal: complete the first four operational launch tasks (priority-item configuration, physical stock counts for Unit 712 and its jump bag, and EMS team member onboarding) and resolve a bug surfaced while doing so.
+
+While entering Unit 712's stock count, changing an item's check type from Functional (pass/fail) to Supply Count returned a 422 "Field required" error. Root cause: `PATCH /admin/items/{id}` validated its request body against `ItemCreate`, the same schema used for item creation, which requires `station_id` — a field that's set once at creation and never sent by the frontend on edit, since the item's station doesn't change. Every edit request was therefore failing Pydantic validation before the route handler ever ran. The fix introduces a dedicated `ItemUpdate` schema that omits `station_id` entirely; the item's station continues to be read from the existing database row server-side, never accepted from the client, consistent with the same client-trust boundary already established elsewhere in the codebase for server-derived identity fields. No frontend changes and no migration were required — this was a request-validation contract fix only. `pytest`, `ruff check`, and `black --check` were all confirmed green, the fix was deployed to Azure, and the edit (Functional → Supply Count) was re-tested live and confirmed working.
+
+LAUNCH-OPS1 (priority-item configuration for Unit 712 — AED Battery, LUCAS Device, and on-board O2 PSI marked priority), LAUNCH-OPS3 (Unit 712 Jump Bag stock count), and LAUNCH-OPS4 (EMS team member roster added via Station Administration → Members → CSV import) were all completed without further engineering involvement. LAUNCH-OPS5 (chief's full shift-start walkthrough) and LAUNCH-OPS6 (volunteer walkthrough) remain open on the active backlog.
 
 ---
 

@@ -1,5 +1,5 @@
 # CLAUDE.md — AI Development Rules for EMS ReadyKit
-# Last updated: 2026-06-23 — Session AO closed (pre-deploy sweep: db.commit() gap in deactivate routes fixed; update_par_level + list_vehicle_compartments station-scoped; <form> elements removed; stale stationId closure fixed; deriveLocType Option A; CSS cross-module fix; useApi error fields; PAR-B1 ORDER BY; test fixture + dead-file cleanup; deploy next)
+# Last updated: 2026-06-23 — Session AQ closed (F-5C2 Help & Tutorial screen: modules/help/ created; role-aware accordion sections; Tutorial replay overlay; HomePage.jsx lazy import + activeModule block + Help card enabled)
 # Load alongside CODEBASE_INDEX.md at the start of every session. Compacted 2026-06-19 — same rules, less prose.
 
 ---

@@ -40,6 +40,7 @@ const AdminScreen          = lazy(() => import('../modules/admin/index.jsx'))
 const SupplyRoomScreen     = lazy(() => import('../modules/supply-room/index.jsx'))
 const UsageLogScreen       = lazy(() => import('../modules/usage-log/index.jsx'))
 const SettingsScreen       = lazy(() => import('../modules/settings/index.jsx'))
+const HelpScreen           = lazy(() => import('../modules/help/index.jsx'))
 
 const STATION_STORAGE_KEY = 'ems_selected_station_id'  // store ID only, not full object
 
@@ -327,6 +328,16 @@ export default function HomePage() {
     )
   }
 
+  if (activeModule === 'help') {
+    return (
+      <ErrorBoundary moduleName="Help Screen">
+        <Suspense fallback={<Spinner label="Loading…" />}>
+          <HelpScreen onBack={() => setActiveModule(null)} user={user} />
+        </Suspense>
+      </ErrorBoundary>
+    )
+  }
+
   if (showTutorial) {
     return <Tutorial onDone={() => setShowTutorial(false)} />
   }
@@ -554,13 +565,20 @@ export default function HomePage() {
           </ErrorBoundary>
 
           <ErrorBoundary moduleName="Help Card">
-            <div className="module-card module-card--disabled">
+            <div className="module-card">
               <div className="module-card__icon" aria-hidden="true">?</div>
               <div className="module-card__content">
                 <div className="module-card__title">Help &amp; Tutorial</div>
-                <div className="module-card__description">How-to guide, FAQ, contextual help</div>
-                <div className="module-card__badge">Coming in Phase 5C</div>
+                <div className="module-card__description">How-to guide and tutorial replay</div>
               </div>
+              <button
+                className="btn btn--primary"
+                style={colors ? { background: colors.primary } : {}}
+                onClick={() => setActiveModule('help')}
+                type="button"
+              >
+                Open
+              </button>
             </div>
           </ErrorBoundary>
 

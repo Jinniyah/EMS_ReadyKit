@@ -353,6 +353,12 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 | `components/RepairRequestList.jsx` | 12 KB | Repair request list + status lifecycle |
 | `components/RepairRequestForm.jsx` | 4 KB | File new repair request |
 
+### help/  (Help & Tutorial screen — Session AQ)
+| File | Size | Purpose |
+|------|------|---------|
+| `index.jsx` | — | Role-aware help screen. Crew-member section (7 accordions: shift-start check, after-call logging, status colors, missed checks, missing/expired items, repair reporting, auto-save draft). Supervisor section (4 accordions: compliance dashboard, FAIL triage, adding members, supply room stock — shown only when `canAccess(user, 'supervisor')`). Quick Reference grid (home screen buttons, role-filtered). "Show me the basics again" button + header button render `Tutorial` as overlay; `onDone` stays on Help screen, does not clear `ems_tutorial_complete`. No API calls — all content is static JSX. |
+| `help.css` | — | Scoped to `.help-screen`. Accordion trigger/body/chevron, 2-col quick-reference grid (`.help-quick-grid`/`.help-quick-item`), replay button. Tokens only — no hardcoded hex/px. |
+
 ### check-history/
 | File | Size | Purpose |
 |------|------|---------|
@@ -571,3 +577,4 @@ files) has been reviewed and deleted — no longer flagged.
 | ✅ **AN** (done) | ITM-7 + ITM-8: launch gate | ITM-7: multi-location assign inline confirmation + "Assign to another location" UX. ITM-8: `ItemAssignments.test.jsx` (9 tests); 233 frontend, 498 backend passing. Launch gate closed. |
 | ✅ **AO** (done) | Pre-deploy sweep | 15 findings resolved: db.commit() gap, station-scoping gaps, <form> violations, stale stationId closure, deriveLocType, CSS, useApi error fields, PAR-B1 ORDER BY, test fixture + dead-file cleanup. 530 backend tests passing. |
 | ✅ **Launched** | Production deploy 2026-06-23 | Pushed to main → CI/CD → Azure confirmed live. LAUNCH-OPS1–6 are post-launch operational tasks (EMS chief). Post-launch engineering: F-5G3, ADMIN-F10, TEST-AE1, TEST-AF1. |
+| ✅ **AQ** (done) | F-5C2: Help & Tutorial screen | `modules/help/` created (index.jsx + help.css); HomePage.jsx lazy-imports HelpScreen, adds `activeModule === 'help'` block, replaces disabled Help card with live Open button. Role-aware sections, accordion UX, Tutorial replay overlay, static content only. |

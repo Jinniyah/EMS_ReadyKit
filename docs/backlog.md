@@ -1,14 +1,16 @@
 # EMS ReadyKit — Active Backlog
-# v3.16 | Updated: 2026-06-23 | CLEANUP-AM1 ✅ confirmed — _session_AM_removed/
-# is gone from the repo root, dead routers/admin.py fully deleted via git rm.
-# No remaining cleanup items from Session AM. Backlog is now entirely
-# post-launch operational + engineering items.
+# v3.18 | Updated: 2026-06-23 | Session AQ: F-5C2 Help & Tutorial screen delivered and moved to
+# backlog_completed.md (Session AP) — priority items configured, Unit 712 +
+# Jump Bag stock counts entered, EMS team members added. Also fixed this
+# session and logged in backlog_completed.md: PATCH /admin/items/{id} 422 on
+# edit (ItemUpdate schema split from ItemCreate). LAUNCH-OPS5/6 (chief +
+# volunteer walkthroughs) remain open below.
 # Version-history footer (v1.95-v2.07) moved to backlog_completed.md
 # to keep this file small — see that file's "Changelog Archive" section for history.
 # Completed items -> backlog_completed.md
 # Priority: Critical / High / Medium / Low | Status: 📋 Not started | 🔄 In progress | ⛔ Blocked
 
-# ✅ Sessions A–AO complete — see backlog_completed.md
+# ✅ Sessions A–AP complete — see backlog_completed.md
 
 ---
 
@@ -30,12 +32,8 @@
 ### Operational (EMS chief's job — not engineering)
 | # | Task | Notes |
 |---|------|-------|
-| LAUNCH-OPS1 | Configure priority items for Unit 712 | Admin → Vehicles → Unit 712 → Par Levels. Mark AED Battery, LUCAS Device, O2 PSI as priority. |
-| LAUNCH-OPS2 | Enter physical stock count for Unit 712 | 📋 Unblocked — ITM-4 reseed complete; catalog is deduplicated and canonical. |
-| LAUNCH-OPS3 | Enter stock count for Unit 712 Jump Bag | 📋 Unblocked — same. |
-| LAUNCH-OPS4 | Add all EMS team members | Use Station Administration → Members → Import CSV. |
 | LAUNCH-OPS5 | Chief full walkthrough — shift-start check on Unit 712 | 🔄 In progress — surfaced ITM-1..8 among other findings. |
-| LAUNCH-OPS6 | Volunteer walkthrough — Earl or equivalent | |
+| LAUNCH-OPS6 | Volunteer walkthrough — Earl or equivalent | 📋 Not started |
 
 ### Post-launch engineering
 | # | Item | Pri | Notes |
@@ -47,7 +45,6 @@
 | TEST-AM3 | Component tests for VehicleAdminCard and ShelfManager expanded-state rendering | Medium | Both bugs this session (`station is not defined` in two sibling components) shipped because no existing test rendered a card/shelf in its *expanded* state — only collapsed-list rendering was covered. Add tests that expand a card/shelf and assert `CompartmentParLevels` renders without throwing, for both `VehiclesScreen` and `PortableLocationsScreen`. |
 | AI-F2 | Barcode search in After-Call Reset | Medium | Deferred by decision. |
 | AI-F3 | Barcode search in supply room receive | Medium | Deferred by decision. |
-| F-5C2 | Contextual "?" help — bottom sheet per wizard step | Medium | Build based on questions team actually asks after first month. |
 | F-UX10 | Scroll-to-card on return from compartment item list | Low | |
 | F-UX5 | Check handoff support | Medium | ⛔ Requires B-M8 (started_by field). |
 | F-UX9 | Two-state submit with offline queue | Low | IndexedDB queue retries on reconnect. |
@@ -63,6 +60,6 @@
 |------|-------|
 | Pre-launch | 0 — ITM-1..8 ✅ all complete (Sessions AG–AN); launch gate closed; production deploy live and fully verified, no known outstanding bugs |
 | Cleanup carried forward | 0 — CLEANUP-AM1 ✅ confirmed complete |
-| Post-launch operational | 6 (1 🔄 in progress, 2 previously blocked now unblocked) |
-| Post-launch engineering | 15 |
-| **Total remaining** | **21** |
+| Post-launch operational | 2 (1 🔄 in progress — OPS5; 1 📋 not started — OPS6; OPS1-4 ✅ done, moved to backlog_completed.md) |
+| Post-launch engineering | 14 |
+| **Total remaining** | **16** |
