@@ -135,6 +135,60 @@ class CompartmentCreate(CompartmentBase):
     location_id: int = Field(..., gt=0, description="Parent inventory location ID")
 
 
+class CompartmentUpdate(BaseModel):
+    """
+    Request body for PATCH /inventory/compartments/{compartment_id}.
+
+    Session AM (VERIFY-AL1 follow-up bug fix): the PATCH route originally
+    reused CompartmentCreate as its body schema, which requires location_id
+    (a compartment's parent location is not something this endpoint should
+    let a caller change, and isn't meant to be supplied at all here). Any
+    caller sending a true partial update -- e.g. the Station Supplies
+    rename-only form, which sends just {"name": "..."} -- hit a 422 "field
+    required" on location_id even though location_id was never the field
+    being edited. The admin VehiclesScreen "Edit Compartment" form happened
+    to work because it always sends the full object, masking the bug.
+
+    Every field here is Optional with no default-applying side effects --
+    the router checks payload.model_fields_set (not "is value None") to
+    know which fields the caller actually included, exactly like
+    StockLotUpdate's PUT /inventory/lots/{lot_id}. This lets a caller
+    explicitly clear an optional field (e.g. restriction_note=None) while
+    still distinguishing "field omitted" from "field set to null."
+    """
+
+    name: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        max_length=100,
+        description="Physical compartment label matching the inventory form",
+    )
+    location_descriptor: Optional[str] = Field(
+        default=None,
+        max_length=150,
+        description="Physical position description shown in the UI to help medics navigate.",
+    )
+    sort_order: Optional[int] = Field(
+        default=None,
+        ge=0,
+        description="Display order matching the physical walk-around sequence.",
+    )
+    restriction_note: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="Access restriction displayed prominently in the UI.",
+    )
+    als_only: Optional[bool] = Field(
+        default=None,
+        description="Deprecated — use restriction_note='ALS crews only' instead.",
+    )
+    active: Optional[bool] = Field(default=None)
+    requires_full_check: Optional[bool] = Field(
+        default=None,
+        description="When True, No Change is blocked for this compartment.",
+    )
+
+
 class CompartmentRead(CompartmentBase):
     """Response model for compartment endpoints."""
 

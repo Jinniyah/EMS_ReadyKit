@@ -33,6 +33,21 @@ unique constraint has no concept of `active`, so re-creating a par level for
 an (item_id, compartment_id) pair that was previously removed always hit the
 IntegrityError fallback and reported "already assigned" even with no active
 duplicate present. See admin_items.py for the parallel fix and full rationale.
+
+Session AM (VERIFY-AL1 follow-up): PATCH /compartments/{id} switched from
+CompartmentCreate (which requires location_id) to a dedicated CompartmentUpdate
+schema with every field Optional. A true partial-update caller -- the Station
+Supplies rename form, which sends only {"name": "..."} -- previously got a 422
+"field required" on location_id, a field it was never trying to change. See
+schemas/compartment.py for the full rationale; follows the same
+model_fields_set pattern already used by StockLotUpdate below.
+
+NOTE: this fix was lost to a file revert once already this session (verified
+written, then found reverted to the pre-fix CompartmentCreate-based version on
+a later read, cause unconfirmed -- possibly an editor autosave or other
+out-of-band write to this path). If working on this file in this session,
+re-verify update_compartment's signature uses CompartmentUpdate before
+assuming the fix is still in place.
 """
 
 from __future__ import annotations
@@ -66,7 +81,11 @@ from ems_readykit.routers.deps import (
     require_role,
     require_station_membership,
 )
-from ems_readykit.schemas.compartment import CompartmentCreate, CompartmentRead
+from ems_readykit.schemas.compartment import (
+    CompartmentCreate,
+    CompartmentRead,
+    CompartmentUpdate,
+)
 from ems_readykit.schemas.inventory import ItemStatusPatch
 from ems_readykit.schemas.inventory_location import (
     InventoryLocationCreate,
@@ -413,11 +432,21 @@ def get_compartment(
 )
 def update_compartment(
     compartment_id: int,
-    payload: CompartmentCreate,
+    payload: CompartmentUpdate,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> Compartment:
-    """Edit a compartment's name, descriptor, sort order, or restriction note."""
+    """
+    Edit a compartment's name, descriptor, sort order, restriction note,
+    als_only flag, active flag, or requires_full_check flag.
+
+    Session AM: true partial update. Only fields present in the request body
+    (payload.model_fields_set) are applied -- a caller sending just {"name":
+    "..."} no longer needs to know or supply the rest of the compartment's
+    current state. location_id is intentionally not editable here; a
+    compartment's parent location is a structural property, not something
+    this endpoint repositions.
+    """
     compartment = (
         db.query(Compartment)
         .filter(Compartment.compartment_id == compartment_id)
@@ -431,27 +460,37 @@ def update_compartment(
     location = _get_location_or_404(compartment.location_id, db)
     require_station_membership(location.station_id, current_user, db)
 
-    name_conflict = (
-        db.query(Compartment)
-        .filter(
-            Compartment.location_id == compartment.location_id,
-            Compartment.name == payload.name,
-            Compartment.compartment_id != compartment_id,
-        )
-        .first()
-    )
-    if name_conflict:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"A compartment named '{payload.name}' already exists at this location.",
-        )
+    fields_set = payload.model_fields_set
 
-    compartment.name = payload.name
-    compartment.location_descriptor = payload.location_descriptor
-    compartment.sort_order = payload.sort_order
-    compartment.restriction_note = payload.restriction_note
-    compartment.als_only = payload.als_only
-    compartment.active = payload.active
+    if "name" in fields_set and payload.name != compartment.name:
+        name_conflict = (
+            db.query(Compartment)
+            .filter(
+                Compartment.location_id == compartment.location_id,
+                Compartment.name == payload.name,
+                Compartment.compartment_id != compartment_id,
+            )
+            .first()
+        )
+        if name_conflict:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"A compartment named '{payload.name}' already exists at this location.",
+            )
+        compartment.name = payload.name
+
+    if "location_descriptor" in fields_set:
+        compartment.location_descriptor = payload.location_descriptor
+    if "sort_order" in fields_set:
+        compartment.sort_order = payload.sort_order
+    if "restriction_note" in fields_set:
+        compartment.restriction_note = payload.restriction_note
+    if "als_only" in fields_set:
+        compartment.als_only = payload.als_only
+    if "active" in fields_set:
+        compartment.active = payload.active
+    if "requires_full_check" in fields_set:
+        compartment.requires_full_check = payload.requires_full_check
 
     db.commit()
     db.refresh(compartment)

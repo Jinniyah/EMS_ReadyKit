@@ -110,8 +110,8 @@ resource "azurerm_linux_web_app" "ems_app" {
     "KEY_VAULT_URI"                  = azurerm_key_vault.ems_kv.vault_uri
     "APP_ENV"                        = local.is_dev ? "development" : "production"
     "LOG_LEVEL"                      = "INFO"
-    "SECRET_KEY"                     = random_password.app_secret_key.result
-    "DATABASE_URL"                   = var.sql_connection_string
+    "SECRET_KEY"                     = "@Microsoft.KeyVault(VaultName=${azurerm_key_vault.ems_kv.name};SecretName=app-secret-key)"
+    "DATABASE_URL"                   = "@Microsoft.KeyVault(VaultName=${azurerm_key_vault.ems_kv.name};SecretName=sql-connection-string)"
     "AZURE_AD_TENANT_ID"             = var.tenant_id
     "AZURE_AD_CLIENT_ID"             = var.client_id
     "AZURE_AD_AUDIENCE"              = "api://${var.client_id}"
@@ -132,6 +132,11 @@ resource "azurerm_linux_web_app" "ems_app" {
       }
     }
   }
+
+  depends_on = [
+    azurerm_key_vault_secret.sql_connection,
+    azurerm_key_vault_secret.app_secret_key,
+  ]
 
   tags = var.tags
 }

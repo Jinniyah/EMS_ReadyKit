@@ -39,6 +39,14 @@ Session AF note: test_audit_from_date_tomorrow_returns_empty and
   do it (test_list_audit_events_filter_by_severity/_by_action): create a
   station in the test and filter by station_id so the date-range assertions
   only see this test's own events.
+
+Session AM note: TestCompartmentEndpoints gained PATCH coverage
+  (test_update_compartment_*). The router's PATCH /compartments/{id} used to
+  require a full CompartmentCreate body, including location_id -- a true
+  partial update (e.g. renaming only) returned a 422 "field required" on a
+  field the caller never intended to touch. Fixed by switching to a
+  dedicated CompartmentUpdate schema where every field is Optional; these
+  tests pin that behavior so it can't silently regress.
 """
 
 from __future__ import annotations
@@ -992,6 +1000,141 @@ class TestCompartmentEndpoints:
             client.post(
                 f"/api/v1/inventory/locations/{loc_id}/compartments",
                 json={"location_id": loc_id, "name": "Compartment #1"},
+                headers=auth_responder,
+            ).status_code
+            == 403
+        )
+
+    def test_update_compartment_name_only_returns_200(self, client, auth_admin):
+        """
+        Session AM regression test: PATCH used to require the full
+        CompartmentCreate body (including location_id), so a true partial
+        update sending only {"name": ...} -- exactly what the Station
+        Supplies rename form sends -- failed with a 422 "field required" on
+        location_id, a field this request was never trying to change.
+        CompartmentUpdate makes every field Optional and the router only
+        applies fields present in payload.model_fields_set.
+        """
+        loc_id, _ = self._make_location(client, auth_admin)
+        cr = client.post(
+            f"/api/v1/inventory/locations/{loc_id}/compartments",
+            json={"location_id": loc_id, "name": "Airway Cabinet", "sort_order": 1},
+            headers=auth_admin,
+        )
+        cid = cr.json()["compartment_id"]
+        response = client.patch(
+            f"/api/v1/inventory/compartments/{cid}",
+            json={"name": "Drug Bag"},
+            headers=auth_admin,
+        )
+        assert response.status_code == 200
+        assert response.json()["name"] == "Drug Bag"
+        # Fields not included in the request must be untouched.
+        assert response.json()["sort_order"] == 1
+
+    def test_update_compartment_unrelated_field_leaves_name_untouched(
+        self, client, auth_admin
+    ):
+        loc_id, _ = self._make_location(client, auth_admin)
+        cr = client.post(
+            f"/api/v1/inventory/locations/{loc_id}/compartments",
+            json={"location_id": loc_id, "name": "Drug Bag", "sort_order": 1},
+            headers=auth_admin,
+        )
+        cid = cr.json()["compartment_id"]
+        response = client.patch(
+            f"/api/v1/inventory/compartments/{cid}",
+            json={"sort_order": 5},
+            headers=auth_admin,
+        )
+        assert response.status_code == 200
+        assert response.json()["sort_order"] == 5
+        assert response.json()["name"] == "Drug Bag"
+
+    def test_update_compartment_no_location_id_required(self, client, auth_admin):
+        """The old CompartmentCreate-based PATCH required location_id on every
+        request. CompartmentUpdate has no location_id field at all -- a
+        partial update must succeed with no mention of it whatsoever."""
+        loc_id, _ = self._make_location(client, auth_admin)
+        cr = client.post(
+            f"/api/v1/inventory/locations/{loc_id}/compartments",
+            json={"location_id": loc_id, "name": "Compartment #1"},
+            headers=auth_admin,
+        )
+        cid = cr.json()["compartment_id"]
+        response = client.patch(
+            f"/api/v1/inventory/compartments/{cid}",
+            json={"restriction_note": "ALS crews only"},
+            headers=auth_admin,
+        )
+        assert response.status_code == 200
+        assert response.json()["restriction_note"] == "ALS crews only"
+
+    def test_update_compartment_duplicate_name_returns_409(self, client, auth_admin):
+        loc_id, _ = self._make_location(client, auth_admin)
+        client.post(
+            f"/api/v1/inventory/locations/{loc_id}/compartments",
+            json={"location_id": loc_id, "name": "Drug Bag"},
+            headers=auth_admin,
+        )
+        cr2 = client.post(
+            f"/api/v1/inventory/locations/{loc_id}/compartments",
+            json={"location_id": loc_id, "name": "Airway Cabinet"},
+            headers=auth_admin,
+        )
+        cid2 = cr2.json()["compartment_id"]
+        response = client.patch(
+            f"/api/v1/inventory/compartments/{cid2}",
+            json={"name": "Drug Bag"},
+            headers=auth_admin,
+        )
+        assert response.status_code == 409
+
+    def test_update_compartment_same_name_does_not_conflict_with_self(
+        self, client, auth_admin
+    ):
+        """Renaming a compartment to its own current name must not 409
+        against itself."""
+        loc_id, _ = self._make_location(client, auth_admin)
+        cr = client.post(
+            f"/api/v1/inventory/locations/{loc_id}/compartments",
+            json={"location_id": loc_id, "name": "Drug Bag", "sort_order": 1},
+            headers=auth_admin,
+        )
+        cid = cr.json()["compartment_id"]
+        response = client.patch(
+            f"/api/v1/inventory/compartments/{cid}",
+            json={"name": "Drug Bag", "sort_order": 2},
+            headers=auth_admin,
+        )
+        assert response.status_code == 200
+        assert response.json()["sort_order"] == 2
+
+    def test_update_compartment_not_found_returns_404(self, client, auth_admin):
+        assert (
+            client.patch(
+                "/api/v1/inventory/compartments/99999999",
+                json={"name": "Doesn't matter"},
+                headers=auth_admin,
+            ).status_code
+            == 404
+        )
+
+    def test_responder_cannot_update_compartment_returns_403(
+        self, client, db, auth_admin, auth_responder
+    ):
+        loc_id, sid = self._make_location(client, auth_admin)
+        _add_member(db, sid, "test-responder@ems.local", "Responder")
+        cr = client.post(
+            f"/api/v1/inventory/locations/{loc_id}/compartments",
+            json={"location_id": loc_id, "name": "Compartment #1"},
+            headers=auth_admin,
+        )
+        cid = cr.json()["compartment_id"]
+        assert (
+            client.patch(
+                f"/api/v1/inventory/compartments/{cid}",
+                json={"name": "Renamed"},
                 headers=auth_responder,
             ).status_code
             == 403
