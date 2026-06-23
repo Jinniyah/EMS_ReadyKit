@@ -501,6 +501,8 @@
 .assignment-location-label { font-size: var(--font-size-sm); font-weight: 600; color: var(--color-text); margin: 0; padding: var(--space-sm) 0; }
 .add-assignment-form { background: var(--color-surface-raised); border: 1px dashed var(--color-border); border-radius: var(--radius-md); padding: var(--space-md); display: flex; flex-direction: column; gap: var(--space-sm); }
 .add-assignment-form__title { font-size: var(--font-size-sm); font-weight: 700; color: var(--color-text); margin: 0; }
+.add-assignment-confirm { background: var(--color-surface-raised); border: 1px solid var(--color-status-pass); border-radius: var(--radius-md); padding: var(--space-md); display: flex; flex-direction: column; gap: var(--space-sm); }
+.add-assignment-confirm__msg { font-size: var(--font-size-sm); font-weight: 700; color: var(--color-status-pass); margin: 0; display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; }
 .assignment-field { display: flex; flex-direction: column; gap: 4px; }
 .assignment-field__label { font-size: var(--font-size-sm); font-weight: 600; color: var(--color-text); }
 .assignment-field__select { padding: var(--space-sm) var(--space-md); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-md); min-height: var(--tap-target); width: 100%; background: var(--color-surface); color: var(--color-text); box-sizing: border-box; }

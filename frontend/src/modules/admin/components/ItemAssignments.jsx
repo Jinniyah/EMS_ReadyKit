@@ -276,7 +276,7 @@ function EditRow({ assignment, item, vehicles, locations, onSaved, onCancel }) {
 
 // ── AddAssignmentForm ─────────────────────────────────────────────────────────
 
-function AddAssignmentForm({ item, vehicles, locations, onAdded, onCancel }) {
+function AddAssignmentForm({ item, vehicles, locations, onListRefresh, onDone, onCancel }) {
   const { getToken } = useAuth()
 
   const jumpBags   = (locations ?? []).filter(l => l.location_type === 'JUMP_BAG' && !l.retired_at)
@@ -290,6 +290,7 @@ function AddAssignmentForm({ item, vehicles, locations, onAdded, onCancel }) {
   const [max, setMax]                     = useState('4')
   const [error, setError]                 = useState(null)
   const [submitting, setSubmitting]       = useState(false)
+  const [savedInfo, setSavedInfo]         = useState(null)
 
   // Auto-select supply room when that type is chosen
   useEffect(() => {
@@ -342,7 +343,22 @@ function AddAssignmentForm({ item, vehicles, locations, onAdded, onCancel }) {
       if (locType === 'vehicle') payload.vehicle_id  = parseInt(vehicleId,  10)
       else                       payload.location_id = parseInt(locationId, 10)
       await adminApi.assignItem(item.item_id, payload, getToken)
-      onAdded()
+
+      let locationLabel
+      if (locType === 'vehicle') {
+        const v = (vehicles ?? []).find(v => String(v.vehicle_id) === vehicleId)
+        locationLabel = v?.vehicle_number ?? 'Vehicle'
+      } else if (locType === 'jump_bag') {
+        const l = (locations ?? []).find(l => String(l.location_id) === locationId)
+        locationLabel = l?.label ?? 'Jump Bag'
+      } else {
+        locationLabel = supplyRoom?.label ?? 'Supply Room'
+      }
+      const selectedComp = (compartments ?? []).find(c => String(c.compartment_id) === compartmentId)
+      const compartmentLabel = selectedComp?.name ?? 'Compartment'
+
+      setSavedInfo({ locationLabel, compartmentLabel, min: minN, max: maxN })
+      onListRefresh()
     } catch (err) {
       setError(err.message)
     } finally {
@@ -350,8 +366,40 @@ function AddAssignmentForm({ item, vehicles, locations, onAdded, onCancel }) {
     }
   }
 
+  function handleAddAnother() {
+    const prevMin = savedInfo.min
+    const prevMax = savedInfo.max
+    setSavedInfo(null)
+    setLocType('vehicle')
+    setVehicleId('')
+    setLocationId('')
+    setCompartmentId('')
+    setError(null)
+    setMin(String(prevMin))
+    setMax(String(prevMax))
+  }
+
   const pickerValue    = locType === 'vehicle' ? vehicleId : locationId
   const hasPickerValue = !!pickerValue
+
+  if (savedInfo) {
+    return (
+      <div className="add-assignment-confirm">
+        <p className="add-assignment-confirm__msg">
+          ✓ Assigned to {savedInfo.locationLabel} › {savedInfo.compartmentLabel}
+          {' '}<QtyBadge min={savedInfo.min} max={savedInfo.max} />
+        </p>
+        <div className="assignment-edit-actions">
+          <button type="button" className="btn btn--secondary btn--sm" onClick={handleAddAnother}>
+            + Assign to another location
+          </button>
+          <button type="button" className="btn btn--secondary btn--sm" onClick={onDone}>
+            Done
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <form className="add-assignment-form" onSubmit={handleSubmit} noValidate>
@@ -498,6 +546,10 @@ export default function ItemAssignments({ item, stationId, vehicles, locations, 
     [expanded, assignmentsKey, item.item_id]
   )
 
+  const refreshListOnly = useCallback(() => {
+    setKey(k => k + 1)
+  }, [])
+
   const refresh = useCallback(() => {
     setKey(k => k + 1)
     setEditingParId(null)
@@ -608,7 +660,8 @@ export default function ItemAssignments({ item, stationId, vehicles, locations, 
                   item={item}
                   vehicles={vehicles}
                   locations={locations}
-                  onAdded={refresh}
+                  onListRefresh={refreshListOnly}
+                  onDone={refresh}
                   onCancel={() => setShowAddForm(false)}
                 />
               ) : (

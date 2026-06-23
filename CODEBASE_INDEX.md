@@ -1,15 +1,14 @@
 # EMS ReadyKit — Codebase Index
-# Last updated: 2026-06-21 — Session AK closed (ITM-6: ItemCatalog station-scoped; cabinet-group
-# chips; ItemAssignments "Where" picker (vehicle/jump bag/supply room); searchItems station_id
-# threading; 4 new ItemCatalog tests; frontend tests green.
-# ITM-1..6 ✅ done. Next: ITM-8 (remaining tests + docs; close launch gate).)
+# Last updated: 2026-06-22 — Session AN closed (ITM-7: AddAssignmentForm inline confirmation
+# + "Assign to another location" UX, min/max carry-over, "Done" closes panel; ITM-8:
+# ItemAssignments.test.jsx 9 tests; 233 frontend passing. Launch gate closed — ITM-1..8 ✅ all done.)
 # PURPOSE: Load this file at the start of every session to orient quickly.
 # After reading this, load only the sections relevant to the current task.
 # Full project state → docs/project_index.md | Open work → docs/backlog.md
 
 ---
 
-## ⚠ PENDING: Item model rework ITM-7..8 in progress (ITM-1..6 ✅ complete — see docs/backlog.md)
+## ✅ Item model rework ITM-1..8 complete (Sessions AG–AN)
 **ITM-1 ✅ DONE (Session AG):** `station_id` FK + `UniqueConstraint("station_id", "name")`
 added to `Item`; migration 0028 applied; supply catalog scoped to station; test suite updated.
 **ITM-3 ✅ DONE (Session AH):** `category_group` VARCHAR(100) nullable added to `Item`;
@@ -28,7 +27,14 @@ scoped to station; 4-category chips replaced with 7 cabinet-group chips; groupin
 `AddAssignmentForm`/`EditRow` have a "Where" picker (Vehicle/Jump Bag/Supply Room); assignment display
 shows `vehicle_number ?? location_label`. `ItemSearchCombobox` gains `stationId` prop threaded through
 all callers. `admin.css` adds `.assignment-location-label`. 4 new `ItemCatalog` cabinet tests.
-**ITM-8** (remaining tests + docs; close launch gate) is next.
+**ITM-7 ✅ DONE (Session AN):** `AddAssignmentForm` now shows inline confirmation after a successful
+assign ("✓ Assigned to [Vehicle] › [Compartment]") with two follow-up actions: "+ Assign to another
+location" (resets Where/compartment, carries min/max forward) and "Done" (closes the panel). Parent
+`refreshListOnly` callback added so list refreshes without collapsing the form. `admin.css` adds
+`.add-assignment-confirm` / `.add-assignment-confirm__msg`.
+**ITM-8 ✅ DONE (Session AN):** `ItemAssignments.test.jsx` added (9 tests) — vehicle/jump bag/supply
+room payload paths, auto-select, display row, confirmation state, reset + min/max carry-over, Done
+button. Frontend: 233 tests passing. Backend: 498 tests passing. **Launch gate closed.**
 
 ---
 
@@ -310,7 +316,7 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 | `components/VehiclesScreen.jsx` | 25 KB | Vehicle + compartment CRUD, par assignment entry. Display filter excludes retired vehicles outright (`!v.retired_at`), independent of the "Show out-of-service vehicles" toggle (BUG-AD1, Session AD). `VehicleAdminCard` shows a "Retired" badge + retirement reason and hides Edit/Color-still-shown/OOS-RTS/compartment-edit controls for retired vehicles. |
 | `components/ItemCatalog.jsx` | — | Item catalog browser. **ITM-6 ✅ (Session AK):** station-scoped (`stationId` → `adminApi.listItems`); 7 cabinet-group chip filters (Airway/Wound Care/PPE/Diagnostic/Medications/Documents/Vehicle Ops) replace old 4-category chips; groups items by `category_group` (falls back to `category` when null); fetches `getStationLocations` and passes `locations` to each `ItemAssignments`. |
 | `components/ItemForm.jsx` | 16 KB | Add/edit item form |
-| `components/ItemAssignments.jsx` | — | Par level assignment — item-centric. **ITM-6 ✅ (Session AK):** `AddAssignmentForm`/`EditRow` now have a "Where" picker (Vehicle / Jump Bag / Station Supply Room). Vehicles use `vehicle_id`; jump bags and supply room use `location_id`. Supply room auto-selects. Compartments loaded via `getVehicleCompartments` (vehicle) or `getLocationCompartments` (other). Assignment display row shows `vehicle_number ?? location_label`. Button renamed to "+ Add assignment". |
+| `components/ItemAssignments.jsx` | — | Par level assignment — item-centric. **ITM-6 ✅ (Session AK):** `AddAssignmentForm`/`EditRow` now have a "Where" picker (Vehicle / Jump Bag / Station Supply Room). Vehicles use `vehicle_id`; jump bags and supply room use `location_id`. Supply room auto-selects. Compartments loaded via `getVehicleCompartments` (vehicle) or `getLocationCompartments` (other). Assignment display row shows `vehicle_number ?? location_label`. Button renamed to "+ Add assignment". **ITM-7 ✅ (Session AN):** After a successful assign, shows inline confirmation ("✓ Assigned to …") with "+ Assign to another location" (resets form, carries min/max) and "Done" (closes panel) instead of collapsing. |
 | `components/CompartmentParLevels.jsx` | — | Par level assignment — per-compartment item list. Accepts `vehicleId` OR `locationId` (for supply room / portable locations). Priority checkbox + question field (RX-F12). Remove → re-add round trip fixed by PAR-B1 (Session AF) — this was the exact UI path the bug was reported through. |
 | `components/StationSuppliesScreen.jsx` | — | SS-F1: Admin screen — manage supply room shelves and their par levels. Fetches supply room → compartments → CompartmentParLevels per shelf. |
 | `components/PortableLocationsScreen.jsx` | — | ADMIN-F7: Full CRUD for portable locations (Jump Bags). List → create → rename + ShelfManager (compartment CRUD + par levels). |
@@ -373,10 +379,8 @@ Admin-gated within that same screen.
 
 ## Frontend — Tests (frontend/src/)
 
-Vitest + React Testing Library. Run: `cd frontend && npm test` — **confirmed green by
-Jennifer at Session AF close** (2026-06-19), re-verified after this session's frontend
-changes to ComplianceCalendar.jsx, supervisorApi.js, and supervisor/index.jsx (including
-the same-day BUG-AF2 follow-up).
+Vitest + React Testing Library. Run: `cd frontend && npm test` — **233 tests passing**
+(Session AN, 2026-06-22). 9 new `ItemAssignments` tests added this session.
 
 | File | Tests | Coverage |
 |------|-------|----------|
@@ -392,6 +396,7 @@ the same-day BUG-AF2 follow-up).
 | `modules/supervisor/__tests__/SupplyLowStockPanel.test.jsx` | 11 | Hidden, amber/red alerts, expand/collapse |
 | `modules/vehicles/__tests__/VehicleCard.test.jsx` | 12 | OOS badge, repair count, RTS/OOS role-gating, Report an Issue. Session AD adds 4 regression cases for retired vehicles (BUG-AD1): Retired badge, no Return to Service, no Report an Issue, retirement reason shown. |
 | `modules/admin/__tests__/ItemCatalog.test.jsx` | 15 | Item list, search, Add button role-gating, Admin inactive toggle. **ITM-6 ✅ (Session AK):** 3-mock `setupApiMocks` (vehicles/items/locations); `ITEMS_WITH_CABINET` fixture; 4 new cabinet chip filter tests. |
+| `modules/admin/__tests__/ItemAssignments.test.jsx` | 9 | NEW (Session AN, ITM-7/8). Vehicle/jump bag/supply room assignment payload shapes; supply room auto-select; assignment display row (`location_label` for non-vehicle). Confirmation state after assign (Done button, Assign gone, text contains vehicle+compartment); "+ Assign to another location" resets form + carries min/max; Done closes panel. `mockImplementation` by `typeof deps[0]` distinguishes assignments vs. compartments `useApi` calls. |
 | `modules/admin/__tests__/VehiclesScreen.test.jsx` | 3 | New file, Session AD (BUG-AD1) — this screen had no prior test coverage. Retired vehicle excluded by default; still excluded after toggling "Show out-of-service vehicles"; empty-state message reflects only active vehicles. |
 | `modules/admin/__tests__/EmailAlignmentSection.test.jsx` | 17 | Moved from `modules/settings/__tests__/` (Session AE) — same coverage, new home. LAUNCH-OPS9 UI: Run Check button + clean/flagged states; Notify panel recipient checkboxes (excludes flagged person); custom email chips; Draft Email enable/disable; drafted preview with mailto link. |
 | `modules/check-history/__tests__/CheckHistory.test.jsx` | 9 | My Checks, All Checks tab (Supervisor+), Deleted tab |
@@ -569,5 +574,5 @@ files) has been reviewed and deleted — no longer flagged.
 | ✅ **AI** (done) | ITM-4: seed.py rewrite | `seed.py` fully rewritten: `BASE_ITEM_SEED`, `get_or_create_item(station_id=...)`, `seed_station_catalog()`, canonical names, O2 PSI corrections, LUCAS merge, Fire Extinguisher SUPPLY. `test_seed_integrity.py` 6 test corrections. 484/484 expected after reseed. |
 | ✅ **AJ** (done) | ITM-5: backend station scoping | All 11 `admin_items.py` routes scoped to station; `_conflict_on_name` per-station; `test_item_station_scoping.py` added (14 tests); ruff + black green. 498/498 passing. |
 | ✅ **AK** (done) | ITM-6: frontend | `ItemCatalog.jsx` station-scoped + cabinet chips; `ItemAssignments.jsx` "Where" picker; `adminApi` + `ItemSearchCombobox` station_id threading; 4 new catalog tests. |
-| **AL** | ITM-8: remaining tests + docs | Any frontend coverage gaps after ITM-6 (especially ItemAssignments "Where" picker interaction tests); update docs; close the launch gate; deploy. |
-| *(deferred)* | Post-launch engineering backlog | F-5G3 (CSV export), ADMIN-F10 (member search), TEST-AE1, TEST-AF1, or operational walkthroughs (LAUNCH-OPS1-6) handled directly by the chief — all still waiting behind ITM-6..8. |
+| ✅ **AN** (done) | ITM-7 + ITM-8: launch gate | ITM-7: multi-location assign inline confirmation + "Assign to another location" UX. ITM-8: `ItemAssignments.test.jsx` (9 tests); 233 frontend, 498 backend passing. Launch gate closed. |
+| **Next** | Deploy + operational walkthroughs | Push to main → CI/CD deploys. Then LAUNCH-OPS1 (par levels), LAUNCH-OPS2/3 (stock counts, now unblocked), LAUNCH-OPS4 (add members), LAUNCH-OPS5/6 (chief + volunteer walkthroughs). Post-launch engineering backlog: F-5G3, ADMIN-F10, TEST-AE1, TEST-AF1. |

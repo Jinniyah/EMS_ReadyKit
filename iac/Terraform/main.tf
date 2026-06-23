@@ -114,10 +114,20 @@ module "storage" {
   tags                       = local.common_tags
 }
 
+# SEC-AL1 follow-up (Session AM): override_special intentionally excludes any
+# character with meaning inside a postgresql:// URI's userinfo segment
+# (@ : / ? # [ ]). The 2026-06-22 rotation generated a password containing an
+# unescaped "@", which the connection string in modules/data/outputs.tf
+# interpolates raw (no URL-encoding) — psycopg2 then misparsed the URI,
+# splitting the password at the embedded "@" and feeding half of it into the
+# hostname ("could not translate host name ... to address"). "_" and "%" are
+# safe unencoded in this position and are kept for complexity. Do not add
+# back any of the excluded characters without also adding urlencode() at the
+# point sql_connection_string is built.
 resource "random_password" "pg_admin" {
   length           = 24
   special          = true
-  override_special = "_%@"
+  override_special = "_%"
   min_lower        = 1
   min_upper        = 1
   min_numeric      = 1

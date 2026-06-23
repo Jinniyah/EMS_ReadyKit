@@ -1,5 +1,5 @@
 # CLAUDE.md — AI Development Rules for EMS ReadyKit
-# Last updated: 2026-06-21 — Session AK closed (ITM-6: ItemCatalog station-scoped; cabinet-group chips; ItemAssignments "Where" picker; searchItems station_id; 4 new catalog tests; ITM-8 is next)
+# Last updated: 2026-06-22 — Session AN closed (ITM-7: AddAssignmentForm inline confirmation + "Assign to another location"; ITM-8: ItemAssignments.test.jsx 9 tests, 233 frontend passing; launch gate closed — ITM-1..8 all done; deploy next)
 # Load alongside CODEBASE_INDEX.md at the start of every session. Compacted 2026-06-19 — same rules, less prose.
 
 ---
