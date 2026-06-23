@@ -1422,6 +1422,49 @@ button.settings-section__heading:hover {
   margin: 0;
 }
 
+/* ── Compartment par levels (CompartmentParLevels.jsx — used in admin AND supply-room modules) */
+
+.compartment-par-levels .item-assignments__toggle {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  min-height: 48px;
+  padding: var(--space-xs) var(--space-xs);
+  border-top: 1px solid var(--color-border);
+}
+.compartment-par-levels .assignment-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+}
+.compartment-par-levels .assignment-row__info {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.compartment-par-levels .assignment-row__compartment {
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.3;
+}
+.compartment-par-levels .assignment-qty { font-size: 12px; padding: 1px 6px; }
+.compartment-par-levels .assignment-row__actions { display: flex; gap: var(--space-sm); }
+.compartment-par-levels .assignment-row__actions .btn--sm {
+  min-height: 48px;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  flex: 1;
+}
+.compartment-par-levels .assignment-remove-btn { min-height: 48px; min-width: 48px; font-size: 18px; }
+.compartment-par-levels .item-assignments__add-btn {
+  align-self: stretch;
+  min-height: 48px;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+}
+
 /* ── Print styles ──────────────────────────────────────────────────────────── */
 @media print {
   .app-header, .dev-banner, .user-pill, .btn { display: none !important; }

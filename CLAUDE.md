@@ -1,5 +1,5 @@
 # CLAUDE.md — AI Development Rules for EMS ReadyKit
-# Last updated: 2026-06-22 — Session AN closed (ITM-7: AddAssignmentForm inline confirmation + "Assign to another location"; ITM-8: ItemAssignments.test.jsx 9 tests, 233 frontend passing; launch gate closed — ITM-1..8 all done; deploy next)
+# Last updated: 2026-06-23 — Session AO closed (pre-deploy sweep: db.commit() gap in deactivate routes fixed; update_par_level + list_vehicle_compartments station-scoped; <form> elements removed; stale stationId closure fixed; deriveLocType Option A; CSS cross-module fix; useApi error fields; PAR-B1 ORDER BY; test fixture + dead-file cleanup; deploy next)
 # Load alongside CODEBASE_INDEX.md at the start of every session. Compacted 2026-06-19 — same rules, less prose.
 
 ---
@@ -145,7 +145,5 @@ At session close:
 | `VehiclesScreen.jsx` | `frontend/.../admin/components/` | 25 KB — extract sub-components on next touch |
 | CSS patch files | `frontend/src/` | `module-card-fix.css`, `submitted-screen-patch.css`, `wizard-station.css`, `wizard.css` in src root — consolidate into module files |
 | `wizard.css` location | `frontend/src/styles/` | Belongs in `modules/check-wizard/` — move on next touch |
-| `_damagedOverrides` comment | `check-wizard/components/Step3Items.jsx` | Dead comment artifact — remove on next touch |
 | No tests for MembersScreen/MemberManagementSection | `admin/__tests__/` | TEST-AE1 in backlog.md |
 | No tests for ComplianceCalendar.jsx | `supervisor/__tests__/` | TEST-AF1 in backlog.md |
-| `_par_level_fix.py` stray file | `app/tests/` | Placeholder, not part of the real suite — safe to delete |

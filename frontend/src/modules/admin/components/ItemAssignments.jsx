@@ -47,7 +47,8 @@ function QtyBadge({ min, max }) {
 function deriveLocType(assignment, locations) {
   if (assignment.vehicle_id != null) return 'vehicle'
   const loc = (locations ?? []).find(l => l.location_id === assignment.location_id)
-  return loc?.location_type === 'JUMP_BAG' ? 'jump_bag' : 'supply_room'
+  if (!loc) return null
+  return loc.location_type === 'JUMP_BAG' ? 'jump_bag' : 'supply_room'
 }
 
 // ── EditRow ───────────────────────────────────────────────────────────────────
@@ -60,7 +61,7 @@ function EditRow({ assignment, item, vehicles, locations, onSaved, onCancel }) {
 
   const initLocType = deriveLocType(assignment, locations)
 
-  const [locType, setLocType]           = useState(initLocType)
+  const [locType, setLocType]           = useState(initLocType ?? 'vehicle')
   const [vehicleId, setVehicleId]       = useState(String(assignment.vehicle_id ?? ''))
   const [locationId, setLocationId]     = useState(initLocType !== 'vehicle' ? String(assignment.location_id ?? '') : '')
   const [compartmentId, setCompartmentId] = useState(String(assignment.compartment_id ?? ''))
@@ -76,7 +77,7 @@ function EditRow({ assignment, item, vehicles, locations, onSaved, onCancel }) {
     }
   }, [locType, supplyRoom?.location_id])
 
-  const { data: compartments, isLoading: loadingCompartments } = useApi(
+  const { data: compartments, isLoading: loadingCompartments, error: compartmentsError } = useApi(
     () => {
       if (locType === 'vehicle' && vehicleId) return adminApi.getVehicleCompartments(vehicleId, getToken)
       if (locType !== 'vehicle' && locationId) return adminApi.getLocationCompartments(locationId, getToken)
@@ -101,7 +102,8 @@ function EditRow({ assignment, item, vehicles, locations, onSaved, onCancel }) {
   }
 
   async function handleSave(e) {
-    e.preventDefault()
+    e.preventDefault?.()
+
     const hasLocation = locType === 'vehicle' ? !!vehicleId : !!locationId
     if (!hasLocation)    { setError('Please select a location.'); return }
     if (!compartmentId)  { setError('Please select a compartment.'); return }
@@ -146,8 +148,23 @@ function EditRow({ assignment, item, vehicles, locations, onSaved, onCancel }) {
   const pickerValue     = locType === 'vehicle' ? vehicleId : locationId
   const hasPickerValue  = !!pickerValue
 
+  if (initLocType === null) {
+    return (
+      <div className="assignment-edit-row">
+        <p className="assignment-error" role="alert">
+          This assignment's original location no longer exists. Remove it and re-assign if needed.
+        </p>
+        <div className="assignment-edit-actions">
+          <button type="button" className="btn btn--secondary btn--sm" onClick={onCancel}>
+            Close
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <form className="assignment-edit-row" onSubmit={handleSave} noValidate>
+    <div className="assignment-edit-row">
 
       {/* Step 1 — Where (location type) */}
       <div className="assignment-field">
@@ -213,6 +230,8 @@ function EditRow({ assignment, item, vehicles, locations, onSaved, onCancel }) {
           <label className="assignment-field__label">Compartment</label>
           {loadingCompartments ? (
             <p className="assignment-loading">Loading compartments…</p>
+          ) : compartmentsError ? (
+            <p className="assignment-error" role="alert">Could not load compartments.</p>
           ) : (
             <select
               className="assignment-field__select"
@@ -259,8 +278,9 @@ function EditRow({ assignment, item, vehicles, locations, onSaved, onCancel }) {
 
       <div className="assignment-edit-actions">
         <button
-          type="submit"
+          type="button"
           className="btn btn--primary btn--sm"
+          onClick={handleSave}
           disabled={submitting || !hasPickerValue || !compartmentId}
         >
           {submitting ? 'Saving…' : 'Save'}
@@ -270,7 +290,7 @@ function EditRow({ assignment, item, vehicles, locations, onSaved, onCancel }) {
           Cancel
         </button>
       </div>
-    </form>
+    </div>
   )
 }
 
@@ -299,7 +319,7 @@ function AddAssignmentForm({ item, vehicles, locations, onListRefresh, onDone, o
     }
   }, [locType, supplyRoom?.location_id])
 
-  const { data: compartments, isLoading: loadingCompartments } = useApi(
+  const { data: compartments, isLoading: loadingCompartments, error: compartmentsError } = useApi(
     () => {
       if (locType === 'vehicle' && vehicleId) return adminApi.getVehicleCompartments(vehicleId, getToken)
       if (locType !== 'vehicle' && locationId) return adminApi.getLocationCompartments(locationId, getToken)
@@ -324,7 +344,7 @@ function AddAssignmentForm({ item, vehicles, locations, onListRefresh, onDone, o
   }
 
   async function handleSubmit(e) {
-    e.preventDefault()
+    e.preventDefault?.()
     const hasLocation = locType === 'vehicle' ? !!vehicleId : !!locationId
     if (!hasLocation)   { setError('Please select a location.'); return }
     if (!compartmentId) { setError('Please select a compartment.'); return }
@@ -370,7 +390,11 @@ function AddAssignmentForm({ item, vehicles, locations, onListRefresh, onDone, o
     const prevMin = savedInfo.min
     const prevMax = savedInfo.max
     setSavedInfo(null)
-    setLocType('vehicle')
+    const activeVehicles = (vehicles ?? []).filter(v => v.active && !v.retired_at)
+    const defaultLocType = activeVehicles.length > 0 ? 'vehicle'
+      : jumpBags.length > 0 ? 'jump_bag'
+      : 'supply_room'
+    setLocType(defaultLocType)
     setVehicleId('')
     setLocationId('')
     setCompartmentId('')
@@ -402,7 +426,7 @@ function AddAssignmentForm({ item, vehicles, locations, onListRefresh, onDone, o
   }
 
   return (
-    <form className="add-assignment-form" onSubmit={handleSubmit} noValidate>
+    <div className="add-assignment-form">
       <p className="add-assignment-form__title">Add assignment</p>
 
       {/* Step 1 — Where (location type) */}
@@ -469,6 +493,8 @@ function AddAssignmentForm({ item, vehicles, locations, onListRefresh, onDone, o
           <label className="assignment-field__label">Compartment</label>
           {loadingCompartments ? (
             <p className="assignment-loading">Loading compartments…</p>
+          ) : compartmentsError ? (
+            <p className="assignment-error" role="alert">Could not load compartments.</p>
           ) : (
             <select
               className="assignment-field__select"
@@ -515,8 +541,9 @@ function AddAssignmentForm({ item, vehicles, locations, onListRefresh, onDone, o
 
       <div className="assignment-edit-actions">
         <button
-          type="submit"
+          type="button"
           className="btn btn--primary btn--sm"
+          onClick={handleSubmit}
           disabled={submitting || !hasPickerValue || !compartmentId}
         >
           {submitting ? 'Saving…' : 'Assign'}
@@ -526,7 +553,7 @@ function AddAssignmentForm({ item, vehicles, locations, onListRefresh, onDone, o
           Cancel
         </button>
       </div>
-    </form>
+    </div>
   )
 }
 

@@ -20,6 +20,14 @@
  *   meant to be permanent. Retired vehicles are managed exclusively from
  *   Settings → Retired Items now; this screen excludes them outright.
  *
+ * Session AM (VERIFY-AL1 follow-up): VehicleAdminCard referenced an
+ *   undefined `station` variable when passing stationId into
+ *   CompartmentParLevels — the component only ever receives a `vehicle`
+ *   prop, never a `station` prop, so this threw a ReferenceError the
+ *   moment any vehicle card with compartments was expanded. Fixed by
+ *   using vehicle.station_id, which was already proven in scope a few
+ *   lines above (adminApi.getVehicleLocation(vehicle.station_id, ...)).
+ *
  * UX principles (tired crew / 68yo iPhone user):
  *   - Large tap targets throughout (60px min)
  *   - One action at a time — add form replaces the button, not a modal
@@ -733,7 +741,7 @@ function VehicleAdminCard({ vehicle: initialVehicle, onVehicleUpdated }) {
                           <CompartmentParLevels
                             compartmentId={comp.compartment_id}
                             vehicleId={vehicle.vehicle_id}
-                            stationId={station.station_id}
+                            stationId={vehicle.station_id}
                           />
                         </>
                       )}

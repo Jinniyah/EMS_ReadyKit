@@ -1,8 +1,9 @@
 # EMS ReadyKit — Active Backlog
-# v3.11 | Updated: 2026-06-22 | Session AN closed (ITM-7: multi-location assign-from-item
-# with inline confirmation + "Assign to another location" UX; ITM-8: ItemAssignments.test.jsx
-# 9 tests, 233 frontend passing; launch gate fully closed — ITM-1..8 all complete).
-# VERIFY-AL1 confirmed complete by user this session.
+# v3.12 | Updated: 2026-06-23 | Session AO closed (pre-deploy security + correctness sweep:
+# 15 findings, all resolved — db.commit() gap in deactivate routes, missing station scoping
+# on update_par_level + list_vehicle_compartments, <form> CLAUDE.md violations, stale
+# stationId closure in ItemSearchCombobox, deriveLocType Option A, CSS cross-module fix,
+# useApi error fields, PAR-B1 ORDER BY, test fixture cleanup, dead file deletion).
 # Version-history footer (v1.95-v2.07) moved to backlog_completed.md
 # to keep this file small — see that file's "Changelog Archive" section for history.
 # Completed items -> backlog_completed.md

@@ -881,6 +881,7 @@ def assign_item_to_compartment(
             ParLevel.compartment_id == payload.compartment_id,
             ParLevel.active.is_(False),
         )
+        .order_by(ParLevel.par_id.desc())
         .first()
     )
     if inactive_match:
@@ -958,9 +959,11 @@ def update_par_level(
     par_id: int,
     payload: UpdateParLevelRequest,
     db: Session = Depends(get_db),
-    _: None = Depends(require_role(*SUPERVISOR_PLUS)),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> ParLevelAssignment:
     par = _get_par_or_404(par_id, db)
+    item = _get_item_or_404(par.item_id, db)
+    require_station_membership(item.station_id, current_user, db)
     if not par.active:
         raise HTTPException(
             status_code=409, detail="Cannot edit an inactive par level."
@@ -1025,6 +1028,7 @@ def deactivate_par_level(
     _do_deactivate_par_level(
         par_id, current_user.email or current_user.user_id, db, payload.reason
     )
+    db.commit()
 
 
 @router.delete(
@@ -1038,6 +1042,7 @@ def remove_par_level(
     current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> None:
     _do_deactivate_par_level(par_id, current_user.email or current_user.user_id, db)
+    db.commit()
 
 
 @router.get(
@@ -1048,8 +1053,15 @@ def remove_par_level(
 def list_vehicle_compartments(
     vehicle_id: int,
     db: Session = Depends(get_db),
-    _: None = Depends(require_role(*SUPERVISOR_PLUS)),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
 ) -> List[Compartment]:
+    vehicle = db.query(Vehicle).filter(Vehicle.vehicle_id == vehicle_id).first()
+    if not vehicle:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Vehicle {vehicle_id} not found.",
+        )
+    require_station_membership(vehicle.station_id, current_user, db)
     location = (
         db.query(InventoryLocation)
         .filter(InventoryLocation.vehicle_id == vehicle_id)

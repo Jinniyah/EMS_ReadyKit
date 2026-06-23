@@ -47,6 +47,29 @@ def two_stations(db: Session):
     Creates Station A and Station B.
     Adds test-supervisor to Station A only.
     Returns {'station_a': id, 'station_b': id}.
+
+    db.commit() (not flush) is used deliberately: route handlers in these tests
+    call db.commit(), which releases the active SQLAlchemy savepoint and makes
+    all previously-flushed rows permanent for the rest of the test session.
+    Committing in the fixture makes that dependency explicit rather than relying
+    on a side effect of the first route-handler commit sweeping in the flushed rows.
+
+    SUPERVISOR_EMAIL is safe to hardcode here because the unique constraint on
+    StationMember is (station_id, user_id, role), and station_id is unique per
+    test via _uid() — so the same email on a different station_id is a distinct
+    row and cannot collide across tests.
+
+    If you ever need to add assertions that query StationMember by user_id alone
+    (unscoped by station), or if this fixture is promoted to session scope, switch
+    to Option B: derive a per-test email from request.node.name and build matching
+    auth headers instead of relying on auth_supervisor:
+
+        uid = request.node.name
+        email = f"supervisor-{uid}@ems.local"
+        token = f"test-supervisor-{uid}"   # auth.py: Bearer {token} → {token}@ems.local
+        member = StationMember(user_id=email, ...)
+        headers = {"Authorization": f"Bearer {token}"}
+        return {..., "auth_supervisor": headers}
     """
     station_a = Station(name=f"Scope-A-{_uid()}", address="1 A St", region="Test")
     station_b = Station(name=f"Scope-B-{_uid()}", address="2 B St", region="Test")
@@ -61,7 +84,7 @@ def two_stations(db: Session):
         active=True,
     )
     db.add(member)
-    db.flush()
+    db.commit()
 
     return {"station_a": station_a.station_id, "station_b": station_b.station_id}
 

@@ -1,10 +1,10 @@
 # EMS ReadyKit — Completed Items (Portfolio Changelog)
-# Last updated: 2026-06-22
+# Last updated: 2026-06-23
 # This is a condensed, portfolio-ready version of the project's session history.
 # Each entry summarizes the goal, root cause, and resolution for a completed
 # session. Bug/item tracking-ID tables and step-by-step debugging narratives have
 # been removed in favor of prose summaries suitable for external review.
-# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, AB, AC, AD, AE, AF, AG, AH, AI, AJ, AK, AL, AM, AN
+# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, AB, AC, AD, AE, AF, AG, AH, AI, AJ, AK, AL, AM, AN, AO
 # Active backlog -> docs/backlog.md
 
 ---
@@ -191,6 +191,42 @@ All planned user-acceptance-testing scenarios passed, including responder, cross
 ## Session X — Code Quality Cleanup (2026-06-14)
 
 A focused cleanup pass intended to bring the codebase to a portfolio-ready state ahead of launch. The check-date field's storage type was corrected from a string to a proper date type, with a accompanying migration. Two schema classes that had drifted into the wrong module were relocated to their correct schema files. A large, monolithic admin router file was split into three focused sub-routers by resource type. On the frontend, a check-wizard component's eighteen separate state variables were consolidated into a single reducer for maintainability. A par-level duplicate-check refinement narrowed an overly broad pre-check to only the case the database constraint couldn't catch on its own.
+
+---
+
+## Session AO — Pre-Deploy Security and Correctness Sweep (2026-06-23)
+
+A max-effort automated code review of the ITM-5 through ITM-8 diff surfaced 15 findings that were triaged and resolved before the first production deploy.
+
+**Critical backend bugs fixed:**
+
+The most severe finding was that `_do_deactivate_par_level` — and both route handlers that call it (`PATCH /par-levels/{id}/deactivate` and `DELETE /par-levels/{id}`) — never called `db.commit()`. The database session used `autocommit=False` with no implicit commit, so every "Remove" click from the UI returned 204 and refreshed the list, but the par level stayed active on disk. This also meant the EditRow "move to different location" flow in ItemAssignments always failed with a 409 Conflict: the deactivation PATCH succeeded in memory but didn't persist, so the subsequent assignment POST saw the original par level as still active and hit the unique constraint. Fixed by adding `db.commit()` to both route handlers.
+
+Two routes added in ITM-5's station-scoping pass were missed: `PATCH /admin/par-levels/{id}` (update_par_level) and `GET /admin/vehicles/{id}/compartments` (list_vehicle_compartments) both enforced the SUPERVISOR_PLUS role but had no `require_station_membership` call. A supervisor at Station B could modify par levels or enumerate compartments for Station A's vehicles by guessing integer IDs. Both routes now resolve the item or vehicle first and gate on station membership before touching any data.
+
+**Frontend bugs fixed:**
+
+`ItemSearchCombobox.runSearch` captured `stationId` in a `useCallback` closure but omitted it from the dependency array. If a parent re-rendered the combobox with a different station (e.g. an admin switching context), searches continued hitting the original station's items silently. Fixed by adding `stationId` to the dependency array.
+
+`deriveLocType` in `ItemAssignments.jsx` defaulted to `'supply_room'` when an assignment's `location_id` wasn't found in the `locations` prop array — which happens whenever the original location (typically a jump bag) has been retired and filtered out. In `EditRow`, this caused the form to initialize as a supply-room assignment, auto-fill the supply room's location ID, and silently move the item to the supply room on the next Save click. Fixed with Option A (Block): `deriveLocType` now returns `null` for unresolvable locations, and `EditRow` renders a locked error state ("This assignment's original location no longer exists — Remove it and re-assign") instead of a live form.
+
+Both `EditRow` and `AddAssignmentForm` used `<form onSubmit={...}>` elements, violating the project rule against native form elements in the PWA (form submit can trigger navigation in Safari PWA and when the Enter key is pressed in any input). Both converted to `<div>` containers with `onClick` on the action button.
+
+`ItemCatalog.jsx`'s `useApi` calls for `vehicles` and `locations` discarded the `error` field, making API failures indistinguishable from "no vehicles/locations at this station." The "Where" picker in ItemAssignments would silently show no options with no explanation. Both calls now destructure `error` and a warning banner is rendered when either fetch fails. The same `error` field was also missing from the compartment `useApi` calls inside `EditRow` and `AddAssignmentForm`; both now show an inline error message when compartment fetch fails.
+
+`handleAddAnother` (the "+ Assign to another location" reset path) always reset `locType` to `'vehicle'` unconditionally, leaving the form with an empty vehicle picker for stations with no active vehicles. It now picks the first available location type (active vehicle → jump bag → supply room).
+
+**Test and infrastructure fixes:**
+
+The PAR-B1 inactive-match reactivation query had no `ORDER BY`, so repeated assign/remove cycles could reactivate an arbitrary historical par-level row. Added `.order_by(ParLevel.par_id.desc())` so the most-recent inactive row is consistently chosen.
+
+The `two_stations` test fixture used `db.flush()` for its `StationMember` row, relying on a route handler's `db.commit()` to sweep it in as a side effect. Changed to an explicit `db.commit()` to make the dependency clear, with a docstring explaining why the hardcoded supervisor email is safe here (unique constraint includes `station_id`, which is unique per test via `_uid()`) and exactly how to migrate to per-test unique credentials (Option B) if the fixture scope ever widens.
+
+**CSS and cleanup:**
+
+The `.compartment-par-levels` CSS block lived in `admin.css`, but `CompartmentParLevels.jsx` is imported and rendered by the supply-room module's `SupplyCatalogView.jsx`. When a user navigated directly to Supply Room without having visited an admin screen, all compartment layout styles were absent. The block was moved to `index.css` (which is always loaded) per the project's documented rule for shared-component CSS.
+
+`app/tests/_par_level_fix.py` (a one-line placeholder comment, never collected by pytest) was deleted. Two stale rows in CLAUDE.md's Flagged Technical Debt table — `_damagedOverrides` (comment already removed in Session AK) and `_par_level_fix.py` (now deleted) — were removed.
 
 ---
 

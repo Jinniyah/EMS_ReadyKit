@@ -95,7 +95,7 @@ export default function ItemSearchCombobox({
       setResults([])
       setOpen(false)
     }
-  }, [getToken])
+  }, [getToken, stationId])
 
   function handleInputChange(e) {
     const val = e.target.value

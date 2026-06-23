@@ -66,13 +66,13 @@ export default function ItemCatalog({ stationId }) {
   const [catalogKey, setCatalogKey]         = useState(0)
 
   // Vehicles fetched once — passed down to ItemAssignments for the cascade picker
-  const { data: vehicles } = useApi(
+  const { data: vehicles, error: vehiclesError } = useApi(
     () => stationId ? vehicleApi.getStationVehicles(stationId, getToken) : Promise.resolve([]),
     [stationId]
   )
 
   // Locations (jump bags + supply room) — passed to ItemAssignments for the "Where" picker
-  const { data: locations } = useApi(
+  const { data: locations, error: locationsError } = useApi(
     () => stationId ? adminApi.getStationLocations(stationId, getToken) : Promise.resolve([]),
     [stationId]
   )
@@ -196,6 +196,13 @@ export default function ItemCatalog({ stationId }) {
           />
           <span>Show inactive items</span>
         </label>
+      )}
+
+      {/* Assignment picker data warning — shown when vehicles or locations fail to load */}
+      {(vehiclesError || locationsError) && (
+        <div className="item-catalog__error" role="alert">
+          ⚠ Could not load {vehiclesError && locationsError ? 'vehicles and locations' : vehiclesError ? 'vehicles' : 'locations'} — assignment pickers may show incomplete options.
+        </div>
       )}
 
       {/* Content */}
