@@ -1,7 +1,9 @@
 # EMS ReadyKit — Codebase Index
-# Last updated: 2026-06-22 — Session AN closed (ITM-7: AddAssignmentForm inline confirmation
-# + "Assign to another location" UX, min/max carry-over, "Done" closes panel; ITM-8:
-# ItemAssignments.test.jsx 9 tests; 233 frontend passing. Launch gate closed — ITM-1..8 ✅ all done.)
+# Last updated: 2026-06-23 — Session AO closed (pre-deploy sweep: 15 findings resolved —
+# db.commit() gap in deactivate routes; station-scoping gaps in update_par_level +
+# list_vehicle_compartments; <form> violations; stale stationId closure in ItemSearchCombobox;
+# deriveLocType Option A; CSS cross-module fix; useApi error fields; PAR-B1 ORDER BY; test
+# fixture + dead-file cleanup; 530 backend / 233 frontend tests passing. Production launched 2026-06-23.)
 # PURPOSE: Load this file at the start of every session to orient quickly.
 # After reading this, load only the sections relevant to the current task.
 # Full project state → docs/project_index.md | Open work → docs/backlog.md
@@ -50,7 +52,7 @@ EMS_ReadyKit/
 │   │   ├── schemas/            # Pydantic request/response schemas
 │   │   └── main.py             # App factory, middleware, router registration
 │   ├── alembic/                # DB migrations (versions/ subdirectory)
-│   ├── tests/                  # pytest suite (498 collected; 498 passing after reseed — ITM-4 resolved all 32 seed_integrity failures; ITM-5 added 14 more)
+│   ├── tests/                  # pytest suite (530 collected; 530 passing — ITM-4 resolved 32 seed_integrity failures; ITM-5 added 14; Session AO added 32)
 │   ├── seed.py                 # Dev seed data — ITM-4 rewrite complete (Session AI). BASE_ITEM_SEED, station-scoped items, Newberg full par levels, Marcellus/Training/Test catalog only.
 │   ├── seed_training.py        # Training station seed — always run, including production (Session AB)
 │   ├── initial_stock.csv       # 10 seed stock items — upload via Receive New Stock → CSV
@@ -257,7 +259,7 @@ AuditEvent     (immutable log)
 | `test_damaged_items.py` | — | SUP-DMG1: damaged items endpoint; happy path; retired excluded; inactive excluded; station isolation; RBAC. 13 tests. | `db` |
 | `test_email_alignment.py` | — | LAUNCH-OPS9: `GET /admin/email-alignment-check` — valid emails pass clean; display-name/malformed/uppercase/blank user_id flagged; inactive row inclusion toggle; cross-station scan; RBAC (Admin only). 12 tests. (Session AC) | `db` |
 
-**Run:** `cd app; pytest` — 498 tests collected, **498 passing** (expected after `alembic upgrade head; python seed.py`). `ruff check .` and `black --check .` confirmed green at Session AJ close. No backend changes in Session AK — count unchanged.
+**Run:** `cd app; pytest` — 530 tests collected, **530 passing**. `ruff check .` and `black --check .` confirmed green at Session AO close.
 
 **Two DB fixtures — do not mix:**
 - `db` — in-memory SQLite, empty, rolls back after each test. Use for all API/logic tests.
@@ -536,16 +538,9 @@ Reseed sequence: `cd app; Remove-Item ems_readykit_dev.db; alembic upgrade head;
 | CI/CD trigger | Push to `main` → GitHub Actions |
 | Terraform | `iac/Terraform/` — delete delete-lock before apply |
 
-**Session AF deploy confirmed live** (2026-06-19) — Compliance Calendar fixes, PAR-B1
-par-level reactivation, and the audit date-range test fix all verified in production by
-Jennifer, alongside a separate quick dependency fix (`pydantic-settings` 2.14.1 → 2.14.2,
-GHSA-4xgf-cpjx-pc3j, raised by the `pip-audit` CI gate). `cd app; pytest` (484/484),
-`cd app; ruff check .`, `cd app; black --check .`, and `cd frontend; npm test` all
-confirmed green before this deploy. **BUG-AF2 redeploy also confirmed live the same day** —
-Jennifer re-tested the Station Supplies Count reminder after the first deploy, found the
-data-source bug, and confirmed the `getLocationCheckHistory` fix after redeploying.
-
-⚠ No deploy since Session AF — ITM-5 + ITM-6 complete; ITM-8 (tests/docs) is next before deploying. Deploy after ITM-8 closes the launch gate.
+**Production launched 2026-06-23** — ITM-1..8 + Session AO pre-deploy sweep complete; pushed
+to `main`; Azure CI/CD deploy confirmed. App live at the URLs above. All post-launch work
+is operational (LAUNCH-OPS1–6, EMS chief's responsibility) or post-launch engineering backlog.
 
 ---
 
@@ -553,12 +548,11 @@ data-source bug, and confirmed the `getLocationCheckHistory` fix after redeployi
 
 | File | Issue |
 |------|-------|
-| `app/ems_readykit_dev.db` | Should not be committed; `git rm --cached app/ems_readykit_dev.db`. Will also be wiped and reseeded for ITM-1..8 — no need to preserve current contents (no production data exists). |
+| `app/ems_readykit_dev.db` | Should not be committed; `git rm --cached app/ems_readykit_dev.db`. |
 | `deploy.zip` | Build artifact in repo root; add to .gitignore + `git rm --cached deploy.zip` |
 | `app/tests/test_routers.py` | 67 KB — split by domain when it next needs major additions |
 | `frontend/src/modules/admin/components/VehiclesScreen.jsx` | 25 KB — extract sub-components when next modified |
 | `frontend/src/styles/wizard.css` | Consolidated from 3 old patch files; ideally moves to `modules/check-wizard/` — defer until next modification |
-| `app/tests/_par_level_fix.py` | Stray placeholder file ("# placeholder — this file can be deleted"), not part of the real test suite. Not touched this session. Safe to delete whenever convenient. |
 
 `_session_AE_removed/` (Session AE's staging folder for superseded member-management
 files) has been reviewed and deleted — no longer flagged.
@@ -575,4 +569,5 @@ files) has been reviewed and deleted — no longer flagged.
 | ✅ **AJ** (done) | ITM-5: backend station scoping | All 11 `admin_items.py` routes scoped to station; `_conflict_on_name` per-station; `test_item_station_scoping.py` added (14 tests); ruff + black green. 498/498 passing. |
 | ✅ **AK** (done) | ITM-6: frontend | `ItemCatalog.jsx` station-scoped + cabinet chips; `ItemAssignments.jsx` "Where" picker; `adminApi` + `ItemSearchCombobox` station_id threading; 4 new catalog tests. |
 | ✅ **AN** (done) | ITM-7 + ITM-8: launch gate | ITM-7: multi-location assign inline confirmation + "Assign to another location" UX. ITM-8: `ItemAssignments.test.jsx` (9 tests); 233 frontend, 498 backend passing. Launch gate closed. |
-| **Next** | Deploy + operational walkthroughs | Push to main → CI/CD deploys. Then LAUNCH-OPS1 (par levels), LAUNCH-OPS2/3 (stock counts, now unblocked), LAUNCH-OPS4 (add members), LAUNCH-OPS5/6 (chief + volunteer walkthroughs). Post-launch engineering backlog: F-5G3, ADMIN-F10, TEST-AE1, TEST-AF1. |
+| ✅ **AO** (done) | Pre-deploy sweep | 15 findings resolved: db.commit() gap, station-scoping gaps, <form> violations, stale stationId closure, deriveLocType, CSS, useApi error fields, PAR-B1 ORDER BY, test fixture + dead-file cleanup. 530 backend tests passing. |
+| ✅ **Launched** | Production deploy 2026-06-23 | Pushed to main → CI/CD → Azure confirmed live. LAUNCH-OPS1–6 are post-launch operational tasks (EMS chief). Post-launch engineering: F-5G3, ADMIN-F10, TEST-AE1, TEST-AF1. |

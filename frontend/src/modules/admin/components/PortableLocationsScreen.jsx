@@ -3,6 +3,15 @@
  * ADMIN-F7: Full CRUD for portable locations (Jump Bags / JUMP_BAG type).
  * List → create → rename + compartment + par level management.
  * Admin only.
+ *
+ * Session AM follow-up: ShelfManager referenced an undefined `station`
+ * variable when passing stationId into CompartmentParLevels -- the
+ * component only ever receives `location` and `getToken` props, never a
+ * `station` prop, so this threw a ReferenceError the moment any jump bag
+ * with compartments was expanded (same root-cause pattern as the
+ * VehiclesScreen fix earlier this session). Fixed by using
+ * location.station_id, which the backend already populates on every
+ * InventoryLocation record.
  */
 import React, { useState, useCallback } from 'react'
 import { useAuth } from '../../../shared/hooks/useAuth.jsx'
@@ -112,7 +121,7 @@ function ShelfManager({ location, getToken }) {
           <CompartmentParLevels
             compartmentId={comp.compartment_id}
             locationId={location.location_id}
-            stationId={station.station_id}
+            stationId={location.station_id}
           />
         </div>
       ))}
