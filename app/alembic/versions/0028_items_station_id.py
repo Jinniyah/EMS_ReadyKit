@@ -10,7 +10,7 @@ Changes:
   - Removes the old global UNIQUE on items.name
   - Adds UniqueConstraint(station_id, name) named uq_items_station_name
 
-DB wiped and reseeded before this runs — no live data to migrate (Jennifer, 2026-06-20).
+DB wiped and reseeded before this runs — no live data to migrate.
 
 SQLite path — raw SQL, not Alembic batch mode:
   Migration 0001 created items.name with unique=True (inline UNIQUE in DDL).

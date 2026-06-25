@@ -1,42 +1,7 @@
 # EMS ReadyKit — Codebase Index
-# Last updated: 2026-06-23 — Session AO closed (pre-deploy sweep: 15 findings resolved —
-# db.commit() gap in deactivate routes; station-scoping gaps in update_par_level +
-# list_vehicle_compartments; <form> violations; stale stationId closure in ItemSearchCombobox;
-# deriveLocType Option A; CSS cross-module fix; useApi error fields; PAR-B1 ORDER BY; test
-# fixture + dead-file cleanup; 530 backend / 233 frontend tests passing. Production launched 2026-06-23.)
-# PURPOSE: Load this file at the start of every session to orient quickly.
+
 # After reading this, load only the sections relevant to the current task.
 # Full project state → docs/project_index.md | Open work → docs/backlog.md
-
----
-
-## ✅ Item model rework ITM-1..8 complete (Sessions AG–AN)
-**ITM-1 ✅ DONE (Session AG):** `station_id` FK + `UniqueConstraint("station_id", "name")`
-added to `Item`; migration 0028 applied; supply catalog scoped to station; test suite updated.
-**ITM-3 ✅ DONE (Session AH):** `category_group` VARCHAR(100) nullable added to `Item`;
-migration 0029 applied; schema updated.
-**ITM-4 ✅ DONE (Session AI):** `seed.py` fully rewritten — `BASE_ITEM_SEED` with 7 category
-groups, `get_or_create_item(station_id=...)` required, `seed_station_catalog()`, canonical item
-names, corrected O2 PSI thresholds, LUCAS merge, Fire Extinguisher SUPPLY. 32
-`test_seed_integrity` failures resolved. Reseed required: `Remove-Item ems_readykit_dev.db;
-alembic upgrade head; python seed.py`.
-**ITM-5 ✅ DONE (Session AJ):** All 11 routes in `admin_items.py` station-scoped via
-`require_station_membership`. `_conflict_on_name` per-station. `_conflict_on_barcode` global.
-`test_item_station_scoping.py` added (14 tests). 498 tests passing.
-**ITM-6 ✅ DONE (Session AK):** `adminApi.listItems`/`searchItems` pass `station_id`. `ItemCatalog.jsx`
-scoped to station; 4-category chips replaced with 7 cabinet-group chips; grouping by `category_group`
-(falls back to `category`); fetches and passes `locations` to `ItemAssignments`. `ItemAssignments.jsx`
-`AddAssignmentForm`/`EditRow` have a "Where" picker (Vehicle/Jump Bag/Supply Room); assignment display
-shows `vehicle_number ?? location_label`. `ItemSearchCombobox` gains `stationId` prop threaded through
-all callers. `admin.css` adds `.assignment-location-label`. 4 new `ItemCatalog` cabinet tests.
-**ITM-7 ✅ DONE (Session AN):** `AddAssignmentForm` now shows inline confirmation after a successful
-assign ("✓ Assigned to [Vehicle] › [Compartment]") with two follow-up actions: "+ Assign to another
-location" (resets Where/compartment, carries min/max forward) and "Done" (closes the panel). Parent
-`refreshListOnly` callback added so list refreshes without collapsing the form. `admin.css` adds
-`.add-assignment-confirm` / `.add-assignment-confirm__msg`.
-**ITM-8 ✅ DONE (Session AN):** `ItemAssignments.test.jsx` added (9 tests) — vehicle/jump bag/supply
-room payload paths, auto-select, display row, confirmation state, reset + min/max carry-over, Done
-button. Frontend: 233 tests passing. Backend: 498 tests passing. **Launch gate closed.**
 
 ---
 
@@ -66,14 +31,19 @@ EMS_ReadyKit/
 ├── docs/                       # All project documentation
 │   ├── backlog.md              # ALL open work items — single source of truth
 │   ├── project_index.md        # Technical reference, API structure, stack
-│   ├── backlog_completed.md    # Completed items (Sessions A–AJ) + changelog archive
+│   ├── backlog_completed.md    # Completed items (Sessions A–AQ) + changelog archive
+│   ├── architecture.md         # Component diagram and networking notes
+│   ├── runbook.md              # Infrastructure deployment, validation, teardown
+│   ├── osi_security_review.md  # OSI layer security analysis with gap/action list
 │   ├── models/                 # Real inventory checklist photos (712, jump bag) — ITM-2 source
-│   ├── uat_test_cases.md       # UAT test cases
+│   ├── evidence/                # UAT screenshots and supporting artifacts
+│   ├── templates/               # Document templates
 │   └── adr/                   # Architecture Decision Records (ADR-001–006)
 ├── iac/                        # Terraform (Azure infra)
 ├── .github/workflows/          # CI/CD (pip-audit → test → build → deploy)
 ├── CLAUDE.md                   # Rules for AI-assisted development
 ├── CODEBASE_INDEX.md           # This file
+├── CONTRIBUTING.md             # Local setup, dev workflow, contribution guidelines
 └── README.md                   # Public-facing project overview
 ```
 
@@ -81,8 +51,7 @@ EMS_ReadyKit/
 
 ## Backend — Routers (app/ems_readykit/routers/)
 
-All routes are prefixed `/api/v1/`. Router registration order in main.py matters
-(station_members before stations; check_history before checks).
+All routes are prefixed `/api/v1/`. Router registration order in main.py matters (station_members before stations; check_history before checks).
 
 | File | Size | Route Prefix | Roles | Purpose |
 |------|------|-------------|-------|---------|
@@ -100,36 +69,6 @@ All routes are prefixed `/api/v1/`. Router registration order in main.py matters
 | `admin_stations.py` | — | `/admin` | Admin | `POST /admin/stations` (ADMIN-B15, auto-creates supply room + StationMember). `PATCH /admin/locations/{id}` renames a location label (SS-B1). `GET /admin/retired?type=&station_id=` lists retired vehicles/locations/stations (RET-B4). `GET /admin/email-alignment-check?station_id=&include_inactive=` — flags StationMember rows whose `user_id` doesn't look like a valid email (blank, contains whitespace, missing `@`/domain, not lowercase); read-only diagnostic for catching display-name-instead-of-email mistakes from manual add or CSV import (LAUNCH-OPS9, Session AC). |
 | `usage.py` | 9 KB | `/checks` | All + membership | `POST /checks/usage` (log items used, FIFO decrement); `GET /checks/usage/station/{id}` (history); `GET /checks/usage/station/{id}/frequent` (top 10 items, 90-day window) |
 | `audit.py` | 2 KB | `/audit` | Supervisor+ | Paginated audit event log; `GET /audit?from_date=&to_date=` date-range filter (B-E18). Unmodified across Session AF — two separate suspicions about a naive/aware datetime comparison here were each checked via isolated repro and ruled out; the real bug both times was on the test side (global-table pollution, then a local-vs-UTC date computed in the wrong timezone). See `docs/backlog_completed.md` Session AF write-up for the full two-pass diagnosis before touching this file's date filters. |
-
-### ⚠ PAR-B1 (Session AF): par-level reactivation on re-add after removal
-`ParLevel`'s unique constraint `uq_par_item_compartment (item_id, compartment_id)` has no
-concept of `active`. Soft-deactivating a par level (Remove, via either Station
-Administration's `CompartmentParLevels.jsx`/`ItemAssignments.jsx` or a direct API call)
-leaves a row occupying that slot — re-adding the same item to the same compartment used to
-always fail with "already assigned" via the `IntegrityError` fallback, even with no active
-duplicate present. Both creation endpoints (`assign_item_to_compartment` in
-`admin_items.py`, `create_par_level` in `inventory.py`) now check for a matching inactive
-row first and reactivate it (clearing `deactivated_at`/`deactivation_reason`, applying the
-new min/max) instead of inserting a duplicate, preserving the original `par_id` and its
-history. New test file: `app/tests/test_par_level_reactivation.py`.
-
-### ⚠ BUG-AF2 (Session AF, same-day UAT follow-up): pick the right check-list endpoint for unbounded lookups
-`GET /checks/daily/station/{station_id}` (used by `supervisorApi.getComplianceRange`) caps
-its date range at 90 days and returns 422 above that. A first pass at the Compliance
-Calendar's "Station Supplies Count" reminder tried to fake an unbounded "most recent count
-ever" lookup by widening that endpoint's window to 730 days — every request 422'd silently,
-`useApi` correctly nulled out the data on error, and the reminder rendered as if no count
-had ever happened (with no visible error), and its click target (built from the same dead
-data) stopped opening anything. Fixed by switching to `GET /checks/daily/location/{location_id}`
-(new `supervisorApi.getLocationCheckHistory`), which is scoped to one location and has no
-date-range limit at all — the correct tool whenever "all-time most recent" is the actual
-requirement, regardless of how wide a range-bounded endpoint's window is stretched. Both the
-reminder's display text and its click target now read from this single fetch.
-
-No backend changes were needed for Session AE's member-management merge — `station_members.py`
-was already correct (member_id-based, ACC-B7-compliant). The bug was entirely in the frontend's
-`adminApi.js`, which had a second, stale, user_id-based set of member endpoints that never got
-updated when ACC-B7 changed the unique constraint and route shape.
 
 ### Key shared patterns (deps.py)
 ```python
@@ -166,37 +105,6 @@ from ems_readykit.routers.deps import (
 | `stock_lot.py` | `StockLot` | Transfer record: from/to location, item, qty, FIFO lot snapshot |
 | `usage_event.py` | `UsageEvent`, `UsageEventItem` | After-call usage log. UsageEvent → station/vehicle/performed_by/timestamp/notes. UsageEventItem → item_id + quantity_used. Lazy selectin on vehicle + items. `UsageEvent.station_id` is direct — no model change needed for ITM-1..8. |
 
-### ⚠ Critical frontend convention: active vs retired_at (BUG-AD1, Session AD)
-`active` (temporary, reversible — Mark Out of Service / Return to Service) and
-`retired_at` (permanent — Settings → Retire) are **independent fields** on Vehicle,
-InventoryLocation, Station, and StockLot. Retiring sets `active=False` as a side
-effect, so checking `active` alone happens to exclude retired records *today*, but
-that's incidental, not guaranteed. **Every frontend list/action that touches one of
-these models must filter `!v.retired_at` explicitly**, the same way `usage-log/index.jsx`
-already did before this was a documented rule. Already fixed: `VehiclesScreen.jsx`,
-`vehicles/index.jsx` + `VehicleCard.jsx`, `HomePage.jsx`'s `useStationIssues`,
-`check-wizard/components/Step1Vehicle.jsx`, and (Session AF) `supervisorApi.getTodayCompliance`
-+ `ComplianceCalendar.jsx` + `supervisor/index.jsx`. If a new screen lists vehicles/locations,
-check this convention before shipping it.
-
-### ⚠ Critical frontend convention: member_id, not user_id, for member PATCH/DELETE (Session AE)
-`StationMember` rows are addressed by `member_id` (integer PK) for PATCH and DELETE,
-never by `user_id` (email string) — see ACC-B7's docstring in `station_members.py`.
-A person can hold multiple roles, each as a separate row with the same `user_id`, so
-`user_id` alone is no longer a unique key. The only frontend API module that should
-call these endpoints is `modules/admin/api/membersApi.js`. Don't add a second
-member-CRUD API module elsewhere — that's exactly how the bug fixed in MERGE-1
-(Session AE) happened: a second, stale, user_id-based copy in `adminApi.js`.
-
-### ⚠ Critical frontend convention: date-range vs unbounded check lookups (BUG-AF2, Session AF)
-`checks.py` exposes two shapes of "list checks" endpoint and they are NOT interchangeable.
-`GET /checks/daily/station/{id}` is a date-range query, capped at 90 days, intended for
-calendar/dashboard views over a bounded window — widening the range past 90 days doesn't
-make it unbounded, it makes it 422. `GET /checks/daily/location/{id}` and
-`GET /checks/daily/vehicle/{id}` are entity-scoped with no range limit at all — use one of
-these whenever the actual requirement is "the most recent check ever for this thing,"
-regardless of how long ago. Before adding a new "last counted"/"last checked" feature,
-check which shape the requirement actually needs; this is exactly the mistake BUG-AF2 fixed.
 
 ### Domain model hierarchy
 ```
@@ -249,9 +157,9 @@ AuditEvent     (immutable log)
 | `test_item_station_scoping.py` | — | NEW (Session AJ, ITM-5/8). 14 tests, 5 classes: list/search scoped to station; create without membership → 403; per-station name uniqueness; get/edit cross-station → 403; Admin bypasses all checks. `two_stations` fixture creates Station A+B, adds supervisor to A only. | `db` |
 | `test_models.py` | 7 KB | Model-level unit tests | `db` |
 | `test_priority_items.py` | — | AED + LUCAS all check types; legal immutability; FAIL preservation; priority flag DB persistence | `db` |
-| `test_persona_responder.py` | — | Jamie (Responder): all 5 check types; FAIL+comment+continue; multiple checks/day; role boundary | `db` |
-| `test_persona_supervisor.py` | — | Earl (Supervisor): check history; damaged item regression; repair requests; station today view | `db` |
-| `test_persona_admin.py` | — | Jennifer (Admin): supply room decrement; FUNCTIONAL items excluded; role alias regression; admin-only deactivation boundary | `db` |
+| `test_persona_responder.py` | — | Responder: all 5 check types; FAIL+comment+continue; multiple checks/day; role boundary | `db` |
+| `test_persona_supervisor.py` | — | Supervisor: check history; damaged item regression; repair requests; station today view | `db` |
+| `test_persona_admin.py` | — | Admin: supply room decrement; FUNCTIONAL items excluded; role alias regression; admin-only deactivation boundary | `db` |
 | `test_safety_checks.py` | — | O2 PSI below minimum → LOW; date recurrence overdue → OVERDUE; requires_full_check enforcement (422 on missing items) | `db` |
 | `test_seed_integrity.py` | — | Verifies seeded dev DB: Unit 712, PC 8, AED/LUCAS items, O2 PSI minimums, Truck Operations, jump bags | `seeded_db` |
 | `test_usage.py` | — | POST /checks/usage happy path, FIFO decrement, non-SUPPLY rejection, 403/404 guards; GET history + frequent items | `db` |
@@ -259,20 +167,13 @@ AuditEvent     (immutable log)
 | `test_damaged_items.py` | — | SUP-DMG1: damaged items endpoint; happy path; retired excluded; inactive excluded; station isolation; RBAC. 13 tests. | `db` |
 | `test_email_alignment.py` | — | LAUNCH-OPS9: `GET /admin/email-alignment-check` — valid emails pass clean; display-name/malformed/uppercase/blank user_id flagged; inactive row inclusion toggle; cross-station scan; RBAC (Admin only). 12 tests. (Session AC) | `db` |
 
-**Run:** `cd app; pytest` — 530 tests collected, **530 passing**. `ruff check .` and `black --check .` confirmed green at Session AO close.
+**Run:** `cd app; pytest` — 530 tests collected, **530 passing**. `ruff check .` and `black --check .` confirmed green.
 
 **Two DB fixtures — do not mix:**
 - `db` — in-memory SQLite, empty, rolls back after each test. Use for all API/logic tests.
 - `seeded_db` — read-only connection to `ems_readykit_dev.db`. Use ONLY in `test_seed_integrity.py`. Skips if dev DB absent. Never write to it.
 
 **Test isolation note:** Route handlers that call `db.commit()` release the active SQLAlchemy savepoint — committed rows are NEVER rolled back between tests within a pytest session; this is permanent for the rest of that `pytest` invocation, not just "until the next fixture teardown." Any fixture creating a row with a UNIQUE constraint must use get-or-create semantics (see `test_item` and `vehicle_location` fixtures in `test_supply_room.py`), AND any test asserting against a broad/global query (e.g. unscoped `GET /audit`) must instead scope its own query (station_id, vehicle_id, etc.) to the data it itself created — see `test_par_level_reactivation.py`'s per-test `compartment` fixture and `test_routers.py`'s Session AF audit-date-range fixes for two different examples of this same underlying constraint.
-
-**Timezone note (Session AF):** any test that computes a date boundary to compare against
-an `AuditEvent.timestamp` (or any other UTC-stamped column) must derive that boundary from
-`datetime.now(timezone.utc).date()`, not local `date.today()`. The two differ whenever the
-test machine's local wall-clock time has already crossed a UTC midnight boundary (common in
-evening hours in US timezones) — see `TestAuditEndpoints::test_audit_from_date_tomorrow_returns_empty`
-for a worked example of the failure mode this caused.
 
 ---
 
@@ -299,7 +200,7 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 | File | Size | Purpose |
 |------|------|---------|
 | `index.jsx` | 7 KB | Dashboard entry; loads supply alerts (SR-B3) for SupplyLowStockPanel. Session AF: `vehicles` re-filtered defensively by `!v.retired_at` (source-of-truth fix is in `supervisorApi.js`, this is a second defensive layer matching the BUG-AD1 convention). |
-| `components/ComplianceCalendar.jsx` | — | Calendar view of check compliance. Rewritten Session AF: week view = active (non-retired) vehicles + jump bags only; Station Supply Room intentionally excluded from week view (periodic count, not daily — would just be empty space). Month view = combined vehicle/jump-bag picker (`EntityPicker`) + traditional grid. The `SupplyRoomReminder` strip lives directly under the Week/Month toggle (visible in both views, moved there mid-session per Jennifer's UAT feedback that a chip buried in month view would get seen far less often). Supply room fetched via `supervisorApi.getSupplyRoomLocation`, which filters out a retired supply room client-side; its check history is fetched via `supervisorApi.getLocationCheckHistory` (BUG-AF2 fix — NOT `getComplianceRange`, which is range-capped and cannot answer "most recent ever"). Has an explicit error state (`.cal__supply-reminder--error`) instead of silently rendering as if no count existed. No test file yet — see TEST-AF1 in `docs/backlog.md`. |
+| `components/ComplianceCalendar.jsx` | — | Calendar view of check compliance. Rewritten Session AF: week view = active (non-retired) vehicles + jump bags only; Station Supply Room intentionally excluded from week view (periodic count, not daily — would just be empty space). Month view = combined vehicle/jump-bag picker (`EntityPicker`) + traditional grid. The `SupplyRoomReminder` strip lives directly under the Week/Month toggle (visible in both views, moved there mid-session per UAT feedback that a chip buried in month view would get seen far less often). Supply room fetched via `supervisorApi.getSupplyRoomLocation`, which filters out a retired supply room client-side; its check history is fetched via `supervisorApi.getLocationCheckHistory` (BUG-AF2 fix — NOT `getComplianceRange`, which is range-capped and cannot answer "most recent ever"). Has an explicit error state (`.cal__supply-reminder--error`) instead of silently rendering as if no count existed. No test file yet — see TEST-AF1 in `docs/backlog.md`. |
 | `components/CheckDetailPanel.jsx` | 9 KB | Drill-down check detail — read-only + comments only |
 | `components/VehicleComplianceCard.jsx` | 7 KB | Per-vehicle compliance summary card |
 | `components/PortableComplianceCard.jsx` | — | Per-portable-location compliance summary card |
@@ -376,12 +277,6 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 | `components/RetiredListSection.jsx` | — | RET-F5: collapsible ▲/▼ section; three sub-lists |
 | `settings.css` | — | Settings-screen-only styles (shell, toggle, retirement). Cross-module classes (`.settings-section`, `.settings-row`, `.badge`, `.member-*`, `.email-alignment__*`) moved to `index.css` (Session AE) since they're now used by both `settings/` and `admin/`. |
 
-**Member management is no longer split across two screens.** Previously: Admin -> Members
-(broken, user_id-based removal, no multi-role/CSV) and Settings -> Team Members (working,
-fuller-featured). Session AE (MERGE-1) consolidated everything into Station Administration ->
-Members. Supervisors can manage their own station's members — add, edit name, add additional
-roles, CSV import — without Administrator access; only the Email Alignment Check stays
-Admin-gated within that same screen.
 
 ---
 
@@ -411,13 +306,9 @@ Vitest + React Testing Library. Run: `cd frontend && npm test` — **233 tests p
 | `modules/usage-log/__tests__/UsageItemPicker.test.jsx` | 13 | Catalog, search, +/- controls, selected, sections |
 | `modules/usage-log/__tests__/UsageLogScreen.test.jsx` | 6 | Multi-vehicle picker, single-vehicle skip, payload, error |
 
-No test file exists yet for `MemberManagementSection.jsx` or the new `MembersScreen.jsx`
-(neither the old admin flat-list nor the old settings version had one) — see `docs/backlog.md`
-(TEST-AE1). Also no test file yet for the rewritten `ComplianceCalendar.jsx` (Session AF,
-including the BUG-AF2 data-source fix) — see TEST-AF1 in the same backlog.
 
 **Mock infrastructure:**
-- `src/shared/hooks/__mocks__/useAuth.jsx` — configurable useAuth with Jamie/Earl/Jennifer personas
+- `src/shared/hooks/__mocks__/useAuth.jsx` — configurable useAuth with Responder/Supervisor/Admin personas
 - `__mocks__/@azure/msal-react.js` — MSAL React stubs
 - `__mocks__/@azure/msal-browser.js` — MSAL browser stubs
 
@@ -472,7 +363,6 @@ including the BUG-AF2 data-source fix) — see TEST-AF1 in the same backlog.
 29 migrations applied (0001–0029, plus 0003a branch). Run automatically at startup via `startup.sh`.
 To add a new migration: `cd app && alembic revision --autogenerate -m "description"`
 
-No further schema changes planned until ITM-4 closes (seed.py rewrite — schema-only, no migration needed).
 
 | Migration | Description |
 |-----------|-------------|
@@ -498,25 +388,19 @@ No further schema changes planned until ITM-4 closes (seed.py rewrite — schema
 | 0028 | `items.station_id` FK (NOT NULL → stations); `uq_items_station_name(station_id, name)` replaces global unique on name. **Raw SQL** (not batch mode) — Alembic batch was re-carrying the inline UNIQUE from sqlite_master DDL through every table recreation; raw CREATE TABLE + INSERT SELECT + DROP + RENAME bypasses reflection entirely. (Session AG/AI, ITM-1) |
 | 0029 | `items.category_group` VARCHAR(100) nullable; batch mode (Session AH, ITM-3) |
 
-No new migration in Session AE or Session AF (both frontend + application-logic changes only;
-PAR-B1's reactivation fix is router logic, not a schema change; BUG-AF2 is purely a frontend
-data-source swap between two pre-existing, unmodified backend endpoints).
-Migrations 0028 (Session AG) and 0029 (Session AH) added for ITM-1 and ITM-3. No further
-schema migrations planned through ITM-6 — ITM-4 is seed.py only.
 
 ---
 
 ## Seed Data (app/seed.py, app/seed_training.py)
 
-`seed.py` — **ITM-4 rewrite complete (Session AI).** Idempotent, dev-only.
 Reseed sequence: `cd app; Remove-Item ems_readykit_dev.db; alembic upgrade head; python seed.py`
 
 **Structure:** `BASE_ITEM_SEED` (~100+ canonical items) → `seed_station_catalog(db, station_id)` bootstraps each station → `build_ambulance_inventory`/`build_jump_bag` add Newberg's real par levels.
 
 | Station | Vehicles / Locations | Notes |
 |---------|---------------------|-------|
-| Newberg Township Station 1 | Unit 712 (BLS) + Unit 712 Jump Bag + Supply Room | Full par levels from real 712 + jump bag inventory forms. PC 8 has all 6 AED/LUCAS items (LUCAS Device merged). |
-| Marcellus Township Station 1 | Unit 540 (ALS) + Supply Room | Catalog only — supervisor assigns par levels via admin UI (ITM-6). |
+| Newberg Township Station | Unit 712 (BLS) + Unit 712 Jump Bag + Supply Room | Full par levels from real 712 + jump bag inventory forms. PC 8 has all 6 AED/LUCAS items (LUCAS Device merged). |
+| Marcellus Township Station | Unit 540 (ALS) + Supply Room | Catalog only — supervisor assigns par levels via admin UI (ITM-6). |
 | Newberg Training Station (orange) | Training Unit A/B + Jump Bag A/B + Supply Room | Catalog only — par levels assigned via admin UI. |
 | ⚠ TEST STATION | Unit TEST (QRV) + Supply Room | Catalog + 7 `[TEST]`-prefixed items; no par levels; dev only. |
 
@@ -524,7 +408,7 @@ Reseed sequence: `cd app; Remove-Item ems_readykit_dev.db; alembic upgrade head;
 - One canonical item per real-world thing reused across compartments via separate `ParLevel` rows (e.g. "Gauze, 3x3" → ambulance PC18 + jump bag Front Pocket + supply room shelf).
 - O2 PSI: On-Board 500–2200 (large tank, unchanged); Stretcher + Jump Bag 200–500 (small tank, corrected).
 - LUCAS Device merges former "LUCAS Device Ready Check" — one FUNCTIONAL priority item, `priority_check=True`.
-- Fire Extinguisher: SUPPLY (not FUNCTIONAL) in both PS EC2 and Truck Operations — Jennifer-confirmed.
+- Fire Extinguisher: SUPPLY (not FUNCTIONAL) in both PS EC2 and Truck Operations.
 - New item: "Stretcher Battery Date of Last Charge" (DATE_RECORD, recurrence=90).
 - `station_supply=False` baked into `BASE_ITEM_SEED` for AED/LUCAS/medication items.
 

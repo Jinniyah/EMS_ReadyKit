@@ -57,7 +57,7 @@ Writing back a partial file silently truncates the rest — this has actually ha
   - Fixtures creating uniquely-constrained rows need get-or-create or per-test-unique naming (`request.node.name`), not fixed names.
   - Tests asserting against a broad/unscoped query (e.g. plain `GET /audit`) must instead scope to data the test itself created (station_id, vehicle_id, etc.) — never assert `== []` against a shared table.
 - `TestClient.delete()` doesn't support `json=`/`content=` directly — use `client.request("DELETE", url, content=json.dumps(body), headers={"Content-Type": "application/json"})`.
-- Persona files, do not delete: `test_priority_items.py`, `test_persona_responder.py` (Jamie), `test_persona_supervisor.py` (Earl), `test_persona_admin.py` (Jennifer), `test_safety_checks.py`, `test_seed_integrity.py`, `test_usage.py`, `test_damaged_items.py`.
+- Persona files, do not delete: `test_priority_items.py`, `test_persona_responder.py` (Responder), `test_persona_supervisor.py` (Supervisor), `test_persona_admin.py` (Admin), `test_safety_checks.py`, `test_seed_integrity.py`, `test_usage.py`, `test_damaged_items.py`.
 - `test_routers.py` is 67 KB — add to a domain-specific file when one exists instead of growing it further.
 
 ---

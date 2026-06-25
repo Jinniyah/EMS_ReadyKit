@@ -13,7 +13,7 @@
  * month view. The Station Supply Room is kept out of that picker/grid
  * entirely and instead gets a standing reminder strip directly under the
  * Week/Month toggle, visible no matter which view is selected (B-AF1,
- * moved under the toolbar per Jennifer's feedback after launch — a chip
+ * moved under the toolbar per Admin's feedback after launch — a chip
  * inside month view would get seen far less often than something that's
  * always on screen).
  *
@@ -466,7 +466,7 @@ export default function ComplianceCalendar({ station, vehicles, portables = [], 
 
       {/* ── Station Supply Room reminder — always visible here, under the
             Week/Month toggle, regardless of which view is selected. Moved
-            out from under the month grid per Jennifer's feedback: a chip
+            out from under the month grid per Admin's feedback: a chip
             buried inside month view would get seen far less often than
             something that's always on screen. ────────────────────────────── */}
       {supplyRoom && (

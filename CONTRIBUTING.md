@@ -59,6 +59,7 @@ pip install -r requirements.txt
 # Apply migrations and seed
 alembic upgrade head
 python seed.py
+python seed_training.py
 
 # Start the API
 uvicorn ems_readykit.main:app --reload --port 8000
@@ -87,7 +88,7 @@ Frontend: http://localhost:5173
 | `AZURE_AD_CLIENT_ID` | No | -- | App Registration client ID |
 | `CORS_ORIGINS` | No | `*` | Comma-separated list of allowed origins |
 | `LOG_LEVEL` | No | `INFO` | Python logging level |
-| `VITE_API_BASE_URL` | No | `http://localhost:8000` | Frontend API base URL |
+| `VITE_API_BASE_URL` | No | `http://localhost:8000` | Frontend API base URL; also used by `DevBanner.jsx` to detect non-prod |
 | `TESTING` | No | -- | Set to `true` by conftest.py; disables rate limiter in test suite |
 
 In `APP_ENV=development` (the default), real Azure AD tokens are not required.
@@ -125,7 +126,7 @@ Key endpoints:
 ```powershell
 cd app
 
-# Full suite (396 tests, ~7 seconds)
+# Full backend suite (530 tests, a few seconds)
 pytest tests/ -q
 
 # Verbose with short tracebacks
@@ -139,12 +140,21 @@ pytest tests/test_priority_items.py -v
 pytest tests/test_safety_checks.py -v
 pytest tests/test_retirement.py -v
 pytest tests/test_usage.py -v
+pytest tests/test_item_station_scoping.py -v
+pytest tests/test_par_level_reactivation.py -v
 pytest tests/test_seed_integrity.py -v   # requires seeded dev DB
 
 # Keyword filter
 pytest tests/ -v -k "AED"
 pytest tests/ -v -k "RBAC"
 pytest tests/ -v -k "supervisor"
+```
+
+```powershell
+cd frontend
+
+# Full frontend suite (233 tests)
+npm test
 ```
 
 ### How tests work
@@ -156,6 +166,13 @@ pytest tests/ -v -k "supervisor"
 - Each test runs inside a SQLAlchemy savepoint that rolls back after the test
 - No external services required
 - Use this for all API/business logic tests
+- **Caveat:** any route handler that calls `db.commit()` directly releases the
+  savepoint early -- those committed rows are never rolled back for the rest
+  of that pytest session. Fixtures creating uniquely-constrained rows need
+  get-or-create semantics or per-test-unique naming (e.g. keyed off
+  `request.node.name`), and tests asserting against a broad/unscoped query
+  (like a plain `GET /audit`) must instead scope to data the test itself
+  created.
 
 `seeded_db` -- read-only connection to `ems_readykit_dev.db`, used only by `test_seed_integrity.py`:
 - Connects to the actual seeded development database
@@ -173,33 +190,42 @@ pytest tests/ -v -k "supervisor"
 # auth_responder   -- {"Authorization": "Bearer test-responder"}
 ```
 
-### Test file overview
+### Test file overview (backend)
 
 | File | What it covers | Fixture |
 |------|---------------|---------|
-| `test_routers.py` | Main router integration tests (67 KB) | `db` |
+| `test_routers.py` | Main router integration tests (67 KB -- candidate for splitting by domain) | `db` |
 | `test_supply_room.py` | Supply room SR-B1/B2/B3/B4 | `db` |
 | `test_repair_requests.py` | Repair request lifecycle | `db` |
 | `test_station_membership.py` | RBAC + station membership enforcement | `db` |
+| `test_member_management.py` | Multi-role membership, name edits, CSV import | `db` |
+| `test_email_alignment.py` | Email-alignment diagnostic (malformed/blank/uppercase `user_id` detection) | `db` |
 | `test_check_history.py` | Check history, soft-delete, acknowledgement | `db` |
 | `test_admin_items.py` | Admin item management, par levels, CSV import | `db` |
+| `test_item_station_scoping.py` | Per-station item catalog isolation; cross-station access denial; Admin bypass | `db` |
+| `test_par_level_reactivation.py` | Deactivate -> re-add reactivates the original par level instead of duplicating | `db` |
 | `test_models.py` | Model-level unit tests | `db` |
 | `test_priority_items.py` | AED + LUCAS all check types; legal immutability; priority flag persistence | `db` |
-| `test_persona_responder.py` | Jamie (Responder): all check types; FAIL+comment flow; multiple checks per day | `db` |
-| `test_persona_supervisor.py` | Earl (Supervisor): damaged item regression; repair requests; station today view | `db` |
-| `test_persona_admin.py` | Jennifer (Admin): supply room decrement; FUNCTIONAL exclusion; role alias regression | `db` |
+| `test_persona_responder.py` | Responder: all check types; FAIL+comment flow; multiple checks per day | `db` |
+| `test_persona_supervisor.py` | Supervisor: damaged item regression; repair requests; station today view | `db` |
+| `test_persona_admin.py` | Admin: supply room decrement; FUNCTIONAL exclusion; role alias regression | `db` |
 | `test_safety_checks.py` | O2 PSI below minimum; date recurrence overdue; requires_full_check enforcement | `db` |
-| `test_retirement.py` | RET-B1 through B6: retire vehicle/location/station/lot; list retired; 403/409 enforcement | `db` |
+| `test_damaged_items.py` | Damaged items endpoint; retired/inactive exclusion; station isolation; RBAC | `db` |
+| `test_retirement.py` | Retire vehicle/location/station/lot; list retired; 403/409 enforcement | `db` |
 | `test_usage.py` | POST /checks/usage happy path; FIFO decrement; non-SUPPLY rejection; 403/404 guards; GET history + frequent items | `db` |
-| `test_rbac_block.py` | Role boundary regression tests | `db` |
-| `test_seed_integrity.py` | Verifies Unit 712, PC 8, AED/LUCAS, O2 PSI minimums, Truck Operations in dev DB | `seeded_db` |
+| `test_auth.py` | Real RS256 JWT validation path (signature, audience, issuer, expiry, tenant matching) using a test keypair | `db` |
+| `test_seed_integrity.py` | Verifies Unit 712, PC 8, AED/LUCAS, O2 PSI minimums, Truck Operations, jump bags in the seeded dev DB | `seeded_db` |
+
+This list tracks the test suite as of the most recent session close. See
+`CODEBASE_INDEX.md` for the authoritative, continuously updated file map.
 
 ### Test isolation note
 
 Route handlers that call `db.commit()` release the active SQLAlchemy savepoint.
 Any fixture creating a row with a UNIQUE constraint must use get-or-create
 semantics. See `test_item` and `vehicle_location` fixtures in `test_supply_room.py`
-and the `vehicle_location` fixture in `test_retirement.py` for the established pattern.
+and the per-test `compartment` fixture in `test_par_level_reactivation.py` for the
+established pattern.
 
 ### TestClient.delete() body
 
@@ -219,24 +245,29 @@ r = client.request(
 
 ## 6. Seeding the database
 
-The dev seed creates realistic operational data for Newberg Township EMS:
+The dev seed creates realistic operational data for Newberg Township EMS and
+sibling stations used for testing the admin workflow on an empty catalog:
 
 ```powershell
 cd app
 python seed.py
+python seed_training.py
 ```
 
-What gets created:
-- **Newberg Township Station 1** -- Unit 712 (BLS, 26+ compartments, 200+ par levels) + Unit 712 Jump Bag + Unit 710 Jump Bag
-- **Marcellus Township Station 1** -- Unit 540 (ALS)
-- **TEST STATION** -- Unit TEST (QRV) with 2 compartments covering all 6 check types
+What gets created (`seed.py`):
+- **Newberg Township Station 1** -- Unit 712 (BLS) + Unit 712 Jump Bag + Supply Room, with full par levels from the real 712 and jump bag inventory forms
+- **Marcellus Township Station 1** -- Unit 540 (ALS) + Supply Room, catalog only (par levels assigned via the admin UI)
+- **TEST STATION** -- Unit TEST (QRV) + Supply Room, catalog + a handful of `[TEST]`-prefixed items, no par levels, dev only
+
+What gets created (`seed_training.py`, always run including in production):
+- **Newberg Training Station** -- two BLS training ambulances + two training jump bags, roughly a third of Unit 712's inventory across nine compartments, covering all six check types including the AED/LUCAS priority items
 
 Key seeded items:
 - `AED Battery` -- FUNCTIONAL, priority_check=True, priority_question="AED shows READY?"
-- `AED Pads Adult/Pediatric` -- EXPIRY_DATE check type (migration 0021)
-- `LUCAS Device` -- FUNCTIONAL, priority_check=True, priority_question="LUCAS shows READY?"
+- `AED Pads Adult/Pediatric` -- EXPIRY_DATE check type
+- `LUCAS Device` -- FUNCTIONAL, priority_check=True, priority_question="LUCAS shows READY?" (merges the former separate "LUCAS Device Ready Check")
 - `On-Board O2 PSI` -- MEASUREMENT, measurement_minimum=500.0 PSI
-- `Stretcher O2 PSI` -- MEASUREMENT, priority_check=True, measurement_minimum=500.0 PSI
+- `Stretcher O2 PSI` / Jump Bag O2 PSI -- MEASUREMENT, priority_check=True, measurement_minimum=200.0 PSI (small tank)
 - `Truck Operations` -- requires_full_check=True; No Change is blocked
 
 To reseed from scratch:
@@ -246,13 +277,14 @@ cd app
 Remove-Item ems_readykit_dev.db
 alembic upgrade head
 python seed.py
+python seed_training.py
 ```
 
 ---
 
 ## 7. Database migrations
 
-EMS ReadyKit uses Alembic for schema migrations. 24 migrations are currently applied.
+EMS ReadyKit uses Alembic for schema migrations. 29 migrations are currently applied.
 
 ```powershell
 cd app
@@ -287,6 +319,11 @@ with op.batch_alter_table("my_table") as batch_op:
 - Always write both `upgrade()` and `downgrade()` functions
 - Use Python `True`/`False` for boolean literals in raw SQL -- never `0`/`1`
   (PostgreSQL rejects integers for boolean columns; SQLite accepts them silently)
+- Batch mode isn't always sufficient -- adding a station-scoped unique constraint
+  to an existing table (migration 0028) required raw `CREATE TABLE` + `INSERT SELECT`
+  + `DROP` + `RENAME` because Alembic's batch mode was re-carrying an inline
+  UNIQUE constraint through SQLite's table-recreation reflection. Check the
+  generated migration carefully when adding or changing a unique constraint.
 - After adding a migration, update the migration table in `CODEBASE_INDEX.md`
 - `startup.sh` runs `alembic upgrade head` before gunicorn starts -- migrations must be idempotent
 
@@ -309,43 +346,45 @@ app/
 |   |   +-- __init__.py      # Exports all models (required for Alembic)
 |   |   +-- base.py          # TimestampMixin (created_at, updated_at)
 |   |   +-- station.py       # primary_color, call_sign, allow_check_modification, retired_at
-|   |   +-- vehicle.py       # vehicle_color, status, retired_at
+|   |   +-- vehicle.py       # vehicle_color, active, retired_at (independent fields)
 |   |   +-- inventory_location.py  # LocationType: VEHICLE, JUMP_BAG, STATION_SUPPLY_ROOM; retired_at
 |   |   +-- compartment.py         # requires_full_check; sort_order
-|   |   +-- item.py                # ItemCheckType (6 types incl. EXPIRY_DATE); station_supply; measurement_minimum
+|   |   +-- item.py                # station_id FK + per-station unique name; category_group; ItemCheckType (6 types incl. EXPIRY_DATE); station_supply; measurement_minimum
 |   |   +-- stock_lot.py           # lot_number, expiration_date, quantity, retired_at
-|   |   +-- par_level.py           # priority_check, priority_question, is_damaged, deactivated_at
+|   |   +-- par_level.py           # priority_check, priority_question, is_damaged, deactivated_at/reason
 |   |   +-- daily_inventory_check.py  # CheckStatus: PASS/NEEDS_RESTOCK/FAIL; soft-delete fields
 |   |   +-- check_line_item.py        # LineItemStatus: OK/SHORT/LOW/MISSING/EXPIRED/OVERDUE/FAIL
 |   |   +-- controlled_substance_check.py
 |   |   +-- repair_request.py         # OPEN to IN_PROGRESS to RESOLVED
-|   |   +-- station_member.py         # user_id = email (JWT preferred_username)
+|   |   +-- station_member.py         # user_id = email (JWT preferred_username); (station_id, user_id, role) unique
 |   |   +-- stock_transfer.py
 |   |   +-- usage_event.py            # after-call usage log; selectin on vehicle + items
 |   |   +-- audit_event.py            # Immutable; always write via core/audit.py
 |   |
-|   +-- schemas/             # Pydantic v2 schemas (one file per entity)
+|   +-- schemas/             # Pydantic v2 schemas (one file per entity); dedicated *Update schemas for partial-update routes (e.g. ItemUpdate omits the immutable station_id)
 |   |
 |   +-- routers/             # FastAPI route handlers (one file per domain)
 |   |   +-- deps.py          # ALL_ROLES, SUPERVISOR_PLUS, ADMIN_ONLY, require_role,
 |   |   |                    # get_vehicle_or_404, require_station_membership
-|   |   +-- stations.py      # Includes supply-room get-or-create, expiring-soon, settings
-|   |   +-- station_members.py
+|   |   +-- stations.py      # Includes supply-room get-or-create, expiring-soon, settings, retire
+|   |   +-- station_members.py  # member_id-based PATCH/DELETE; CSV bulk import + template
 |   |   +-- vehicles.py      # OOS/RTS toggle, retire
-|   |   +-- items.py         # POST /items is SUPERVISOR_PLUS (not Admin-only)
+|   |   +-- items.py         # POST /items is SUPERVISOR_PLUS (not Admin-only); read is not station-scoped
 |   |   +-- inventory.py     # Supply catalog, par levels, lots, stock summary, retire location/lot
-|   |   +-- checks.py        # _compute_line_item_status, _auto_decrement_supply_room, rate-limited
+|   |   +-- checks.py        # _compute_line_item_status, _auto_decrement_supply_room, _reconcile_supply_room_check, rate-limited
 |   |   +-- check_history.py
 |   |   +-- repair_requests.py
 |   |   +-- usage.py         # POST /checks/usage; GET history; GET frequent items
-|   |   +-- admin.py         # Item deactivation, par level deactivate, AI fields, retire station, location rename
+|   |   +-- admin_items.py     # Item catalog admin, par levels, CSV import -- all routes station-scoped
+|   |   +-- admin_vehicles.py  # Vehicle color and details admin
+|   |   +-- admin_stations.py  # Station creation; location rename; retired list; email alignment check
 |   |   +-- audit.py         # GET /audit with date-range filter
 |   |
 |   +-- main.py              # App factory, middleware, router registration order
 |
 +-- alembic/
 |   +-- env.py
-|   +-- versions/            # 24 migration files (0001-0024 + 0003a branch)
+|   +-- versions/            # 29 migration files (0001-0029 + 0003a branch)
 |
 +-- tests/
 |   +-- conftest.py          # db, seeded_db, client, auth_admin/supervisor/responder
@@ -353,39 +392,46 @@ app/
 |   +-- test_supply_room.py
 |   +-- test_repair_requests.py
 |   +-- test_station_membership.py
+|   +-- test_member_management.py
+|   +-- test_email_alignment.py
 |   +-- test_check_history.py
 |   +-- test_admin_items.py
+|   +-- test_item_station_scoping.py
+|   +-- test_par_level_reactivation.py
 |   +-- test_models.py
 |   +-- test_priority_items.py
 |   +-- test_persona_responder.py
 |   +-- test_persona_supervisor.py
 |   +-- test_persona_admin.py
 |   +-- test_safety_checks.py
+|   +-- test_damaged_items.py
 |   +-- test_retirement.py
 |   +-- test_usage.py
-|   +-- test_rbac_block.py
+|   +-- test_auth.py
 |   +-- test_seed_integrity.py
 |
-+-- seed.py                  # Idempotent dev seed (Unit 712 + Marcellus 540 + TEST station)
-+-- initial_stock.csv        # 10 seed stock items for supply room
++-- seed.py                  # Idempotent dev seed (Newberg 712 + Marcellus 540 + TEST station)
++-- seed_training.py         # Always-on training station seed (including production)
++-- initial_stock.csv        # Seed stock items for supply room
 +-- alembic.ini
 +-- app.py                   # WSGI entry point
 +-- Procfile
 +-- pyproject.toml
 +-- requirements.txt
-+-- startup.sh               # Container startup: alembic upgrade head then gunicorn
++-- startup.sh               # Container startup: alembic upgrade head, then seed_training.py, then gunicorn
 
 frontend/
 +-- src/
     +-- modules/             # Feature modules (self-contained: index.jsx, api/, components/)
-    |   +-- check-wizard/    # 5-step check flow; EXPIRY_DATE Same/Different UX
-    |   +-- supervisor/      # Compliance dashboard; calendar; expiring items; low-stock panels
-    |   +-- admin/           # Station administration; item catalog; vehicles; supply room admin
-    |   +-- supply-room/     # Station supplies; receive stock; lot management
+    |   +-- check-wizard/    # 5-step check flow; EXPIRY_DATE Same/Different UX; supply room path
+    |   +-- supervisor/      # Compliance dashboard; calendar; expiring items; low-stock + damaged-items panels
+    |   +-- admin/           # Station administration; Members screen; item catalog; vehicles; supply room admin
+    |   +-- supply-room/     # Station supplies; receive stock; lot management; usage log view
     |   +-- usage-log/       # After-call usage log; vehicle picker; item picker; history
     |   +-- vehicles/        # V&E Status; repair requests
     |   +-- check-history/   # Check history; My Checks / All Checks / Deleted tabs
-    |   +-- settings/        # Station settings; vehicle/location/station retirement
+    |   +-- settings/        # Station settings; vehicle/location/station retirement (member UI moved to admin/)
+    |   +-- help/            # Role-aware Help & Tutorial screen; static content, no API calls
     +-- pages/               # Top-level pages (HomePage, NotFoundPage)
     +-- shared/
     |   +-- api/             # client.js (Axios), authConfig.js, stationsApi.js
@@ -416,6 +462,11 @@ class VehicleStatusRead(BaseModel):
     active: bool
     inactive_reason: Optional[str]
 ```
+
+If the endpoint is a partial update (PATCH), add a dedicated `*Update` schema
+rather than reusing the `*Create` schema -- `*Create` schemas often require
+fields (like `station_id`) that are set once at creation and should never be
+re-sent or re-validated on edit.
 
 ### Step 3 -- Add the route
 
@@ -480,6 +531,7 @@ Update the migration table in `CODEBASE_INDEX.md`.
 2. Add FK relationships to related models (both sides)
 3. Export from `models/__init__.py`
 4. Create `app/ems_readykit/schemas/{name}.py` with `{Name}Create` and `{Name}Read`
+   (and `{Name}Update` if partial updates will be needed)
 5. Generate migration: `alembic revision --autogenerate -m "add_{name}"`
 6. Review migration -- use batch mode for any ALTER TABLE
 7. Run: `alembic upgrade head`
@@ -523,13 +575,19 @@ def test_responder_cannot_create_item(client, auth_responder):
         "name": "Test Item",
         "category": "Equipment",
         "unit_of_measure": "each",
+        "station_id": 1,
     }, headers=auth_responder)
     assert r.status_code == 403   # Responder denied -- must be Supervisor+
 ```
 
 **Key role boundary:** `POST /api/v1/items` is `SUPERVISOR_PLUS` -- both
-Supervisor and Administrator can create items. Only `PATCH /admin/items/{id}/deactivate`
-is `ADMIN_ONLY`.
+Supervisor and Administrator can create items. Only
+`PATCH /admin/items/{id}/deactivate` is `ADMIN_ONLY`.
+
+For the production JWT validation path itself (signature, audience, issuer,
+expiry, tenant matching), see `test_auth.py`, which mints real RS256-signed
+tokens against a session-scoped test keypair rather than relying on the dev
+fake-token shortcut.
 
 ---
 
@@ -545,7 +603,7 @@ Push to main or PR
 Job 1: test
     ubuntu-latest
     pip install -r requirements.txt
-    pytest tests/ -v --tb=short   (396 tests must pass)
+    pytest tests/ -v --tb=short   (530 tests must pass)
     |
     v (on pass, main branch only)
 Job 2: deploy
@@ -646,6 +704,7 @@ def handler(
 - Use only design tokens from `index.css :root` -- no hardcoded hex colors, raw rem, or raw px except `0`, `1px` borders, and media query breakpoints
 - Use shared utility classes (`ems-card`, `ems-confirm-*`, `btn`, `btn--primary`, etc.) before writing module-specific CSS
 - Never use undefined tokens -- `--color-fail` and `--color-pass` do not exist; use `--color-danger` and `--color-status-pass`
+- Shared component CSS used by more than one module belongs in `index.css`, not a module-specific file -- otherwise it silently disappears whenever that module isn't loaded
 
 ### Naming conventions
 
@@ -676,8 +735,8 @@ docs/*        -- documentation only
 
 Before opening a PR:
 
-- [ ] All 396 tests pass: `pytest tests/ -q`
-- [ ] Frontend tests pass: `cd frontend && npm test`
+- [ ] All 530 backend tests pass: `pytest tests/ -q`
+- [ ] All 233 frontend tests pass: `cd frontend && npm test`
 - [ ] New functionality has tests: happy path, validation errors, 404s, RBAC
 - [ ] New models have a migration with `upgrade()` and `downgrade()`, using batch mode
 - [ ] Audit events use `actor=` and `metadata=` kwargs (not `performed_by=` or `detail=`)
@@ -704,6 +763,6 @@ feat: add requires_full_check enforcement on Truck Operations compartment
 fix: write_audit_event kwargs -- actor/metadata not performed_by/detail
 fix: replace undefined --color-fail token with --color-danger across all CSS
 test: add retirement lifecycle tests (RET-B1 through B6)
-docs: update README, CONTRIBUTING, project_index for Sessions M through T
+docs: update README, CONTRIBUTING, project_index for post-launch state
 chore: remove dead sr-confirm-* CSS classes from supply-room.css
 ```

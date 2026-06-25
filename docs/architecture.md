@@ -1,9 +1,9 @@
 # EMS ReadyKit -- Architecture Overview
-# Last updated: 2026-06-11 (Sessions A through T complete)
+# Last updated: 2026-06-23 (Production launch -- Sessions A through AQ complete)
 
 This document describes the high-level architecture for EMS ReadyKit, a
 cloud-native inventory and vehicle readiness platform serving Newberg Township
-EMS, Cass County, Michigan.
+EMS, Cass County, Michigan. The system is live in production.
 
 The design emphasizes:
 - Simplicity -- single region, single datastore, single application
@@ -43,7 +43,7 @@ The design emphasizes:
                           | Private connection
 +-------------------------v---------------------------------+
 |  Azure Database for PostgreSQL Flexible Server            |
-|  24 Alembic migrations -- run automatically on startup    |
+|  29 Alembic migrations -- run automatically on startup    |
 +-----------------------------------------------------------+
 ```
 
@@ -57,8 +57,8 @@ All infrastructure is provisioned via Terraform. No manual portal configuration.
 |-----------|---------|
 | **Azure Active Directory** | Identity provider; issues RS256 JWT tokens; three app roles: Administrator, Supervisor, Responder |
 | **Azure Static Web Apps** | Hosts the React PWA; handles SWA routing and security headers (CSP, HSTS, X-Frame-Options); free tier |
-| **Azure App Service B1** | Runs FastAPI + Gunicorn; 24 Alembic migrations auto-apply on startup; managed identity for Key Vault |
-| **Azure Database for PostgreSQL** | Primary datastore; Alembic schema management (24 migrations); private connection from App Service |
+| **Azure App Service B1** | Runs FastAPI + Gunicorn; 29 Alembic migrations auto-apply on startup; managed identity for Key Vault |
+| **Azure Database for PostgreSQL** | Primary datastore; Alembic schema management (29 migrations); private connection from App Service |
 | **Azure Key Vault** | Stores database credentials and application secrets; accessed via managed identity |
 | **Log Analytics Workspace** | Receives structured application logs and audit events; 30-day retention |
 
@@ -108,6 +108,7 @@ the IaC structure.
 | React PWA (not native app) | No app store distribution required; PWA installable on iOS and Android; single codebase |
 | Azure Static Web Apps | Free tier sufficient; built-in global CDN; SWA routing handles PWA deep links |
 | Station membership at application layer | Azure AD groups handle role; application layer handles station assignment -- more flexible than one AD group per station |
+| Items scoped per-station | A station's item catalog and naming are isolated from every other station's, enforced via a per-station unique constraint and station-membership checks on every admin item route |
 | Audit events in PostgreSQL | Co-located with operational data; queryable via SQL; no additional service required |
 | B1 App Service | Always-on (no cold starts); VNet-capable; single Terraform variable to scale |
 | Security headers split between API and SWA | X-Frame-Options on SWA only (MSAL iframe compatibility); content headers on API middleware |

@@ -1154,7 +1154,7 @@ BASE_ITEM_SEED = [
         "unit_of_measure": "each",
     },
     # Fire Extinguisher merges PS EC2 physical item + Truck Ops FUNCTIONAL check
-    # check_type=SUPPLY confirmed by Jennifer; still appears in Truck Ops as a presence check
+    # check_type=SUPPLY confirmed by Admin; still appears in Truck Ops as a presence check
     {
         "name": "Fire Extinguisher",
         "category": _E,
@@ -2656,7 +2656,7 @@ def build_ambulance_inventory(
         location_descriptor="Exterior, passenger side, middle bay",
     )
     for name in ["Fire Extinguisher", "Jumper Cables", "Traction Splint"]:
-        # Fire Extinguisher: SUPPLY (not FUNCTIONAL) — confirmed by Jennifer
+        # Fire Extinguisher: SUPPLY (not FUNCTIONAL) — confirmed by Admin
         # Traction Splint: distinct from Adult/Peds Traction Splints in DS EC1
         add_par(
             db,
