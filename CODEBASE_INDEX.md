@@ -412,8 +412,6 @@ Reseed sequence: `cd app; Remove-Item ems_readykit_dev.db; alembic upgrade head;
 - New item: "Stretcher Battery Date of Last Charge" (DATE_RECORD, recurrence=90).
 - `station_supply=False` baked into `BASE_ITEM_SEED` for AED/LUCAS/medication items.
 
-**Unit 710 Jump Bag:** removed from seed (v1.66) — Unit 710 has no ambulance yet.
-
 `seed_training.py` — always seeded including production via `startup.sh` Pass 2 (Session AB). Newberg Training Station (orange, `#e65100`): two BLS ambulances (Training Unit A/B) + two jump bags (Training Jump Bag A/B), ~1/3 of Unit 712's inventory across nine compartments, all six check types including AED/LUCAS priority items.
 
 ---
@@ -428,37 +426,13 @@ Reseed sequence: `cd app; Remove-Item ems_readykit_dev.db; alembic upgrade head;
 | CI/CD trigger | Push to `main` → GitHub Actions |
 | Terraform | `iac/Terraform/` — delete delete-lock before apply |
 
-**Production launched 2026-06-23** — ITM-1..8 + Session AO pre-deploy sweep complete; pushed
-to `main`; Azure CI/CD deploy confirmed. App live at the URLs above. All post-launch work
-is operational (LAUNCH-OPS1–6, EMS chief's responsibility) or post-launch engineering backlog.
-
 ---
 
 ## Files Flagged for Attention
 
 | File | Issue |
 |------|-------|
-| `app/ems_readykit_dev.db` | Should not be committed; `git rm --cached app/ems_readykit_dev.db`. |
-| `deploy.zip` | Build artifact in repo root; add to .gitignore + `git rm --cached deploy.zip` |
 | `app/tests/test_routers.py` | 67 KB — split by domain when it next needs major additions |
 | `frontend/src/modules/admin/components/VehiclesScreen.jsx` | 25 KB — extract sub-components when next modified |
 | `frontend/src/styles/wizard.css` | Consolidated from 3 old patch files; ideally moves to `modules/check-wizard/` — defer until next modification |
 
-`_session_AE_removed/` (Session AE's staging folder for superseded member-management
-files) has been reviewed and deleted — no longer flagged.
-
----
-
-## Next Session
-
-| Session | Focus | Key Items |
-|---------|-------|-----------|
-| ✅ **AG** (done) | ITM-1: migration | Added `station_id` FK + per-station unique on `items` (migration 0028); supply catalog scoped to station; all non-seed tests passing (452/484; 32 seed_integrity expected until ITM-4). |
-| ✅ **AH** (done) | ITM-3: category_group | Added `category_group` VARCHAR(100) nullable to `Item` (migration 0029); schema updated. 452/484 still passing. |
-| ✅ **AI** (done) | ITM-4: seed.py rewrite | `seed.py` fully rewritten: `BASE_ITEM_SEED`, `get_or_create_item(station_id=...)`, `seed_station_catalog()`, canonical names, O2 PSI corrections, LUCAS merge, Fire Extinguisher SUPPLY. `test_seed_integrity.py` 6 test corrections. 484/484 expected after reseed. |
-| ✅ **AJ** (done) | ITM-5: backend station scoping | All 11 `admin_items.py` routes scoped to station; `_conflict_on_name` per-station; `test_item_station_scoping.py` added (14 tests); ruff + black green. 498/498 passing. |
-| ✅ **AK** (done) | ITM-6: frontend | `ItemCatalog.jsx` station-scoped + cabinet chips; `ItemAssignments.jsx` "Where" picker; `adminApi` + `ItemSearchCombobox` station_id threading; 4 new catalog tests. |
-| ✅ **AN** (done) | ITM-7 + ITM-8: launch gate | ITM-7: multi-location assign inline confirmation + "Assign to another location" UX. ITM-8: `ItemAssignments.test.jsx` (9 tests); 233 frontend, 498 backend passing. Launch gate closed. |
-| ✅ **AO** (done) | Pre-deploy sweep | 15 findings resolved: db.commit() gap, station-scoping gaps, <form> violations, stale stationId closure, deriveLocType, CSS, useApi error fields, PAR-B1 ORDER BY, test fixture + dead-file cleanup. 530 backend tests passing. |
-| ✅ **Launched** | Production deploy 2026-06-23 | Pushed to main → CI/CD → Azure confirmed live. LAUNCH-OPS1–6 are post-launch operational tasks (EMS chief). Post-launch engineering: F-5G3, ADMIN-F10, TEST-AE1, TEST-AF1. |
-| ✅ **AQ** (done) | F-5C2: Help & Tutorial screen | `modules/help/` created (index.jsx + help.css); HomePage.jsx lazy-imports HelpScreen, adds `activeModule === 'help'` block, replaces disabled Help card with live Open button. Role-aware sections, accordion UX, Tutorial replay overlay, static content only. |
