@@ -103,12 +103,27 @@ resource "azurerm_linux_web_app" "ems_app" {
 
   # WEBSITE_VNET_ROUTE_ALL is managed automatically by the azurerm provider
   # when virtual_network_subnet_id is set — do not set it in app_settings.
+  #
+  # REQUIRE_REAL_AUTH is set explicitly to "true" here rather than relying on
+  # the code default in core/config.py (also "true"). This is intentional
+  # belt-and-suspenders: the app-level default protects any environment that
+  # forgets to set this explicitly, and this explicit setting makes the
+  # choice visible and auditable directly in the App Service Configuration
+  # blade / `az webapp config appsettings list`, independent of what any
+  # given app version's code default happens to be. Do not set this to
+  # "false" here under any circumstances — that was the root cause of the
+  # 2026-07 auth bypass incident (see docs/backlog_completed.md). It is
+  # deliberately NOT tied to local.is_dev / APP_ENV, since this project's
+  # single deployed environment uses environment="dev" for resource naming
+  # and cost purposes only — that has no bearing on whether real Azure AD
+  # tokens should be required.
   app_settings = {
     "SCM_DO_BUILD_DURING_DEPLOYMENT" = "true"
     "ENABLE_ORYX_BUILD"              = "true"
     "STORAGE_ACCOUNT_NAME"           = var.storage_account_name
     "KEY_VAULT_URI"                  = azurerm_key_vault.ems_kv.vault_uri
     "APP_ENV"                        = local.is_dev ? "development" : "production"
+    "REQUIRE_REAL_AUTH"              = "true"
     "LOG_LEVEL"                      = "INFO"
     "SECRET_KEY"                     = "@Microsoft.KeyVault(VaultName=${azurerm_key_vault.ems_kv.name};SecretName=app-secret-key)"
     "DATABASE_URL"                   = "@Microsoft.KeyVault(VaultName=${azurerm_key_vault.ems_kv.name};SecretName=sql-connection-string)"

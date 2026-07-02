@@ -19,15 +19,25 @@ Auth fixtures:
     Pass as headers= to client.get/post/put/delete calls.
     Most existing tests use auth_admin to avoid permission failures.
     RBAC-specific tests use the appropriate role to verify enforcement.
+
+    These fake tokens only work because REQUIRE_REAL_AUTH is explicitly set
+    to "false" below, before ems_readykit.main is imported. Settings.
+    require_real_auth defaults to True everywhere else (including the
+    deployed App Service) — see core/config.py and core/auth.py.
 """
 
 from __future__ import annotations
 
 import os
 
-# Must be set BEFORE importing ems_readykit.main — the rate limiter singleton
-# reads this at module load time and configures a very high limit for tests.
+# Must be set BEFORE importing ems_readykit.main:
+#   TESTING           — the rate limiter singleton reads this at module load
+#                        time and configures a very high limit for tests.
+#   REQUIRE_REAL_AUTH — Settings.require_real_auth defaults to True (secure
+#                        by default); the test suite explicitly opts out so
+#                        the fake test-{role} bearer tokens above work.
 os.environ.setdefault("TESTING", "true")
+os.environ.setdefault("REQUIRE_REAL_AUTH", "false")
 
 import pytest
 from fastapi.testclient import TestClient

@@ -1,11 +1,22 @@
 # EMS ReadyKit — Evidence Directory
 
-This directory holds deployment evidence captured after `terraform apply` and
-application validation, as required by the acceptance criteria in
-[Requirements.md](../Requirements.md) and the [runbook](../runbook.md).
+This directory holds the artifacts (diagrams, screenshots, exports, and UAT
+records) collected as proof of EMS ReadyKit's architecture, deployment, and
+correctness — used both for portfolio presentation and as a record of the
+UAT (user acceptance testing) rollout.
 
-Evidence is **not committed until the environment has been deployed**.
-The directory structure is pre-created so the intent is clear to reviewers.
+EMS ReadyKit has been deployed to Azure and in **UAT with the real Newberg
+Township EMS team since 2026-06-23** — it is not yet in production. Unlike a
+throwaway demo environment, most of the evidence below documents a real
+deployed system being exercised by real users, not a one-time validation
+exercise.
+
+The canonical, up-to-date list of what to capture, how to capture it, and
+whether it's done lives in **[Portfolio_Evidence_Checklist.csv](Portfolio_Evidence_Checklist.csv)**
+in this directory. That file is the source of truth for evidence status —
+this README just explains how the directory is organized and what the
+current architecture actually looks like, so captured evidence matches
+reality.
 
 ---
 
@@ -13,62 +24,67 @@ The directory structure is pre-created so the intent is clear to reviewers.
 
 ```
 evidence/
-├── screenshots/    — Azure portal and Log Analytics screenshots
-└── logs/           — Exported KQL query results and audit log samples
+├── Portfolio_Evidence_Checklist.csv   — master checklist: what to capture, why, and current status
+├── arch_and_design/                   — architecture diagrams, ERD, API surface, migration history
+├── live_deployment/                   — screenshots of the deployed app + Azure Portal resource blades
+├── uat/                                — completed UAT test case spreadsheets (Admin/Supervisor/Responder)
+├── screenshots/                       — CI/CD, code quality, testing, and security evidence screenshots
+└── logs/                              — exported test output, coverage reports, and audit log samples
 ```
+
+`arch_and_design/` and `live_deployment/` are already populated (see the
+checklist's ARCH-01–05 and LIVE-01–09 rows, both marked Complete).
+`screenshots/` and `logs/` are intentionally still empty — they correspond to
+the CI/CD, code quality, testing, and security checklist rows, which remain
+open.
 
 ---
 
-## What to Capture
+## Current Architecture (what evidence should reflect)
 
-### screenshots/
+EMS ReadyKit runs as a single-region application on Azure:
 
-| Filename | What to show |
-|---|---|
-| `01_resource_group_overview.png` | All resources deployed in the resource group |
-| `02_policy_compliance.png` | Azure Policy compliance view showing enforced guardrails |
-| `03_rbac_groups.png` | Azure AD groups (ems-readykit-administrators, supervisors, responders) |
-| `04_rbac_assignments.png` | Role assignments at subscription and resource group scope |
-| `05_nsg_rules_app.png` | App subnet NSG with Deny-All-Inbound rule |
-| `06_nsg_rules_data.png` | Data subnet NSG with SQL allow rule |
-| `07_log_analytics_workspace.png` | Log Analytics workspace overview |
-| `08_log_query_activity.png` | AzureActivity query returning results |
-| `09_log_query_audit.png` | AppEvents or custom audit event query |
-| `10_budget_alert.png` | Budget alert configuration showing 80% and 100% thresholds |
-| `11_app_service_health.png` | App Service health check returning 200 OK |
-| `12_key_vault_secrets.png` | Key Vault secrets list (values hidden) |
+- **Azure Static Web Apps** — React 18 PWA frontend, free tier
+- **Azure App Service (B1)** — FastAPI backend, always-on, VNet-integrated (outbound)
+- **Azure Database for PostgreSQL Flexible Server** — primary datastore
+- **Azure Key Vault** — database credentials and secrets, accessed via managed identity
+- **Log Analytics Workspace** — structured application logs, audit events, and NSG flow logs
+- **Azure AD (Entra ID)** — identity provider issuing RS256 JWTs. The global role (Administrator / Supervisor / Responder) comes from real Azure AD app-role assignments via three matching security groups (`ems-readykit-administrators`/`-supervisors`/`-responders`); *which station* a person belongs to is a separate, purely application-layer concern (the `StationMember` table) with no Azure AD equivalent
 
-### logs/
+The VNet, 3 subnets, and NSGs (deny-all-inbound baseline) are real, deployed
+infrastructure — not placeholders. App Service VNet integration is active on
+the current B1 SKU. What's *not* yet active is full private database
+connectivity: a private endpoint for PostgreSQL exists in the data subnet,
+but the server still permits public access via its "Allow Azure Services"
+firewall rule, since no private DNS zone override has been added yet. So NSG
+and RBAC-group screenshots (SEC-01, ARCH-04) are legitimate evidence to
+capture — it's specifically the *private-endpoint-only* database connection
+that's still pending, tracked alongside the related Azure Firewall work in
+the backlog (I-1). See `iac/Terraform/README.md`'s Networking section for
+the exact remaining steps.
 
-| Filename | Contents |
-|---|---|
-| `activity_log_sample.json` | Output of `AzureActivity \| take 10` exported as JSON |
-| `audit_events_sample.json` | Output of the EMS-RecentAuditEvents saved query |
-| `high_severity_sample.json` | Output of the EMS-HighSeverityEvents saved query (if triggered) |
+See `docs/architecture.md` for the full diagram and `docs/adr/` for the
+decision records behind these choices.
 
 ---
 
 ## How to Capture
 
-### KQL Query Export (Log Analytics)
+### Screenshots (`screenshots/` and `live_deployment/`)
 
-1. Navigate to Log Analytics workspace → Logs
-2. Run the desired query
-3. Click **Export** → **Export to CSV** or copy results
-4. Save to `evidence/logs/`
+Use the Azure Portal's built-in screenshot tool or your OS's. Crop to the
+relevant pane. Match filenames to the Evidence ID in
+`Portfolio_Evidence_Checklist.csv` (e.g. `LIVE-06_app_service_overview.png`)
+so it's obvious which checklist row each file satisfies.
 
-### Screenshots
+### Test / coverage / audit output (`logs/`)
 
-Use the Azure portal's built-in screenshot or your OS screenshot tool.
-Crop to show the relevant pane — full-desktop screenshots are acceptable but
-should be clearly labelled by filename.
+Run the relevant command locally (`pytest`, `npm test`, `pip-audit`, coverage
+export) and save the console output or exported file here, again named after
+the corresponding Evidence ID.
 
-### After Capture
+### After capture
 
-Update the acceptance criteria checkboxes in the [Terraform README](../../iac/Terraform/README.md)
-as each item is verified.
-
----
-
-> This directory is intentionally empty until the environment is deployed.
-> See the [runbook](../runbook.md) for step-by-step deployment and validation instructions.
+Update the **Status** column for the corresponding row in
+`Portfolio_Evidence_Checklist.csv` rather than tracking completion anywhere
+else — that file is the single source of truth for what's done.

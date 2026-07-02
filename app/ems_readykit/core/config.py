@@ -12,9 +12,20 @@ Database backends:
                     (postgresql+psycopg2://user:pass@host:5432/db?sslmode=require)
 
 Auth:
-  - Production:     Azure AD JWT tokens validated against AZURE_AD_TENANT_ID
-                    and AZURE_AD_CLIENT_ID (set as App Service app settings by Terraform)
-  - Development:    Fake "test-{role}" Bearer tokens accepted when APP_ENV != "production"
+  - REQUIRE_REAL_AUTH controls whether real Azure AD JWTs are required.
+    Defaults to True (secure by default) — every deployed environment,
+    regardless of its APP_ENV / resource-naming environment (dev/staging/
+    prod), must explicitly opt out to accept the fake "test-{role}" bearer
+    tokens. Local dev and the test suite set REQUIRE_REAL_AUTH=false
+    explicitly (see conftest.py and CONTRIBUTING.md section 11).
+
+  This is intentionally a *separate* setting from APP_ENV. APP_ENV only
+  controls resource naming, cost tags, and whether OpenAPI docs are served
+  (see SEC-2 in main.py) — it was previously (incorrectly) also used to
+  decide whether real auth was required, which meant the deployed
+  App Service (environment=dev, APP_ENV=development) silently accepted the
+  fake test-{role} tokens over the public internet. See the 2026-07
+  incident write-up in docs/backlog_completed.md.
 """
 
 from __future__ import annotations
@@ -41,6 +52,12 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production"
     allowed_origins: str = "http://localhost:3000,http://localhost:8000"
 
+    # ── Auth ──────────────────────────────────────────────────────────────────
+    # Secure by default: real Azure AD JWTs are required unless explicitly
+    # disabled. See the module docstring above for why this is decoupled
+    # from app_env/is_production.
+    require_real_auth: bool = True
+
     # ── Database ──────────────────────────────────────────────────────────────
     database_url: str = "sqlite:///./ems_readykit_dev.db"
 
@@ -49,8 +66,6 @@ class Settings(BaseSettings):
 
     # ── Azure AD / JWT Auth ───────────────────────────────────────────────────
     # Set automatically as App Service app settings by Terraform.
-    # Leave unset in local dev — auth middleware uses fake tokens when
-    # APP_ENV is not "production".
     azure_ad_tenant_id: Optional[str] = None
     azure_ad_client_id: Optional[str] = None
     azure_ad_audience: Optional[str] = None

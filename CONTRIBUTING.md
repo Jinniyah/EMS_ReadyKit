@@ -56,6 +56,11 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
+# REQUIRE_REAL_AUTH defaults to true (secure by default) — create a local
+# .env so the fake test-{role} tokens work against your local server.
+# This file is gitignored; never set this to false anywhere else.
+"REQUIRE_REAL_AUTH=false" | Out-File -FilePath .env -Encoding utf8
+
 # Apply migrations and seed
 alembic upgrade head
 python seed.py
@@ -82,20 +87,24 @@ Frontend: http://localhost:5173
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `APP_ENV` | No | `development` | Set to `production` to enable real JWT validation |
-| `DATABASE_URL` | No | SQLite file | PostgreSQL connection string for production |
-| `AZURE_AD_TENANT_ID` | No | -- | Required for production JWT validation |
+| `REQUIRE_REAL_AUTH` | No | `true` | Set to `false` **only** in local `.env` / the test suite to accept fake `test-{role}` bearer tokens. Secure by default — the deployed App Service sets this explicitly to `true` regardless of `APP_ENV`. See section 11. |
+| `APP_ENV` | No | `development` | Controls resource-naming/cost conventions and whether `/docs` is served (see section 4) — **does not** control auth requirements; that's `REQUIRE_REAL_AUTH` |
+| `DATABASE_URL` | No | SQLite file | PostgreSQL connection string |
+| `AZURE_AD_TENANT_ID` | No | -- | Required whenever `REQUIRE_REAL_AUTH=true` |
 | `AZURE_AD_CLIENT_ID` | No | -- | App Registration client ID |
 | `CORS_ORIGINS` | No | `*` | Comma-separated list of allowed origins |
 | `LOG_LEVEL` | No | `INFO` | Python logging level |
 | `VITE_API_BASE_URL` | No | `http://localhost:8000` | Frontend API base URL; also used by `DevBanner.jsx` to detect non-prod |
 | `TESTING` | No | -- | Set to `true` by conftest.py; disables rate limiter in test suite |
 
-In `APP_ENV=development` (the default), real Azure AD tokens are not required.
-Use the fake test tokens described in section 11.
-
-In `APP_ENV=production`, `AZURE_AD_TENANT_ID` and `AZURE_AD_CLIENT_ID` are
-required. The API rejects all requests without a valid Azure AD JWT.
+`REQUIRE_REAL_AUTH` and `APP_ENV` are deliberately independent settings —
+this used to be a single `APP_ENV`-gated check, which meant the deployed App
+Service (which legitimately uses `APP_ENV=development` for a small
+single-environment project like this one) also silently accepted the fake
+`test-{role}` tokens over the public internet. See the incident write-up in
+`docs/backlog_completed.md` and `core/auth.py`'s module docstring for the
+full history. Never set `REQUIRE_REAL_AUTH=false` anywhere outside your local
+`.env` or the test suite's `conftest.py`.
 
 ---
 
@@ -116,7 +125,7 @@ gunicorn ems_readykit.main:app `
 
 Key endpoints:
 - `GET /health` -- health check
-- `GET /docs` -- Swagger UI (non-prod only; disabled in production)
+- `GET /docs` -- Swagger UI (gated by `APP_ENV`, not `REQUIRE_REAL_AUTH`; disabled when `APP_ENV=production`)
 - `GET /api/v1/...` -- all API routes
 
 ---
@@ -181,7 +190,9 @@ npm test
 - Use this only to verify that `seed.py` produced correct operational data
 
 ```python
-# conftest.py provides these fixtures and auth headers:
+# conftest.py provides these fixtures and auth headers, and sets
+# REQUIRE_REAL_AUTH=false (via os.environ.setdefault) before ems_readykit.main
+# is imported, so the fake tokens below work:
 # db               -- in-memory SQLite session (rolls back after each test)
 # seeded_db        -- read-only session on ems_readykit_dev.db
 # client           -- Starlette TestClient bound to the in-memory db
@@ -542,9 +553,14 @@ Update the migration table in `CODEBASE_INDEX.md`.
 
 ## 11. Authentication in development
 
-In `APP_ENV=development` (the default), the API accepts fake bearer tokens
-instead of real Azure AD JWTs. The test tokens map to station memberships
-created by `seed.py`.
+When `REQUIRE_REAL_AUTH=false` (only ever set in your local `.env` or by the
+test suite's `conftest.py` — see section 3), the API accepts fake bearer
+tokens instead of real Azure AD JWTs. The test tokens map to station
+memberships created by `seed.py`.
+
+**`REQUIRE_REAL_AUTH` defaults to `true`.** If you haven't created the local
+`.env` from section 2, the fake tokens below will be rejected and you'll need
+a real Azure AD token instead.
 
 | Token | Role | Email |
 |-------|------|-------|
@@ -584,10 +600,17 @@ def test_responder_cannot_create_item(client, auth_responder):
 Supervisor and Administrator can create items. Only
 `PATCH /admin/items/{id}/deactivate` is `ADMIN_ONLY`.
 
-For the production JWT validation path itself (signature, audience, issuer,
-expiry, tenant matching), see `test_auth.py`, which mints real RS256-signed
-tokens against a session-scoped test keypair rather than relying on the dev
-fake-token shortcut.
+For the real Azure AD JWT validation path itself (signature, audience,
+issuer, expiry, tenant matching), see `test_auth.py`, which mints real
+RS256-signed tokens against a session-scoped test keypair and calls
+`resolve_current_user()` directly (bypassing `REQUIRE_REAL_AUTH` via a
+monkeypatched `Settings` instance) rather than relying on the dev fake-token
+shortcut.
+
+**Never set `REQUIRE_REAL_AUTH=false` on any deployed environment.** The
+deployed App Service sets it explicitly to `true` in Terraform
+(`iac/Terraform/modules/app/main.tf`) — see that file's comment for why this
+is intentionally not tied to `APP_ENV`.
 
 ---
 
@@ -656,8 +679,8 @@ curl https://app-ems-readykit-dev.azurewebsites.net/health
 cd iac/Terraform
 az lock delete --name delete-lock --resource-group rg-ems-readykit-dev
 terraform init
-terraform plan -var-file="terraform.tfvars"
-terraform apply -var-file="terraform.tfvars"
+terraform plan -var="pg_admin_password=<your_password>"
+terraform apply -var="pg_admin_password=<your_password>"
 ```
 
 See `docs/runbook.md` for full infrastructure procedures.
@@ -746,6 +769,7 @@ Before opening a PR:
 - [ ] No secrets, tokens, or credentials in committed files
 - [ ] No `print()` statements -- use `logger.info()` / `logger.warning()`
 - [ ] Ruff and Black pass: `ruff check . && black --check .`
+- [ ] `REQUIRE_REAL_AUTH` is never set to `false` outside local `.env` / `conftest.py`
 
 ### Commit message format
 

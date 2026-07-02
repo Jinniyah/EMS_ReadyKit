@@ -2,19 +2,35 @@
 core/auth.py
 JWT authentication and CurrentUser resolution for EMS ReadyKit.
 
-Production mode (APP_ENV == "production"):
+REQUIRE_REAL_AUTH=true (the default — see core/config.py):
     Validates Azure AD access tokens (RS256) by:
       1. Fetching the JWKS from Azure AD and caching it in memory.
       2. Verifying the token signature, audience, issuer, expiry, and nbf.
       3. Extracting the "roles" claim (list of strings assigned via App Roles).
       4. Returning a CurrentUser dataclass.
+    The fake "test-{role}" tokens described below are rejected outright in
+    this mode, regardless of APP_ENV.
 
-Development / test mode (APP_ENV != "production"):
+REQUIRE_REAL_AUTH=false (local dev / test suite only):
     Accepts fake Bearer tokens in the format "test-{role}", e.g.:
         Authorization: Bearer test-responder
         Authorization: Bearer test-supervisor
         Authorization: Bearer test-administrator
     This allows pytest and local curl usage without a real Azure AD tenant.
+    A token containing "." that isn't a test-{role} string is still routed
+    to real Azure AD validation if a tenant ID is configured, so a developer
+    can test against a real token locally without flipping this flag.
+
+    Previously this branch was gated on `settings.is_production` (i.e.
+    APP_ENV=="production") rather than a dedicated flag. Since the deployed
+    App Service intentionally uses environment="dev" for resource naming
+    (this is a small, single-environment project — see iac/Terraform/README.md),
+    APP_ENV was "development" there too, which meant the fake test-{role}
+    tokens worked against the live, internet-reachable API with zero real
+    credentials. REQUIRE_REAL_AUTH decouples "which environment is this for
+    naming/cost purposes" from "does auth need to be real", and defaults to
+    the secure choice so a future deployment can't repeat this by omission.
+    See docs/backlog_completed.md for the incident write-up.
 
 Refactor (Session B / REF-6):
     All logger.warning() calls now include extra={} fields for structured
@@ -82,7 +98,7 @@ def _get_jwks_client() -> PyJWKClient:
     if not settings.jwks_uri:
         raise RuntimeError(
             "AZURE_AD_TENANT_ID is not configured. "
-            "Cannot validate tokens in production mode."
+            "Cannot validate tokens when REQUIRE_REAL_AUTH is true."
         )
 
     now = time.monotonic()
@@ -243,7 +259,7 @@ def _validate_test_token(token: str) -> CurrentUser:
 def resolve_current_user(token: str) -> CurrentUser:
     settings = get_settings()
 
-    if settings.is_production:
+    if settings.require_real_auth:
         return _validate_azure_token(token)
     else:
         if token.lower().startswith("test-"):

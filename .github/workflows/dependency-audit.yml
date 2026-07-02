@@ -41,8 +41,25 @@ jobs:
         working-directory: frontend
         run: |
           npm ci --prefer-offline
-          npm audit --audit-level=moderate --json > ../npm-audit.json || echo "NPM_FINDINGS=true" >> "$GITHUB_ENV"
+          npm audit --audit-level=moderate > ../npm-audit.txt || echo "NPM_FINDINGS=true" >> "$GITHUB_ENV"
         continue-on-error: true
+
+      # Backup copies in case the issue body ever needs truncating (see the
+      # 60,000-char cap below) or the issue-creation step itself fails for
+      # some other reason — findings should never be recoverable ONLY from
+      # a redirected file with no artifact and no log echo, which is what
+      # happened on the 2026-07-01 run (npm audit --json was piped straight
+      # to a file with nothing surfacing it anywhere).
+      - name: Upload audit reports as artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit-reports
+          path: |
+            pip-audit.md
+            npm-audit.txt
+          if-no-files-found: ignore
+          retention-days: 90
 
       - name: Open GitHub issue if findings exist
         if: env.FINDINGS == 'true' || env.NPM_FINDINGS == 'true'
@@ -50,21 +67,35 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+            const MAX_SECTION_CHARS = 60000; // stay well under GitHub's issue body limit
+
             let body = '## Monthly Dependency Audit — Findings\n\n';
             body += `Run: ${new Date().toISOString().slice(0, 10)}\n\n`;
 
             if (process.env.FINDINGS === 'true') {
               try {
-                body += '### Python (pip-audit)\n\n';
-                body += fs.readFileSync('pip-audit.md', 'utf8');
-                body += '\n\n';
+                let pipOut = fs.readFileSync('pip-audit.md', 'utf8');
+                if (pipOut.length > MAX_SECTION_CHARS) {
+                  pipOut = pipOut.slice(0, MAX_SECTION_CHARS) +
+                    '\n\n...(truncated — see the "dependency-audit-reports" workflow artifact for the full report)';
+                }
+                body += '### Python (pip-audit)\n\n' + pipOut + '\n\n';
               } catch (e) {
-                body += '### Python (pip-audit)\n\nSee workflow logs.\n\n';
+                body += '### Python (pip-audit)\n\nSee the "dependency-audit-reports" workflow artifact.\n\n';
               }
             }
 
             if (process.env.NPM_FINDINGS === 'true') {
-              body += '### Node (npm audit)\n\nSee workflow logs for full npm audit output.\n\n';
+              try {
+                let npmOut = fs.readFileSync('npm-audit.txt', 'utf8');
+                if (npmOut.length > MAX_SECTION_CHARS) {
+                  npmOut = npmOut.slice(0, MAX_SECTION_CHARS) +
+                    '\n\n...(truncated — see the "dependency-audit-reports" workflow artifact for the full report)';
+                }
+                body += '### Node (npm audit)\n\n```\n' + npmOut + '\n```\n\n';
+              } catch (e) {
+                body += '### Node (npm audit)\n\nSee the "dependency-audit-reports" workflow artifact.\n\n';
+              }
             }
 
             body += '_Auto-opened by the monthly-dependency-audit workflow._';
