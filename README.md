@@ -33,9 +33,9 @@ The proof that this is a real, working, deployed system -- not just source code 
 
 | Folder | What's inside |
 |--------|----------------|
-| 🏗️ [**Architecture & design**](docs/evidence/arch_and_design) | System architecture diagram, authentication flow diagram, full database schema (ERD), API surface overview, migration history |
-| 🖥️ [**Live deployment**](docs/evidence/live_deployment) | Screenshots of the running app -- home screen, check wizard, compliance dashboard -- plus the live Azure resources behind it (App Service, PostgreSQL, Static Web Apps) |
-| ✅ [**UAT records**](docs/evidence/uat) | Completed user-acceptance test cases from the real Newberg Township EMS team, one file per role (Admin / Supervisor / Responder) |
+| [**Architecture & design**](docs/evidence/arch_and_design) | System architecture diagram, authentication flow diagram, full database schema (ERD), API surface overview, migration history |
+| [**Live deployment**](docs/evidence/live_deployment) | Screenshots of the running app -- home screen, check wizard, compliance dashboard -- plus the live Azure resources behind it (App Service, PostgreSQL, Static Web Apps) |
+| [**UAT records**](docs/evidence/uat) | Completed user-acceptance test cases one file per role (Admin / Supervisor / Responder) |
 
 For the complete itemized breakdown of what's been captured, why it matters, and what's still in progress, see the [Portfolio Evidence Checklist](docs/evidence/Portfolio_Evidence_Checklist.csv).
 
