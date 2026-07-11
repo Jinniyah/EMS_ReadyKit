@@ -1,0 +1,3 @@
+# WP-05: Test Count and Testing Philosophy
+
+The project has 530 backend tests and 233 frontend tests, for 763 total — a substantial suite for a solo-developer project. Rather than relying only on generic unit tests, a meaningful share are persona-driven: tests written from the perspective of a Responder, Supervisor, or Administrator moving through a real workflow, plus dedicated suites for safety-critical rules like O2 PSI minimums and priority-item enforcement. That framing exists because correctness alone isn't the goal — the tests need to prove the app behaves correctly for the specific people who'll actually use it under real conditions, which is a more honest measure of readiness than coverage percentage alone.

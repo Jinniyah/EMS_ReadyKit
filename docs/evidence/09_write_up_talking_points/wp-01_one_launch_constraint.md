@@ -1,0 +1,3 @@
+# WP-01: The One-Launch Constraint
+
+This project only gets one launch: a real volunteer EMS team, ten responders, two ambulances, and no beta period to quietly fix mistakes in. There's no synthetic user base to absorb a bad decision — if the check wizard confuses a responder at hour eleven of a shift, that's a real crew with real equipment gaps, not a support ticket. That constraint shaped nearly every decision on the project, from the emphasis on plain-English UI over clever abstractions, to the insistence on UAT with the actual team before calling anything "done," to treating AED and LUCAS readiness as non-negotiable priority items rather than just another line in inventory.
