@@ -117,6 +117,17 @@ resource "azurerm_linux_web_app" "ems_app" {
   # single deployed environment uses environment="dev" for resource naming
   # and cost purposes only — that has no bearing on whether real Azure AD
   # tokens should be required.
+  #
+  # ENABLE_API_DOCS follows the same belt-and-suspenders pattern: set
+  # explicitly to "false" here rather than relying on the code default
+  # (also "false" in core/config.py), so it's visible and auditable in the
+  # App Service Configuration blade independent of the deployed code
+  # version. This was the root cause of SEC-03 in the portfolio evidence
+  # checklist -- /docs, /redoc, and /openapi.json were previously gated on
+  # is_production (i.e. APP_ENV), which left them publicly reachable on
+  # this environment since it deliberately uses APP_ENV=development for
+  # resource naming. Flip to "true" here only temporarily, to capture the
+  # ARCH-04 Swagger UI evidence, then set back to "false".
   app_settings = {
     "SCM_DO_BUILD_DURING_DEPLOYMENT" = "true"
     "ENABLE_ORYX_BUILD"              = "true"
@@ -124,6 +135,7 @@ resource "azurerm_linux_web_app" "ems_app" {
     "KEY_VAULT_URI"                  = azurerm_key_vault.ems_kv.vault_uri
     "APP_ENV"                        = local.is_dev ? "development" : "production"
     "REQUIRE_REAL_AUTH"              = "true"
+    "ENABLE_API_DOCS"                = "false"
     "LOG_LEVEL"                      = "INFO"
     "SECRET_KEY"                     = "@Microsoft.KeyVault(VaultName=${azurerm_key_vault.ems_kv.name};SecretName=app-secret-key)"
     "DATABASE_URL"                   = "@Microsoft.KeyVault(VaultName=${azurerm_key_vault.ems_kv.name};SecretName=sql-connection-string)"

@@ -20,12 +20,22 @@ Auth:
     explicitly (see conftest.py and CONTRIBUTING.md section 11).
 
   This is intentionally a *separate* setting from APP_ENV. APP_ENV only
-  controls resource naming, cost tags, and whether OpenAPI docs are served
-  (see SEC-2 in main.py) — it was previously (incorrectly) also used to
-  decide whether real auth was required, which meant the deployed
-  App Service (environment=dev, APP_ENV=development) silently accepted the
-  fake test-{role} tokens over the public internet. See the 2026-07
-  incident write-up in docs/backlog_completed.md.
+  controls resource naming and cost tags — it was previously (incorrectly)
+  also used to decide whether real auth was required, which meant the
+  deployed App Service (environment=dev, APP_ENV=development) silently
+  accepted the fake test-{role} tokens over the public internet. See the
+  2026-07 incident write-up in docs/backlog_completed.md.
+
+OpenAPI docs:
+  - ENABLE_API_DOCS controls whether /docs, /redoc, and /openapi.json are
+    served (see SEC-2 in main.py). Defaults to False (secure by default),
+    for the same reason REQUIRE_REAL_AUTH is decoupled from APP_ENV above:
+    this deployed App Service intentionally runs with APP_ENV=development
+    for resource-naming/cost purposes, so gating docs on is_production left
+    the OpenAPI docs publicly reachable on the live UAT app (caught by
+    SEC-03 in the portfolio evidence checklist). Set ENABLE_API_DOCS=true
+    locally, or temporarily on a deployed environment, when you need to
+    capture the Swagger UI for evidence (see ARCH-04).
 """
 
 from __future__ import annotations
@@ -57,6 +67,12 @@ class Settings(BaseSettings):
     # disabled. See the module docstring above for why this is decoupled
     # from app_env/is_production.
     require_real_auth: bool = True
+
+    # ── API docs ──────────────────────────────────────────────────────────────
+    # Secure by default: OpenAPI docs are off unless explicitly enabled. See
+    # the module docstring above for why this is decoupled from
+    # app_env/is_production.
+    enable_api_docs: bool = False
 
     # ── Database ──────────────────────────────────────────────────────────────
     database_url: str = "sqlite:///./ems_readykit_dev.db"

@@ -16,7 +16,9 @@ NOTE: X-Frame-Options is intentionally NOT set on the backend API.
     X-Frame-Options for the SWA frontend is set in staticwebapp.config.json.
 
 ## OpenAPI docs (SEC-2)
-/docs, /redoc, and /openapi.json are disabled in production.
+/docs, /redoc, and /openapi.json are disabled unless ENABLE_API_DOCS=true.
+This is deliberately decoupled from APP_ENV/is_production -- see the
+ENABLE_API_DOCS docstring in core/config.py for why (SEC-03).
 
 ## Admin routers (CQ-B5)
 The monolithic admin.py was split into three sub-routers:
@@ -73,10 +75,16 @@ def create_app() -> FastAPI:
             "Set the SECRET_KEY environment variable or Key Vault secret."
         )
 
-    # -- SEC-2: Disable OpenAPI docs in production (OWASP A05) -----------------
-    _docs_url = None if settings.is_production else "/docs"
-    _redoc_url = None if settings.is_production else "/redoc"
-    _openapi_url = None if settings.is_production else "/openapi.json"
+    # -- SEC-2 / SEC-03: Disable OpenAPI docs unless explicitly enabled --------
+    # Gated on ENABLE_API_DOCS, NOT settings.is_production. This deployed App
+    # Service intentionally runs with APP_ENV=development for resource-naming
+    # and cost purposes, so gating on is_production left /docs, /redoc, and
+    # /openapi.json publicly reachable on the live UAT app. ENABLE_API_DOCS
+    # defaults to False (secure by default) regardless of APP_ENV -- see the
+    # docstring in core/config.py.
+    _docs_url = "/docs" if settings.enable_api_docs else None
+    _redoc_url = "/redoc" if settings.enable_api_docs else None
+    _openapi_url = "/openapi.json" if settings.enable_api_docs else None
 
     app = FastAPI(
         title="EMS ReadyKit API",
