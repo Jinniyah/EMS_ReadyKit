@@ -32,6 +32,18 @@ resource "azurerm_subnet" "app" {
   virtual_network_name = azurerm_virtual_network.ems_vnet.name
   address_prefixes     = ["10.10.1.0/24"]
 
+  # Microsoft.KeyVault service endpoint lets the App Service's VNet-integrated
+  # outbound traffic reach Key Vault over the Azure backbone. Paired with
+  # network_acls.virtual_network_subnet_ids on the Key Vault (modules/app) --
+  # without both sides, the App Service's managed identity calls to Key Vault
+  # are rejected with ForbiddenByFirewall, since bypass="AzureServices" alone
+  # does not cover a generic App Service reading its own secrets. See SEC-03
+  # incident (2026-07-11): startup.sh's Key Vault connectivity check failed
+  # with "Client address is not authorized and caller is not a trusted
+  # service" / "ForbiddenByFirewall", which cascaded into DATABASE_URL never
+  # resolving and the app failing to boot.
+  service_endpoints = ["Microsoft.KeyVault"]
+
   delegation {
     name = "appservice-delegation"
     service_delegation {

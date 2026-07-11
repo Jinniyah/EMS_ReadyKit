@@ -51,10 +51,23 @@ resource "azurerm_key_vault" "ems_kv" {
   purge_protection_enabled   = local.kv_purge_protection
   soft_delete_retention_days = local.kv_soft_delete_retention
 
+  # virtual_network_subnet_ids allowlists the App Service's own subnet so its
+  # VNet-integrated outbound calls (managed identity reading secrets, and
+  # App Service's own @Microsoft.KeyVault(...) app-setting references) pass
+  # the firewall. bypass="AzureServices" does NOT cover this on its own --
+  # that only exempts a curated list of trusted Microsoft services, and a
+  # generic App Service reading its own Key Vault is not on that list. Only
+  # populated when VNet integration is actually enabled (paid SKUs); F1 has
+  # no subnet to allowlist. Must be paired with the Microsoft.KeyVault
+  # service_endpoint on snet-app (modules/network). Missing this pairing was
+  # the root cause of the SEC-03 incident (2026-07-11): Key Vault calls
+  # failed with ForbiddenByFirewall, DATABASE_URL never resolved, and the
+  # app failed to boot (503 / Application Error).
   network_acls {
-    default_action = "Deny"
-    bypass         = "AzureServices"
-    ip_rules       = var.allowed_admin_ips
+    default_action             = "Deny"
+    bypass                     = "AzureServices"
+    ip_rules                   = var.allowed_admin_ips
+    virtual_network_subnet_ids = local.enable_vnet ? [var.subnet_app_id] : []
   }
 
   tags = var.tags
