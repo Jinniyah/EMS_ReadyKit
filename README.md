@@ -24,6 +24,9 @@ workflow -- designed for real crews, in real stations, under real time pressure.
 **Repository:** https://github.com/Jinniyah/EMS_ReadyKit
 
 📁 **Reviewing this as a portfolio piece?** Skip straight to the [**evidence — screenshots, diagrams, and UAT records**](#portfolio-evidence).
+- ⭐ Responder Live Demo [Responder PowerPoint](docs/evidence/02_live_deployment/01_EMS_ReadyKit_WebApp_Responder_Demo.pptx)
+- ⭐ Supervisor Live Demo [Supervisor PowerPoint](docs/evidence/02_live_deployment/02_EMS_ReadyKit_WebApp_Supervisor_Demo.pptx)
+- ⭐ Administrator Live Demo [Administrator PowerPoint](docs/evidence/02_live_deployment/03_EMS_ReadyKit_WebApp_Admin_Demo.pptx)
 
 ---
 
@@ -33,9 +36,9 @@ The proof that this is a real, working, deployed system -- not just source code 
 
 | Folder | What's inside |
 |--------|----------------|
-| [**Architecture & design**](docs/evidence/arch_and_design) | System architecture diagram, authentication flow diagram, full database schema (ERD), API surface overview, migration history |
-| [**Live deployment**](docs/evidence/live_deployment) | Screenshots of the running app -- home screen, check wizard, compliance dashboard -- plus the live Azure resources behind it (App Service, PostgreSQL, Static Web Apps) |
-| [**UAT records**](docs/evidence/uat) | Completed user-acceptance test cases one file per role (Admin / Supervisor / Responder) |
+| [**Architecture & design**](docs/evidence/01_arch_and_design) | System architecture diagram, authentication flow diagram, full database schema (ERD), API surface overview, migration history |
+| [**Live deployment**](docs/evidence/02_live_deployment) | Screenshots and short videos of the running app -- home screen, check wizard, compliance dashboard -- plus the live Azure resources behind it (App Service, PostgreSQL, Static Web Apps) |
+| [**UAT records**](docs/evidence/07_domain_expertise) | Completed user-acceptance test cases one file per role (Admin / Supervisor / Responder) |
 
 For the complete itemized breakdown of what's been captured, why it matters, and what's still in progress, see the [Portfolio Evidence Checklist](docs/evidence/Portfolio_Evidence_Checklist.csv).
 
