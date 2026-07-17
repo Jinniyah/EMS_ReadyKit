@@ -1,5 +1,5 @@
 # CLAUDE.md — AI Development Rules for EMS ReadyKit
-# Last updated: 2026-06-23 — Session AQ closed (F-5C2 Help & Tutorial screen: modules/help/ created; role-aware accordion sections; Tutorial replay overlay; HomePage.jsx lazy import + activeModule block + Help card enabled)
+# Last updated: 2026-07-12 — Session AS closed (planning/backlog only, no code touched: scoped Marcellus station onboarding — 2 fire trucks, 1 ambulance, jump bag, station storage; added ordered backlog sequence ONBOARD-1 → F-5G3a (Bobby's compliance CSV export) → VALID-1 → INFRA-UAT1 (F1 UAT / B1 PROD split) to docs/backlog.md. No pytest/lint run — nothing in app/ or frontend/src/ changed this session.)
 # Load alongside CODEBASE_INDEX.md at the start of every session. Compacted 2026-06-19 — same rules, less prose.
 
 ---

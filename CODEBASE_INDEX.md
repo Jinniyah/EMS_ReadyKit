@@ -31,7 +31,7 @@ EMS_ReadyKit/
 ├── docs/                       # All project documentation
 │   ├── backlog.md              # ALL open work items — single source of truth
 │   ├── project_index.md        # Technical reference, API structure, stack
-│   ├── backlog_completed.md    # Completed items (Sessions A–AQ) + changelog archive
+│   ├── backlog_completed.md    # Completed items (Sessions A–AR) + changelog archive
 │   ├── architecture.md         # Component diagram and networking notes
 │   ├── runbook.md              # Infrastructure deployment, validation, teardown
 │   ├── osi_security_review.md  # OSI layer security analysis with gap/action list
@@ -132,7 +132,7 @@ AuditEvent     (immutable log)
 
 | File | Purpose |
 |------|---------|
-| `config.py` | `get_settings()` — env vars, feature flags, is_production, is_sqlite |
+| `config.py` | `get_settings()` — env vars, feature flags, is_production, is_sqlite, enable_api_docs (secure-by-default, decoupled from is_production — SEC-03, Session AR) |
 | `auth.py` | `resolve_current_user()`, `CurrentUser`, role constants, Azure AD JWT RS256 validation; test tokens: `Bearer test-{role}` → `test-{role}@ems.local` |
 | `database.py` | `get_db()` FastAPI dependency; engine + session factory |
 | `audit.py` | `write_audit_event(actor=, metadata=)` — always use this, never inline AuditEvent(). `timestamp` is always `datetime.now(timezone.utc)` — any test computing a date boundary to compare against it must also use UTC "today", not local `date.today()` (see Session AF fix in test_routers.py's TestAuditEndpoints). |
@@ -422,9 +422,10 @@ Reseed sequence: `cd app; Remove-Item ems_readykit_dev.db; alembic upgrade head;
 |----------|-------|
 | Backend (Azure App Service B1) | https://app-ems-readykit-dev.azurewebsites.net |
 | Frontend (Azure Static Web Apps) | https://lively-bush-0ed75ca10.7.azurestaticapps.net |
-| API docs (non-prod only) | https://app-ems-readykit-dev.azurewebsites.net/docs |
+| API docs (opt-in, ENABLE_API_DOCS=false by default) | https://app-ems-readykit-dev.azurewebsites.net/docs — 404 unless ENABLE_API_DOCS=true, decoupled from APP_ENV (SEC-03, Session AR) |
 | CI/CD trigger | Push to `main` → GitHub Actions |
 | Terraform | `iac/Terraform/` — delete delete-lock before apply |
+| Key Vault network access | App subnet (`snet-app`) must have the `Microsoft.KeyVault` service endpoint AND be listed in the Key Vault's `network_acls.virtual_network_subnet_ids` — `bypass="AzureServices"` alone does NOT cover a generic App Service reading its own secrets. Missing this pairing caused a full outage (SEC-03 incident, Session AR): managed identity Key Vault calls failed with `ForbiddenByFirewall`, `DATABASE_URL` never resolved, app failed to boot. |
 
 ---
 

@@ -1,11 +1,29 @@
 # EMS ReadyKit — Completed Items (Portfolio Changelog)
-# Last updated: 2026-06-23
+# Last updated: 2026-07-11
 # This is a condensed, portfolio-ready version of the project's session history.
 # Each entry summarizes the goal, root cause, and resolution for a completed
 # session. Bug/item tracking-ID tables and step-by-step debugging narratives have
 # been removed in favor of prose summaries suitable for external review.
-# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, AB, AC, AD, AE, AF, AG, AH, AI, AJ, AK, AL, AM, AN, AO, AP, AQ
+# Sessions completed: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, AB, AC, AD, AE, AF, AG, AH, AI, AJ, AK, AL, AM, AN, AO, AP, AQ, AR
 # Active backlog -> docs/backlog.md
+
+---
+
+## Session AR — SEC-03: OpenAPI Docs Gating Fix and Key Vault Firewall Outage (2026-07-11)
+
+Goal: fix SEC-03 from the Portfolio Evidence Checklist — `/docs`, `/redoc`, and `/openapi.json` were reachable on the live UAT App Service instead of returning 404.
+
+Root cause: `main.py` gated the OpenAPI docs on `settings.is_production`, which is derived from `APP_ENV`. This project's single deployed App Service deliberately runs with `APP_ENV=development` for resource-naming and cost purposes (an intentional, pre-existing decision, not a misconfiguration) — so `is_production` was always `False` there, and the docs were never actually disabled on the public UAT app. This is the same class of bug as the 2026-07 `REQUIRE_REAL_AUTH` incident: a security-relevant setting was implicitly tied to `APP_ENV` instead of being its own explicit, secure-by-default flag.
+
+Fix: added a new `enable_api_docs` setting to `core/config.py`, defaulting to `False` and fully decoupled from `APP_ENV`/`is_production`, mirroring the existing `require_real_auth` pattern (including a belt-and-suspenders explicit `"false"` entry in the Terraform `app_settings` map, alongside `REQUIRE_REAL_AUTH`). `main.py`'s `docs_url`/`redoc_url`/`openapi_url` now key off `settings.enable_api_docs` directly. `.env.example` was updated so local development still gets docs by default (`ENABLE_API_DOCS=true` locally). While rewriting the Terraform `app_settings` map, an unrelated copy error was caught and fixed before it shipped: a rewrite of `modules/app/main.tf` had accidentally dropped the `AppServiceAppLogs` diagnostic log category from the App Service's diagnostic settings resource.
+
+**Same-session incident:** applying this fix (`terraform apply` followed by the GitHub Actions code deploy) surfaced a separate, pre-existing infrastructure gap as a full outage. The App Service's managed identity calls to Key Vault began failing with `(Forbidden) ... ForbiddenByFirewall` — `bypass="AzureServices"` on the Key Vault's `network_acls` does not cover a generic App Service reading its own secrets, and the App Service's own VNet-integrated subnet (`snet-app`) had never been allowlisted via `virtual_network_subnet_ids`, nor did it have the `Microsoft.KeyVault` service endpoint that `snet-data` already had for Postgres/Storage. When the Key Vault call failed, `resolve_database_url()`'s fallback to the raw `DATABASE_URL` app setting also failed, because that setting is itself an unresolved App Service Key Vault reference (`@Microsoft.KeyVault(...)`) resolved through the identical firewall path — producing a `sqlalchemy.exc.ArgumentError` trying to parse the literal reference string as a connection URL, and the app never came up (`503`/"Application Error").
+
+Root-cause isolation ruled out the SEC-03 change itself: `test-backend` (full pytest suite, exercising `Settings()` and `create_app()`) gates the deploy job, and the `terraform apply` plan output was independently confirmed to touch only the two expected `app_settings` keys, a diagnostic log category, and unrelated pre-existing drift (a manually-deleted action group/alert, a storage diagnostic metric reshape) — nothing touching `network_acls`, subnets, or service endpoints. Diagnosed via Azure Portal Log Stream, which showed the `ForbiddenByFirewall` error and full traceback from `startup.sh`'s pre-flight database connectivity check.
+
+Fixed by adding the `Microsoft.KeyVault` service endpoint to `snet-app` (`modules/network/main.tf`) and `virtual_network_subnet_ids = [var.subnet_app_id]` (conditional on VNet integration being enabled) to the Key Vault's `network_acls` (`modules/app/main.tf`), mirroring the existing `snet-data` pattern used for Postgres and Storage. Confirmed via `terraform apply` (clean plan: only the Key Vault ACL and subnet service-endpoint changes, plus the same pre-existing drift as before) followed by an App Service restart and a live `/health` check returning `200`.
+
+This was diagnosed and fixed same-day, ahead of a live demo to the Marcellus Township supervisor.
 
 ---
 
