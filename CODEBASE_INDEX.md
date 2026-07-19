@@ -17,8 +17,8 @@ EMS_ReadyKit/
 │   │   ├── schemas/            # Pydantic request/response schemas
 │   │   └── main.py             # App factory, middleware, router registration
 │   ├── alembic/                # DB migrations (versions/ subdirectory)
-│   ├── tests/                  # pytest suite (530 collected; 530 passing — ITM-4 resolved 32 seed_integrity failures; ITM-5 added 14; Session AO added 32)
-│   ├── seed.py                 # Dev seed data — ITM-4 rewrite complete (Session AI). BASE_ITEM_SEED, station-scoped items, Newberg full par levels, Marcellus/Training/Test catalog only.
+│   ├── tests/                  # pytest suite (562 collected; 562 passing — ITM-4 resolved 32 seed_integrity failures; ITM-5 added 14; Session AO added 32; Session AS/ONBOARD-1 net +27: 28 new Marcellus tests, -1 obsolete test_unit_540_is_als)
+│   ├── seed.py                 # Dev seed data — ITM-4 rewrite complete (Session AI). BASE_ITEM_SEED, station-scoped items, Newberg + Marcellus full par levels (Session AS/ONBOARD-1), Training/Test catalog only.
 │   ├── seed_training.py        # Training station seed — always run, including production (Session AB)
 │   ├── initial_stock.csv       # 10 seed stock items — upload via Receive New Stock → CSV
 │   └── pyproject.toml          # Dependencies + pytest config
@@ -161,13 +161,13 @@ AuditEvent     (immutable log)
 | `test_persona_supervisor.py` | — | Supervisor: check history; damaged item regression; repair requests; station today view | `db` |
 | `test_persona_admin.py` | — | Admin: supply room decrement; FUNCTIONAL items excluded; role alias regression; admin-only deactivation boundary | `db` |
 | `test_safety_checks.py` | — | O2 PSI below minimum → LOW; date recurrence overdue → OVERDUE; requires_full_check enforcement (422 on missing items) | `db` |
-| `test_seed_integrity.py` | — | Verifies seeded dev DB: Unit 712, PC 8, AED/LUCAS items, O2 PSI minimums, Truck Operations, jump bags | `seeded_db` |
+| `test_seed_integrity.py` | — | Verifies seeded dev DB: Unit 712, PC 8, AED/LUCAS items, O2 PSI minimums, Truck Operations, jump bags. Session AS (ONBOARD-1) added 28 tests: Marcellus fleet composition (612/632/621), Unit 612's 21-compartment/153-par-level layout incl. `requires_full_check`, reused-item spot checks (Run Box, Blankets, Duct Tape, AED/LUCAS priority wording), and Fuel Level as a FUNCTIONAL pass/fail check; Units 632/621's compartment/par-level counts, shared Under Hood items, Tire Pressure & Depth (16 items, PSI gauge confirmed, threshold still open), Gas Meter Reading (PSI gauge confirmed, threshold still open), `station_supply=False` on fire-truck items. Uses a new `_item_for_station()` helper (station-scoped, unlike the pre-existing `_item()`) since BASE_ITEM_SEED items are created once per station (ITM-1) and a bare name lookup is ambiguous for anything shared across stations. Same session: a clean reseed surfaced that this file's pre-existing (pre-ONBOARD-1) station-name lookups had silently drifted from current `seed.py` -- `"Newberg Township Station 1"`/`"Marcellus Township Station 1"` (trailing "1") only ever matched a long-stale local dev DB, never the actual current seed data; corrected to `"Newberg Township Station"`/`"Marcellus Township Station"` and removed the now-obsolete `test_unit_540_is_als` (Unit 540 no longer exists, renamed to 612/BLS). | `seeded_db` |
 | `test_usage.py` | — | POST /checks/usage happy path, FIFO decrement, non-SUPPLY rejection, 403/404 guards; GET history + frequent items | `db` |
 | `test_retirement.py` | — | RET-B1–B6: retire vehicle/location/station/lot; list retired; 403/409 enforcement. | `db` |
 | `test_damaged_items.py` | — | SUP-DMG1: damaged items endpoint; happy path; retired excluded; inactive excluded; station isolation; RBAC. 13 tests. | `db` |
 | `test_email_alignment.py` | — | LAUNCH-OPS9: `GET /admin/email-alignment-check` — valid emails pass clean; display-name/malformed/uppercase/blank user_id flagged; inactive row inclusion toggle; cross-station scan; RBAC (Admin only). 12 tests. (Session AC) | `db` |
 
-**Run:** `cd app; pytest` — 530 tests collected, **530 passing**. `ruff check .` and `black --check .` confirmed green.
+**Run:** `cd app; pytest` — 562 tests collected, **562 passing** (Session AS: net +27 from ONBOARD-1 — 28 new Marcellus tests, -1 obsolete `test_unit_540_is_als` removed since Unit 540 no longer exists). `ruff check .` confirmed green; `black` is not installed in the current venv (not run this session).
 
 **Two DB fixtures — do not mix:**
 - `db` — in-memory SQLite, empty, rolls back after each test. Use for all API/logic tests.
@@ -400,7 +400,7 @@ Reseed sequence: `cd app; Remove-Item ems_readykit_dev.db; alembic upgrade head;
 | Station | Vehicles / Locations | Notes |
 |---------|---------------------|-------|
 | Newberg Township Station | Unit 712 (BLS) + Unit 712 Jump Bag + Supply Room | Full par levels from real 712 + jump bag inventory forms. PC 8 has all 6 AED/LUCAS items (LUCAS Device merged). |
-| Marcellus Township Station | Unit 540 (ALS) + Supply Room | Catalog only — supervisor assigns par levels via admin UI (ITM-6). |
+| Marcellus Township Station | Unit 612 (BLS, renamed in place from placeholder "540"/ALS) + Unit 632 (QRV fire engine) + Unit 621 (QRV fire engine) + Supply Room | ONBOARD-1 (Session AS): full par levels from Jennifer's real inventory forms. 33 compartments / 264 par levels across the 3 vehicles (612: 21 compartments/153 par levels incl. Fuel Level as a FUNCTIONAL pass/fail check; 632: 5/56; 621: 7/55). Built via `build_marcellus_ambulance_inventory`/`build_fire_truck_632_inventory`/`build_fire_truck_621_inventory` — not `build_ambulance_inventory` (612's layout is not 712's PC1-PC18). Fire-truck items live in the shared `BASE_ITEM_SEED` (category_group="Vehicle Operations", station_supply=False) so Newberg's/Training's not-yet-onboarded fire trucks pick them up automatically. Open items: Tire PSI (632) and Gas Meter Reading (621) are both confirmed PSI gauges (same pattern as On-Board O2 PSI) but still have no confirmed min/max threshold — see `docs/backlog_completed.md` Session AS write-up. |
 | Newberg Training Station (orange) | Training Unit A/B + Jump Bag A/B + Supply Room | Catalog only — par levels assigned via admin UI. |
 | ⚠ TEST STATION | Unit TEST (QRV) + Supply Room | Catalog + 7 `[TEST]`-prefixed items; no par levels; dev only. |
 

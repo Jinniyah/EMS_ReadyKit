@@ -13,7 +13,8 @@ Routes (all prefixed /admin via router):
   POST   /admin/items/import                   Bulk CSV import
   GET    /admin/items/{id}                     Get single item
   PATCH  /admin/items/{id}                     Edit item
-  PATCH  /admin/items/{id}/deactivate          Soft-deactivate (Admin only)
+  PATCH  /admin/items/{id}/deactivate          Soft-deactivate (Admin only) -- blocked with 409 if the
+                                                item still has any active par level assignment (ONBOARD-2)
   PATCH  /admin/items/{id}/ai-fields           Update AI fields (Admin only)
   GET    /admin/items/{id}/assignments/count   Active assignment count
   GET    /admin/items/{id}/assignments         List par level assignments
@@ -48,6 +49,20 @@ required" before update_item() ever ran. update_item now takes ItemUpdate,
 which omits station_id entirely -- the item's station is read from the
 existing row server-side and is never accepted from the client on edit, the
 same client-trust boundary already established for performed_by.
+
+SAFEGUARD (ONBOARD-2): deactivate_item previously flipped Item.active to
+False unconditionally -- there was no check for whether the item still had
+any active ParLevel assignment. An admin at Station A could deactivate an
+item that a Station B vehicle (or another vehicle at their own station) was
+still actively checking against, silently pulling it out of that crew's
+check wizard with no warning. deactivate_item now blocks with 409 if any
+active ParLevel row references the item, using the same
+(item_id, active=True) count query as count_item_assignments (ADMIN-F4), so
+the two endpoints can never disagree about what "still assigned" means. The
+error message is deliberately non-technical -- "this item is being used at
+one or more locations" -- since the caller may be looking at a completely
+different item, station, or vehicle from wherever the still-active
+assignment actually lives.
 """
 
 from __future__ import annotations
@@ -694,6 +709,16 @@ def update_item(
 #
 # Deactivated items are hidden from all crew views.  Admins can still see them
 # via the "Show inactive items" toggle in the Item Catalog.
+#
+# ── Why deactivation itself is guarded (ONBOARD-2) ───────────────────────────
+#
+# active=False is a soft flag, not a delete, so the FK constraints above don't
+# protect against it -- nothing stopped an admin from deactivating an item
+# that a vehicle, jump bag, or supply room was still actively counting against
+# in daily checks. That would silently pull the item out of that crew's check
+# wizard with no warning to either admin. deactivate_item now checks for any
+# active ParLevel row referencing the item first, and refuses with 409 if one
+# exists.
 # ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -714,6 +739,27 @@ def deactivate_item(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Item '{item.name}' is already inactive.",
         )
+
+    # ONBOARD-2: block deactivation while the item is still assigned anywhere.
+    # Same (item_id, active=True) count as count_item_assignments (ADMIN-F4),
+    # so the two endpoints can never disagree about what "still in use" means.
+    active_assignment_count = (
+        db.query(ParLevel)
+        .filter(ParLevel.item_id == item_id, ParLevel.active.is_(True))
+        .count()
+    )
+    if active_assignment_count > 0:
+        location_word = "location" if active_assignment_count == 1 else "locations"
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"'{item.name}' can't be deactivated right now — it's still being "
+                f"used at {active_assignment_count} {location_word} (a vehicle, "
+                "jump bag, or the supply room, possibly at another station). "
+                "Remove it from those locations first, then try again."
+            ),
+        )
+
     item.active = False
     db.commit()
     db.refresh(item)

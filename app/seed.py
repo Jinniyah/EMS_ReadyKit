@@ -5,8 +5,9 @@ Seed data for EMS ReadyKit development database.
 Stations seeded:
     1. Newberg Township Station — Ambulance 712 (BLS) + Unit 712 Jump Bag
        Full par levels from real inventory forms (ITM-2/ITM-4).
-    2. Marcellus Township Station — Unit 540 (ALS)
-       Item catalog seeded; par levels assigned via admin UI.
+    2. Marcellus Township Station — Unit 612 (BLS ambulance) + Unit 632 (QRV fire
+       engine) + Unit 621 (QRV fire engine)
+       Full par levels from real inventory forms (ONBOARD-1).
     3. Newberg Training Station (orange) — Training Unit A + B, Jump Bag A + B
        Item catalog seeded; par levels assigned via admin UI.
     4. ⚠ TEST STATION — Dev Only — Unit TEST (QRV)
@@ -1554,7 +1555,1238 @@ BASE_ITEM_SEED = [
         "unit_of_measure": "each",
         "station_supply": False,
     },
+    # =========================================================================
+    # ── Marcellus Onboarding (ONBOARD-1) ─────────────────────────────────────
+    # Fire-truck items (Units 632/621) live in this SHARED catalog — not a
+    # Marcellus-only list — so Newberg's/Training's fire trucks pick them up
+    # automatically once those are onboarded (unused, no par levels, until
+    # then). category_group="Vehicle Operations" for all of them, matching
+    # the existing convention for FUNCTIONAL vehicle-system checks; every
+    # item in that group is station_supply=False. Unit 612 ambulance-specific
+    # new items follow the same "add to BASE_ITEM_SEED even if only one
+    # station currently uses it" convention already established for
+    # "Stretcher Battery Date of Last Charge" above.
+    # =========================================================================
+
+    # ── Fire Truck: Tire Pressure & Tread — Unit 632, 8 positions ────────────
+    # Confirmed (Jennifer): a PSI gauge, same pattern as On-Board O2 PSI.
+    # OPEN ITEM (ONBOARD-1): no confirmed min/max PSI threshold yet — left
+    # null; a supervisor sets real thresholds later via the admin UI.
+    {
+        "name": "Tire Pressure — LF",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _MEAS,
+        "unit_of_measure": "PSI",
+        "station_supply": False,
+    },
+    {
+        "name": "Tire Pressure — RF",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _MEAS,
+        "unit_of_measure": "PSI",
+        "station_supply": False,
+    },
+    {
+        "name": "Tire Pressure — FLR",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _MEAS,
+        "unit_of_measure": "PSI",
+        "station_supply": False,
+    },
+    {
+        "name": "Tire Pressure — FRR",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _MEAS,
+        "unit_of_measure": "PSI",
+        "station_supply": False,
+    },
+    {
+        "name": "Tire Pressure — IFLR",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _MEAS,
+        "unit_of_measure": "PSI",
+        "station_supply": False,
+    },
+    {
+        "name": "Tire Pressure — IFRR",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _MEAS,
+        "unit_of_measure": "PSI",
+        "station_supply": False,
+    },
+    {
+        "name": "Tire Pressure — OBLR",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _MEAS,
+        "unit_of_measure": "PSI",
+        "station_supply": False,
+    },
+    {
+        "name": "Tire Pressure — IBLR",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _MEAS,
+        "unit_of_measure": "PSI",
+        "station_supply": False,
+    },
+    {
+        "name": "Tire Tread Depth — LF",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _MEAS,
+        "unit_of_measure": "32nds in",
+        "measurement_minimum": 4.0,
+        "station_supply": False,
+    },
+    {
+        "name": "Tire Tread Depth — RF",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _MEAS,
+        "unit_of_measure": "32nds in",
+        "measurement_minimum": 4.0,
+        "station_supply": False,
+    },
+    {
+        "name": "Tire Tread Depth — FLR",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _MEAS,
+        "unit_of_measure": "32nds in",
+        "measurement_minimum": 4.0,
+        "station_supply": False,
+    },
+    {
+        "name": "Tire Tread Depth — FRR",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _MEAS,
+        "unit_of_measure": "32nds in",
+        "measurement_minimum": 4.0,
+        "station_supply": False,
+    },
+    {
+        "name": "Tire Tread Depth — IFLR",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _MEAS,
+        "unit_of_measure": "32nds in",
+        "measurement_minimum": 4.0,
+        "station_supply": False,
+    },
+    {
+        "name": "Tire Tread Depth — IFRR",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _MEAS,
+        "unit_of_measure": "32nds in",
+        "measurement_minimum": 4.0,
+        "station_supply": False,
+    },
+    {
+        "name": "Tire Tread Depth — OBLR",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _MEAS,
+        "unit_of_measure": "32nds in",
+        "measurement_minimum": 4.0,
+        "station_supply": False,
+    },
+    {
+        "name": "Tire Tread Depth — IBLR",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _MEAS,
+        "unit_of_measure": "32nds in",
+        "measurement_minimum": 4.0,
+        "station_supply": False,
+    },
+    # ── Fire Truck: Portable Pump — Unit 632 ──────────────────────────────────
+    {
+        "name": "Portable Pump Gas",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Portable Pump Plugs",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Portable Pump 5-Minute Run",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    # ── Fire Truck: SCBA / Voice Amplifier — Unit 621 ─────────────────────────
+    {
+        "name": "SCBA",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+        "station_supply": False,
+    },
+    {
+        "name": "SCBA Mask, Large",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+        "station_supply": False,
+    },
+    {
+        "name": "SCBA Mask, Medium",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+        "station_supply": False,
+    },
+    {
+        "name": "SCBA Mask, Small",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+        "station_supply": False,
+    },
+    {
+        "name": "Old Voice Amplifier",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+        "station_supply": False,
+    },
+    {
+        "name": "SCBA Battery",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+        "station_supply": False,
+    },
+    {
+        "name": "SCBA Battery Date Changed",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _DATE,
+        "unit_of_measure": "N/A",
+        "recurrence_days": 90,
+        "station_supply": False,
+    },
+    {
+        "name": "Old Voice Amplifier Battery",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+        "station_supply": False,
+    },
+    {
+        "name": "Old Voice Amplifier Battery Date Changed",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _DATE,
+        "unit_of_measure": "N/A",
+        "recurrence_days": 90,
+        "station_supply": False,
+    },
+    # ── Fire Truck: Generators — Unit 621 ─────────────────────────────────────
+    {
+        "name": "Generator Gas",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Generator Oil",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Generator Plugs",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Generator 5-Minute Run",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    # ── Fire Truck: Gas Meter — Unit 621 ──────────────────────────────────────
+    # Confirmed (Jennifer): this is a compressed-gas bottle gauge, same as
+    # On-Board O2 PSI — unit_of_measure="PSI". OPEN ITEM (ONBOARD-1): the safe
+    # min/max range is still unconfirmed; left null until Jennifer provides it.
+    {
+        "name": "Gas Meter Reading",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _MEAS,
+        "unit_of_measure": "PSI",
+        "station_supply": False,
+    },
+    # ── Fire Truck: Run Sheets — Units 632 + 621 ──────────────────────────────
+    {
+        "name": "Run Sheets",
+        "category": _C,
+        "category_group": "Vehicle Operations",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+        "station_supply": False,
+    },
+    # ── Fire Truck: Interior gauges/controls — Units 632 + 621 (shared subset) ─
+    {
+        "name": "Interior Lights",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Radio",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Fuel Gauge",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Temperature Gauge",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Voltage Gauge",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Oil Pressure",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Air Pressure",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "RPM Gauge",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Transmission Temp Gauge",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Air Horn",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Electric Horn",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Siren",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Heater",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Flash Light",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Accountability Tags",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Defroster",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Air Compressor",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Transmission Oil",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "MABAS Board",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    # ── Fire Truck: Exterior lighting/camera — Units 632 + 621 (shared subset) ─
+    {
+        "name": "Head Lights",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Tail Lights",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Turn Signals",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Backup Lights/Alarm",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Overheads",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Scene Lights — Driver Side",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Scene Lights — Passenger Side",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Scene Lights — Back",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Camera System — Monitor in Cab",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Camera System — Passenger Side",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Camera System — Back",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Cross Lay #1",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Cross Lay #2",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    # ── Fire Truck: Under Hood additions — Units 632 + 621 (identical) ────────
+    {
+        "name": "Anti-Freeze",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Transmission Fluid",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Power Steering",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Battery Cables",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Windshield Wiper Fluid",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    # ── Fire Truck: Exterior supply exceptions — Unit 621 ─────────────────────
+    # Counted/present items, not pass/fail checks — SUPPLY instead of
+    # FUNCTIONAL. No confirmed quantity, so min_qty=1 default at par-level.
+    {
+        "name": "Shovels",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+        "station_supply": False,
+    },
+    {
+        "name": "Brooms",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+        "station_supply": False,
+    },
+    {
+        "name": "Chemflex",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+        "station_supply": False,
+    },
+    {
+        "name": "Road Flares",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+        "station_supply": False,
+    },
+    # ── Unit 612 Ambulance — Airway & Respiratory additions ───────────────────
+    {
+        "name": "Oxygen Tubing",
+        "category": _C,
+        "category_group": "Airway & Respiratory",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Peds EtCO2",
+        "category": _C,
+        "category_group": "Airway & Respiratory",
+        "check_type": _EXP,
+        "unit_of_measure": "N/A",
+    },
+    {
+        "name": "Ridge Tip",
+        "category": _C,
+        "category_group": "Airway & Respiratory",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Soft Cath Tip",
+        "category": _C,
+        "category_group": "Airway & Respiratory",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Spoon",
+        "category": _C,
+        "category_group": "Airway & Respiratory",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Bulb Syringes",
+        "category": _C,
+        "category_group": "Airway & Respiratory",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "La Combi-Tube",
+        "category": _E,
+        "category_group": "Airway & Respiratory",
+        "check_type": _EXP,
+        "unit_of_measure": "N/A",
+    },
+    {
+        "name": "Sa Combi-Tube",
+        "category": _E,
+        "category_group": "Airway & Respiratory",
+        "check_type": _EXP,
+        "unit_of_measure": "N/A",
+    },
+    {
+        "name": "I-Gel, Size 3",
+        "category": _E,
+        "category_group": "Airway & Respiratory",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "I-Gel, Size 4",
+        "category": _E,
+        "category_group": "Airway & Respiratory",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "I-Gel, Size 5",
+        "category": _E,
+        "category_group": "Airway & Respiratory",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Lube Tube",
+        "category": _C,
+        "category_group": "Airway & Respiratory",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Pet Oxygen Masks",
+        "category": _E,
+        "category_group": "Airway & Respiratory",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Manual Suction",
+        "category": _E,
+        "category_group": "Airway & Respiratory",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Spare Oxygen Bottles",
+        "category": _E,
+        "category_group": "Airway & Respiratory",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    # ── Unit 612 Ambulance — Wound Care & Trauma Supplies additions ──────────
+    {
+        "name": "Padded Board Splints",
+        "category": _E,
+        "category_group": "Wound Care & Trauma Supplies",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Peds Board Splints",
+        "category": _E,
+        "category_group": "Wound Care & Trauma Supplies",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Pelvic Sling, Standard",
+        "category": _E,
+        "category_group": "Wound Care & Trauma Supplies",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Pelvic Sling, Large",
+        "category": _E,
+        "category_group": "Wound Care & Trauma Supplies",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Pro-Splints",
+        "category": _E,
+        "category_group": "Wound Care & Trauma Supplies",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Vac Splints",
+        "category": _E,
+        "category_group": "Wound Care & Trauma Supplies",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Sager Splint (primary unit only)",
+        "category": _E,
+        "category_group": "Wound Care & Trauma Supplies",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Life Jackets",
+        "category": _E,
+        "category_group": "Wound Care & Trauma Supplies",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Body Bags",
+        "category": _C,
+        "category_group": "Wound Care & Trauma Supplies",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Lift Tarp",
+        "category": _E,
+        "category_group": "Wound Care & Trauma Supplies",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Peds Cot Harness",
+        "category": _E,
+        "category_group": "Wound Care & Trauma Supplies",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Sponges",
+        "category": _C,
+        "category_group": "Wound Care & Trauma Supplies",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Gauze Sponges 2x2",
+        "category": _C,
+        "category_group": "Wound Care & Trauma Supplies",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Pressure Dressings",
+        "category": _C,
+        "category_group": "Wound Care & Trauma Supplies",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Peds Board",
+        "category": _E,
+        "category_group": "Wound Care & Trauma Supplies",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    # ── Unit 612 Ambulance — PPE & Cleaning additions ─────────────────────────
+    {
+        "name": "Bug Spray",
+        "category": _C,
+        "category_group": "PPE & Cleaning",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Red Bags, Small",
+        "category": _C,
+        "category_group": "PPE & Cleaning",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Red Bags, Medium",
+        "category": _C,
+        "category_group": "PPE & Cleaning",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Red Bags, Large",
+        "category": _C,
+        "category_group": "PPE & Cleaning",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Level B Suit",
+        "category": _C,
+        "category_group": "PPE & Cleaning",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Biocide Spray",
+        "category": _C,
+        "category_group": "PPE & Cleaning",
+        "check_type": _EXP,
+        "unit_of_measure": "N/A",
+    },
+    {
+        "name": "Surgical Masks",
+        "category": _C,
+        "category_group": "PPE & Cleaning",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Caviwipes",
+        "category": _C,
+        "category_group": "PPE & Cleaning",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    # ── Unit 612 Ambulance — Diagnostic & Monitoring Equipment additions ─────
+    {
+        "name": "Glucometer Kit",
+        "category": _E,
+        "category_group": "Diagnostic & Monitoring Equipment",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Monitor is Charged",
+        "category": _E,
+        "category_group": "Diagnostic & Monitoring Equipment",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Lucas 3 Spare Battery",
+        "category": _E,
+        "category_group": "Diagnostic & Monitoring Equipment",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    # ── Unit 612 Ambulance — Medications & Controlled Substances additions ───
+    # station_supply=False — matches the rest of this group (managed via drug
+    # cabinet, not supply room).
+    {
+        "name": "White Drug Bag",
+        "category": _E,
+        "category_group": "Medications & Controlled Substances",
+        "check_type": _EXP,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    # ── Unit 612 Ambulance — Documents, Linens & Patient Comfort additions ───
+    {
+        "name": "Pg 1 Medical",
+        "category": _D,
+        "category_group": "Documents, Linens & Patient Comfort",
+        "check_type": _DOC,
+        "unit_of_measure": "N/A",
+    },
+    {
+        "name": "Pg 2 Medical",
+        "category": _D,
+        "category_group": "Documents, Linens & Patient Comfort",
+        "check_type": _DOC,
+        "unit_of_measure": "N/A",
+    },
+    {
+        "name": "Pg 1 Trauma",
+        "category": _D,
+        "category_group": "Documents, Linens & Patient Comfort",
+        "check_type": _DOC,
+        "unit_of_measure": "N/A",
+    },
+    {
+        "name": "Pg 2 Trauma",
+        "category": _D,
+        "category_group": "Documents, Linens & Patient Comfort",
+        "check_type": _DOC,
+        "unit_of_measure": "N/A",
+    },
+    {
+        "name": "Private Policy/Signature Forms",
+        "category": _D,
+        "category_group": "Documents, Linens & Patient Comfort",
+        "check_type": _DOC,
+        "unit_of_measure": "N/A",
+    },
+    {
+        "name": "Run Box",
+        "category": _E,
+        "category_group": "Documents, Linens & Patient Comfort",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Towel Rolls",
+        "category": _C,
+        "category_group": "Documents, Linens & Patient Comfort",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Rescue Blanket",
+        "category": _C,
+        "category_group": "Documents, Linens & Patient Comfort",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Sharps Box (spare)",
+        "category": _E,
+        "category_group": "Documents, Linens & Patient Comfort",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Spare Run Forms",
+        "category": _C,
+        "category_group": "Documents, Linens & Patient Comfort",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "DNRs on File",
+        "category": _D,
+        "category_group": "Documents, Linens & Patient Comfort",
+        "check_type": _DOC,
+        "unit_of_measure": "N/A",
+    },
+    {
+        "name": "Pillow",
+        "category": _E,
+        "category_group": "Documents, Linens & Patient Comfort",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    {
+        "name": "Urinal",
+        "category": _E,
+        "category_group": "Documents, Linens & Patient Comfort",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+    },
+    # ── Unit 612 Ambulance — Vehicle Operations additions ─────────────────────
+    # station_supply=False — matches the rest of this group (operational
+    # checks, not supply room items).
+    {
+        "name": "Unit Starts",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    # Fuel Level: no percentage/gauge field exists in the schema, and no
+    # threshold was ever specified for one — modeled as a pass/fail presence
+    # check (adequate for the shift vs. not), matching the rest of this
+    # compartment's daily FUNCTIONAL checks (Unit Starts, Radio Check, etc.).
+    {
+        "name": "Fuel Level",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Headlights — Low Beam",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Headlights — High Beam",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Turn Signals — Left",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Turn Signals — Right",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Scene Lights Working (doors open & reverse)",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Emergency Lights (front & rear)",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Siren (Phases)",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "HAZMAT Book",
+        "category": _D,
+        "category_group": "Vehicle Operations",
+        "check_type": _DOC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Binoculars",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+        "station_supply": False,
+    },
+    {
+        "name": "Seatbelt Tool",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+        "station_supply": False,
+    },
+    {
+        "name": "Radio Check",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Map Books",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+        "station_supply": False,
+    },
+    {
+        "name": "Mileage Pads & Ink Pens",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+        "station_supply": False,
+    },
+    {
+        "name": "Clock Working",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Jump Bag Present",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Steering Wheel Cover",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+        "station_supply": False,
+    },
+    {
+        "name": "Flares",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+        "station_supply": False,
+    },
+    {
+        "name": "Spare Batteries",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+        "station_supply": False,
+    },
+    {
+        "name": "800 Radio",
+        "category": _E,
+        "category_group": "Vehicle Operations",
+        "check_type": _FUNC,
+        "unit_of_measure": "N/A",
+        "station_supply": False,
+    },
+    {
+        "name": "Salt & Sand (winter only)",
+        "category": _C,
+        "category_group": "Vehicle Operations",
+        "check_type": _SUP,
+        "unit_of_measure": "each",
+        "station_supply": False,
+    },
 ]
+
+# Lookup of every canonical BASE_ITEM_SEED entry by name, used by _seeded_item()
+# below so builder functions that reuse a canonical item across many
+# compartments (Marcellus's fire trucks + Unit 612, ONBOARD-1) don't have to
+# hand-repeat its exact category/check_type/unit_of_measure/station_supply at
+# every call site — get_or_create_item() overwrites those fields on every call,
+# so a call site that forgets one would silently drift the item away from its
+# BASE_ITEM_SEED definition (e.g. station_supply flipping back to the True
+# default).
+_BASE_ITEM_SEED_BY_NAME: dict[str, dict] = {entry["name"]: entry for entry in BASE_ITEM_SEED}
 
 
 # ---------------------------------------------------------------------------
@@ -1609,6 +2841,16 @@ def get_or_create_item(
     db.add(item)
     db.flush()
     return item
+
+
+def _seeded_item(db: Session, *, station_id: int, name: str) -> Item:
+    """Fetch/create a station's copy of a canonical BASE_ITEM_SEED item, re-applying
+    its exact BASE_ITEM_SEED kwargs every time. Used by the Marcellus fire-truck and
+    Unit 612 builders (ONBOARD-1) instead of hand-repeating kwargs at each call site.
+    """
+    entry = _BASE_ITEM_SEED_BY_NAME[name]
+    kwargs = {k: v for k, v in entry.items() if k != "name"}
+    return get_or_create_item(db, name=name, station_id=station_id, **kwargs)
 
 
 def add_par(
@@ -3052,6 +4294,508 @@ def build_jump_bag(db: Session, jb: InventoryLocation, station_id: int) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Marcellus Township builders (ONBOARD-1)
+#
+# Unit 612's compartment layout and Units 632/621's fire-truck layouts are all
+# structurally unrelated to Newberg's 712 PC1-PC18 ambulance layout, so each
+# gets its own builder here rather than reusing build_ambulance_inventory().
+# All three use _seeded_item() (not the local item()-closure pattern the
+# builders above use) since so many of their items are reused across many
+# compartments — see _seeded_item's docstring for why.
+# ---------------------------------------------------------------------------
+
+# 8 tire positions on Unit 632 (dual rear axle): Left Front, Right Front,
+# Front Left Rear, Front Right Rear, Inner Front Left Rear, Inner Front Right
+# Rear, Outer Back Left Rear, Inner Back Left Rear.
+FIRE_TRUCK_TIRE_POSITIONS = ["LF", "RF", "FLR", "FRR", "IFLR", "IFRR", "OBLR", "IBLR"]
+
+# Under Hood is identical on both 632 and 621 — shared list + helper rather
+# than repeating the same 10 items in both builders.
+FIRE_TRUCK_UNDER_HOOD_ITEMS = [
+    "Hood Oil Level",
+    "Hood Radiator",
+    "Anti-Freeze",
+    "Hood Belts",
+    "Hood Hoses",
+    "Transmission Fluid",
+    "Power Steering",
+    "Battery Cables",
+    "Hood Battery",
+    "Windshield Wiper Fluid",
+]
+
+
+def _build_fire_truck_under_hood(
+    db: Session,
+    *,
+    loc: InventoryLocation,
+    station_id: int,
+    compartment: Compartment,
+) -> None:
+    for name in FIRE_TRUCK_UNDER_HOOD_ITEMS:
+        add_par(
+            db,
+            item=_seeded_item(db, station_id=station_id, name=name),
+            location=loc,
+            compartment=compartment,
+            min_qty=1,
+        )
+
+
+def build_fire_truck_632_inventory(
+    db: Session, loc: InventoryLocation, station_id: int
+) -> None:
+    """Unit 632 — Fire Engine Truck. Compartments: Under Hood, Interior, Exterior,
+    Tire Pressure & Depth, Portable Pump."""
+
+    def par(name: str, compartment: Compartment, qty: int = 1) -> None:
+        add_par(
+            db,
+            item=_seeded_item(db, station_id=station_id, name=name),
+            location=loc,
+            compartment=compartment,
+            min_qty=qty,
+        )
+
+    under_hood = make_compartment(db, location=loc, name="Under Hood", sort_order=1)
+    _build_fire_truck_under_hood(
+        db, loc=loc, station_id=station_id, compartment=under_hood
+    )
+
+    interior = make_compartment(db, location=loc, name="Interior", sort_order=2)
+    for name in [
+        "Interior Lights",
+        "Radio",
+        "Fuel Gauge",
+        "Temperature Gauge",
+        "Voltage Gauge",
+        "Oil Pressure",
+        "Air Pressure",
+        "RPM Gauge",
+        "Transmission Temp Gauge",
+        "Air Horn",
+        "Electric Horn",
+        "Siren",
+        "Heater",
+        "Flash Light",
+        "Accountability Tags",
+    ]:
+        par(name, interior)
+    par("Run Sheets", interior, qty=10)
+
+    exterior = make_compartment(db, location=loc, name="Exterior", sort_order=3)
+    for name in [
+        "Head Lights",
+        "Tail Lights",
+        "Turn Signals",
+        "Backup Lights/Alarm",
+        "Overheads",
+        "Scene Lights — Driver Side",
+        "Scene Lights — Passenger Side",
+        "Scene Lights — Back",
+        "Camera System — Monitor in Cab",
+        "Camera System — Passenger Side",
+        "Camera System — Back",
+    ]:
+        par(name, exterior)
+
+    tire = make_compartment(
+        db, location=loc, name="Tire Pressure & Depth", sort_order=4
+    )
+    for pos in FIRE_TRUCK_TIRE_POSITIONS:
+        par(f"Tire Pressure — {pos}", tire)
+        par(f"Tire Tread Depth — {pos}", tire)
+
+    pump = make_compartment(db, location=loc, name="Portable Pump", sort_order=5)
+    for name in [
+        "Portable Pump Gas",
+        "Portable Pump Plugs",
+        "Portable Pump 5-Minute Run",
+    ]:
+        par(name, pump)
+
+
+def build_fire_truck_621_inventory(
+    db: Session, loc: InventoryLocation, station_id: int
+) -> None:
+    """Unit 621 — Fire Engine Truck. Compartments: Under Hood, Interior, Exterior,
+    SCBA's, SCBA Masks, Old Voice Amplifiers, Generators."""
+
+    def par(name: str, compartment: Compartment, qty: int = 1) -> None:
+        add_par(
+            db,
+            item=_seeded_item(db, station_id=station_id, name=name),
+            location=loc,
+            compartment=compartment,
+            min_qty=qty,
+        )
+
+    under_hood = make_compartment(db, location=loc, name="Under Hood", sort_order=1)
+    _build_fire_truck_under_hood(
+        db, loc=loc, station_id=station_id, compartment=under_hood
+    )
+
+    interior = make_compartment(db, location=loc, name="Interior", sort_order=2)
+    for name in [
+        "Interior Lights",
+        "Radio",
+        "Fuel Gauge",
+        "Temperature Gauge",
+        "Voltage Gauge",
+        "RPM Gauge",
+        "Oil Pressure",
+        "Air Pressure",
+        "Transmission Temp Gauge",
+        "Siren",
+        "Air Horn",
+        "Electric Horn",
+        "Heater",
+        "Defroster",
+        "Flash Light",
+        "Air Compressor",
+        "Transmission Oil",
+        "MABAS Board",
+        "Accountability Tags",
+    ]:
+        par(name, interior)
+    par("Run Sheets", interior, qty=10)
+
+    exterior = make_compartment(db, location=loc, name="Exterior", sort_order=3)
+    for name in [
+        "Head Lights",
+        "Turn Signals",  # "Turn Lights" on the 621 sheet — same canonical item
+        "Tail Lights",
+        "Backup Lights/Alarm",
+        "Overheads",
+    ]:
+        par(name, exterior)
+    for name in ["Shovels", "Brooms", "Chemflex", "Road Flares"]:
+        par(name, exterior)
+    for name in ["Cross Lay #1", "Cross Lay #2"]:
+        par(name, exterior)
+
+    scbas = make_compartment(db, location=loc, name="SCBA's", sort_order=4)
+    par("SCBA", scbas, qty=4)
+    par("SCBA Battery", scbas, qty=4)
+    par("SCBA Battery Date Changed", scbas, qty=1)
+
+    scba_masks = make_compartment(db, location=loc, name="SCBA Masks", sort_order=5)
+    for name in ["SCBA Mask, Large", "SCBA Mask, Medium", "SCBA Mask, Small"]:
+        par(name, scba_masks)
+
+    voice_amps = make_compartment(
+        db, location=loc, name="Old Voice Amplifiers", sort_order=6
+    )
+    par("Old Voice Amplifier", voice_amps, qty=4)
+    par("Old Voice Amplifier Battery", voice_amps, qty=4)
+    par("Old Voice Amplifier Battery Date Changed", voice_amps, qty=1)
+
+    generators = make_compartment(db, location=loc, name="Generators", sort_order=7)
+    for name in [
+        "Generator Gas",
+        "Generator Oil",
+        "Generator Plugs",
+        "Generator 5-Minute Run",
+    ]:
+        par(name, generators)
+    par("Gas Meter Reading", generators, qty=1)
+
+
+def build_marcellus_ambulance_inventory(
+    db: Session, loc: InventoryLocation, station_id: int
+) -> None:
+    """Unit 612 — Marcellus Township BLS ambulance. Own compartment layout, built
+    from Marcellus's real paper inventory forms — distinct from Newberg's 712
+    PC1-PC18 layout, so this does not call build_ambulance_inventory()."""
+
+    def par(
+        name: str,
+        compartment: Compartment,
+        qty: int = 1,
+        priority_check: bool = False,
+        priority_question: Optional[str] = None,
+    ) -> None:
+        add_par(
+            db,
+            item=_seeded_item(db, station_id=station_id, name=name),
+            location=loc,
+            compartment=compartment,
+            min_qty=qty,
+            priority_check=priority_check,
+            priority_question=priority_question,
+        )
+
+    # ── Vehicle Operations / Daily Checks ────────────────────────────────────
+    # requires_full_check=True blocks No Change here, mirroring Truck
+    # Operations on Unit 712 — responders must physically verify every item.
+    daily = make_compartment(
+        db,
+        location=loc,
+        name="Vehicle Operations / Daily Checks",
+        sort_order=1,
+        requires_full_check=True,
+    )
+    for name in [
+        "Unit Starts",
+        "Fuel Level",  # pass/fail presence check — no gauge field in the schema
+        "Headlights — Low Beam",
+        "Headlights — High Beam",
+        "Turn Signals — Left",
+        "Turn Signals — Right",
+        "Scene Lights Working (doors open & reverse)",
+        "Emergency Lights (front & rear)",
+        "Siren (Phases)",
+        "Patient Compartment Climate Control",  # Climate Control (front & rear)
+        "Interior Lights",  # Interior Lights (cab & P.T. comp)
+        "Window Punch Available",
+        "Cass County Protocol Book",  # Protocols
+        "HAZMAT Book",
+        "Binoculars",
+        "Seatbelt Tool",
+        "Radio Check",
+        "Map Books",
+        "Mileage Pads & Ink Pens",
+        "Insurance Information",  # Registration & Insurance (current)
+    ]:
+        par(name, daily)
+    par("On-Board O2 PSI", daily)  # Main On-Board O2 Tank Secured
+
+    # ── Run Box ───────────────────────────────────────────────────────────────
+    run_box = make_compartment(db, location=loc, name="Run Box", sort_order=2)
+    for name in [
+        "Pg 1 Medical",
+        "Pg 2 Medical",
+        "Pg 1 Trauma",
+        "Pg 2 Trauma",
+        "Private Policy/Signature Forms",
+        "Run Box",  # the box itself — distinct from the "Run Box" item drawer par below
+    ]:
+        par(name, run_box)
+
+    # ── Drivers Side Front Comp #1 ───────────────────────────────────────────
+    ds1 = make_compartment(
+        db, location=loc, name="Drivers Side Front Comp #1", sort_order=3
+    )
+    for name in ["Fire Extinguisher", "Padded Board Splints", "Peds Board Splints"]:
+        par(name, ds1)
+
+    # ── Drivers Side Compartment #2 ──────────────────────────────────────────
+    ds2 = make_compartment(
+        db, location=loc, name="Drivers Side Compartment #2", sort_order=4
+    )
+    for name in [
+        "Head Blocks",  # Headblocks
+        "Towel Rolls",
+        "TPOD Pelvic Splint",  # T-pod
+        "Pelvic Sling, Standard",
+        "Pelvic Sling, Large",
+        "Rescue Blanket",
+        "Water Bottle",  # Drinking Water
+        "Bug Spray",
+        "Pro-Splints",
+        "Duct Tape",  # par #1 of 2 — second row lives in Drivers Side Supply Comp
+        "Vac Splints",
+        "Red Bags, Small",
+        "Red Bags, Medium",
+        "Red Bags, Large",
+        "Sharps Box (spare)",
+    ]:
+        par(name, ds2)
+
+    # ── Drivers Side Rear Comp #3 ────────────────────────────────────────────
+    ds3 = make_compartment(
+        db, location=loc, name="Drivers Side Rear Comp #3", sort_order=5
+    )
+    par("Flares", ds3)
+    par("Peds Traction Splint", ds3)
+    par("Adult Traction Splint", ds3)
+    par("Sager Splint (primary unit only)", ds3)
+    par("K.E.D. Board", ds3, qty=2)  # K.E.D.
+    par("Level B Suit", ds3)
+    par("Life Jackets", ds3, qty=2)
+
+    # ── Linen Cabinet ─────────────────────────────────────────────────────────
+    linen = make_compartment(db, location=loc, name="Linen Cabinet", sort_order=6)
+    par("Blankets", linen)  # Heavy Blankets + Light Blankets — one canonical item
+    par("Sheets", linen, qty=6)
+
+    # ── Medication Cabinet ────────────────────────────────────────────────────
+    med_cab = make_compartment(db, location=loc, name="Medication Cabinet", sort_order=7)
+    par("White Drug Bag", med_cab)
+    par("Adult Nebulizers", med_cab, qty=6)  # NEB Kits
+
+    # ── Airway Seat Rear Cabinets (top) ──────────────────────────────────────
+    airway_top = make_compartment(
+        db, location=loc, name="Airway Seat Rear Cabinets (top)", sort_order=8
+    )
+    par("Biocide Spray", airway_top)
+    par("Gowns", airway_top, qty=2)  # Isolation Gowns
+    par("Goggles", airway_top, qty=2)  # Safety Glasses
+    par("N-95 Masks", airway_top)  # covers Large/Medium/Small form lines — one item
+    par("Surgical Masks", airway_top)
+    par("Caviwipes", airway_top)
+
+    # ── Airway Seat Rear Cabinets (bottom) ───────────────────────────────────
+    airway_bottom = make_compartment(
+        db, location=loc, name="Airway Seat Rear Cabinets (bottom)", sort_order=9
+    )
+    par("Cass County Protocol Book", airway_bottom)  # Protocols — 2nd par row
+    par("Spare Run Forms", airway_bottom)
+    par("DNRs on File", airway_bottom)
+
+    # ── Airway Seat Drawer ────────────────────────────────────────────────────
+    airway_drawer = make_compartment(
+        db, location=loc, name="Airway Seat Drawer", sort_order=10
+    )
+    for name in ["Ridge Tip", "Soft Cath Tip", "Spoon", "Bulb Syringes"]:
+        par(name, airway_drawer)
+    par("Run Box", airway_drawer)  # 2nd, distinct-compartment par row, same item
+    par("Clock Working", airway_drawer)
+
+    # ── Airway Cabinet: Left ──────────────────────────────────────────────────
+    airway_left = make_compartment(
+        db, location=loc, name="Airway Cabinet: Left", sort_order=11
+    )
+    par("La Combi-Tube", airway_left)
+    par("Sa Combi-Tube", airway_left)
+    par("Syringes", airway_left)  # Spare Syringes
+    for name in ["I-Gel, Size 3", "I-Gel, Size 4", "I-Gel, Size 5"]:
+        par(name, airway_left)
+    par("Pocket Mask", airway_left)
+
+    # ── Airway Cabinet: Right ─────────────────────────────────────────────────
+    airway_right = make_compartment(
+        db, location=loc, name="Airway Cabinet: Right", sort_order=12
+    )
+    par("OPAs/NPAs", airway_right)  # covers both OPA's and NPA's form lines
+    par("Stethoscope", airway_right)  # Spare Stethoscope
+    par("Lube Tube", airway_right)
+    par("Monitor is Charged", airway_right)
+
+    # ── Pass. Side Front Comp #1 (top) ───────────────────────────────────────
+    ps1_top = make_compartment(
+        db, location=loc, name="Pass. Side Front Comp #1 (top)", sort_order=13
+    )
+    par("Jump Bag Present", ps1_top)  # Jump Bag
+    par(
+        "AED Battery",
+        ps1_top,
+        priority_check=True,
+        priority_question="AED shows READY?",
+    )  # AED (turn on and test)
+    par("AED Pads Adult", ps1_top)
+    par("AED Pads Pediatric", ps1_top)
+    par("Portable Suction Unit", ps1_top)  # Portable Suction
+    par(
+        "LUCAS Device",
+        ps1_top,
+        priority_check=True,
+        priority_question="LUCAS shows READY?",
+    )  # Lucas 3
+    par("Lucas 3 Spare Battery", ps1_top)
+    par("Steering Wheel Cover", ps1_top)
+
+    # ── Pass. Side Comp #1 (bottom) ──────────────────────────────────────────
+    ps1_bottom = make_compartment(
+        db, location=loc, name="Pass. Side Comp #1 (bottom)", sort_order=14
+    )
+    par("Body Bags", ps1_bottom)
+    par("Lift Tarp", ps1_bottom)
+    par("Triage Tags", ps1_bottom)
+    par("Pet Oxygen Masks", ps1_bottom)
+    par("Manual Suction", ps1_bottom)
+    par("Salt & Sand (winter only)", ps1_bottom)
+
+    # ── Pass. Rear Comp #2 ───────────────────────────────────────────────────
+    ps_rear = make_compartment(db, location=loc, name="Pass. Rear Comp #2", sort_order=15)
+    par("Stair Chair", ps_rear)
+    par("Long Board", ps_rear)  # Long Boards
+    par("C-Collar Bag", ps_rear)  # C-Collar Bags
+    par("Pillow", ps_rear)
+    par("Peds Board", ps_rear)
+
+    # ── Oxygen Delivery Cabinet ───────────────────────────────────────────────
+    o2_cab = make_compartment(
+        db, location=loc, name="Oxygen Delivery Cabinet", sort_order=16
+    )
+    par("Adult NRB", o2_cab, qty=6)
+    par("Adult NAS", o2_cab, qty=6)  # Adult Nasal Cannula
+    par("Oxygen Tubing", o2_cab, qty=6)
+    par("Adult BVM", o2_cab)  # Adult BVM with Mask
+    par("Colorimetric CO2 Detector", o2_cab)  # Adult CO2 Detector (already SUPPLY)
+    par("Pediatric NRB", o2_cab, qty=6)  # Peds Non-Rebreather
+    par("Pediatric NAS", o2_cab, qty=6)  # Peds Nasal Cannula
+    par("Pediatric BVM", o2_cab)  # Peds BVM
+    par("S/M CPAP", o2_cab)  # C-PAP, Small/Medium
+    par("L CPAP", o2_cab)  # C-PAP, Large
+    par("Peds EtCO2", o2_cab)
+    par("Infant NAS", o2_cab, qty=6)  # Infant Nasal Cannula
+    par("Infant NRB", o2_cab, qty=6)
+
+    # ── Curb Side Seat Comp ───────────────────────────────────────────────────
+    curb_seat = make_compartment(db, location=loc, name="Curb Side Seat Comp", sort_order=17)
+    par("Blankets", curb_seat)  # Heavy Blankets + Light Blankets — one canonical item
+    par("Broom", curb_seat)  # Hand Broom
+
+    # ── Drivers Side Squad Seat ───────────────────────────────────────────────
+    squad_seat = make_compartment(
+        db, location=loc, name="Drivers Side Squad Seat", sort_order=18
+    )
+    par("Spare Oxygen Bottles", squad_seat, qty=2)
+    par("Peds Cot Harness", squad_seat)
+
+    # ── Passenger Side Lower Drawer ───────────────────────────────────────────
+    ps_lower = make_compartment(
+        db, location=loc, name="Passenger Side Lower Drawer", sort_order=19
+    )
+    par("Trauma Shears", ps_lower)  # Scissors, Clamps, Att.
+    par("Glucometer Kit", ps_lower)
+    par("Glucometer Test Strips", ps_lower)  # Test Strips
+    par("Thermometer Probe Covers", ps_lower)  # Probe Covers
+    par("Bandaids", ps_lower)  # Band Aids — par #1 of 2
+    par("Alcohol Prep Pads", ps_lower)  # Alcohol Pads
+    par("Bite Stick", ps_lower)  # Bite Sticks
+    par("Glucometer Lancets", ps_lower)  # Lancets
+    par("Thermometer", ps_lower)
+
+    # ── Curb Side Bench Drawer ────────────────────────────────────────────────
+    bench_drawer = make_compartment(
+        db, location=loc, name="Curb Side Bench Drawer", sort_order=20
+    )
+    par("Patient Restraints", bench_drawer, qty=4)  # Restraints (all)
+    par("Spare Batteries", bench_drawer)
+    par("800 Radio", bench_drawer)
+
+    # ── Drivers Side Supply Comp ──────────────────────────────────────────────
+    ds_supply = make_compartment(
+        db, location=loc, name="Drivers Side Supply Comp", sort_order=21
+    )
+    par("Gauze Sponges 4x4", ds_supply)  # 4x4's
+    par("ABD Pad 8x10", ds_supply)  # Abdominal Pads
+    par("Gauze, 3x3", ds_supply)  # 3x3's
+    par("Trauma Dressings", ds_supply)
+    par("ABD Pad 5x9", ds_supply)  # 5x9's
+    par("Sponges", ds_supply)
+    par("Gauze Sponges 2x2", ds_supply)  # 2x2's
+    par("Burn Sheets", ds_supply)  # Burn Sheet
+    par("Kerlix (Various Sizes)", ds_supply)  # Kurlex
+    par("OB Kit", ds_supply)  # OB Kits
+    par("Bandaids", ds_supply)  # Band Aids — par #2 of 2, different compartment
+    par("CAT Tourniquet", ds_supply)  # Tourniquet, 2 Types
+    par("Occlusive Dressing", ds_supply)
+    par("Pressure Dressings", ds_supply)
+    par("Triangle Bandage", ds_supply)  # Triangle Bandage (safety pins)
+    par("Emergency Blankets", ds_supply)  # Thermal Blanket
+    par("Emesis Container", ds_supply)  # Emesis Pans
+    par("Urinal", ds_supply)
+    par("Cold Packs", ds_supply)
+    par("Hot Packs", ds_supply)
+    par("Sam Splints", ds_supply)  # SAM Splints
+    par("Absorbent Pads", ds_supply)
+    par("Duct Tape", ds_supply)  # Duct Tape — par #2 of 2, different compartment
+
+
+# ---------------------------------------------------------------------------
 # Main seed
 # ---------------------------------------------------------------------------
 
@@ -3176,9 +4920,12 @@ def seed(db: Session) -> None:
 
     # =========================================================================
     # STATION 2 — Marcellus Township
-    # Unit 540 (ALS) — item catalog only; par levels assigned via admin UI
+    # Unit 612 (BLS ambulance) + Unit 632 (QRV fire engine) + Unit 621 (QRV fire
+    # engine) — full par levels from real inventory forms (ONBOARD-1).
     # =========================================================================
     print("\nSeeding Marcellus Township Station...")
+
+    MARCELLUS_ADDRESS = "177 E Main St, Marcellus, MI 49067"
 
     marcellus = (
         db.query(Station).filter(Station.name == "Marcellus Township Station").first()
@@ -3186,13 +4933,17 @@ def seed(db: Session) -> None:
     if not marcellus:
         marcellus = Station(
             name="Marcellus Township Station",
-            address="Marcellus Township, Michigan",
+            address=MARCELLUS_ADDRESS,
             region="Cass County",
             active=True,
         )
         db.add(marcellus)
         db.flush()
         print(f"  Created station: {marcellus.name}")
+    elif marcellus.address != MARCELLUS_ADDRESS:
+        print(f"  Correcting Marcellus address: '{marcellus.address}' → '{MARCELLUS_ADDRESS}'")
+        marcellus.address = MARCELLUS_ADDRESS
+        db.flush()
 
     marcellus_supply = (
         db.query(InventoryLocation)
@@ -3218,36 +4969,151 @@ def seed(db: Session) -> None:
 
     build_supply_room(db, marcellus_supply, marcellus.station_id)
 
-    v540 = db.query(Vehicle).filter(Vehicle.vehicle_number == "540").first()
-    if not v540:
-        v540 = Vehicle(
-            station_id=marcellus.station_id,
-            vehicle_number="540",
-            vehicle_type=VehicleType.ALS,
-            active=True,
-        )
-        db.add(v540)
-        db.flush()
-        loc540 = InventoryLocation(
-            location_type=LocationType.VEHICLE,
-            station_id=marcellus.station_id,
-            vehicle_id=v540.vehicle_id,
-            label="Unit 540 ALS",
-        )
-        db.add(loc540)
-        db.flush()
-        print("  Created vehicle 540 (ALS)")
-    else:
-        loc540 = (
-            db.query(InventoryLocation)
-            .filter(InventoryLocation.vehicle_id == v540.vehicle_id)
+    # Unit 612 (BLS ambulance) — was seeded as "540" (ALS) before Marcellus's real
+    # inventory forms were ingested. Rename in place rather than creating a second
+    # vehicle record (ONBOARD-1 decision #2): same vehicle, corrected number+type.
+    v612 = db.query(Vehicle).filter(Vehicle.vehicle_number == "612").first()
+    if not v612:
+        # Scoped to this station specifically -- vehicle_number is globally unique,
+        # and an unscoped lookup here could find a same-numbered vehicle belonging
+        # to an unrelated station in a dev DB with stale/duplicate station rows.
+        v540 = (
+            db.query(Vehicle)
+            .filter(
+                Vehicle.vehicle_number == "540",
+                Vehicle.station_id == marcellus.station_id,
+            )
             .first()
         )
-        if loc540 and loc540.label != "Unit 540 ALS":
-            print(f"  Renaming 540 location: '{loc540.label}' → 'Unit 540 ALS'")
-            loc540.label = "Unit 540 ALS"
+        if v540:
+            print("  Renaming vehicle 540 (ALS) → 612 (BLS)")
+            v540.vehicle_number = "612"
+            v540.vehicle_type = VehicleType.BLS
             db.flush()
-    print("  (Unit 540 — catalog seeded; supervisor assigns par levels via admin UI)")
+            v612 = v540
+            loc612 = (
+                db.query(InventoryLocation)
+                .filter(InventoryLocation.vehicle_id == v612.vehicle_id)
+                .first()
+            )
+            if loc612 and loc612.label != "Unit 612 BLS":
+                print(f"  Renaming 612 location: '{loc612.label}' → 'Unit 612 BLS'")
+                loc612.label = "Unit 612 BLS"
+                db.flush()
+        else:
+            v612 = Vehicle(
+                station_id=marcellus.station_id,
+                vehicle_number="612",
+                vehicle_type=VehicleType.BLS,
+                active=True,
+            )
+            db.add(v612)
+            db.flush()
+            loc612 = InventoryLocation(
+                location_type=LocationType.VEHICLE,
+                station_id=marcellus.station_id,
+                vehicle_id=v612.vehicle_id,
+                label="Unit 612 BLS",
+            )
+            db.add(loc612)
+            db.flush()
+            print("  Created vehicle 612 (BLS)")
+    else:
+        if v612.vehicle_type != VehicleType.BLS:
+            print(f"  Correcting Vehicle 612: {v612.vehicle_type} → BLS")
+            v612.vehicle_type = VehicleType.BLS
+            db.flush()
+        loc612 = (
+            db.query(InventoryLocation)
+            .filter(InventoryLocation.vehicle_id == v612.vehicle_id)
+            .first()
+        )
+        if loc612 and loc612.label != "Unit 612 BLS":
+            print(f"  Renaming 612 location: '{loc612.label}' → 'Unit 612 BLS'")
+            loc612.label = "Unit 612 BLS"
+            db.flush()
+
+    print("  Building Unit 612 ambulance inventory...")
+    build_marcellus_ambulance_inventory(db, loc612, station_id=marcellus.station_id)
+
+    # Unit 632 — Fire Engine Truck (QRV)
+    v632 = db.query(Vehicle).filter(Vehicle.vehicle_number == "632").first()
+    if not v632:
+        v632 = Vehicle(
+            station_id=marcellus.station_id,
+            vehicle_number="632",
+            vehicle_type=VehicleType.QRV,
+            active=True,
+        )
+        db.add(v632)
+        db.flush()
+        loc632 = InventoryLocation(
+            location_type=LocationType.VEHICLE,
+            station_id=marcellus.station_id,
+            vehicle_id=v632.vehicle_id,
+            label="Unit 632 QRV",
+        )
+        db.add(loc632)
+        db.flush()
+        print("  Created vehicle 632 (QRV — fire engine)")
+    else:
+        loc632 = (
+            db.query(InventoryLocation)
+            .filter(InventoryLocation.vehicle_id == v632.vehicle_id)
+            .first()
+        )
+
+    print("  Building Unit 632 fire engine inventory...")
+    build_fire_truck_632_inventory(db, loc632, station_id=marcellus.station_id)
+
+    # Unit 621 — Fire Engine Truck (QRV)
+    v621 = db.query(Vehicle).filter(Vehicle.vehicle_number == "621").first()
+    if not v621:
+        v621 = Vehicle(
+            station_id=marcellus.station_id,
+            vehicle_number="621",
+            vehicle_type=VehicleType.QRV,
+            active=True,
+        )
+        db.add(v621)
+        db.flush()
+        loc621 = InventoryLocation(
+            location_type=LocationType.VEHICLE,
+            station_id=marcellus.station_id,
+            vehicle_id=v621.vehicle_id,
+            label="Unit 621 QRV",
+        )
+        db.add(loc621)
+        db.flush()
+        print("  Created vehicle 621 (QRV — fire engine)")
+    else:
+        loc621 = (
+            db.query(InventoryLocation)
+            .filter(InventoryLocation.vehicle_id == v621.vehicle_id)
+            .first()
+        )
+
+    print("  Building Unit 621 fire engine inventory...")
+    build_fire_truck_621_inventory(db, loc621, station_id=marcellus.station_id)
+
+    marcellus_comp_count = (
+        db.query(Compartment)
+        .filter(
+            Compartment.location_id.in_(
+                [loc612.location_id, loc632.location_id, loc621.location_id]
+            )
+        )
+        .count()
+    )
+    marcellus_par_count = (
+        db.query(ParLevel)
+        .filter(
+            ParLevel.location_id.in_(
+                [loc612.location_id, loc632.location_id, loc621.location_id]
+            )
+        )
+        .count()
+    )
 
     # =========================================================================
     # STATION 3 — Newberg Training Station
@@ -3573,6 +5439,9 @@ def seed(db: Session) -> None:
     total_items_newberg = (
         db.query(Item).filter(Item.station_id == newberg.station_id).count()
     )
+    total_items_marcellus = (
+        db.query(Item).filter(Item.station_id == marcellus.station_id).count()
+    )
 
     print(f"""
   ✓ Seed complete.
@@ -3587,7 +5456,12 @@ def seed(db: Session) -> None:
 
   Marcellus Township Station:
     Station ID:           {marcellus.station_id}
-    Unit 540 ALS:         catalog seeded, no par levels (assign via admin UI)
+    Unit 612 BLS:         location_id={loc612.location_id}
+    Unit 632 QRV:         location_id={loc632.location_id}
+    Unit 621 QRV:         location_id={loc621.location_id}
+    Compartments (612+632+621): {marcellus_comp_count}
+    Par levels (612+632+621):   {marcellus_par_count}
+    Items in catalog:     {total_items_marcellus}
 
   Newberg Training Station (orange — #e65100):
     Station ID:           {training.station_id}
@@ -3597,7 +5471,7 @@ def seed(db: Session) -> None:
     Station ID:           {test_station.station_id}
     Unit TEST (QRV):      catalog + [TEST] items seeded, no par levels
 
-  Next steps for Marcellus, Training, Test stations:
+  Next steps for Training, Test stations:
     1. Admin creates compartments via Station Administration → Vehicles
     2. Admin assigns par levels via Station Administration → Items
 """)
