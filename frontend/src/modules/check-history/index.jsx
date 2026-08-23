@@ -27,6 +27,7 @@ import Spinner from '../../shared/components/Spinner.jsx'
 import ErrorBoundary from '../../shared/components/ErrorBoundary.jsx'
 import CheckList from './components/CheckList.jsx'
 import CheckDetail from './components/CheckDetail.jsx'
+import ExportPanel from './components/ExportPanel.jsx'
 import { checkHistoryApi } from './api/checkHistoryApi.js'
 import './check-history.css'
 
@@ -174,6 +175,9 @@ export default function CheckHistoryScreen({ station, onBack, onNavigateToVehicl
       {/* All Checks tab (Supervisor+) */}
       {activeTab === 'all' && (
         <div className="check-history-screen__all">
+          {/* F-5G3a: compliance CSV export */}
+          <ExportPanel station={station} />
+
           {/* Status filter */}
           <div className="check-history-filters">
             {STATUS_FILTERS.map(f => (

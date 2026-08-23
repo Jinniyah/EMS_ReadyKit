@@ -464,6 +464,127 @@
   font-style: italic;
 }
 
+/* ── Export panel (F-5G3a) ────────────────────────────────────────────────── */
+/* Same collapsed-by-default shell pattern as .csv-import in index.css --
+   a rare action, not a daily one. */
+
+.export-panel {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-surface);
+  margin-bottom: var(--space-md);
+}
+
+.export-panel__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: var(--space-md);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  min-height: var(--tap-target);
+  text-align: left;
+  transition: background var(--transition);
+}
+.export-panel__toggle:hover { background: var(--color-surface-raised); }
+.export-panel__toggle-hint  { flex: 1; font-weight: 400; font-size: 12px; color: var(--color-text-muted); }
+
+.export-panel__body {
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  background: var(--color-surface-raised);
+}
+
+.export-panel__section { display: flex; flex-direction: column; gap: var(--space-sm); }
+.export-panel__section-label {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.export-panel__date-row { display: flex; gap: var(--space-md); }
+.export-panel__date-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+.export-panel__date-field input[type="date"] {
+  min-height: var(--tap-target);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  color: var(--color-text);
+  background: var(--color-surface);
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.export-panel__checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: var(--tap-target);
+  font-size: var(--font-size-md);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.export-panel__checkbox-row input[type="checkbox"] { width: 22px; height: 22px; flex-shrink: 0; }
+.export-panel__checkbox-row--whole { font-weight: 700; }
+
+.export-panel__entities {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding-left: var(--space-md);
+  border-left: 2px solid var(--color-border);
+}
+.export-panel__entity-group { display: flex; flex-direction: column; }
+.export-panel__entity-group-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-xs);
+}
+
+.export-panel__format-hint {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  margin: 0 0 var(--space-sm);
+}
+
+.export-panel__warning {
+  font-size: var(--font-size-sm);
+  color: var(--color-status-warn, #f57c00);
+  font-weight: 600;
+  margin: 0;
+}
+
+.export-panel__error {
+  background: var(--color-status-fail-bg);
+  color: var(--color-status-fail);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
 /* ── Resolution tag ──────────────────────────────────────────────────── */
 
 .resolution-tag {

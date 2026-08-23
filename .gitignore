@@ -80,3 +80,8 @@ deploy.zip
 
 # Archives
 /docs/_archive
+
+# ── Decommission backups (real customer/app data — never committed) ────────────
+/azure-backup-*/
+*.dump
+destroy-plan*.txt

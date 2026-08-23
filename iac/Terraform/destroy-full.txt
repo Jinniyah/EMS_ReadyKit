@@ -1,0 +1,24 @@
+﻿terraform : 
+At line:1 char:1
++ terraform destroy -no-color 2>&1 | Out-File -FilePath destroy-full.tx ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Error: Error acquiring the state lock
+
+Error message: state blob is already locked
+Lock Info:
+  ID:        f42c30cb-cb79-a15c-ac34-fec3ee00e4a8
+  Path:      tfstate/emsreadykit.tfstate
+  Operation: OperationTypeApply
+  Who:       DREAMWEAVER2020\jinni@DreamWeaver2020
+  Version:   1.14.8
+  Created:   2026-08-22 12:08:04.537673 +0000 UTC
+  Info:      
+
+
+Terraform acquires a state lock to protect the state from being written
+by multiple users at the same time. Please resolve the issue above and try
+again. For most commands, you can disable locking with the "-lock=false"
+flag, but this is not recommended.

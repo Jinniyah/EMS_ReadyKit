@@ -17,7 +17,7 @@ EMS_ReadyKit/
 │   │   ├── schemas/            # Pydantic request/response schemas
 │   │   └── main.py             # App factory, middleware, router registration
 │   ├── alembic/                # DB migrations (versions/ subdirectory)
-│   ├── tests/                  # pytest suite (562 collected; 562 passing — ITM-4 resolved 32 seed_integrity failures; ITM-5 added 14; Session AO added 32; Session AS/ONBOARD-1 net +27: 28 new Marcellus tests, -1 obsolete test_unit_540_is_als)
+│   ├── tests/                  # pytest suite (591 collected; 591 passing — ITM-4 resolved 32 seed_integrity failures; ITM-5 added 14; Session AO added 32; Session AS/ONBOARD-1 net +27; Session AS/F-5G3a added 29 (test_check_export.py))
 │   ├── seed.py                 # Dev seed data — ITM-4 rewrite complete (Session AI). BASE_ITEM_SEED, station-scoped items, Newberg + Marcellus full par levels (Session AS/ONBOARD-1), Training/Test catalog only.
 │   ├── seed_training.py        # Training station seed — always run, including production (Session AB)
 │   ├── initial_stock.csv       # 10 seed stock items — upload via Receive New Stock → CSV
@@ -60,7 +60,7 @@ All routes are prefixed `/api/v1/`. Router registration order in main.py matters
 | `station_members.py` | 8 KB | `/stations/{id}/members` | Supervisor+ | Membership management; PATCH/DELETE by `member_id` (integer PK, ACC-B7); CSV bulk import + template download (ACC-B8). This is the only correct member endpoint set — frontend consolidated onto it in Session AE (MERGE-1) after a stale `user_id`-based caller in `adminApi.js` was found broken. |
 | `vehicles.py` | 6 KB | `/vehicles` | All + membership | Vehicle CRUD; OOS/RTS status toggle; `PATCH /vehicles/{id}/retire` (Admin, RET-B1) — sets `retired_at`, `retired_by`, `retirement_reason`, AND `active=False`. Frontend must check `retired_at` directly, not just `active` (see BUG-AD1, Session AD). `GET /stations/{id}/vehicles` returns ALL vehicles (active + retired) unless `?active=true` is explicitly passed — callers that don't pass it must filter `retired_at` client-side (Session AF, found in `supervisorApi.getTodayCompliance`). |
 | `checks.py` | 26 KB | `/checks/daily` | All + membership | Check wizard: create with embedded line_items; `_compute_line_item_status`; `_auto_decrement_supply_room` (SR-B4, N+1 batched PERF-1); `_reconcile_supply_room_check` (SR-B5 — called on STATION_SUPPLY_ROOM submission; reconciles quantity_found back to StockLot quantities FIFO); helpers: `_resolve_check_location`, `_enforce_full_check_compartments`, `_build_lot_map`, `_build_line_items` (CQ-B3); `GET /daily/last-readings`. Two distinct list endpoints with very different scope, worth knowing apart: `GET /daily/station/{station_id}` (date-range, capped at 90 days, 422s above that) vs `GET /daily/location/{location_id}` (single location, ALL checks ever, no range limit at all) — see BUG-AF2 note below for why picking the wrong one breaks an "all-time most recent" lookup. |
-| `check_history.py` | 7 KB | `/checks/daily` | All / Supervisor+ | Read-only history; soft-delete; acknowledgement; hard-delete (Admin only); `my-history` accepts optional `station_id` filter |
+| `check_history.py` | 7 KB | `/checks/daily` | All / Supervisor+ | Read-only history; soft-delete; acknowledgement; hard-delete (Admin only); `my-history` accepts optional `station_id` filter. `GET /checks/daily/station/{id}/export` (F-5G3a, Supervisor+) — streams a compliance CSV (`format=simplified|detailed`, `from`/`to` required, 400-day cap distinct from the 90-day-capped interactive list endpoint, `whole_station` or specific `vehicle_ids`/`location_ids`). Detailed format adds a second CSV section for ALS `ControlledSubstanceCheck` rows (joined via `vehicle_id → Vehicle.station_id`, that table has no `station_id`/`check_id` of its own) with explicit UTC day-boundary filtering. Formula-injection guard (`_csv_safe()`) on free-text columns; writes a `CHECK_HISTORY_EXPORTED` audit event. |
 | `repair_requests.py` | 9 KB | `/vehicles/{id}/repair-requests` | All roles | File, update, resolve repair requests; `resolution_notes` required on RESOLVED |
 | `inventory.py` | 28 KB | `/inventory` | All + membership | Locations, compartments, par levels, lots, stock summary, CSV receive. `GET /supply-catalog?station_id=` (SR-B1). `PATCH /supply-catalog/items/{id}/count` (SR-B2). `PUT /lots/{id}` (SR-F7). `PATCH /inventory/items/{id}/status` marks/clears damaged. `PATCH /locations/{id}/retire` (Admin, RET-B2). `GET /lots/retired?location_id=` (Supervisor+, RET-B6). `PATCH /lots/{id}/retire` (Supervisor+, RET-B5) — registered BEFORE `/lots/{lot_id}` to avoid path ambiguity. `PATCH /par-levels/{id}` soft-deactivate with reason + membership check (B-E9). `POST /par-levels` (`create_par_level`) reactivates a matching soft-deactivated `(item_id, compartment_id)` row instead of inserting a duplicate (PAR-B1, Session AF) — see note below. |
 | `items.py` | 3 KB | `/items` | Supervisor+ (create/edit) / All (read) | Item catalog; `POST /items` is SUPERVISOR_PLUS (not admin-only); deactivation is ADMIN_ONLY via admin router. Note: `GET /items` is not station-scoped (it's a lightweight read-only catalog; scoping lives in the admin routes via ITM-5). |
@@ -153,6 +153,7 @@ AuditEvent     (immutable log)
 | `test_station_membership.py` | 15 KB | RBAC + station membership enforcement | `db` |
 | `test_member_management.py` | — | ACC-B6/B7/B8: edit member name, multi-role, CSV import; 32 tests | `db` |
 | `test_check_history.py` | 15 KB | Check history, soft-delete, acknowledgement | `db` |
+| `test_check_export.py` | — | NEW (Session AS, F-5G3a). 29 tests: RBAC, date-range validation (400-day cap, distinct from the 90-day interactive endpoint), entity filtering incl. retired-vehicle inclusion under `whole_station`, soft-delete/cross-station exclusion, exact Simplified/Detailed CSV column values, empty-result CSV is 200 not 404, controlled-substance-check inclusion + UTC date-boundary correctness, CSV formula-injection guard, filename pattern, audit event written. | `db` |
 | `test_admin_items.py` | 12 KB | Admin item management, par levels, CSV. Session AJ: 2 test fixes (role case "SUPERVISOR"→"Supervisor" in station_id fixture; missing `station_id=` param in deactivated-item list test). | `db` |
 | `test_item_station_scoping.py` | — | NEW (Session AJ, ITM-5/8). 14 tests, 5 classes: list/search scoped to station; create without membership → 403; per-station name uniqueness; get/edit cross-station → 403; Admin bypasses all checks. `two_stations` fixture creates Station A+B, adds supervisor to A only. | `db` |
 | `test_models.py` | 7 KB | Model-level unit tests | `db` |
@@ -167,7 +168,7 @@ AuditEvent     (immutable log)
 | `test_damaged_items.py` | — | SUP-DMG1: damaged items endpoint; happy path; retired excluded; inactive excluded; station isolation; RBAC. 13 tests. | `db` |
 | `test_email_alignment.py` | — | LAUNCH-OPS9: `GET /admin/email-alignment-check` — valid emails pass clean; display-name/malformed/uppercase/blank user_id flagged; inactive row inclusion toggle; cross-station scan; RBAC (Admin only). 12 tests. (Session AC) | `db` |
 
-**Run:** `cd app; pytest` — 562 tests collected, **562 passing** (Session AS: net +27 from ONBOARD-1 — 28 new Marcellus tests, -1 obsolete `test_unit_540_is_als` removed since Unit 540 no longer exists). `ruff check .` confirmed green; `black` is not installed in the current venv (not run this session).
+**Run:** `cd app; pytest` — 591 tests collected, **591 passing** (Session AS: net +27 from ONBOARD-1 — 28 new Marcellus tests, -1 obsolete `test_unit_540_is_als` removed since Unit 540 no longer exists; +29 from F-5G3a's `test_check_export.py`). `ruff check .` confirmed green; `black` is not installed in the current venv (not run this session).
 
 **Two DB fixtures — do not mix:**
 - `db` — in-memory SQLite, empty, rolls back after each test. Use for all API/logic tests.
@@ -263,8 +264,9 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 ### check-history/
 | File | Size | Purpose |
 |------|------|---------|
-| `index.jsx` | 6 KB | My Checks / All Checks tabs + detail navigation |
-| `components/` | — | Check list items and detail view |
+| `index.jsx` | 6 KB | My Checks / All Checks tabs + detail navigation. All Checks tab (Supervisor+) renders `ExportPanel` above the status filter (F-5G3a). |
+| `components/` | — | Check list items and detail view. `ExportPanel.jsx` (F-5G3a) — compliance CSV export: whole-station/vehicle/jump-bag/supply-room checkboxes (active/non-retired only offered individually — retired entities still reachable via whole-station), date range with a 400-day client-side guard, two direct "Download Simplified"/"Download Detailed" buttons (not a hidden format toggle). Entity list fetched via `useApi` (`checkHistoryApi.getStationVehicles`/`getStationLocations`/`getSupplyRoom`) gated by a ternary inside the fetch function rather than a custom `useEffect` — see the `useApi` note in the architectural-decisions table below for why a hand-rolled effect here would self-cancel. |
+| `api/checkHistoryApi.js` | — | `exportChecks()` (F-5G3a) — raw `fetch()` (bypasses `client.js`, which is JSON-only); checks `res.ok` before treating the body as a blob (unlike `supplyApi.getTemplateBlobUrl`'s existing pattern, which doesn't) so a 422 surfaces the server's real message instead of downloading a broken "CSV" of the JSON error body; filename parsed from the response's `Content-Disposition` header. |
 
 ### settings/  (Station configuration — Admin-only config; Session Q/R, narrowed Session AE)
 | File | Size | Purpose |
@@ -282,8 +284,11 @@ Each module is self-contained with its own `index.jsx`, `api/`, `components/`.
 
 ## Frontend — Tests (frontend/src/)
 
-Vitest + React Testing Library. Run: `cd frontend && npm test` — **233 tests passing**
-(Session AN, 2026-06-22). 9 new `ItemAssignments` tests added this session.
+Vitest + React Testing Library. Run: `cd frontend && npm test` — **249 tests passing**
+(Session AS, 2026-07-19: F-5G3a added new `ExportPanel.test.jsx` (7 tests) + 2 RBAC-visibility
+tests in `CheckHistory.test.jsx`). Previously 233 (Session AN, 9 new `ItemAssignments` tests) —
+note `CheckHistory.test.jsx`'s count below was already undercounted in this table before this
+session (11, not the previously-listed 9); not otherwise investigated.
 
 | File | Tests | Coverage |
 |------|-------|----------|
@@ -302,7 +307,8 @@ Vitest + React Testing Library. Run: `cd frontend && npm test` — **233 tests p
 | `modules/admin/__tests__/ItemAssignments.test.jsx` | 9 | NEW (Session AN, ITM-7/8). Vehicle/jump bag/supply room assignment payload shapes; supply room auto-select; assignment display row (`location_label` for non-vehicle). Confirmation state after assign (Done button, Assign gone, text contains vehicle+compartment); "+ Assign to another location" resets form + carries min/max; Done closes panel. `mockImplementation` by `typeof deps[0]` distinguishes assignments vs. compartments `useApi` calls. |
 | `modules/admin/__tests__/VehiclesScreen.test.jsx` | 3 | New file, Session AD (BUG-AD1) — this screen had no prior test coverage. Retired vehicle excluded by default; still excluded after toggling "Show out-of-service vehicles"; empty-state message reflects only active vehicles. |
 | `modules/admin/__tests__/EmailAlignmentSection.test.jsx` | 17 | Moved from `modules/settings/__tests__/` (Session AE) — same coverage, new home. LAUNCH-OPS9 UI: Run Check button + clean/flagged states; Notify panel recipient checkboxes (excludes flagged person); custom email chips; Draft Email enable/disable; drafted preview with mailto link. |
-| `modules/check-history/__tests__/CheckHistory.test.jsx` | 9 | My Checks, All Checks tab (Supervisor+), Deleted tab |
+| `modules/check-history/__tests__/CheckHistory.test.jsx` | 13 | My Checks, All Checks tab (Supervisor+), Deleted tab. Session AS (F-5G3a): +2 — export panel visible to Supervisor on All Checks, absent for Responder (`ExportPanel.jsx` stubbed via `vi.mock`). |
+| `modules/check-history/__tests__/ExportPanel.test.jsx` | 7 | NEW (Session AS, F-5G3a). Whole-station toggle hides/reveals individual vehicle/jump-bag/supply-room checkboxes; Download buttons disabled with nothing selected or date range >400 days (inline message); successful download triggers the blob/anchor-click pattern with the server-provided filename; 422 error surfaces the server's message inline. |
 | `modules/usage-log/__tests__/UsageItemPicker.test.jsx` | 13 | Catalog, search, +/- controls, selected, sections |
 | `modules/usage-log/__tests__/UsageLogScreen.test.jsx` | 6 | Multi-vehicle picker, single-vehicle skip, payload, error |
 

@@ -1,15 +1,32 @@
 # EMS ReadyKit — Active Backlog
-# v3.21 | Updated: 2026-07-19 | Session AS: ONBOARD-1 complete — Marcellus's
-# real fleet seeded (Unit 612 BLS ambulance, renamed in place from placeholder
-# "540"; Units 632/621 QRV fire engines, new), ~150 new shared catalog items,
-# full compartment/par-level builds from Jennifer's paper forms, net +27
+# v3.22 | Updated: 2026-07-19 | Session AS: F-5G3a complete — compliance CSV
+# export shipped. New GET /checks/daily/station/{id}/export (check_history.py,
+# Supervisor+, 400-day cap distinct from the interactive 90-day-capped list
+# endpoint); Simplified (one row/check) and Detailed (one row/line-item, plus
+# a Controlled Substance Checks section for ALS dual-signature checks, joined
+# via vehicle_id since that table has no station_id/check_id) CSV formats;
+# whole-station/vehicle/jump-bag/supply-room filtering including retired
+# vehicles under "whole station"; CSV formula-injection guard on free-text
+# columns; CHECK_HISTORY_EXPORTED audit event. Frontend: new ExportPanel.jsx
+# in Check History's All Checks tab, two direct download buttons (not a
+# hidden toggle, per explicit direction), 30-day default range. 29 new
+# backend tests (591 passing), 16 new frontend tests (249 passing). Found and
+# fixed a real React bug along the way: including fetched data/loading flags
+# in the effect that sets them creates a self-cancelling race (see
+# CLAUDE.md's architectural-decisions table) — refactored to use the
+# existing useApi hook, which already avoids this via ref-based cancellation.
+# VALID-1 (live UAT validation) is next per the locked sequence, then
+# INFRA-UAT1.
+# Previous: v3.21 Session AS: ONBOARD-1 complete — Marcellus's real fleet
+# seeded (Unit 612 BLS ambulance, renamed in place from placeholder "540";
+# Units 632/621 QRV fire engines, new), ~150 new shared catalog items, full
+# compartment/par-level builds from Jennifer's paper forms, net +27
 # test_seed_integrity.py tests (562 passing) — includes fixing a pre-existing
 # station-name drift in that file (masked for a long time by a stale local dev
 # DB) surfaced by the documented clean-reseed. Gas Meter/Tire PSI confirmed as
 # PSI gauges (same pattern as On-Board O2 PSI, threshold still open); Fuel
-# Level added as a pass/fail check. F-5G3a (Bobby's compliance CSV export) is
-# next per the locked sequence, then VALID-1, then INFRA-UAT1.
-# Previous: v3.20 Session AS kickoff: Marcellus onboarding sequence added.
+# Level added as a pass/fail check.
+# v3.20 Session AS kickoff: Marcellus onboarding sequence added.
 # v3.19 Session AR: SEC-03 fixed — OpenAPI docs gating
 # decoupled from APP_ENV/is_production via new enable_api_docs setting
 # (secure by default, same pattern as REQUIRE_REAL_AUTH). Applying the fix
@@ -47,10 +64,11 @@
 ## data yet worth protecting from a split done mid-flight.
 ## ONBOARD-1 ✅ done — see docs/backlog_completed.md Session AS write-up for
 ## the full build + a real pre-existing dev-DB data-integrity issue it surfaced.
+## F-5G3a ✅ done — see docs/backlog_completed.md Session AS write-up for the
+## export endpoint/CSV format details and the useApi effect-race fix.
 
 | # | Task | Pri | Status | Notes |
 |---|------|-----|--------|-------|
-| F-5G3a | Daily check CSV export for station-license compliance (Bobby) | High | 📋 Not started | New download button, Check History (supervisor view). Filters: date range + vehicle (or "all"). Manual download only — Bobby uploads to OneDrive himself, no Graph API integration. Narrows part of F-5G3's Check History scope; pairs with B-E3 (date-range compliance query) for the filter logic. |
 | VALID-1 | Validate CSV export end-to-end in current UAT environment | High | 📋 Not started | Confirm with Marcellus/Bobby before promoting anything — correct fields, correct filtering, file opens cleanly, matches what a station inspector would expect to see. |
 | INFRA-UAT1 | Split deployed app into UAT (F1) / PROD (B1) environments | High | 📋 Not started | New F1 App Service Plan + Linux Web App for UAT ($0/mo); existing B1 app becomes PROD; new database on existing PostgreSQL Flexible Server (no new server); SWA free-tier PR-preview staging covers frontend UAT already, no new SWA resource needed. Branch-based promotion: `develop`→UAT auto-deploy, `main`→PROD gated by GitHub Environment manual-approval rule. Rename resources as needed once split. No data migration required (no real data in the tool yet). Terraform: new `azurerm_service_plan` (F1) + `azurerm_linux_web_app` + `azurerm_postgresql_flexible_server_database` + updated Key Vault secret refs + AD redirect URI. |
 
@@ -67,7 +85,7 @@
 ### Post-launch engineering
 | # | Item | Pri | Notes |
 |---|------|-----|-------|
-| F-5G3 | CSV data export | Medium | Audit Log and Repair Requests download buttons. Same streaming CSV pattern as the receive-stock template. Check History download now scoped separately as F-5G3a (Bobby's compliance export, see Marcellus Onboarding section above). |
+| F-5G3 | CSV data export | Medium | Audit Log and Repair Requests download buttons. Same streaming CSV pattern as the receive-stock template. Check History download shipped separately as F-5G3a ✅ (Bobby's compliance export, done Session AS — see backlog_completed.md). |
 | ADMIN-F10 | Member list search/filter | Low | Search box in `MemberManagementSection` (`modules/admin/`) filtering by name or email. Client-side, no new backend endpoint. |
 | TEST-AE1 | Test coverage for MembersScreen / MemberManagementSection | Medium | Multi-role grouping/display, CSV import happy path + errors, name edit, member_id-based role removal, Supervisor-vs-Admin role-gating. |
 | TEST-AF1 | Test coverage for the rewritten ComplianceCalendar.jsx | Medium | Jump bags in month view, Station Supplies Count reminder strip, EntityPicker, getLocationCheckHistory data source. Pair with TEST-AE1. |
@@ -90,6 +108,6 @@
 | Pre-launch | 0 — ITM-1..8 ✅ all complete (Sessions AG–AN); launch gate closed; production deploy live and fully verified, no known outstanding bugs |
 | Cleanup carried forward | 0 — CLEANUP-AM1 ✅ confirmed complete |
 | Post-launch operational | 2 (1 🔄 in progress — OPS5; 1 📋 not started — OPS6; OPS1-4 ✅ done, moved to backlog_completed.md) |
-| Marcellus onboarding | 3 (all 📋 not started — F-5G3a, VALID-1, INFRA-UAT1; ONBOARD-1 ✅ done) |
-| Post-launch engineering | 14 |
-| **Total remaining** | **19** |
+| Marcellus onboarding | 2 (VALID-1, INFRA-UAT1 📋 not started; ONBOARD-1 ✅ + F-5G3a ✅ done) |
+| Post-launch engineering | 14 (F-5G3 still open but partially shipped — Check History half done as F-5G3a ✅) |
+| **Total remaining** | **18** |

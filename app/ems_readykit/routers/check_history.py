@@ -20,12 +20,18 @@ cannot serialize Python date objects. Use check.check_date.isoformat() throughou
 
 from __future__ import annotations
 
+import csv
+import enum
+import io
 import logging
-from datetime import date, datetime, timezone
+import re
+from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
+from fastapi.responses import StreamingResponse
+from sqlalchemy import or_
+from sqlalchemy.orm import Session, joinedload
 
 from ems_readykit.core.audit import write_audit_event
 from ems_readykit.core.auth import (
@@ -34,12 +40,17 @@ from ems_readykit.core.auth import (
     CurrentUser,
 )
 from ems_readykit.core.database import get_db
+from ems_readykit.models.controlled_substance_check import ControlledSubstanceCheck
 from ems_readykit.models.daily_inventory_check import DailyInventoryCheck
+from ems_readykit.models.inventory_location import InventoryLocation, LocationType
+from ems_readykit.models.station import Station
+from ems_readykit.models.vehicle import Vehicle
 from ems_readykit.routers.deps import (
     ADMIN_ONLY,
     ALL_ROLES,
     SUPERVISOR_PLUS,
     require_role,
+    require_station_membership,
 )
 from ems_readykit.schemas.daily_inventory_check import (
     AcknowledgeRequest,
@@ -50,6 +61,15 @@ from ems_readykit.schemas.daily_inventory_check import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["check-history"])
+
+_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_EXPORT_MAX_DAYS = 400
+_FORMULA_PREFIXES = ("=", "+", "-", "@")
+
+
+class ExportFormat(str, enum.Enum):
+    SIMPLIFIED = "simplified"
+    DETAILED = "detailed"
 
 
 def _get_check_or_404(
@@ -381,4 +401,278 @@ def force_delete_check(
         check_id,
         current_user.user_id,
         extra={"check_id": check_id, "actor": current_user.user_id},
+    )
+
+
+# -- F-5G3a: Compliance CSV export --------------------------------------------
+
+
+def _slugify(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+    return slug or "station"
+
+
+def _csv_safe(value: object) -> str:
+    """
+    OWASP CSV-injection guard. A cell value starting with =/+/-/@ can be
+    interpreted as a formula by Excel/Sheets when the file is opened. Notes
+    and corrective-action fields are free text a crew member typed -- the
+    only user-authored content in this export -- so prefix a leading
+    apostrophe to force those cells to render as literal text.
+    """
+    text = "" if value is None else str(value)
+    if text.startswith(_FORMULA_PREFIXES):
+        return "'" + text
+    return text
+
+
+@router.get(
+    "/checks/daily/station/{station_id}/export",
+    response_class=StreamingResponse,
+    summary="Download a compliance CSV export for a station (F-5G3a, Supervisor+)",
+)
+def export_check_history_csv(
+    station_id: int,
+    from_date: str = Query(..., alias="from", description="Start date, inclusive (YYYY-MM-DD)"),
+    to_date: str = Query(..., alias="to", description="End date, inclusive (YYYY-MM-DD)"),
+    format: ExportFormat = Query(..., description="'simplified' or 'detailed'"),
+    whole_station: bool = Query(
+        default=False,
+        description="Include every vehicle and location at the station, ignoring vehicle_ids/location_ids.",
+    ),
+    vehicle_ids: List[int] = Query(default=[]),
+    location_ids: List[int] = Query(default=[]),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_role(*SUPERVISOR_PLUS)),
+) -> StreamingResponse:
+    """
+    Streams a CSV of daily inventory checks for a station within a date range,
+    for a compliance/license inspection. Manual download only -- the caller
+    uploads the file wherever it needs to go; there is no further integration.
+
+    Two formats:
+      - simplified: one row per check (date, who, subject, pass/fail).
+      - detailed: every line item checked, plus (Marcellus/Newberg currently
+        have none, but the section always renders so the gap is visible
+        rather than hidden) any ALS controlled-substance dual-signature
+        checks for the same vehicles/date range, as a second CSV section.
+    """
+    station = db.query(Station).filter(Station.station_id == station_id).first()
+    if not station:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Station {station_id} not found.",
+        )
+    require_station_membership(station_id, current_user, db)
+
+    if not whole_station and not vehicle_ids and not location_ids:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Pick at least one vehicle, jump bag, or the whole station before exporting.",
+        )
+
+    for label, value in (("from", from_date), ("to", to_date)):
+        if not _DATE.match(value):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"'{label}' must be in YYYY-MM-DD format.",
+            )
+    if from_date > to_date:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="'from' date must be on or before 'to' date.",
+        )
+    d_from = date.fromisoformat(from_date)
+    d_to = date.fromisoformat(to_date)
+    if (d_to - d_from).days > _EXPORT_MAX_DAYS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Date range may not exceed {_EXPORT_MAX_DAYS} days.",
+        )
+
+    # "Whole station" deliberately includes retired vehicles/locations -- a
+    # retired unit's historical checks are still part of the station's
+    # compliance record for this date range. Retirement filtering belongs at
+    # UI-selection time (the frontend only offers active entities as
+    # checkboxes), never in this historical query -- see BUG-AD1 for the
+    # same active-vs-retired_at distinction elsewhere in this codebase.
+    if whole_station:
+        vehicle_ids = [
+            v.vehicle_id
+            for v in db.query(Vehicle).filter(Vehicle.station_id == station_id).all()
+        ]
+        location_ids = [
+            loc.location_id
+            for loc in db.query(InventoryLocation)
+            .filter(
+                InventoryLocation.station_id == station_id,
+                InventoryLocation.location_type != LocationType.VEHICLE,
+            )
+            .all()
+        ]
+
+    query = (
+        db.query(DailyInventoryCheck)
+        .options(
+            joinedload(DailyInventoryCheck.vehicle),
+            joinedload(DailyInventoryCheck.location),
+        )
+        .filter(
+            DailyInventoryCheck.station_id == station_id,
+            DailyInventoryCheck.check_date >= d_from,
+            DailyInventoryCheck.check_date <= d_to,
+            DailyInventoryCheck.deleted_at.is_(None),
+        )
+    )
+    entity_filters = []
+    if vehicle_ids:
+        entity_filters.append(DailyInventoryCheck.vehicle_id.in_(vehicle_ids))
+    if location_ids:
+        entity_filters.append(DailyInventoryCheck.location_id.in_(location_ids))
+    if entity_filters:
+        query = query.filter(or_(*entity_filters))
+    checks = query.order_by(
+        DailyInventoryCheck.check_date.asc(), DailyInventoryCheck.timestamp.asc()
+    ).all()
+
+    cs_checks: List[ControlledSubstanceCheck] = []
+    if format == ExportFormat.DETAILED and vehicle_ids:
+        cs_from = datetime(d_from.year, d_from.month, d_from.day, tzinfo=timezone.utc)
+        cs_to_exclusive = datetime(
+            d_to.year, d_to.month, d_to.day, tzinfo=timezone.utc
+        ) + timedelta(days=1)
+        cs_checks = (
+            db.query(ControlledSubstanceCheck)
+            .options(joinedload(ControlledSubstanceCheck.vehicle))
+            .join(Vehicle, ControlledSubstanceCheck.vehicle_id == Vehicle.vehicle_id)
+            .filter(
+                Vehicle.station_id == station_id,
+                ControlledSubstanceCheck.vehicle_id.in_(vehicle_ids),
+                ControlledSubstanceCheck.timestamp >= cs_from,
+                ControlledSubstanceCheck.timestamp < cs_to_exclusive,
+            )
+            .order_by(ControlledSubstanceCheck.timestamp.asc())
+            .all()
+        )
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    if format == ExportFormat.SIMPLIFIED:
+        writer.writerow(["Check Date", "Performed By", "Subject", "Status", "Station"])
+        for check in checks:
+            writer.writerow(
+                [
+                    check.check_date.isoformat(),
+                    check.performed_by,
+                    check.subject_label,
+                    check.status.value,
+                    station.name,
+                ]
+            )
+    else:
+        writer.writerow(["Section: Daily Inventory Checks — Detailed"])
+        writer.writerow(
+            [
+                "Check Date",
+                "Performed By",
+                "Subject",
+                "Overall Check Status",
+                "Item Name",
+                "Check Type",
+                "Line Item Status",
+                "Quantity Found",
+                "Quantity Needed",
+                "Measurement Value",
+                "Functional Pass",
+                "Date Value",
+                "Line Item Notes",
+                "Check Notes",
+                "Reviewed By",
+                "Reviewed At",
+                "Corrective Action",
+            ]
+        )
+        for check in checks:
+            for line_item in sorted(check.line_items, key=lambda li: li.line_item_id):
+                writer.writerow(
+                    [
+                        check.check_date.isoformat(),
+                        check.performed_by,
+                        check.subject_label,
+                        check.status.value,
+                        line_item.item_name or "",
+                        line_item.check_type or "",
+                        line_item.status.value,
+                        line_item.quantity_found,
+                        line_item.quantity_needed,
+                        line_item.measurement_value
+                        if line_item.measurement_value is not None
+                        else "",
+                        "Yes"
+                        if line_item.functional_pass is True
+                        else ("No" if line_item.functional_pass is False else ""),
+                        line_item.date_value.isoformat() if line_item.date_value else "",
+                        _csv_safe(line_item.notes),
+                        _csv_safe(check.notes),
+                        check.reviewed_by or "",
+                        check.reviewed_at.isoformat() if check.reviewed_at else "",
+                        _csv_safe(check.corrective_action),
+                    ]
+                )
+
+        writer.writerow([])
+        writer.writerow(["Section: Controlled Substance Checks (ALS Drug Bag)"])
+        writer.writerow(
+            [
+                "Vehicle",
+                "Timestamp (UTC)",
+                "Primary Signer",
+                "Secondary Signer",
+                "Discrepancy Flag",
+                "Notes",
+            ]
+        )
+        for cs_check in cs_checks:
+            writer.writerow(
+                [
+                    cs_check.vehicle.vehicle_number if cs_check.vehicle else "",
+                    cs_check.timestamp.isoformat(),
+                    cs_check.primary_signer,
+                    cs_check.secondary_signer,
+                    "Yes" if cs_check.discrepancy_flag else "No",
+                    _csv_safe(cs_check.notes),
+                ]
+            )
+
+    content = "﻿" + output.getvalue()
+    filename = (
+        f"{_slugify(station.name)}_compliance_{format.value}_"
+        f"{from_date}_to_{to_date}.csv"
+    )
+
+    write_audit_event(
+        db,
+        actor=current_user.user_id,
+        action="CHECK_HISTORY_EXPORTED",
+        entity_type="station",
+        entity_id=str(station_id),
+        station_id=station_id,
+        metadata={
+            "format": format.value,
+            "from": from_date,
+            "to": to_date,
+            "whole_station": whole_station,
+            "vehicle_count": len(vehicle_ids),
+            "location_count": len(location_ids),
+            "check_row_count": len(checks),
+            "cs_check_row_count": len(cs_checks) if format == ExportFormat.DETAILED else None,
+        },
+        severity="INFO",
+    )
+
+    return StreamingResponse(
+        iter([content.encode("utf-8")]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

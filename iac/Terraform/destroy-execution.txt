@@ -1,0 +1,2877 @@
+Acquiring state lock. This may take a few moments...
+random_string.kv_suffix: Refreshing state... [id=qzf6ns]
+module.app.random_string.kv_suffix: Refreshing state... [id=f07bxc]
+module.app.random_password.app_secret_key: Refreshing state... [id=none]
+random_password.pg_admin: Refreshing state... [id=none]
+module.identity_rbac.azuread_group.supervisors: Refreshing state... [id=4bae0c09-47f7-4122-9cd4-e81728e7c98d]
+module.identity_rbac.azuread_group.responders: Refreshing state... [id=f0ec124d-b4a6-4677-878c-11c84c678567]
+module.identity_rbac.azuread_group.administrators: Refreshing state... [id=64afc2ab-6aea-4aa3-bfa1-bf4e57fad244]
+module.identity_rbac.azuread_application.github_actions: Refreshing state... [id=/applications/73067554-3eba-4953-8ff0-761f8fc57c46]
+module.identity_rbac.azuread_application.ems_readykit: Refreshing state... [id=/applications/0e0aaad3-1a5e-4927-bf98-cf2da5286643]
+module.identity_rbac.azuread_service_principal.github_actions: Refreshing state... [id=8daaf03d-2786-4be6-819d-639b81377350]
+module.identity_rbac.azuread_application_identifier_uri.ems_readykit: Refreshing state... [id=/applications/0e0aaad3-1a5e-4927-bf98-cf2da5286643/identifierUris/YXBpOi8vYTc4MGI5N2YtNTQ1MS00NmQ1LThmYzktNTI2OGU0OTFlMGVl]
+module.identity_rbac.azuread_service_principal.ems_readykit: Refreshing state... [id=1fb64958-8a46-4a50-8ec9-1cc2a6505ea2]
+module.identity_rbac.azuread_app_role_assignment.administrators: Refreshing state... [id=1fb64958-8a46-4a50-8ec9-1cc2a6505ea2/appRoleAssignment/q8KvZOpqo0q_ob9OV_rSRBKK7ZUpm8hHl4mB_ZmkLxI]
+module.identity_rbac.azuread_app_role_assignment.responders: Refreshing state... [id=1fb64958-8a46-4a50-8ec9-1cc2a6505ea2/appRoleAssignment/TRLs8Ka0d0aHjBHITGeFZ5J3dlq4_WBMoVO-VubrBsA]
+module.identity_rbac.azuread_app_role_assignment.supervisors: Refreshing state... [id=1fb64958-8a46-4a50-8ec9-1cc2a6505ea2/appRoleAssignment/CQyuS_dHIkGc1OgXKOfJjaGMqjgzs61OrtA8BOEukQQ]
+module.app.data.azurerm_client_config.current: Reading...
+module.logging.data.azurerm_client_config.current: Reading...
+data.azurerm_subscription.current: Reading...
+data.azurerm_client_config.current: Reading...
+module.policy.data.azurerm_policy_definition.allowed_locations: Reading...
+module.policy.data.azurerm_policy_definition.require_tag: Reading...
+azurerm_resource_group.ems_rg: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev]
+module.policy.azurerm_policy_definition.deny_public_ip: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyDefinitions/ems-deny-public-ip]
+data.azurerm_storage_account.tfstate: Reading...
+module.logging.data.azurerm_client_config.current: Read complete after 0s [id=Y2xpZW50Q29uZmlncy9jbGllbnRJZD0wNGIwNzc5NS04ZGRiLTQ2MWEtYmJlZS0wMmY5ZTFiZjdiNDY7b2JqZWN0SWQ9Zjk3NmZmMTItY2QyNS00OGM4LThlODUtNTM1ZDMwMWE2ZDI4O3N1YnNjcmlwdGlvbklkPTc1ZmNlMmVhLTFkODMtNGM1YS05OTI5LWI0MjRiMjkxM2M4ZTt0ZW5hbnRJZD03M2QxNjI5Zi04NmVlLTRhNzctOWY5ZS1hMTU1ZDUzNmE0OTA=]
+module.app.data.azurerm_client_config.current: Read complete after 0s [id=Y2xpZW50Q29uZmlncy9jbGllbnRJZD0wNGIwNzc5NS04ZGRiLTQ2MWEtYmJlZS0wMmY5ZTFiZjdiNDY7b2JqZWN0SWQ9Zjk3NmZmMTItY2QyNS00OGM4LThlODUtNTM1ZDMwMWE2ZDI4O3N1YnNjcmlwdGlvbklkPTc1ZmNlMmVhLTFkODMtNGM1YS05OTI5LWI0MjRiMjkxM2M4ZTt0ZW5hbnRJZD03M2QxNjI5Zi04NmVlLTRhNzctOWY5ZS1hMTU1ZDUzNmE0OTA=]
+data.azurerm_client_config.current: Read complete after 0s [id=Y2xpZW50Q29uZmlncy9jbGllbnRJZD0wNGIwNzc5NS04ZGRiLTQ2MWEtYmJlZS0wMmY5ZTFiZjdiNDY7b2JqZWN0SWQ9Zjk3NmZmMTItY2QyNS00OGM4LThlODUtNTM1ZDMwMWE2ZDI4O3N1YnNjcmlwdGlvbklkPTc1ZmNlMmVhLTFkODMtNGM1YS05OTI5LWI0MjRiMjkxM2M4ZTt0ZW5hbnRJZD03M2QxNjI5Zi04NmVlLTRhNzctOWY5ZS1hMTU1ZDUzNmE0OTA=]
+azurerm_management_lock.rg_lock: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Authorization/locks/delete-lock]
+module.logging.azurerm_monitor_action_group.ems_ops: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Insights/actionGroups/ag-ems-readykit-dev-ops]
+azurerm_consumption_budget_resource_group.main: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Consumption/budgets/budget-ems-readykit-dev]
+azurerm_key_vault.platform: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kvqzf6ns]
+module.storage.azurerm_storage_account.ems_storage: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Storage/storageAccounts/emsreadykitstorage123]
+data.azurerm_subscription.current: Read complete after 0s [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e]
+module.logging.azurerm_log_analytics_workspace.ems_law: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.OperationalInsights/workspaces/law-ems-readykit-dev]
+module.identity_rbac.azurerm_role_assignment.github_actions_website_contributor: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Authorization/roleAssignments/48d4b62e-14b2-17b2-6bf9-8ca0b5abd7fb]
+module.identity_rbac.azurerm_role_assignment.supervisors_contributor: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Authorization/roleAssignments/b9fd5ec0-51a9-5927-2393-613723e29ae8]
+module.network.azurerm_network_security_group.data_nsg: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-data]
+module.network.azurerm_virtual_network.ems_vnet: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit]
+module.identity_rbac.azurerm_role_assignment.supervisors_log_reader: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Authorization/roleAssignments/b04067d5-6b16-47a5-6361-fa313962f349]
+module.app.azurerm_service_plan.ems_plan: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Web/serverFarms/asp-ems-readykit-dev]
+data.azurerm_storage_account.tfstate: Read complete after 1s [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/tfstate-rg/providers/Microsoft.Storage/storageAccounts/emsreadykittfstate]
+module.network.azurerm_network_security_group.management_nsg: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-management]
+module.network.azurerm_network_security_group.app_nsg: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-app]
+module.static_web_app.azurerm_static_web_app.frontend: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Web/staticSites/swa-ems-readykit-dev]
+module.logging.azurerm_monitor_activity_log_alert.destructive_operations: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Insights/activityLogAlerts/alert-ems-readykit-dev-destructive-ops]
+module.logging.azurerm_log_analytics_saved_search.recent_audit_events: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.OperationalInsights/workspaces/law-ems-readykit-dev/savedSearches/EMS-RecentAuditEvents]
+module.logging.azurerm_log_analytics_saved_search.high_severity_events: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.OperationalInsights/workspaces/law-ems-readykit-dev/savedSearches/EMS-HighSeverityEvents]
+module.network.azurerm_subnet.management: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-management]
+module.network.azurerm_subnet.data: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-data]
+module.network.azurerm_subnet.app: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-app]
+module.identity_rbac.azurerm_role_assignment.github_actions_tfstate_blob: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/tfstate-rg/providers/Microsoft.Storage/storageAccounts/emsreadykittfstate/providers/Microsoft.Authorization/roleAssignments/63f25cb1-cb1e-d612-8d04-7cf766f030ad]
+module.identity_rbac.azurerm_role_assignment.administrators_reader: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/roleAssignments/8f4a48e8-4847-db58-116a-3d704b4aa667]
+module.network.azurerm_monitor_diagnostic_setting.data_nsg_diag: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-data|diag-nsg-data]
+module.network.azurerm_monitor_diagnostic_setting.app_nsg_diag: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-app|diag-nsg-app]
+module.policy.azurerm_subscription_policy_assignment.deny_public_ip: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyAssignments/ems-deny-public-ip]
+module.network.azurerm_subnet_network_security_group_association.app_assoc: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-app]
+module.network.azurerm_subnet_network_security_group_association.management_assoc: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-management]
+module.network.azurerm_subnet_network_security_group_association.data_assoc: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-data]
+module.app.azurerm_key_vault.ems_kv: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kv-f07bxc]
+module.storage.azurerm_storage_container.evidence: Refreshing state... [id=https://emsreadykitstorage123.blob.core.windows.net/evidence]
+module.storage.azurerm_storage_container.app: Refreshing state... [id=https://emsreadykitstorage123.blob.core.windows.net/app-exports]
+module.storage.azurerm_storage_container.backup: Refreshing state... [id=https://emsreadykitstorage123.blob.core.windows.net/app-backups]
+module.storage.azurerm_monitor_diagnostic_setting.storage_diag: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Storage/storageAccounts/emsreadykitstorage123/blobServices/default|diag-storage]
+module.storage.azurerm_storage_container.audit: Refreshing state... [id=https://emsreadykitstorage123.blob.core.windows.net/audit-logs]
+module.storage.data.azurerm_storage_account_sas.backup: Reading...
+module.storage.data.azurerm_storage_account_sas.backup: Read complete after 0s [id=f43bce077f5b4d51b72af1376299ee3df333c89d51649e61139f6231bef75c29]
+module.storage.azurerm_storage_management_policy.ems_lifecycle: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Storage/storageAccounts/emsreadykitstorage123/managementPolicies/default]
+module.app.azurerm_role_assignment.terraform_kv_secrets_officer: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kv-f07bxc/providers/Microsoft.Authorization/roleAssignments/abd2a884-508e-06ae-531c-11429b6ec491]
+azurerm_key_vault_secret.pg_admin_password: Refreshing state... [id=https://kvqzf6ns.vault.azure.net/secrets/pg-admin-password/df4b98876fcf4094afe1e5c4ced9ce41]
+module.app.azurerm_monitor_diagnostic_setting.kv_diag: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kv-f07bxc|diag-kv]
+module.policy.data.azurerm_policy_definition.allowed_locations: Read complete after 3s [id=/providers/Microsoft.Authorization/policyDefinitions/e56962a6-4747-49cd-b67b-bf8b01975c4c]
+module.policy.azurerm_subscription_policy_assignment.allowed_locations: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyAssignments/ems-allowed-locations]
+module.policy.data.azurerm_policy_definition.require_tag: Read complete after 3s [id=/providers/Microsoft.Authorization/policyDefinitions/871b6d14-10aa-478d-b590-94f262ecfa99]
+module.policy.azurerm_subscription_policy_assignment.require_tag["CostCenter"]: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyAssignments/ems-require-tag-costcenter]
+module.policy.azurerm_subscription_policy_assignment.require_tag["ManagedBy"]: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyAssignments/ems-require-tag-managedby]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Owner"]: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyAssignments/ems-require-tag-owner]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Environment"]: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyAssignments/ems-require-tag-environment]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Project"]: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyAssignments/ems-require-tag-project]
+module.data.azurerm_postgresql_flexible_server.ems_pg: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.DBforPostgreSQL/flexibleServers/pg-ems-readykit-dev]
+module.app.azurerm_key_vault_secret.app_secret_key: Refreshing state... [id=https://kv-f07bxc.vault.azure.net/secrets/app-secret-key/5b1f31369af74473a5e62e3d32783eac]
+module.data.azurerm_postgresql_flexible_server_database.ems_db: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.DBforPostgreSQL/flexibleServers/pg-ems-readykit-dev/databases/ems_readykit]
+module.data.azurerm_postgresql_flexible_server_firewall_rule.allow_azure_services: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.DBforPostgreSQL/flexibleServers/pg-ems-readykit-dev/firewallRules/AllowAzureServices]
+module.data.azurerm_private_endpoint.pg_pe: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/privateEndpoints/pe-pg-ems-readykit-dev]
+module.data.azurerm_monitor_diagnostic_setting.pg_diag: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.DBforPostgreSQL/flexibleServers/pg-ems-readykit-dev|diag-pg]
+module.static_web_app.azurerm_monitor_diagnostic_setting.swa_diag: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Web/staticSites/swa-ems-readykit-dev|diag-swa]
+module.app.azurerm_key_vault_secret.sql_connection: Refreshing state... [id=https://kv-f07bxc.vault.azure.net/secrets/sql-connection-string/041b3bfcfc7a4c85bfbb14ab4016996c]
+module.app.azurerm_linux_web_app.ems_app: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Web/sites/app-ems-readykit-dev]
+module.app.azurerm_role_assignment.app_kv_secrets_user: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kv-f07bxc/providers/Microsoft.Authorization/roleAssignments/7a211a45-fe2d-a9e4-f2aa-57e5c2a3f02e]
+module.app.azurerm_monitor_diagnostic_setting.app_diag: Refreshing state... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Web/sites/app-ems-readykit-dev|diag-app]
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  - destroy
+
+Terraform will perform the following actions:
+
+  # azurerm_consumption_budget_resource_group.main will be destroyed
+  - resource "azurerm_consumption_budget_resource_group" "main" {
+      - amount            = 50 -> null
+      - etag              = "\"1dce0bdde8d2da3\"" -> null
+      - id                = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Consumption/budgets/budget-ems-readykit-dev" -> null
+      - name              = "budget-ems-readykit-dev" -> null
+      - resource_group_id = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev" -> null
+      - time_grain        = "Monthly" -> null
+
+      - notification {
+          - contact_emails = [
+              - "admin@example.com",
+            ] -> null
+          - contact_groups = [] -> null
+          - contact_roles  = [] -> null
+          - enabled        = true -> null
+          - operator       = "GreaterThan" -> null
+          - threshold      = 100 -> null
+          - threshold_type = "Actual" -> null
+        }
+      - notification {
+          - contact_emails = [
+              - "admin@example.com",
+            ] -> null
+          - contact_groups = [] -> null
+          - contact_roles  = [] -> null
+          - enabled        = true -> null
+          - operator       = "GreaterThan" -> null
+          - threshold      = 80 -> null
+          - threshold_type = "Actual" -> null
+        }
+
+      - time_period {
+          - end_date   = "2036-05-01T00:00:00Z" -> null
+          - start_date = "2026-05-01T00:00:00Z" -> null
+        }
+    }
+
+  # azurerm_key_vault.platform will be destroyed
+  - resource "azurerm_key_vault" "platform" {
+      - access_policy                   = [
+          - {
+              - certificate_permissions = []
+              - key_permissions         = []
+              - object_id               = "f976ff12-cd25-48c8-8e85-535d301a6d28"
+              - secret_permissions      = [
+                  - "Get",
+                  - "List",
+                  - "Set",
+                  - "Delete",
+                  - "Purge",
+                ]
+              - storage_permissions     = []
+              - tenant_id               = "73d1629f-86ee-4a77-9f9e-a155d536a490"
+                # (1 unchanged attribute hidden)
+            },
+        ] -> null
+      - enable_rbac_authorization       = false -> null
+      - enabled_for_deployment          = false -> null
+      - enabled_for_disk_encryption     = false -> null
+      - enabled_for_template_deployment = false -> null
+      - id                              = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kvqzf6ns" -> null
+      - location                        = "northcentralus" -> null
+      - name                            = "kvqzf6ns" -> null
+      - public_network_access_enabled   = true -> null
+      - purge_protection_enabled        = false -> null
+      - resource_group_name             = "rg-ems-readykit-dev" -> null
+      - sku_name                        = "standard" -> null
+      - soft_delete_retention_days      = 7 -> null
+      - tags                            = {
+          - "CostCenter"  = "EMS-Demo"
+          - "Environment" = "dev"
+          - "ManagedBy"   = "Terraform"
+          - "Owner"       = "EMS-ReadyKit-Team"
+          - "Project"     = "ems-readykit"
+        } -> null
+      - tenant_id                       = "73d1629f-86ee-4a77-9f9e-a155d536a490" -> null
+      - vault_uri                       = "https://kvqzf6ns.vault.azure.net/" -> null
+
+      - network_acls {
+          - bypass                     = "AzureServices" -> null
+          - default_action             = "Allow" -> null
+          - ip_rules                   = [
+              - "52.159.112.169/32",
+              - "68.61.242.122/32",
+            ] -> null
+          - virtual_network_subnet_ids = [] -> null
+        }
+    }
+
+  # azurerm_key_vault_secret.pg_admin_password will be destroyed
+  - resource "azurerm_key_vault_secret" "pg_admin_password" {
+      - id                      = "https://kvqzf6ns.vault.azure.net/secrets/pg-admin-password/df4b98876fcf4094afe1e5c4ced9ce41" -> null
+      - key_vault_id            = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kvqzf6ns" -> null
+      - name                    = "pg-admin-password" -> null
+      - resource_id             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kvqzf6ns/secrets/pg-admin-password/versions/df4b98876fcf4094afe1e5c4ced9ce41" -> null
+      - resource_versionless_id = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kvqzf6ns/secrets/pg-admin-password" -> null
+      - tags                    = {} -> null
+      - value                   = (sensitive value) -> null
+      - version                 = "df4b98876fcf4094afe1e5c4ced9ce41" -> null
+      - versionless_id          = "https://kvqzf6ns.vault.azure.net/secrets/pg-admin-password" -> null
+        # (1 unchanged attribute hidden)
+    }
+
+  # azurerm_resource_group.ems_rg will be destroyed
+  - resource "azurerm_resource_group" "ems_rg" {
+      - id         = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev" -> null
+      - location   = "northcentralus" -> null
+      - name       = "rg-ems-readykit-dev" -> null
+      - tags       = {
+          - "CostCenter"  = "EMS-Demo"
+          - "Environment" = "dev"
+          - "ManagedBy"   = "Terraform"
+          - "Owner"       = "EMS-ReadyKit-Team"
+          - "Project"     = "ems-readykit"
+        } -> null
+        # (1 unchanged attribute hidden)
+    }
+
+  # random_password.pg_admin will be destroyed
+  - resource "random_password" "pg_admin" {
+      - bcrypt_hash      = (sensitive value) -> null
+      - id               = "none" -> null
+      - length           = 24 -> null
+      - lower            = true -> null
+      - min_lower        = 1 -> null
+      - min_numeric      = 1 -> null
+      - min_special      = 1 -> null
+      - min_upper        = 1 -> null
+      - number           = true -> null
+      - numeric          = true -> null
+      - override_special = "_%" -> null
+      - result           = (sensitive value) -> null
+      - special          = true -> null
+      - upper            = true -> null
+    }
+
+  # random_string.kv_suffix will be destroyed
+  - resource "random_string" "kv_suffix" {
+      - id          = "qzf6ns" -> null
+      - length      = 6 -> null
+      - lower       = true -> null
+      - min_lower   = 0 -> null
+      - min_numeric = 0 -> null
+      - min_special = 0 -> null
+      - min_upper   = 0 -> null
+      - number      = true -> null
+      - numeric     = true -> null
+      - result      = "qzf6ns" -> null
+      - special     = false -> null
+      - upper       = false -> null
+    }
+
+  # module.app.azurerm_key_vault.ems_kv will be destroyed
+  - resource "azurerm_key_vault" "ems_kv" {
+      - access_policy                   = [] -> null
+      - enable_rbac_authorization       = true -> null
+      - enabled_for_deployment          = false -> null
+      - enabled_for_disk_encryption     = false -> null
+      - enabled_for_template_deployment = false -> null
+      - id                              = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kv-f07bxc" -> null
+      - location                        = "northcentralus" -> null
+      - name                            = "kv-f07bxc" -> null
+      - public_network_access_enabled   = true -> null
+      - purge_protection_enabled        = false -> null
+      - resource_group_name             = "rg-ems-readykit-dev" -> null
+      - sku_name                        = "standard" -> null
+      - soft_delete_retention_days      = 7 -> null
+      - tags                            = {
+          - "CostCenter"  = "EMS-Demo"
+          - "Environment" = "dev"
+          - "ManagedBy"   = "Terraform"
+          - "Owner"       = "EMS-ReadyKit-Team"
+          - "Project"     = "ems-readykit"
+        } -> null
+      - tenant_id                       = "73d1629f-86ee-4a77-9f9e-a155d536a490" -> null
+      - vault_uri                       = "https://kv-f07bxc.vault.azure.net/" -> null
+
+      - network_acls {
+          - bypass                     = "AzureServices" -> null
+          - default_action             = "Deny" -> null
+          - ip_rules                   = [
+              - "52.159.112.169/32",
+              - "68.61.242.122/32",
+            ] -> null
+          - virtual_network_subnet_ids = [
+              - "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-app",
+            ] -> null
+        }
+    }
+
+  # module.app.azurerm_key_vault_secret.app_secret_key will be destroyed
+  - resource "azurerm_key_vault_secret" "app_secret_key" {
+      - id                      = "https://kv-f07bxc.vault.azure.net/secrets/app-secret-key/5b1f31369af74473a5e62e3d32783eac" -> null
+      - key_vault_id            = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kv-f07bxc" -> null
+      - name                    = "app-secret-key" -> null
+      - resource_id             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kv-f07bxc/secrets/app-secret-key/versions/5b1f31369af74473a5e62e3d32783eac" -> null
+      - resource_versionless_id = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kv-f07bxc/secrets/app-secret-key" -> null
+      - tags                    = {} -> null
+      - value                   = (sensitive value) -> null
+      - version                 = "5b1f31369af74473a5e62e3d32783eac" -> null
+      - versionless_id          = "https://kv-f07bxc.vault.azure.net/secrets/app-secret-key" -> null
+        # (1 unchanged attribute hidden)
+    }
+
+  # module.app.azurerm_key_vault_secret.sql_connection will be destroyed
+  - resource "azurerm_key_vault_secret" "sql_connection" {
+      - id                      = "https://kv-f07bxc.vault.azure.net/secrets/sql-connection-string/041b3bfcfc7a4c85bfbb14ab4016996c" -> null
+      - key_vault_id            = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kv-f07bxc" -> null
+      - name                    = "sql-connection-string" -> null
+      - resource_id             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kv-f07bxc/secrets/sql-connection-string/versions/041b3bfcfc7a4c85bfbb14ab4016996c" -> null
+      - resource_versionless_id = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kv-f07bxc/secrets/sql-connection-string" -> null
+      - tags                    = {} -> null
+      - value                   = (sensitive value) -> null
+      - version                 = "041b3bfcfc7a4c85bfbb14ab4016996c" -> null
+      - versionless_id          = "https://kv-f07bxc.vault.azure.net/secrets/sql-connection-string" -> null
+        # (1 unchanged attribute hidden)
+    }
+
+  # module.app.azurerm_linux_web_app.ems_app will be destroyed
+  - resource "azurerm_linux_web_app" "ems_app" {
+      - app_settings                                   = {
+          - "ALLOWED_ORIGINS"                = "http://localhost:5173,http://localhost:3000,https://lively-bush-0ed75ca10.7.azurestaticapps.net"
+          - "APP_ENV"                        = "development"
+          - "AZURE_AD_AUDIENCE"              = "api://a780b97f-5451-46d5-8fc9-5268e491e0ee"
+          - "AZURE_AD_CLIENT_ID"             = "a780b97f-5451-46d5-8fc9-5268e491e0ee"
+          - "AZURE_AD_TENANT_ID"             = "73d1629f-86ee-4a77-9f9e-a155d536a490"
+          - "DATABASE_URL"                   = "@Microsoft.KeyVault(VaultName=kv-f07bxc;SecretName=sql-connection-string)"
+          - "ENABLE_API_DOCS"                = "false"
+          - "ENABLE_ORYX_BUILD"              = "true"
+          - "KEY_VAULT_URI"                  = "https://kv-f07bxc.vault.azure.net/"
+          - "LOG_LEVEL"                      = "INFO"
+          - "REQUIRE_REAL_AUTH"              = "true"
+          - "SCM_DO_BUILD_DURING_DEPLOYMENT" = "true"
+          - "SECRET_KEY"                     = "@Microsoft.KeyVault(VaultName=kv-f07bxc;SecretName=app-secret-key)"
+          - "STORAGE_ACCOUNT_NAME"           = "emsreadykitstorage123"
+        } -> null
+      - client_affinity_enabled                        = false -> null
+      - client_certificate_enabled                     = false -> null
+      - client_certificate_mode                        = "Required" -> null
+      - custom_domain_verification_id                  = (sensitive value) -> null
+      - default_hostname                               = "app-ems-readykit-dev.azurewebsites.net" -> null
+      - enabled                                        = true -> null
+      - ftp_publish_basic_authentication_enabled       = true -> null
+      - https_only                                     = true -> null
+      - id                                             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Web/sites/app-ems-readykit-dev" -> null
+      - key_vault_reference_identity_id                = "SystemAssigned" -> null
+      - kind                                           = "app,linux" -> null
+      - location                                       = "northcentralus" -> null
+      - name                                           = "app-ems-readykit-dev" -> null
+      - outbound_ip_address_list                       = [
+          - "20.221.193.52",
+          - "20.221.192.90",
+          - "20.221.251.121",
+          - "20.221.253.79",
+          - "20.221.253.129",
+          - "20.221.255.189",
+          - "52.159.112.12",
+          - "52.159.112.150",
+          - "52.159.112.156",
+          - "52.159.112.169",
+          - "52.159.112.213",
+          - "52.159.113.94",
+          - "52.162.107.39",
+          - "52.162.107.85",
+        ] -> null
+      - outbound_ip_addresses                          = "20.221.193.52,20.221.192.90,20.221.251.121,20.221.253.79,20.221.253.129,20.221.255.189,52.159.112.12,52.159.112.150,52.159.112.156,52.159.112.169,52.159.112.213,52.159.113.94,52.162.107.39,52.162.107.85" -> null
+      - possible_outbound_ip_address_list              = [
+          - "20.221.193.52",
+          - "20.221.192.90",
+          - "20.221.251.121",
+          - "20.221.253.79",
+          - "20.221.253.129",
+          - "20.221.255.189",
+          - "52.159.112.12",
+          - "52.159.112.150",
+          - "52.159.112.156",
+          - "52.159.112.169",
+          - "52.159.112.213",
+          - "52.159.113.94",
+          - "52.159.113.137",
+          - "52.159.118.140",
+          - "52.159.118.151",
+          - "52.159.118.155",
+          - "52.159.118.169",
+          - "52.159.118.178",
+          - "52.159.118.201",
+          - "52.159.118.230",
+          - "52.159.119.4",
+          - "52.159.119.20",
+          - "20.221.208.60",
+          - "20.221.208.127",
+          - "20.221.208.135",
+          - "20.221.208.149",
+          - "20.221.208.248",
+          - "20.221.208.65",
+          - "20.221.208.91",
+          - "52.159.119.36",
+          - "52.162.107.39",
+          - "52.162.107.85",
+        ] -> null
+      - possible_outbound_ip_addresses                 = "20.221.193.52,20.221.192.90,20.221.251.121,20.221.253.79,20.221.253.129,20.221.255.189,52.159.112.12,52.159.112.150,52.159.112.156,52.159.112.169,52.159.112.213,52.159.113.94,52.159.113.137,52.159.118.140,52.159.118.151,52.159.118.155,52.159.118.169,52.159.118.178,52.159.118.201,52.159.118.230,52.159.119.4,52.159.119.20,20.221.208.60,20.221.208.127,20.221.208.135,20.221.208.149,20.221.208.248,20.221.208.65,20.221.208.91,52.159.119.36,52.162.107.39,52.162.107.85" -> null
+      - public_network_access_enabled                  = true -> null
+      - resource_group_name                            = "rg-ems-readykit-dev" -> null
+      - service_plan_id                                = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Web/serverFarms/asp-ems-readykit-dev" -> null
+      - site_credential                                = (sensitive value) -> null
+      - tags                                           = {
+          - "CostCenter"  = "EMS-Demo"
+          - "Environment" = "dev"
+          - "ManagedBy"   = "Terraform"
+          - "Owner"       = "EMS-ReadyKit-Team"
+          - "Project"     = "ems-readykit"
+        } -> null
+      - virtual_network_subnet_id                      = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-app" -> null
+      - webdeploy_publish_basic_authentication_enabled = true -> null
+        # (3 unchanged attributes hidden)
+
+      - backup {
+          - enabled             = true -> null
+          - name                = "default-backup" -> null
+          - storage_account_url = (sensitive value) -> null
+
+          - schedule {
+              - frequency_interval       = 1 -> null
+              - frequency_unit           = "Day" -> null
+              - keep_at_least_one_backup = true -> null
+              - retention_period_days    = 7 -> null
+                # (2 unchanged attributes hidden)
+            }
+        }
+
+      - identity {
+          - identity_ids = [] -> null
+          - principal_id = "e1fb30d7-908d-46bc-896d-a5b015f90e6a" -> null
+          - tenant_id    = "73d1629f-86ee-4a77-9f9e-a155d536a490" -> null
+          - type         = "SystemAssigned" -> null
+        }
+
+      - site_config {
+          - always_on                                     = true -> null
+          - app_command_line                              = "bash startup.sh" -> null
+          - auto_heal_enabled                             = false -> null
+          - container_registry_use_managed_identity       = false -> null
+          - default_documents                             = [
+              - "Default.htm",
+              - "Default.html",
+              - "Default.asp",
+              - "index.htm",
+              - "index.html",
+              - "iisstart.htm",
+              - "default.aspx",
+              - "index.php",
+              - "hostingstart.html",
+            ] -> null
+          - detailed_error_logging_enabled                = false -> null
+          - ftps_state                                    = "Disabled" -> null
+          - health_check_eviction_time_in_min             = 10 -> null
+          - health_check_path                             = "/health" -> null
+          - http2_enabled                                 = true -> null
+          - ip_restriction_default_action                 = "Allow" -> null
+          - linux_fx_version                              = "PYTHON|3.11" -> null
+          - load_balancing_mode                           = "LeastRequests" -> null
+          - local_mysql_enabled                           = false -> null
+          - managed_pipeline_mode                         = "Integrated" -> null
+          - minimum_tls_version                           = "1.2" -> null
+          - remote_debugging_enabled                      = false -> null
+          - remote_debugging_version                      = "VS2022" -> null
+          - scm_ip_restriction_default_action             = "Allow" -> null
+          - scm_minimum_tls_version                       = "1.2" -> null
+          - scm_type                                      = "None" -> null
+          - scm_use_main_ip_restriction                   = false -> null
+          - use_32_bit_worker                             = true -> null
+          - vnet_route_all_enabled                        = false -> null
+          - websockets_enabled                            = false -> null
+          - worker_count                                  = 1 -> null
+            # (3 unchanged attributes hidden)
+
+          - application_stack {
+              - python_version           = "3.11" -> null
+                # (14 unchanged attributes hidden)
+            }
+
+          - cors {
+              - allowed_origins     = [
+                  - "http://localhost:3000",
+                  - "http://localhost:5173",
+                  - "https://lively-bush-0ed75ca10.7.azurestaticapps.net",
+                ] -> null
+              - support_credentials = true -> null
+            }
+        }
+    }
+
+  # module.app.azurerm_monitor_diagnostic_setting.app_diag will be destroyed
+  - resource "azurerm_monitor_diagnostic_setting" "app_diag" {
+      - id                             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Web/sites/app-ems-readykit-dev|diag-app" -> null
+      - log_analytics_workspace_id     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.OperationalInsights/workspaces/law-ems-readykit-dev" -> null
+      - name                           = "diag-app" -> null
+      - target_resource_id             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Web/sites/app-ems-readykit-dev" -> null
+        # (3 unchanged attributes hidden)
+
+      - enabled_log {
+          - category       = "AppServiceAppLogs" -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - enabled_log {
+          - category       = "AppServiceAuditLogs" -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - enabled_log {
+          - category       = "AppServiceConsoleLogs" -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - enabled_log {
+          - category       = "AppServiceHTTPLogs" -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+
+      - log {
+          - category       = "AppServiceAppLogs" -> null
+          - enabled        = true -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - log {
+          - category       = "AppServiceAuditLogs" -> null
+          - enabled        = true -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - log {
+          - category       = "AppServiceAuthenticationLogs" -> null
+          - enabled        = false -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - log {
+          - category       = "AppServiceConsoleLogs" -> null
+          - enabled        = true -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - log {
+          - category       = "AppServiceHTTPLogs" -> null
+          - enabled        = true -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - log {
+          - category       = "AppServiceIPSecAuditLogs" -> null
+          - enabled        = false -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - log {
+          - category       = "AppServicePlatformLogs" -> null
+          - enabled        = false -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+
+      - metric {
+          - category = "AllMetrics" -> null
+          - enabled  = true -> null
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+    }
+
+  # module.app.azurerm_monitor_diagnostic_setting.kv_diag will be destroyed
+  - resource "azurerm_monitor_diagnostic_setting" "kv_diag" {
+      - id                             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kv-f07bxc|diag-kv" -> null
+      - log_analytics_destination_type = "AzureDiagnostics" -> null
+      - log_analytics_workspace_id     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.OperationalInsights/workspaces/law-ems-readykit-dev" -> null
+      - name                           = "diag-kv" -> null
+      - target_resource_id             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kv-f07bxc" -> null
+        # (2 unchanged attributes hidden)
+
+      - enabled_log {
+          - category       = "AuditEvent" -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+
+      - log {
+          - category       = "AuditEvent" -> null
+          - enabled        = true -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - log {
+          - category       = "AzurePolicyEvaluationDetails" -> null
+          - enabled        = false -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+
+      - metric {
+          - category = "AllMetrics" -> null
+          - enabled  = true -> null
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+    }
+
+  # module.app.azurerm_role_assignment.app_kv_secrets_user will be destroyed
+  - resource "azurerm_role_assignment" "app_kv_secrets_user" {
+      - id                                     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kv-f07bxc/providers/Microsoft.Authorization/roleAssignments/7a211a45-fe2d-a9e4-f2aa-57e5c2a3f02e" -> null
+      - name                                   = "7a211a45-fe2d-a9e4-f2aa-57e5c2a3f02e" -> null
+      - principal_id                           = "e1fb30d7-908d-46bc-896d-a5b015f90e6a" -> null
+      - principal_type                         = "ServicePrincipal" -> null
+      - role_definition_id                     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/roleDefinitions/4633458b-17de-408a-b874-0445c86b69e6" -> null
+      - role_definition_name                   = "Key Vault Secrets User" -> null
+      - scope                                  = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kv-f07bxc" -> null
+        # (4 unchanged attributes hidden)
+    }
+
+  # module.app.azurerm_role_assignment.terraform_kv_secrets_officer will be destroyed
+  - resource "azurerm_role_assignment" "terraform_kv_secrets_officer" {
+      - id                                     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kv-f07bxc/providers/Microsoft.Authorization/roleAssignments/abd2a884-508e-06ae-531c-11429b6ec491" -> null
+      - name                                   = "abd2a884-508e-06ae-531c-11429b6ec491" -> null
+      - principal_id                           = "f976ff12-cd25-48c8-8e85-535d301a6d28" -> null
+      - principal_type                         = "User" -> null
+      - role_definition_id                     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/roleDefinitions/b86a8fe4-44ce-4948-aee5-eccb2c155cd7" -> null
+      - role_definition_name                   = "Key Vault Secrets Officer" -> null
+      - scope                                  = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kv-f07bxc" -> null
+        # (4 unchanged attributes hidden)
+    }
+
+  # module.app.azurerm_service_plan.ems_plan will be destroyed
+  - resource "azurerm_service_plan" "ems_plan" {
+      - id                           = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Web/serverFarms/asp-ems-readykit-dev" -> null
+      - kind                         = "linux" -> null
+      - location                     = "northcentralus" -> null
+      - maximum_elastic_worker_count = 1 -> null
+      - name                         = "asp-ems-readykit-dev" -> null
+      - os_type                      = "Linux" -> null
+      - per_site_scaling_enabled     = false -> null
+      - reserved                     = true -> null
+      - resource_group_name          = "rg-ems-readykit-dev" -> null
+      - sku_name                     = "B1" -> null
+      - tags                         = {
+          - "CostCenter"  = "EMS-Demo"
+          - "Environment" = "dev"
+          - "ManagedBy"   = "Terraform"
+          - "Owner"       = "EMS-ReadyKit-Team"
+          - "Project"     = "ems-readykit"
+        } -> null
+      - worker_count                 = 1 -> null
+      - zone_balancing_enabled       = false -> null
+        # (1 unchanged attribute hidden)
+    }
+
+  # module.app.random_password.app_secret_key will be destroyed
+  - resource "random_password" "app_secret_key" {
+      - bcrypt_hash = (sensitive value) -> null
+      - id          = "none" -> null
+      - length      = 48 -> null
+      - lower       = true -> null
+      - min_lower   = 0 -> null
+      - min_numeric = 0 -> null
+      - min_special = 0 -> null
+      - min_upper   = 0 -> null
+      - number      = true -> null
+      - numeric     = true -> null
+      - result      = (sensitive value) -> null
+      - special     = true -> null
+      - upper       = true -> null
+    }
+
+  # module.app.random_string.kv_suffix will be destroyed
+  - resource "random_string" "kv_suffix" {
+      - id          = "f07bxc" -> null
+      - length      = 6 -> null
+      - lower       = true -> null
+      - min_lower   = 0 -> null
+      - min_numeric = 0 -> null
+      - min_special = 0 -> null
+      - min_upper   = 0 -> null
+      - number      = true -> null
+      - numeric     = true -> null
+      - result      = "f07bxc" -> null
+      - special     = false -> null
+      - upper       = false -> null
+    }
+
+  # module.data.azurerm_monitor_diagnostic_setting.pg_diag will be destroyed
+  - resource "azurerm_monitor_diagnostic_setting" "pg_diag" {
+      - id                             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.DBforPostgreSQL/flexibleServers/pg-ems-readykit-dev|diag-pg" -> null
+      - log_analytics_destination_type = "AzureDiagnostics" -> null
+      - log_analytics_workspace_id     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.OperationalInsights/workspaces/law-ems-readykit-dev" -> null
+      - name                           = "diag-pg" -> null
+      - target_resource_id             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.DBforPostgreSQL/flexibleServers/pg-ems-readykit-dev" -> null
+        # (2 unchanged attributes hidden)
+
+      - enabled_log {
+          - category       = "PostgreSQLLogs" -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+
+      - log {
+          - category       = "PostgreSQLFlexDatabaseXacts" -> null
+          - enabled        = false -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - log {
+          - category       = "PostgreSQLFlexPGBouncer" -> null
+          - enabled        = false -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - log {
+          - category       = "PostgreSQLFlexQueryStoreRuntime" -> null
+          - enabled        = false -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - log {
+          - category       = "PostgreSQLFlexQueryStoreWaitStats" -> null
+          - enabled        = false -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - log {
+          - category       = "PostgreSQLFlexSessions" -> null
+          - enabled        = false -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - log {
+          - category       = "PostgreSQLFlexTableStats" -> null
+          - enabled        = false -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - log {
+          - category       = "PostgreSQLLogs" -> null
+          - enabled        = true -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - log {
+          - category       = "PostgreSQLQueryStoreSqlText" -> null
+          - enabled        = false -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+
+      - metric {
+          - category = "AllMetrics" -> null
+          - enabled  = true -> null
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+    }
+
+  # module.data.azurerm_postgresql_flexible_server.ems_pg will be destroyed
+  - resource "azurerm_postgresql_flexible_server" "ems_pg" {
+      - administrator_login           = "emsadmin" -> null
+      - administrator_password        = (sensitive value) -> null
+      - auto_grow_enabled             = false -> null
+      - backup_retention_days         = 7 -> null
+      - fqdn                          = "pg-ems-readykit-dev.postgres.database.azure.com" -> null
+      - geo_redundant_backup_enabled  = false -> null
+      - id                            = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.DBforPostgreSQL/flexibleServers/pg-ems-readykit-dev" -> null
+      - location                      = "northcentralus" -> null
+      - name                          = "pg-ems-readykit-dev" -> null
+      - public_network_access_enabled = true -> null
+      - resource_group_name           = "rg-ems-readykit-dev" -> null
+      - sku_name                      = "B_Standard_B1ms" -> null
+      - storage_mb                    = 32768 -> null
+      - storage_tier                  = "P4" -> null
+      - tags                          = {
+          - "CostCenter"  = "EMS-Demo"
+          - "Environment" = "dev"
+          - "ManagedBy"   = "Terraform"
+          - "Owner"       = "EMS-ReadyKit-Team"
+          - "Project"     = "ems-readykit"
+        } -> null
+      - version                       = "16" -> null
+        # (4 unchanged attributes hidden)
+
+      - authentication {
+          - active_directory_auth_enabled = false -> null
+          - password_auth_enabled         = true -> null
+            # (1 unchanged attribute hidden)
+        }
+    }
+
+  # module.data.azurerm_postgresql_flexible_server_database.ems_db will be destroyed
+  - resource "azurerm_postgresql_flexible_server_database" "ems_db" {
+      - charset   = "UTF8" -> null
+      - collation = "en_US.utf8" -> null
+      - id        = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.DBforPostgreSQL/flexibleServers/pg-ems-readykit-dev/databases/ems_readykit" -> null
+      - name      = "ems_readykit" -> null
+      - server_id = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.DBforPostgreSQL/flexibleServers/pg-ems-readykit-dev" -> null
+    }
+
+  # module.data.azurerm_postgresql_flexible_server_firewall_rule.allow_azure_services will be destroyed
+  - resource "azurerm_postgresql_flexible_server_firewall_rule" "allow_azure_services" {
+      - end_ip_address   = "0.0.0.0" -> null
+      - id               = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.DBforPostgreSQL/flexibleServers/pg-ems-readykit-dev/firewallRules/AllowAzureServices" -> null
+      - name             = "AllowAzureServices" -> null
+      - server_id        = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.DBforPostgreSQL/flexibleServers/pg-ems-readykit-dev" -> null
+      - start_ip_address = "0.0.0.0" -> null
+    }
+
+  # module.data.azurerm_private_endpoint.pg_pe will be destroyed
+  - resource "azurerm_private_endpoint" "pg_pe" {
+      - custom_dns_configs            = [
+          - {
+              - fqdn         = "pg-ems-readykit-dev.postgres.database.azure.com"
+              - ip_addresses = [
+                  - "10.10.2.4",
+                ]
+            },
+        ] -> null
+      - id                            = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/privateEndpoints/pe-pg-ems-readykit-dev" -> null
+      - location                      = "northcentralus" -> null
+      - name                          = "pe-pg-ems-readykit-dev" -> null
+      - network_interface             = [
+          - {
+              - id   = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkInterfaces/pe-pg-ems-readykit-dev.nic.126ea145-b9bc-4d44-93a1-ce96da3a0e6b"
+              - name = "pe-pg-ems-readykit-dev.nic.126ea145-b9bc-4d44-93a1-ce96da3a0e6b"
+            },
+        ] -> null
+      - private_dns_zone_configs      = [] -> null
+      - resource_group_name           = "rg-ems-readykit-dev" -> null
+      - subnet_id                     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-data" -> null
+      - tags                          = {
+          - "CostCenter"  = "EMS-Demo"
+          - "Environment" = "dev"
+          - "ManagedBy"   = "Terraform"
+          - "Owner"       = "EMS-ReadyKit-Team"
+          - "Project"     = "ems-readykit"
+        } -> null
+        # (1 unchanged attribute hidden)
+
+      - private_service_connection {
+          - is_manual_connection              = false -> null
+          - name                              = "psc-pg" -> null
+          - private_connection_resource_id    = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.DBforPostgreSQL/flexibleServers/pg-ems-readykit-dev" -> null
+          - private_ip_address                = "10.10.2.4" -> null
+          - subresource_names                 = [
+              - "postgresqlServer",
+            ] -> null
+            # (2 unchanged attributes hidden)
+        }
+    }
+
+  # module.identity_rbac.azuread_app_role_assignment.administrators will be destroyed
+  - resource "azuread_app_role_assignment" "administrators" {
+      - app_role_id            = "00000000-0000-0000-0001-000000000001" -> null
+      - id                     = "1fb64958-8a46-4a50-8ec9-1cc2a6505ea2/appRoleAssignment/q8KvZOpqo0q_ob9OV_rSRBKK7ZUpm8hHl4mB_ZmkLxI" -> null
+      - principal_display_name = "ems-readykit-administrators" -> null
+      - principal_object_id    = "64afc2ab-6aea-4aa3-bfa1-bf4e57fad244" -> null
+      - principal_type         = "Group" -> null
+      - resource_display_name  = "EMS ReadyKit API" -> null
+      - resource_object_id     = "1fb64958-8a46-4a50-8ec9-1cc2a6505ea2" -> null
+    }
+
+  # module.identity_rbac.azuread_app_role_assignment.responders will be destroyed
+  - resource "azuread_app_role_assignment" "responders" {
+      - app_role_id            = "00000000-0000-0000-0001-000000000003" -> null
+      - id                     = "1fb64958-8a46-4a50-8ec9-1cc2a6505ea2/appRoleAssignment/TRLs8Ka0d0aHjBHITGeFZ5J3dlq4_WBMoVO-VubrBsA" -> null
+      - principal_display_name = "ems-readykit-responders" -> null
+      - principal_object_id    = "f0ec124d-b4a6-4677-878c-11c84c678567" -> null
+      - principal_type         = "Group" -> null
+      - resource_display_name  = "EMS ReadyKit API" -> null
+      - resource_object_id     = "1fb64958-8a46-4a50-8ec9-1cc2a6505ea2" -> null
+    }
+
+  # module.identity_rbac.azuread_app_role_assignment.supervisors will be destroyed
+  - resource "azuread_app_role_assignment" "supervisors" {
+      - app_role_id            = "00000000-0000-0000-0001-000000000002" -> null
+      - id                     = "1fb64958-8a46-4a50-8ec9-1cc2a6505ea2/appRoleAssignment/CQyuS_dHIkGc1OgXKOfJjaGMqjgzs61OrtA8BOEukQQ" -> null
+      - principal_display_name = "ems-readykit-supervisors" -> null
+      - principal_object_id    = "4bae0c09-47f7-4122-9cd4-e81728e7c98d" -> null
+      - principal_type         = "Group" -> null
+      - resource_display_name  = "EMS ReadyKit API" -> null
+      - resource_object_id     = "1fb64958-8a46-4a50-8ec9-1cc2a6505ea2" -> null
+    }
+
+  # module.identity_rbac.azuread_application.ems_readykit will be destroyed
+  - resource "azuread_application" "ems_readykit" {
+      - app_role_ids                   = {
+          - "Administrator" = "00000000-0000-0000-0001-000000000001"
+          - "Responder"     = "00000000-0000-0000-0001-000000000003"
+          - "Supervisor"    = "00000000-0000-0000-0001-000000000002"
+        } -> null
+      - application_id                 = "a780b97f-5451-46d5-8fc9-5268e491e0ee" -> null
+      - client_id                      = "a780b97f-5451-46d5-8fc9-5268e491e0ee" -> null
+      - device_only_auth_enabled       = false -> null
+      - disabled_by_microsoft          = "<nil>" -> null
+      - display_name                   = "EMS ReadyKit API" -> null
+      - fallback_public_client_enabled = false -> null
+      - group_membership_claims        = [] -> null
+      - id                             = "/applications/0e0aaad3-1a5e-4927-bf98-cf2da5286643" -> null
+      - identifier_uris                = [
+          - "api://a780b97f-5451-46d5-8fc9-5268e491e0ee",
+        ] -> null
+      - oauth2_permission_scope_ids    = {
+          - "api.access"         = "00000000-0000-0000-0000-000000000001"
+          - "user_impersonation" = "413150f6-0b02-4000-b484-4b2345f025b0"
+        } -> null
+      - oauth2_post_response_required  = false -> null
+      - object_id                      = "0e0aaad3-1a5e-4927-bf98-cf2da5286643" -> null
+      - owners                         = [] -> null
+      - prevent_duplicate_names        = false -> null
+      - publisher_domain               = "jinniyah98hotmail.onmicrosoft.com" -> null
+      - sign_in_audience               = "AzureADandPersonalMicrosoftAccount" -> null
+      - tags                           = [] -> null
+        # (10 unchanged attributes hidden)
+
+      - api {
+          - known_client_applications      = [] -> null
+          - mapped_claims_enabled          = false -> null
+          - requested_access_token_version = 2 -> null
+
+          - oauth2_permission_scope {
+              - admin_consent_description  = "Access the EMS ReadyKit API on behalf of the signed-in user" -> null
+              - admin_consent_display_name = "Access EMS ReadyKit API" -> null
+              - enabled                    = true -> null
+              - id                         = "00000000-0000-0000-0000-000000000001" -> null
+              - type                       = "User" -> null
+              - user_consent_description   = "Access the EMS ReadyKit API on your behalf" -> null
+              - user_consent_display_name  = "Access EMS ReadyKit API" -> null
+              - value                      = "api.access" -> null
+            }
+          - oauth2_permission_scope {
+              - admin_consent_description  = "Allows the app to access EMS ReadyKit API on behalf of the signed-in user" -> null
+              - admin_consent_display_name = "Access EMS ReadyKit API" -> null
+              - enabled                    = true -> null
+              - id                         = "413150f6-0b02-4000-b484-4b2345f025b0" -> null
+              - type                       = "User" -> null
+              - user_consent_description   = "Allow the app to access EMS ReadyKit API on your behalf" -> null
+              - user_consent_display_name  = "Access EMS ReadyKit API" -> null
+              - value                      = "user_impersonation" -> null
+            }
+        }
+
+      - app_role {
+          - allowed_member_types = [
+              - "Application",
+              - "User",
+            ] -> null
+          - description          = "EMS ReadyKit field responders" -> null
+          - display_name         = "Responder" -> null
+          - enabled              = true -> null
+          - id                   = "00000000-0000-0000-0001-000000000003" -> null
+          - value                = "Responder" -> null
+        }
+      - app_role {
+          - allowed_member_types = [
+              - "Application",
+              - "User",
+            ] -> null
+          - description          = "EMS ReadyKit global administrators" -> null
+          - display_name         = "Administrator" -> null
+          - enabled              = true -> null
+          - id                   = "00000000-0000-0000-0001-000000000001" -> null
+          - value                = "Administrator" -> null
+        }
+      - app_role {
+          - allowed_member_types = [
+              - "Application",
+              - "User",
+            ] -> null
+          - description          = "EMS ReadyKit station supervisors" -> null
+          - display_name         = "Supervisor" -> null
+          - enabled              = true -> null
+          - id                   = "00000000-0000-0000-0001-000000000002" -> null
+          - value                = "Supervisor" -> null
+        }
+
+      - feature_tags {
+          - custom_single_sign_on = false -> null
+          - enterprise            = false -> null
+          - gallery               = false -> null
+          - hide                  = false -> null
+        }
+
+      - optional_claims {
+        }
+
+      - public_client {
+          - redirect_uris = [] -> null
+        }
+
+      - required_resource_access {
+          - resource_app_id = "a780b97f-5451-46d5-8fc9-5268e491e0ee" -> null
+
+          - resource_access {
+              - id   = "00000000-0000-0000-0000-000000000001" -> null
+              - type = "Scope" -> null
+            }
+        }
+
+      - single_page_application {
+          - redirect_uris = [
+              - "http://localhost:5173",
+              - "https://lively-bush-0ed75ca10.7.azurestaticapps.net",
+            ] -> null
+        }
+
+      - web {
+          - homepage_url  = "https://lively-bush-0ed75ca10.7.azurestaticapps.net/" -> null
+          - redirect_uris = [] -> null
+            # (1 unchanged attribute hidden)
+
+          - implicit_grant {
+              - access_token_issuance_enabled = false -> null
+              - id_token_issuance_enabled     = false -> null
+            }
+        }
+    }
+
+  # module.identity_rbac.azuread_application.github_actions will be destroyed
+  - resource "azuread_application" "github_actions" {
+      - app_role_ids                   = {} -> null
+      - application_id                 = "7cbbdff7-1d5d-493d-b83f-c52da5e6a403" -> null
+      - client_id                      = "7cbbdff7-1d5d-493d-b83f-c52da5e6a403" -> null
+      - device_only_auth_enabled       = false -> null
+      - disabled_by_microsoft          = "<nil>" -> null
+      - display_name                   = "sp-ems-readykit-github-actions" -> null
+      - fallback_public_client_enabled = false -> null
+      - group_membership_claims        = [] -> null
+      - id                             = "/applications/73067554-3eba-4953-8ff0-761f8fc57c46" -> null
+      - identifier_uris                = [] -> null
+      - oauth2_permission_scope_ids    = {} -> null
+      - oauth2_post_response_required  = false -> null
+      - object_id                      = "73067554-3eba-4953-8ff0-761f8fc57c46" -> null
+      - owners                         = [] -> null
+      - prevent_duplicate_names        = false -> null
+      - publisher_domain               = "jinniyah98hotmail.onmicrosoft.com" -> null
+      - sign_in_audience               = "AzureADMyOrg" -> null
+      - tags                           = [] -> null
+        # (10 unchanged attributes hidden)
+
+      - api {
+          - known_client_applications      = [] -> null
+          - mapped_claims_enabled          = false -> null
+          - requested_access_token_version = 1 -> null
+        }
+
+      - feature_tags {
+          - custom_single_sign_on = false -> null
+          - enterprise            = false -> null
+          - gallery               = false -> null
+          - hide                  = false -> null
+        }
+
+      - optional_claims {
+        }
+
+      - public_client {
+          - redirect_uris = [] -> null
+        }
+
+      - single_page_application {
+          - redirect_uris = [] -> null
+        }
+
+      - web {
+          - redirect_uris = [] -> null
+            # (2 unchanged attributes hidden)
+
+          - implicit_grant {
+              - access_token_issuance_enabled = false -> null
+              - id_token_issuance_enabled     = false -> null
+            }
+        }
+    }
+
+  # module.identity_rbac.azuread_application_identifier_uri.ems_readykit will be destroyed
+  - resource "azuread_application_identifier_uri" "ems_readykit" {
+      - application_id = "/applications/0e0aaad3-1a5e-4927-bf98-cf2da5286643" -> null
+      - id             = "/applications/0e0aaad3-1a5e-4927-bf98-cf2da5286643/identifierUris/YXBpOi8vYTc4MGI5N2YtNTQ1MS00NmQ1LThmYzktNTI2OGU0OTFlMGVl" -> null
+      - identifier_uri = "api://a780b97f-5451-46d5-8fc9-5268e491e0ee" -> null
+    }
+
+  # module.identity_rbac.azuread_group.administrators will be destroyed
+  - resource "azuread_group" "administrators" {
+      - administrative_unit_ids        = [] -> null
+      - assignable_to_role             = false -> null
+      - auto_subscribe_new_members     = false -> null
+      - behaviors                      = [] -> null
+      - description                    = "EMS ReadyKit global administrators — subscription-level read access" -> null
+      - display_name                   = "ems-readykit-administrators" -> null
+      - external_senders_allowed       = false -> null
+      - hide_from_address_lists        = false -> null
+      - hide_from_outlook_clients      = false -> null
+      - id                             = "64afc2ab-6aea-4aa3-bfa1-bf4e57fad244" -> null
+      - mail_enabled                   = false -> null
+      - mail_nickname                  = "c0cca5db-2" -> null
+      - members                        = [
+          - "7f64db8a-d820-4d8a-b4a4-9e6834a379f5",
+          - "f976ff12-cd25-48c8-8e85-535d301a6d28",
+        ] -> null
+      - object_id                      = "64afc2ab-6aea-4aa3-bfa1-bf4e57fad244" -> null
+      - onpremises_sync_enabled        = false -> null
+      - owners                         = [
+          - "f976ff12-cd25-48c8-8e85-535d301a6d28",
+        ] -> null
+      - prevent_duplicate_names        = false -> null
+      - provisioning_options           = [] -> null
+      - proxy_addresses                = [] -> null
+      - security_enabled               = true -> null
+      - types                          = [] -> null
+      - writeback_enabled              = false -> null
+        # (9 unchanged attributes hidden)
+    }
+
+  # module.identity_rbac.azuread_group.responders will be destroyed
+  - resource "azuread_group" "responders" {
+      - administrative_unit_ids        = [] -> null
+      - assignable_to_role             = false -> null
+      - auto_subscribe_new_members     = false -> null
+      - behaviors                      = [] -> null
+      - description                    = "EMS ReadyKit responders — application-enforced access only" -> null
+      - display_name                   = "ems-readykit-responders" -> null
+      - external_senders_allowed       = false -> null
+      - hide_from_address_lists        = false -> null
+      - hide_from_outlook_clients      = false -> null
+      - id                             = "f0ec124d-b4a6-4677-878c-11c84c678567" -> null
+      - mail_enabled                   = false -> null
+      - mail_nickname                  = "e5fba045-0" -> null
+      - members                        = [
+          - "7f64db8a-d820-4d8a-b4a4-9e6834a379f5",
+          - "f976ff12-cd25-48c8-8e85-535d301a6d28",
+        ] -> null
+      - object_id                      = "f0ec124d-b4a6-4677-878c-11c84c678567" -> null
+      - onpremises_sync_enabled        = false -> null
+      - owners                         = [
+          - "f976ff12-cd25-48c8-8e85-535d301a6d28",
+        ] -> null
+      - prevent_duplicate_names        = false -> null
+      - provisioning_options           = [] -> null
+      - proxy_addresses                = [] -> null
+      - security_enabled               = true -> null
+      - types                          = [] -> null
+      - writeback_enabled              = false -> null
+        # (9 unchanged attributes hidden)
+    }
+
+  # module.identity_rbac.azuread_group.supervisors will be destroyed
+  - resource "azuread_group" "supervisors" {
+      - administrative_unit_ids        = [] -> null
+      - assignable_to_role             = false -> null
+      - auto_subscribe_new_members     = false -> null
+      - behaviors                      = [] -> null
+      - description                    = "EMS ReadyKit station supervisors — resource group contributor access" -> null
+      - display_name                   = "ems-readykit-supervisors" -> null
+      - external_senders_allowed       = false -> null
+      - hide_from_address_lists        = false -> null
+      - hide_from_outlook_clients      = false -> null
+      - id                             = "4bae0c09-47f7-4122-9cd4-e81728e7c98d" -> null
+      - mail_enabled                   = false -> null
+      - mail_nickname                  = "d91fa3ca-5" -> null
+      - members                        = [
+          - "7f64db8a-d820-4d8a-b4a4-9e6834a379f5",
+          - "f976ff12-cd25-48c8-8e85-535d301a6d28",
+        ] -> null
+      - object_id                      = "4bae0c09-47f7-4122-9cd4-e81728e7c98d" -> null
+      - onpremises_sync_enabled        = false -> null
+      - owners                         = [
+          - "f976ff12-cd25-48c8-8e85-535d301a6d28",
+        ] -> null
+      - prevent_duplicate_names        = false -> null
+      - provisioning_options           = [] -> null
+      - proxy_addresses                = [] -> null
+      - security_enabled               = true -> null
+      - types                          = [] -> null
+      - writeback_enabled              = false -> null
+        # (9 unchanged attributes hidden)
+    }
+
+  # module.identity_rbac.azuread_service_principal.ems_readykit will be destroyed
+  - resource "azuread_service_principal" "ems_readykit" {
+      - account_enabled               = true -> null
+      - alternative_names             = [] -> null
+      - app_role_assignment_required  = false -> null
+      - app_role_ids                  = {
+          - "Administrator" = "00000000-0000-0000-0001-000000000001"
+          - "Responder"     = "00000000-0000-0000-0001-000000000003"
+          - "Supervisor"    = "00000000-0000-0000-0001-000000000002"
+        } -> null
+      - app_roles                     = [
+          - {
+              - allowed_member_types = [
+                  - "Application",
+                  - "User",
+                ]
+              - description          = "EMS ReadyKit global administrators"
+              - display_name         = "Administrator"
+              - enabled              = true
+              - id                   = "00000000-0000-0000-0001-000000000001"
+              - value                = "Administrator"
+            },
+          - {
+              - allowed_member_types = [
+                  - "Application",
+                  - "User",
+                ]
+              - description          = "EMS ReadyKit station supervisors"
+              - display_name         = "Supervisor"
+              - enabled              = true
+              - id                   = "00000000-0000-0000-0001-000000000002"
+              - value                = "Supervisor"
+            },
+          - {
+              - allowed_member_types = [
+                  - "Application",
+                  - "User",
+                ]
+              - description          = "EMS ReadyKit field responders"
+              - display_name         = "Responder"
+              - enabled              = true
+              - id                   = "00000000-0000-0000-0001-000000000003"
+              - value                = "Responder"
+            },
+        ] -> null
+      - application_id                = "a780b97f-5451-46d5-8fc9-5268e491e0ee" -> null
+      - application_tenant_id         = "73d1629f-86ee-4a77-9f9e-a155d536a490" -> null
+      - client_id                     = "a780b97f-5451-46d5-8fc9-5268e491e0ee" -> null
+      - display_name                  = "EMS ReadyKit API" -> null
+      - homepage_url                  = "https://lively-bush-0ed75ca10.7.azurestaticapps.net/" -> null
+      - id                            = "1fb64958-8a46-4a50-8ec9-1cc2a6505ea2" -> null
+      - notification_email_addresses  = [] -> null
+      - oauth2_permission_scope_ids   = {
+          - "api.access"         = "00000000-0000-0000-0000-000000000001"
+          - "user_impersonation" = "413150f6-0b02-4000-b484-4b2345f025b0"
+        } -> null
+      - oauth2_permission_scopes      = [
+          - {
+              - admin_consent_description  = "Allows the app to access EMS ReadyKit API on behalf of the signed-in user"
+              - admin_consent_display_name = "Access EMS ReadyKit API"
+              - enabled                    = true
+              - id                         = "413150f6-0b02-4000-b484-4b2345f025b0"
+              - type                       = "User"
+              - user_consent_description   = "Allow the app to access EMS ReadyKit API on your behalf"
+              - user_consent_display_name  = "Access EMS ReadyKit API"
+              - value                      = "user_impersonation"
+            },
+          - {
+              - admin_consent_description  = "Access the EMS ReadyKit API on behalf of the signed-in user"
+              - admin_consent_display_name = "Access EMS ReadyKit API"
+              - enabled                    = true
+              - id                         = "00000000-0000-0000-0000-000000000001"
+              - type                       = "User"
+              - user_consent_description   = "Access the EMS ReadyKit API on your behalf"
+              - user_consent_display_name  = "Access EMS ReadyKit API"
+              - value                      = "api.access"
+            },
+        ] -> null
+      - object_id                     = "1fb64958-8a46-4a50-8ec9-1cc2a6505ea2" -> null
+      - owners                        = [] -> null
+      - redirect_uris                 = [
+          - "http://localhost:5173",
+          - "https://lively-bush-0ed75ca10.7.azurestaticapps.net",
+        ] -> null
+      - service_principal_names       = [
+          - "api://a780b97f-5451-46d5-8fc9-5268e491e0ee",
+        ] -> null
+      - sign_in_audience              = "AzureADandPersonalMicrosoftAccount" -> null
+      - tags                          = [] -> null
+      - type                          = "Application" -> null
+        # (6 unchanged attributes hidden)
+
+      - feature_tags {
+          - custom_single_sign_on = false -> null
+          - enterprise            = false -> null
+          - gallery               = false -> null
+          - hide                  = false -> null
+        }
+
+      - features {
+          - custom_single_sign_on_app = false -> null
+          - enterprise_application    = false -> null
+          - gallery_application       = false -> null
+          - visible_to_users          = true -> null
+        }
+
+      - saml_single_sign_on {
+            # (1 unchanged attribute hidden)
+        }
+    }
+
+  # module.identity_rbac.azuread_service_principal.github_actions will be destroyed
+  - resource "azuread_service_principal" "github_actions" {
+      - account_enabled               = true -> null
+      - alternative_names             = [] -> null
+      - app_role_assignment_required  = false -> null
+      - app_role_ids                  = {} -> null
+      - app_roles                     = [] -> null
+      - application_id                = "7cbbdff7-1d5d-493d-b83f-c52da5e6a403" -> null
+      - application_tenant_id         = "73d1629f-86ee-4a77-9f9e-a155d536a490" -> null
+      - client_id                     = "7cbbdff7-1d5d-493d-b83f-c52da5e6a403" -> null
+      - display_name                  = "sp-ems-readykit-github-actions" -> null
+      - id                            = "8daaf03d-2786-4be6-819d-639b81377350" -> null
+      - notification_email_addresses  = [] -> null
+      - oauth2_permission_scope_ids   = {} -> null
+      - oauth2_permission_scopes      = [] -> null
+      - object_id                     = "8daaf03d-2786-4be6-819d-639b81377350" -> null
+      - owners                        = [] -> null
+      - redirect_uris                 = [] -> null
+      - service_principal_names       = [] -> null
+      - sign_in_audience              = "AzureADMyOrg" -> null
+      - tags                          = [] -> null
+      - type                          = "Application" -> null
+        # (7 unchanged attributes hidden)
+
+      - feature_tags {
+          - custom_single_sign_on = false -> null
+          - enterprise            = false -> null
+          - gallery               = false -> null
+          - hide                  = false -> null
+        }
+
+      - features {
+          - custom_single_sign_on_app = false -> null
+          - enterprise_application    = false -> null
+          - gallery_application       = false -> null
+          - visible_to_users          = true -> null
+        }
+
+      - saml_single_sign_on {
+            # (1 unchanged attribute hidden)
+        }
+    }
+
+  # module.identity_rbac.azurerm_role_assignment.administrators_reader will be destroyed
+  - resource "azurerm_role_assignment" "administrators_reader" {
+      - id                                     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/roleAssignments/8f4a48e8-4847-db58-116a-3d704b4aa667" -> null
+      - name                                   = "8f4a48e8-4847-db58-116a-3d704b4aa667" -> null
+      - principal_id                           = "64afc2ab-6aea-4aa3-bfa1-bf4e57fad244" -> null
+      - principal_type                         = "Group" -> null
+      - role_definition_id                     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7" -> null
+      - role_definition_name                   = "Reader" -> null
+      - scope                                  = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e" -> null
+        # (4 unchanged attributes hidden)
+    }
+
+  # module.identity_rbac.azurerm_role_assignment.github_actions_tfstate_blob will be destroyed
+  - resource "azurerm_role_assignment" "github_actions_tfstate_blob" {
+      - id                                     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/tfstate-rg/providers/Microsoft.Storage/storageAccounts/emsreadykittfstate/providers/Microsoft.Authorization/roleAssignments/63f25cb1-cb1e-d612-8d04-7cf766f030ad" -> null
+      - name                                   = "63f25cb1-cb1e-d612-8d04-7cf766f030ad" -> null
+      - principal_id                           = "8daaf03d-2786-4be6-819d-639b81377350" -> null
+      - principal_type                         = "ServicePrincipal" -> null
+      - role_definition_id                     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe" -> null
+      - role_definition_name                   = "Storage Blob Data Contributor" -> null
+      - scope                                  = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/tfstate-rg/providers/Microsoft.Storage/storageAccounts/emsreadykittfstate" -> null
+        # (4 unchanged attributes hidden)
+    }
+
+  # module.identity_rbac.azurerm_role_assignment.github_actions_website_contributor will be destroyed
+  - resource "azurerm_role_assignment" "github_actions_website_contributor" {
+      - id                                     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Authorization/roleAssignments/48d4b62e-14b2-17b2-6bf9-8ca0b5abd7fb" -> null
+      - name                                   = "48d4b62e-14b2-17b2-6bf9-8ca0b5abd7fb" -> null
+      - principal_id                           = "8daaf03d-2786-4be6-819d-639b81377350" -> null
+      - principal_type                         = "ServicePrincipal" -> null
+      - role_definition_id                     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/roleDefinitions/de139f84-1756-47ae-9be6-808fbbe84772" -> null
+      - role_definition_name                   = "Website Contributor" -> null
+      - scope                                  = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev" -> null
+        # (4 unchanged attributes hidden)
+    }
+
+  # module.identity_rbac.azurerm_role_assignment.supervisors_contributor will be destroyed
+  - resource "azurerm_role_assignment" "supervisors_contributor" {
+      - id                                     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Authorization/roleAssignments/b9fd5ec0-51a9-5927-2393-613723e29ae8" -> null
+      - name                                   = "b9fd5ec0-51a9-5927-2393-613723e29ae8" -> null
+      - principal_id                           = "4bae0c09-47f7-4122-9cd4-e81728e7c98d" -> null
+      - principal_type                         = "Group" -> null
+      - role_definition_id                     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c" -> null
+      - role_definition_name                   = "Contributor" -> null
+      - scope                                  = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev" -> null
+        # (4 unchanged attributes hidden)
+    }
+
+  # module.identity_rbac.azurerm_role_assignment.supervisors_log_reader will be destroyed
+  - resource "azurerm_role_assignment" "supervisors_log_reader" {
+      - id                                     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Authorization/roleAssignments/b04067d5-6b16-47a5-6361-fa313962f349" -> null
+      - name                                   = "b04067d5-6b16-47a5-6361-fa313962f349" -> null
+      - principal_id                           = "4bae0c09-47f7-4122-9cd4-e81728e7c98d" -> null
+      - principal_type                         = "Group" -> null
+      - role_definition_id                     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/roleDefinitions/73c42c96-874c-492b-b04d-ab87d138a893" -> null
+      - role_definition_name                   = "Log Analytics Reader" -> null
+      - scope                                  = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev" -> null
+        # (4 unchanged attributes hidden)
+    }
+
+  # module.logging.azurerm_log_analytics_saved_search.high_severity_events will be destroyed
+  - resource "azurerm_log_analytics_saved_search" "high_severity_events" {
+      - category                   = "EMS Audit" -> null
+      - display_name               = "High Severity Events" -> null
+      - function_parameters        = [] -> null
+      - id                         = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.OperationalInsights/workspaces/law-ems-readykit-dev/savedSearches/EMS-HighSeverityEvents" -> null
+      - log_analytics_workspace_id = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.OperationalInsights/workspaces/law-ems-readykit-dev" -> null
+      - name                       = "EMS-HighSeverityEvents" -> null
+      - query                      = <<-EOT
+            AppEvents
+            | where TimeGenerated > ago(7d)
+            | where Properties has_any ("controlled_substance_discrepancy", "unauthorized_access", "auth_failure")
+            | project TimeGenerated, Name, Properties
+            | order by TimeGenerated desc
+        EOT -> null
+      - tags                       = {} -> null
+        # (1 unchanged attribute hidden)
+    }
+
+  # module.logging.azurerm_log_analytics_saved_search.recent_audit_events will be destroyed
+  - resource "azurerm_log_analytics_saved_search" "recent_audit_events" {
+      - category                   = "EMS Audit" -> null
+      - display_name               = "Recent Audit Events (24h)" -> null
+      - function_parameters        = [] -> null
+      - id                         = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.OperationalInsights/workspaces/law-ems-readykit-dev/savedSearches/EMS-RecentAuditEvents" -> null
+      - log_analytics_workspace_id = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.OperationalInsights/workspaces/law-ems-readykit-dev" -> null
+      - name                       = "EMS-RecentAuditEvents" -> null
+      - query                      = <<-EOT
+            AppEvents
+            | where TimeGenerated > ago(24h)
+            | where Properties has "audit"
+            | project TimeGenerated, Name, Properties
+            | order by TimeGenerated desc
+        EOT -> null
+      - tags                       = {} -> null
+        # (1 unchanged attribute hidden)
+    }
+
+  # module.logging.azurerm_log_analytics_workspace.ems_law will be destroyed
+  - resource "azurerm_log_analytics_workspace" "ems_law" {
+      - allow_resource_only_permissions         = true -> null
+      - cmk_for_query_forced                    = false -> null
+      - daily_quota_gb                          = -1 -> null
+      - id                                      = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.OperationalInsights/workspaces/law-ems-readykit-dev" -> null
+      - immediate_data_purge_on_30_days_enabled = false -> null
+      - internet_ingestion_enabled              = true -> null
+      - internet_query_enabled                  = true -> null
+      - local_authentication_disabled           = false -> null
+      - location                                = "northcentralus" -> null
+      - name                                    = "law-ems-readykit-dev" -> null
+      - primary_shared_key                      = (sensitive value) -> null
+      - resource_group_name                     = "rg-ems-readykit-dev" -> null
+      - retention_in_days                       = 30 -> null
+      - secondary_shared_key                    = (sensitive value) -> null
+      - sku                                     = "PerGB2018" -> null
+      - tags                                    = {
+          - "CostCenter"  = "EMS-Demo"
+          - "Environment" = "dev"
+          - "ManagedBy"   = "Terraform"
+          - "Owner"       = "EMS-ReadyKit-Team"
+          - "Project"     = "ems-readykit"
+        } -> null
+      - workspace_id                            = "b54b10c6-6b29-477c-acc8-0e5106fa379e" -> null
+        # (1 unchanged attribute hidden)
+    }
+
+  # module.network.azurerm_monitor_diagnostic_setting.app_nsg_diag will be destroyed
+  - resource "azurerm_monitor_diagnostic_setting" "app_nsg_diag" {
+      - id                             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-app|diag-nsg-app" -> null
+      - log_analytics_workspace_id     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.OperationalInsights/workspaces/law-ems-readykit-dev" -> null
+      - name                           = "diag-nsg-app" -> null
+      - target_resource_id             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-app" -> null
+        # (3 unchanged attributes hidden)
+
+      - enabled_log {
+          - category       = "NetworkSecurityGroupEvent" -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - enabled_log {
+          - category       = "NetworkSecurityGroupRuleCounter" -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+
+      - log {
+          - category       = "NetworkSecurityGroupEvent" -> null
+          - enabled        = true -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - log {
+          - category       = "NetworkSecurityGroupRuleCounter" -> null
+          - enabled        = true -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+    }
+
+  # module.network.azurerm_monitor_diagnostic_setting.data_nsg_diag will be destroyed
+  - resource "azurerm_monitor_diagnostic_setting" "data_nsg_diag" {
+      - id                             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-data|diag-nsg-data" -> null
+      - log_analytics_workspace_id     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.OperationalInsights/workspaces/law-ems-readykit-dev" -> null
+      - name                           = "diag-nsg-data" -> null
+      - target_resource_id             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-data" -> null
+        # (3 unchanged attributes hidden)
+
+      - enabled_log {
+          - category       = "NetworkSecurityGroupEvent" -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - enabled_log {
+          - category       = "NetworkSecurityGroupRuleCounter" -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+
+      - log {
+          - category       = "NetworkSecurityGroupEvent" -> null
+          - enabled        = true -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - log {
+          - category       = "NetworkSecurityGroupRuleCounter" -> null
+          - enabled        = true -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+    }
+
+  # module.network.azurerm_network_security_group.app_nsg will be destroyed
+  - resource "azurerm_network_security_group" "app_nsg" {
+      - id                  = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-app" -> null
+      - location            = "northcentralus" -> null
+      - name                = "nsg-app" -> null
+      - resource_group_name = "rg-ems-readykit-dev" -> null
+      - security_rule       = [
+          - {
+              - access                                     = "Deny"
+              - destination_address_prefix                 = "*"
+              - destination_address_prefixes               = []
+              - destination_application_security_group_ids = []
+              - destination_port_range                     = "*"
+              - destination_port_ranges                    = []
+              - direction                                  = "Inbound"
+              - name                                       = "Deny-All-Inbound"
+              - priority                                   = 4096
+              - protocol                                   = "*"
+              - source_address_prefix                      = "*"
+              - source_address_prefixes                    = []
+              - source_application_security_group_ids      = []
+              - source_port_range                          = "*"
+              - source_port_ranges                         = []
+                # (1 unchanged attribute hidden)
+            },
+        ] -> null
+      - tags                = {
+          - "CostCenter"  = "EMS-Demo"
+          - "Environment" = "dev"
+          - "ManagedBy"   = "Terraform"
+          - "Owner"       = "EMS-ReadyKit-Team"
+          - "Project"     = "ems-readykit"
+        } -> null
+    }
+
+  # module.network.azurerm_network_security_group.data_nsg will be destroyed
+  - resource "azurerm_network_security_group" "data_nsg" {
+      - id                  = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-data" -> null
+      - location            = "northcentralus" -> null
+      - name                = "nsg-data" -> null
+      - resource_group_name = "rg-ems-readykit-dev" -> null
+      - security_rule       = [
+          - {
+              - access                                     = "Allow"
+              - destination_address_prefix                 = "*"
+              - destination_address_prefixes               = []
+              - destination_application_security_group_ids = []
+              - destination_port_range                     = "1433"
+              - destination_port_ranges                    = []
+              - direction                                  = "Inbound"
+              - name                                       = "Allow-SQL-From-App"
+              - priority                                   = 100
+              - protocol                                   = "Tcp"
+              - source_address_prefix                      = "10.10.1.0/24"
+              - source_address_prefixes                    = []
+              - source_application_security_group_ids      = []
+              - source_port_range                          = "*"
+              - source_port_ranges                         = []
+                # (1 unchanged attribute hidden)
+            },
+          - {
+              - access                                     = "Deny"
+              - destination_address_prefix                 = "*"
+              - destination_address_prefixes               = []
+              - destination_application_security_group_ids = []
+              - destination_port_range                     = "*"
+              - destination_port_ranges                    = []
+              - direction                                  = "Inbound"
+              - name                                       = "Deny-All-Inbound"
+              - priority                                   = 4096
+              - protocol                                   = "*"
+              - source_address_prefix                      = "*"
+              - source_address_prefixes                    = []
+              - source_application_security_group_ids      = []
+              - source_port_range                          = "*"
+              - source_port_ranges                         = []
+                # (1 unchanged attribute hidden)
+            },
+        ] -> null
+      - tags                = {
+          - "CostCenter"  = "EMS-Demo"
+          - "Environment" = "dev"
+          - "ManagedBy"   = "Terraform"
+          - "Owner"       = "EMS-ReadyKit-Team"
+          - "Project"     = "ems-readykit"
+        } -> null
+    }
+
+  # module.network.azurerm_network_security_group.management_nsg will be destroyed
+  - resource "azurerm_network_security_group" "management_nsg" {
+      - id                  = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-management" -> null
+      - location            = "northcentralus" -> null
+      - name                = "nsg-management" -> null
+      - resource_group_name = "rg-ems-readykit-dev" -> null
+      - security_rule       = [
+          - {
+              - access                                     = "Allow"
+              - destination_address_prefix                 = "*"
+              - destination_address_prefixes               = []
+              - destination_application_security_group_ids = []
+              - destination_port_range                     = "22"
+              - destination_port_ranges                    = []
+              - direction                                  = "Inbound"
+              - name                                       = "Allow-SSH-Internal"
+              - priority                                   = 100
+              - protocol                                   = "Tcp"
+              - source_address_prefixes                    = [
+                  - "10.0.0.0/8",
+                  - "172.16.0.0/12",
+                  - "192.168.0.0/16",
+                ]
+              - source_application_security_group_ids      = []
+              - source_port_range                          = "*"
+              - source_port_ranges                         = []
+                # (2 unchanged attributes hidden)
+            },
+          - {
+              - access                                     = "Deny"
+              - destination_address_prefix                 = "*"
+              - destination_address_prefixes               = []
+              - destination_application_security_group_ids = []
+              - destination_port_range                     = "*"
+              - destination_port_ranges                    = []
+              - direction                                  = "Inbound"
+              - name                                       = "Deny-All-Inbound"
+              - priority                                   = 4096
+              - protocol                                   = "*"
+              - source_address_prefix                      = "*"
+              - source_address_prefixes                    = []
+              - source_application_security_group_ids      = []
+              - source_port_range                          = "*"
+              - source_port_ranges                         = []
+                # (1 unchanged attribute hidden)
+            },
+        ] -> null
+      - tags                = {
+          - "CostCenter"  = "EMS-Demo"
+          - "Environment" = "dev"
+          - "ManagedBy"   = "Terraform"
+          - "Owner"       = "EMS-ReadyKit-Team"
+          - "Project"     = "ems-readykit"
+        } -> null
+    }
+
+  # module.network.azurerm_subnet.app will be destroyed
+  - resource "azurerm_subnet" "app" {
+      - address_prefixes                               = [
+          - "10.10.1.0/24",
+        ] -> null
+      - default_outbound_access_enabled                = true -> null
+      - enforce_private_link_endpoint_network_policies = false -> null
+      - enforce_private_link_service_network_policies  = false -> null
+      - id                                             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-app" -> null
+      - name                                           = "snet-app" -> null
+      - private_endpoint_network_policies              = "Enabled" -> null
+      - private_endpoint_network_policies_enabled      = true -> null
+      - private_link_service_network_policies_enabled  = true -> null
+      - resource_group_name                            = "rg-ems-readykit-dev" -> null
+      - service_endpoint_policy_ids                    = [] -> null
+      - service_endpoints                              = [
+          - "Microsoft.KeyVault",
+        ] -> null
+      - virtual_network_name                           = "vnet-ems-readykit" -> null
+
+      - delegation {
+          - name = "appservice-delegation" -> null
+
+          - service_delegation {
+              - actions = [
+                  - "Microsoft.Network/virtualNetworks/subnets/action",
+                ] -> null
+              - name    = "Microsoft.Web/serverFarms" -> null
+            }
+        }
+    }
+
+  # module.network.azurerm_subnet.data will be destroyed
+  - resource "azurerm_subnet" "data" {
+      - address_prefixes                               = [
+          - "10.10.2.0/24",
+        ] -> null
+      - default_outbound_access_enabled                = true -> null
+      - enforce_private_link_endpoint_network_policies = true -> null
+      - enforce_private_link_service_network_policies  = false -> null
+      - id                                             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-data" -> null
+      - name                                           = "snet-data" -> null
+      - private_endpoint_network_policies              = "Disabled" -> null
+      - private_endpoint_network_policies_enabled      = false -> null
+      - private_link_service_network_policies_enabled  = true -> null
+      - resource_group_name                            = "rg-ems-readykit-dev" -> null
+      - service_endpoint_policy_ids                    = [] -> null
+      - service_endpoints                              = [
+          - "Microsoft.KeyVault",
+          - "Microsoft.Sql",
+          - "Microsoft.Storage",
+        ] -> null
+      - virtual_network_name                           = "vnet-ems-readykit" -> null
+    }
+
+  # module.network.azurerm_subnet.management will be destroyed
+  - resource "azurerm_subnet" "management" {
+      - address_prefixes                               = [
+          - "10.10.3.0/24",
+        ] -> null
+      - default_outbound_access_enabled                = true -> null
+      - enforce_private_link_endpoint_network_policies = false -> null
+      - enforce_private_link_service_network_policies  = false -> null
+      - id                                             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-management" -> null
+      - name                                           = "snet-management" -> null
+      - private_endpoint_network_policies              = "Enabled" -> null
+      - private_endpoint_network_policies_enabled      = true -> null
+      - private_link_service_network_policies_enabled  = true -> null
+      - resource_group_name                            = "rg-ems-readykit-dev" -> null
+      - service_endpoint_policy_ids                    = [] -> null
+      - service_endpoints                              = [] -> null
+      - virtual_network_name                           = "vnet-ems-readykit" -> null
+    }
+
+  # module.network.azurerm_subnet_network_security_group_association.app_assoc will be destroyed
+  - resource "azurerm_subnet_network_security_group_association" "app_assoc" {
+      - id                        = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-app" -> null
+      - network_security_group_id = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-app" -> null
+      - subnet_id                 = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-app" -> null
+    }
+
+  # module.network.azurerm_subnet_network_security_group_association.data_assoc will be destroyed
+  - resource "azurerm_subnet_network_security_group_association" "data_assoc" {
+      - id                        = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-data" -> null
+      - network_security_group_id = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-data" -> null
+      - subnet_id                 = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-data" -> null
+    }
+
+  # module.network.azurerm_subnet_network_security_group_association.management_assoc will be destroyed
+  - resource "azurerm_subnet_network_security_group_association" "management_assoc" {
+      - id                        = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-management" -> null
+      - network_security_group_id = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-management" -> null
+      - subnet_id                 = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-management" -> null
+    }
+
+  # module.network.azurerm_virtual_network.ems_vnet will be destroyed
+  - resource "azurerm_virtual_network" "ems_vnet" {
+      - address_space           = [
+          - "10.10.0.0/16",
+        ] -> null
+      - dns_servers             = [] -> null
+      - flow_timeout_in_minutes = 0 -> null
+      - guid                    = "f082b0c7-79a0-4e76-b61f-e79622ad7ae7" -> null
+      - id                      = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit" -> null
+      - location                = "northcentralus" -> null
+      - name                    = "vnet-ems-readykit" -> null
+      - resource_group_name     = "rg-ems-readykit-dev" -> null
+      - subnet                  = [
+          - {
+              - address_prefix = "10.10.1.0/24"
+              - id             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-app"
+              - name           = "snet-app"
+              - security_group = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-app"
+            },
+          - {
+              - address_prefix = "10.10.2.0/24"
+              - id             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-data"
+              - name           = "snet-data"
+              - security_group = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-data"
+            },
+          - {
+              - address_prefix = "10.10.3.0/24"
+              - id             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-management"
+              - name           = "snet-management"
+              - security_group = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-management"
+            },
+        ] -> null
+      - tags                    = {
+          - "CostCenter"  = "EMS-Demo"
+          - "Environment" = "dev"
+          - "ManagedBy"   = "Terraform"
+          - "Owner"       = "EMS-ReadyKit-Team"
+          - "Project"     = "ems-readykit"
+        } -> null
+        # (2 unchanged attributes hidden)
+    }
+
+  # module.policy.azurerm_policy_definition.deny_public_ip will be destroyed
+  - resource "azurerm_policy_definition" "deny_public_ip" {
+      - description         = "Prevents creation of public IP addresses to enforce network isolation." -> null
+      - display_name        = "EMS ReadyKit — Deny Public IP Creation" -> null
+      - id                  = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyDefinitions/ems-deny-public-ip" -> null
+      - metadata            = jsonencode(
+            {
+              - category  = "EMS ReadyKit Security"
+              - createdBy = "f976ff12-cd25-48c8-8e85-535d301a6d28"
+              - createdOn = "2026-05-10T20:44:42.9315789Z"
+              - updatedBy = null
+              - updatedOn = null
+            }
+        ) -> null
+      - mode                = "All" -> null
+      - name                = "ems-deny-public-ip" -> null
+      - policy_rule         = jsonencode(
+            {
+              - if   = {
+                  - allOf = [
+                      - {
+                          - equals = "Microsoft.Network/publicIPAddresses"
+                          - field  = "type"
+                        },
+                    ]
+                }
+              - then = {
+                  - effect = "Deny"
+                }
+            }
+        ) -> null
+      - policy_type         = "Custom" -> null
+      - role_definition_ids = [] -> null
+        # (2 unchanged attributes hidden)
+    }
+
+  # module.policy.azurerm_subscription_policy_assignment.allowed_locations will be destroyed
+  - resource "azurerm_subscription_policy_assignment" "allowed_locations" {
+      - description          = "Restricts deployments to northcentralus (primary) and centralus (required for Static Web Apps)." -> null
+      - display_name         = "EMS ReadyKit — Allowed Locations" -> null
+      - enforce              = true -> null
+      - id                   = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyAssignments/ems-allowed-locations" -> null
+      - metadata             = jsonencode(
+            {
+              - createdBy = "f976ff12-cd25-48c8-8e85-535d301a6d28"
+              - createdOn = "2026-05-10T20:44:43.0173415Z"
+              - updatedBy = "f976ff12-cd25-48c8-8e85-535d301a6d28"
+              - updatedOn = "2026-05-24T15:32:57.5220211Z"
+            }
+        ) -> null
+      - name                 = "ems-allowed-locations" -> null
+      - not_scopes           = [] -> null
+      - parameters           = jsonencode(
+            {
+              - listOfAllowedLocations = {
+                  - value = [
+                      - "northcentralus",
+                      - "centralus",
+                    ]
+                }
+            }
+        ) -> null
+      - policy_definition_id = "/providers/Microsoft.Authorization/policyDefinitions/e56962a6-4747-49cd-b67b-bf8b01975c4c" -> null
+      - subscription_id      = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e" -> null
+        # (1 unchanged attribute hidden)
+    }
+
+  # module.policy.azurerm_subscription_policy_assignment.deny_public_ip will be destroyed
+  - resource "azurerm_subscription_policy_assignment" "deny_public_ip" {
+      - description          = "Enforces network isolation by denying public IP resources." -> null
+      - display_name         = "EMS ReadyKit — Deny Public IP Creation" -> null
+      - enforce              = true -> null
+      - id                   = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyAssignments/ems-deny-public-ip" -> null
+      - metadata             = jsonencode(
+            {
+              - createdBy = "f976ff12-cd25-48c8-8e85-535d301a6d28"
+              - createdOn = "2026-05-10T20:46:31.0118791Z"
+              - updatedBy = null
+              - updatedOn = null
+            }
+        ) -> null
+      - name                 = "ems-deny-public-ip" -> null
+      - not_scopes           = [] -> null
+      - policy_definition_id = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyDefinitions/ems-deny-public-ip" -> null
+      - subscription_id      = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e" -> null
+        # (2 unchanged attributes hidden)
+    }
+
+  # module.policy.azurerm_subscription_policy_assignment.require_tag["CostCenter"] will be destroyed
+  - resource "azurerm_subscription_policy_assignment" "require_tag" {
+      - description          = "Ensures all resources carry the 'CostCenter' tag." -> null
+      - display_name         = "EMS ReadyKit — Require tag: CostCenter" -> null
+      - enforce              = true -> null
+      - id                   = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyAssignments/ems-require-tag-costcenter" -> null
+      - metadata             = jsonencode(
+            {
+              - createdBy = "f976ff12-cd25-48c8-8e85-535d301a6d28"
+              - createdOn = "2026-05-10T20:44:53.3136059Z"
+              - updatedBy = null
+              - updatedOn = null
+            }
+        ) -> null
+      - name                 = "ems-require-tag-costcenter" -> null
+      - not_scopes           = [] -> null
+      - parameters           = jsonencode(
+            {
+              - tagName = {
+                  - value = "CostCenter"
+                }
+            }
+        ) -> null
+      - policy_definition_id = "/providers/Microsoft.Authorization/policyDefinitions/871b6d14-10aa-478d-b590-94f262ecfa99" -> null
+      - subscription_id      = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e" -> null
+        # (1 unchanged attribute hidden)
+    }
+
+  # module.policy.azurerm_subscription_policy_assignment.require_tag["Environment"] will be destroyed
+  - resource "azurerm_subscription_policy_assignment" "require_tag" {
+      - description          = "Ensures all resources carry the 'Environment' tag." -> null
+      - display_name         = "EMS ReadyKit — Require tag: Environment" -> null
+      - enforce              = true -> null
+      - id                   = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyAssignments/ems-require-tag-environment" -> null
+      - metadata             = jsonencode(
+            {
+              - createdBy = "f976ff12-cd25-48c8-8e85-535d301a6d28"
+              - createdOn = "2026-05-10T20:44:43.1069781Z"
+              - updatedBy = null
+              - updatedOn = null
+            }
+        ) -> null
+      - name                 = "ems-require-tag-environment" -> null
+      - not_scopes           = [] -> null
+      - parameters           = jsonencode(
+            {
+              - tagName = {
+                  - value = "Environment"
+                }
+            }
+        ) -> null
+      - policy_definition_id = "/providers/Microsoft.Authorization/policyDefinitions/871b6d14-10aa-478d-b590-94f262ecfa99" -> null
+      - subscription_id      = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e" -> null
+        # (1 unchanged attribute hidden)
+    }
+
+  # module.policy.azurerm_subscription_policy_assignment.require_tag["ManagedBy"] will be destroyed
+  - resource "azurerm_subscription_policy_assignment" "require_tag" {
+      - description          = "Ensures all resources carry the 'ManagedBy' tag." -> null
+      - display_name         = "EMS ReadyKit — Require tag: ManagedBy" -> null
+      - enforce              = true -> null
+      - id                   = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyAssignments/ems-require-tag-managedby" -> null
+      - metadata             = jsonencode(
+            {
+              - createdBy = "f976ff12-cd25-48c8-8e85-535d301a6d28"
+              - createdOn = "2026-05-10T20:44:42.9892318Z"
+              - updatedBy = null
+              - updatedOn = null
+            }
+        ) -> null
+      - name                 = "ems-require-tag-managedby" -> null
+      - not_scopes           = [] -> null
+      - parameters           = jsonencode(
+            {
+              - tagName = {
+                  - value = "ManagedBy"
+                }
+            }
+        ) -> null
+      - policy_definition_id = "/providers/Microsoft.Authorization/policyDefinitions/871b6d14-10aa-478d-b590-94f262ecfa99" -> null
+      - subscription_id      = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e" -> null
+        # (1 unchanged attribute hidden)
+    }
+
+  # module.policy.azurerm_subscription_policy_assignment.require_tag["Owner"] will be destroyed
+  - resource "azurerm_subscription_policy_assignment" "require_tag" {
+      - description          = "Ensures all resources carry the 'Owner' tag." -> null
+      - display_name         = "EMS ReadyKit — Require tag: Owner" -> null
+      - enforce              = true -> null
+      - id                   = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyAssignments/ems-require-tag-owner" -> null
+      - metadata             = jsonencode(
+            {
+              - createdBy = "f976ff12-cd25-48c8-8e85-535d301a6d28"
+              - createdOn = "2026-05-10T20:44:43.0983012Z"
+              - updatedBy = null
+              - updatedOn = null
+            }
+        ) -> null
+      - name                 = "ems-require-tag-owner" -> null
+      - not_scopes           = [] -> null
+      - parameters           = jsonencode(
+            {
+              - tagName = {
+                  - value = "Owner"
+                }
+            }
+        ) -> null
+      - policy_definition_id = "/providers/Microsoft.Authorization/policyDefinitions/871b6d14-10aa-478d-b590-94f262ecfa99" -> null
+      - subscription_id      = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e" -> null
+        # (1 unchanged attribute hidden)
+    }
+
+  # module.policy.azurerm_subscription_policy_assignment.require_tag["Project"] will be destroyed
+  - resource "azurerm_subscription_policy_assignment" "require_tag" {
+      - description          = "Ensures all resources carry the 'Project' tag." -> null
+      - display_name         = "EMS ReadyKit — Require tag: Project" -> null
+      - enforce              = true -> null
+      - id                   = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyAssignments/ems-require-tag-project" -> null
+      - metadata             = jsonencode(
+            {
+              - createdBy = "f976ff12-cd25-48c8-8e85-535d301a6d28"
+              - createdOn = "2026-05-10T20:44:43.0959583Z"
+              - updatedBy = null
+              - updatedOn = null
+            }
+        ) -> null
+      - name                 = "ems-require-tag-project" -> null
+      - not_scopes           = [] -> null
+      - parameters           = jsonencode(
+            {
+              - tagName = {
+                  - value = "Project"
+                }
+            }
+        ) -> null
+      - policy_definition_id = "/providers/Microsoft.Authorization/policyDefinitions/871b6d14-10aa-478d-b590-94f262ecfa99" -> null
+      - subscription_id      = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e" -> null
+        # (1 unchanged attribute hidden)
+    }
+
+  # module.static_web_app.azurerm_monitor_diagnostic_setting.swa_diag will be destroyed
+  - resource "azurerm_monitor_diagnostic_setting" "swa_diag" {
+      - id                             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Web/staticSites/swa-ems-readykit-dev|diag-swa" -> null
+      - log_analytics_workspace_id     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.OperationalInsights/workspaces/law-ems-readykit-dev" -> null
+      - name                           = "diag-swa" -> null
+      - target_resource_id             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Web/staticSites/swa-ems-readykit-dev" -> null
+        # (3 unchanged attributes hidden)
+
+      - log {
+          - category       = "StaticSiteDiagnosticLogs" -> null
+          - enabled        = false -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - log {
+          - category       = "StaticSiteHttpLogs" -> null
+          - enabled        = false -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+
+      - metric {
+          - category = "AllMetrics" -> null
+          - enabled  = true -> null
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+    }
+
+  # module.static_web_app.azurerm_static_web_app.frontend will be destroyed
+  - resource "azurerm_static_web_app" "frontend" {
+      - api_key                            = (sensitive value) -> null
+      - app_settings                       = {} -> null
+      - configuration_file_changes_enabled = true -> null
+      - default_host_name                  = "lively-bush-0ed75ca10.7.azurestaticapps.net" -> null
+      - id                                 = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Web/staticSites/swa-ems-readykit-dev" -> null
+      - location                           = "centralus" -> null
+      - name                               = "swa-ems-readykit-dev" -> null
+      - preview_environments_enabled       = true -> null
+      - resource_group_name                = "rg-ems-readykit-dev" -> null
+      - sku_size                           = "Free" -> null
+      - sku_tier                           = "Free" -> null
+      - tags                               = {
+          - "CostCenter"  = "EMS-Demo"
+          - "Environment" = "dev"
+          - "ManagedBy"   = "Terraform"
+          - "Owner"       = "EMS-ReadyKit-Team"
+          - "Project"     = "ems-readykit"
+        } -> null
+    }
+
+  # module.storage.azurerm_monitor_diagnostic_setting.storage_diag will be destroyed
+  - resource "azurerm_monitor_diagnostic_setting" "storage_diag" {
+      - id                             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Storage/storageAccounts/emsreadykitstorage123/blobServices/default|diag-storage" -> null
+      - log_analytics_workspace_id     = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.OperationalInsights/workspaces/law-ems-readykit-dev" -> null
+      - name                           = "diag-storage" -> null
+      - target_resource_id             = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Storage/storageAccounts/emsreadykitstorage123/blobServices/default" -> null
+        # (3 unchanged attributes hidden)
+
+      - enabled_log {
+          - category       = "StorageDelete" -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - enabled_log {
+          - category       = "StorageRead" -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - enabled_log {
+          - category       = "StorageWrite" -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+
+      - log {
+          - category       = "StorageDelete" -> null
+          - enabled        = true -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - log {
+          - category       = "StorageRead" -> null
+          - enabled        = true -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - log {
+          - category       = "StorageWrite" -> null
+          - enabled        = true -> null
+            # (1 unchanged attribute hidden)
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+
+      - metric {
+          - category = "Capacity" -> null
+          - enabled  = false -> null
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+      - metric {
+          - category = "Transaction" -> null
+          - enabled  = true -> null
+
+          - retention_policy {
+              - days    = 0 -> null
+              - enabled = false -> null
+            }
+        }
+    }
+
+  # module.storage.azurerm_storage_account.ems_storage will be destroyed
+  - resource "azurerm_storage_account" "ems_storage" {
+      - access_tier                        = "Hot" -> null
+      - account_kind                       = "StorageV2" -> null
+      - account_replication_type           = "LRS" -> null
+      - account_tier                       = "Standard" -> null
+      - allow_nested_items_to_be_public    = false -> null
+      - cross_tenant_replication_enabled   = true -> null
+      - default_to_oauth_authentication    = false -> null
+      - dns_endpoint_type                  = "Standard" -> null
+      - enable_https_traffic_only          = true -> null
+      - https_traffic_only_enabled         = true -> null
+      - id                                 = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Storage/storageAccounts/emsreadykitstorage123" -> null
+      - infrastructure_encryption_enabled  = false -> null
+      - is_hns_enabled                     = false -> null
+      - large_file_share_enabled           = false -> null
+      - local_user_enabled                 = true -> null
+      - location                           = "northcentralus" -> null
+      - min_tls_version                    = "TLS1_2" -> null
+      - name                               = "emsreadykitstorage123" -> null
+      - nfsv3_enabled                      = false -> null
+      - primary_access_key                 = (sensitive value) -> null
+      - primary_blob_connection_string     = (sensitive value) -> null
+      - primary_blob_endpoint              = "https://emsreadykitstorage123.blob.core.windows.net/" -> null
+      - primary_blob_host                  = "emsreadykitstorage123.blob.core.windows.net" -> null
+      - primary_connection_string          = (sensitive value) -> null
+      - primary_dfs_endpoint               = "https://emsreadykitstorage123.dfs.core.windows.net/" -> null
+      - primary_dfs_host                   = "emsreadykitstorage123.dfs.core.windows.net" -> null
+      - primary_file_endpoint              = "https://emsreadykitstorage123.file.core.windows.net/" -> null
+      - primary_file_host                  = "emsreadykitstorage123.file.core.windows.net" -> null
+      - primary_location                   = "northcentralus" -> null
+      - primary_queue_endpoint             = "https://emsreadykitstorage123.queue.core.windows.net/" -> null
+      - primary_queue_host                 = "emsreadykitstorage123.queue.core.windows.net" -> null
+      - primary_table_endpoint             = "https://emsreadykitstorage123.table.core.windows.net/" -> null
+      - primary_table_host                 = "emsreadykitstorage123.table.core.windows.net" -> null
+      - primary_web_endpoint               = "https://emsreadykitstorage123.z14.web.core.windows.net/" -> null
+      - primary_web_host                   = "emsreadykitstorage123.z14.web.core.windows.net" -> null
+      - public_network_access_enabled      = true -> null
+      - queue_encryption_key_type          = "Service" -> null
+      - resource_group_name                = "rg-ems-readykit-dev" -> null
+      - secondary_access_key               = (sensitive value) -> null
+      - secondary_connection_string        = (sensitive value) -> null
+      - sftp_enabled                       = false -> null
+      - shared_access_key_enabled          = true -> null
+      - table_encryption_key_type          = "Service" -> null
+      - tags                               = {
+          - "CostCenter"  = "EMS-Demo"
+          - "Environment" = "dev"
+          - "ManagedBy"   = "Terraform"
+          - "Owner"       = "EMS-ReadyKit-Team"
+          - "Project"     = "ems-readykit"
+        } -> null
+        # (56 unchanged attributes hidden)
+
+      - blob_properties {
+          - change_feed_enabled           = false -> null
+          - change_feed_retention_in_days = 0 -> null
+          - last_access_time_enabled      = false -> null
+          - versioning_enabled            = false -> null
+            # (1 unchanged attribute hidden)
+
+          - delete_retention_policy {
+              - days                     = 7 -> null
+              - permanent_delete_enabled = false -> null
+            }
+        }
+
+      - queue_properties {
+          - hour_metrics {
+              - enabled               = false -> null
+              - include_apis          = false -> null
+              - retention_policy_days = 0 -> null
+              - version               = "1.0" -> null
+            }
+          - logging {
+              - delete                = false -> null
+              - read                  = false -> null
+              - retention_policy_days = 0 -> null
+              - version               = "1.0" -> null
+              - write                 = false -> null
+            }
+          - minute_metrics {
+              - enabled               = false -> null
+              - include_apis          = false -> null
+              - retention_policy_days = 0 -> null
+              - version               = "1.0" -> null
+            }
+        }
+
+      - share_properties {
+          - retention_policy {
+              - days = 7 -> null
+            }
+        }
+    }
+
+  # module.storage.azurerm_storage_container.app will be destroyed
+  - resource "azurerm_storage_container" "app" {
+      - container_access_type             = "private" -> null
+      - default_encryption_scope          = "$account-encryption-key" -> null
+      - encryption_scope_override_enabled = true -> null
+      - has_immutability_policy           = false -> null
+      - has_legal_hold                    = false -> null
+      - id                                = "https://emsreadykitstorage123.blob.core.windows.net/app-exports" -> null
+      - metadata                          = {} -> null
+      - name                              = "app-exports" -> null
+      - resource_manager_id               = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Storage/storageAccounts/emsreadykitstorage123/blobServices/default/containers/app-exports" -> null
+      - storage_account_name              = "emsreadykitstorage123" -> null
+    }
+
+  # module.storage.azurerm_storage_container.audit will be destroyed
+  - resource "azurerm_storage_container" "audit" {
+      - container_access_type             = "private" -> null
+      - default_encryption_scope          = "$account-encryption-key" -> null
+      - encryption_scope_override_enabled = true -> null
+      - has_immutability_policy           = false -> null
+      - has_legal_hold                    = false -> null
+      - id                                = "https://emsreadykitstorage123.blob.core.windows.net/audit-logs" -> null
+      - metadata                          = {} -> null
+      - name                              = "audit-logs" -> null
+      - resource_manager_id               = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Storage/storageAccounts/emsreadykitstorage123/blobServices/default/containers/audit-logs" -> null
+      - storage_account_name              = "emsreadykitstorage123" -> null
+    }
+
+  # module.storage.azurerm_storage_container.backup will be destroyed
+  - resource "azurerm_storage_container" "backup" {
+      - container_access_type             = "private" -> null
+      - default_encryption_scope          = "$account-encryption-key" -> null
+      - encryption_scope_override_enabled = true -> null
+      - has_immutability_policy           = false -> null
+      - has_legal_hold                    = false -> null
+      - id                                = "https://emsreadykitstorage123.blob.core.windows.net/app-backups" -> null
+      - metadata                          = {} -> null
+      - name                              = "app-backups" -> null
+      - resource_manager_id               = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Storage/storageAccounts/emsreadykitstorage123/blobServices/default/containers/app-backups" -> null
+      - storage_account_name              = "emsreadykitstorage123" -> null
+    }
+
+  # module.storage.azurerm_storage_container.evidence will be destroyed
+  - resource "azurerm_storage_container" "evidence" {
+      - container_access_type             = "private" -> null
+      - default_encryption_scope          = "$account-encryption-key" -> null
+      - encryption_scope_override_enabled = true -> null
+      - has_immutability_policy           = false -> null
+      - has_legal_hold                    = false -> null
+      - id                                = "https://emsreadykitstorage123.blob.core.windows.net/evidence" -> null
+      - metadata                          = {} -> null
+      - name                              = "evidence" -> null
+      - resource_manager_id               = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Storage/storageAccounts/emsreadykitstorage123/blobServices/default/containers/evidence" -> null
+      - storage_account_name              = "emsreadykitstorage123" -> null
+    }
+
+  # module.storage.azurerm_storage_management_policy.ems_lifecycle will be destroyed
+  - resource "azurerm_storage_management_policy" "ems_lifecycle" {
+      - id                 = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Storage/storageAccounts/emsreadykitstorage123/managementPolicies/default" -> null
+      - storage_account_id = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Storage/storageAccounts/emsreadykitstorage123" -> null
+
+      - rule {
+          - enabled = true -> null
+          - name    = "expire-app-exports" -> null
+
+          - actions {
+              - base_blob {
+                  - auto_tier_to_hot_from_cool_enabled                             = false -> null
+                  - delete_after_days_since_creation_greater_than                  = -1 -> null
+                  - delete_after_days_since_last_access_time_greater_than          = -1 -> null
+                  - delete_after_days_since_modification_greater_than              = 90 -> null
+                  - tier_to_archive_after_days_since_creation_greater_than         = -1 -> null
+                  - tier_to_archive_after_days_since_last_access_time_greater_than = -1 -> null
+                  - tier_to_archive_after_days_since_last_tier_change_greater_than = -1 -> null
+                  - tier_to_archive_after_days_since_modification_greater_than     = -1 -> null
+                  - tier_to_cold_after_days_since_creation_greater_than            = -1 -> null
+                  - tier_to_cold_after_days_since_last_access_time_greater_than    = -1 -> null
+                  - tier_to_cold_after_days_since_modification_greater_than        = -1 -> null
+                  - tier_to_cool_after_days_since_creation_greater_than            = -1 -> null
+                  - tier_to_cool_after_days_since_last_access_time_greater_than    = -1 -> null
+                  - tier_to_cool_after_days_since_modification_greater_than        = -1 -> null
+                }
+            }
+
+          - filters {
+              - blob_types   = [
+                  - "blockBlob",
+                ] -> null
+              - prefix_match = [
+                  - "app-exports/",
+                ] -> null
+            }
+        }
+      - rule {
+          - enabled = true -> null
+          - name    = "tier-audit-logs" -> null
+
+          - actions {
+              - base_blob {
+                  - auto_tier_to_hot_from_cool_enabled                             = false -> null
+                  - delete_after_days_since_creation_greater_than                  = -1 -> null
+                  - delete_after_days_since_last_access_time_greater_than          = -1 -> null
+                  - delete_after_days_since_modification_greater_than              = 365 -> null
+                  - tier_to_archive_after_days_since_creation_greater_than         = -1 -> null
+                  - tier_to_archive_after_days_since_last_access_time_greater_than = -1 -> null
+                  - tier_to_archive_after_days_since_last_tier_change_greater_than = -1 -> null
+                  - tier_to_archive_after_days_since_modification_greater_than     = -1 -> null
+                  - tier_to_cold_after_days_since_creation_greater_than            = -1 -> null
+                  - tier_to_cold_after_days_since_last_access_time_greater_than    = -1 -> null
+                  - tier_to_cold_after_days_since_modification_greater_than        = -1 -> null
+                  - tier_to_cool_after_days_since_creation_greater_than            = -1 -> null
+                  - tier_to_cool_after_days_since_last_access_time_greater_than    = -1 -> null
+                  - tier_to_cool_after_days_since_modification_greater_than        = 30 -> null
+                }
+            }
+
+          - filters {
+              - blob_types   = [
+                  - "blockBlob",
+                ] -> null
+              - prefix_match = [
+                  - "audit-logs/",
+                ] -> null
+            }
+        }
+      - rule {
+          - enabled = true -> null
+          - name    = "expire-old-backups" -> null
+
+          - actions {
+              - base_blob {
+                  - auto_tier_to_hot_from_cool_enabled                             = false -> null
+                  - delete_after_days_since_creation_greater_than                  = -1 -> null
+                  - delete_after_days_since_last_access_time_greater_than          = -1 -> null
+                  - delete_after_days_since_modification_greater_than              = 30 -> null
+                  - tier_to_archive_after_days_since_creation_greater_than         = -1 -> null
+                  - tier_to_archive_after_days_since_last_access_time_greater_than = -1 -> null
+                  - tier_to_archive_after_days_since_last_tier_change_greater_than = -1 -> null
+                  - tier_to_archive_after_days_since_modification_greater_than     = -1 -> null
+                  - tier_to_cold_after_days_since_creation_greater_than            = -1 -> null
+                  - tier_to_cold_after_days_since_last_access_time_greater_than    = -1 -> null
+                  - tier_to_cold_after_days_since_modification_greater_than        = -1 -> null
+                  - tier_to_cool_after_days_since_creation_greater_than            = -1 -> null
+                  - tier_to_cool_after_days_since_last_access_time_greater_than    = -1 -> null
+                  - tier_to_cool_after_days_since_modification_greater_than        = -1 -> null
+                }
+            }
+
+          - filters {
+              - blob_types   = [
+                  - "blockBlob",
+                ] -> null
+              - prefix_match = [
+                  - "app-backups/",
+                ] -> null
+            }
+        }
+    }
+
+Plan: 0 to add, 0 to change, 70 to destroy.
+
+Changes to Outputs:
+  - app_service_url            = "https://app-ems-readykit-dev.azurewebsites.net" -> null
+  - frontend_deployment_token  = (sensitive value) -> null
+  - frontend_hostname          = "lively-bush-0ed75ca10.7.azurestaticapps.net" -> null
+  - frontend_url               = "https://lively-bush-0ed75ca10.7.azurestaticapps.net" -> null
+  - github_actions_client_id   = "7cbbdff7-1d5d-493d-b83f-c52da5e6a403" -> null
+  - key_vault_uri              = "https://kv-f07bxc.vault.azure.net/" -> null
+  - log_analytics_workspace_id = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.OperationalInsights/workspaces/law-ems-readykit-dev" -> null
+  - pg_database_name           = "ems_readykit" -> null
+  - pg_server_fqdn             = "pg-ems-readykit-dev.postgres.database.azure.com" -> null
+  - resource_group_name        = "rg-ems-readykit-dev" -> null
+  - storage_account_name       = "emsreadykitstorage123" -> null
+  - swa_resource_id            = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Web/staticSites/swa-ems-readykit-dev" -> null
+  - vnet_id                    = "/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit" -> null
+module.identity_rbac.azuread_application_identifier_uri.ems_readykit: Destroying... [id=/applications/0e0aaad3-1a5e-4927-bf98-cf2da5286643/identifierUris/YXBpOi8vYTc4MGI5N2YtNTQ1MS00NmQ1LThmYzktNTI2OGU0OTFlMGVl]
+module.identity_rbac.azuread_app_role_assignment.administrators: Destroying... [id=1fb64958-8a46-4a50-8ec9-1cc2a6505ea2/appRoleAssignment/q8KvZOpqo0q_ob9OV_rSRBKK7ZUpm8hHl4mB_ZmkLxI]
+module.identity_rbac.azuread_app_role_assignment.responders: Destroying... [id=1fb64958-8a46-4a50-8ec9-1cc2a6505ea2/appRoleAssignment/TRLs8Ka0d0aHjBHITGeFZ5J3dlq4_WBMoVO-VubrBsA]
+module.identity_rbac.azuread_app_role_assignment.supervisors: Destroying... [id=1fb64958-8a46-4a50-8ec9-1cc2a6505ea2/appRoleAssignment/CQyuS_dHIkGc1OgXKOfJjaGMqjgzs61OrtA8BOEukQQ]
+module.identity_rbac.azuread_app_role_assignment.administrators: Destruction complete after 0s
+module.identity_rbac.azuread_app_role_assignment.supervisors: Destruction complete after 0s
+module.identity_rbac.azuread_app_role_assignment.responders: Destruction complete after 1s
+module.identity_rbac.azuread_group.responders: Destroying... [id=f0ec124d-b4a6-4677-878c-11c84c678567]
+module.identity_rbac.azuread_service_principal.ems_readykit: Destroying... [id=1fb64958-8a46-4a50-8ec9-1cc2a6505ea2]
+module.identity_rbac.azuread_application_identifier_uri.ems_readykit: Destruction complete after 2s
+module.data.azurerm_postgresql_flexible_server_firewall_rule.allow_azure_services: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.DBforPostgreSQL/flexibleServers/pg-ems-readykit-dev/firewallRules/AllowAzureServices]
+module.network.azurerm_subnet_network_security_group_association.data_assoc: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-data]
+module.storage.azurerm_storage_container.audit: Destroying... [id=https://emsreadykitstorage123.blob.core.windows.net/audit-logs]
+module.identity_rbac.azurerm_role_assignment.github_actions_website_contributor: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Authorization/roleAssignments/48d4b62e-14b2-17b2-6bf9-8ca0b5abd7fb]
+module.storage.azurerm_storage_container.app: Destroying... [id=https://emsreadykitstorage123.blob.core.windows.net/app-exports]
+module.policy.azurerm_subscription_policy_assignment.allowed_locations: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyAssignments/ems-allowed-locations]
+module.data.azurerm_private_endpoint.pg_pe: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/privateEndpoints/pe-pg-ems-readykit-dev]
+module.network.azurerm_monitor_diagnostic_setting.data_nsg_diag: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-data|diag-nsg-data]
+module.storage.azurerm_storage_container.audit: Destruction complete after 1s
+module.policy.azurerm_subscription_policy_assignment.require_tag["CostCenter"]: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyAssignments/ems-require-tag-costcenter]
+module.storage.azurerm_storage_container.app: Destruction complete after 1s
+module.storage.azurerm_monitor_diagnostic_setting.storage_diag: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Storage/storageAccounts/emsreadykitstorage123/blobServices/default|diag-storage]
+module.identity_rbac.azuread_group.responders: Still destroying... [id=f0ec124d-b4a6-4677-878c-11c84c678567, 00m10s elapsed]
+module.identity_rbac.azuread_service_principal.ems_readykit: Still destroying... [id=1fb64958-8a46-4a50-8ec9-1cc2a6505ea2, 00m10s elapsed]
+module.network.azurerm_subnet_network_security_group_association.data_assoc: Destruction complete after 5s
+module.app.azurerm_role_assignment.app_kv_secrets_user: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kv-f07bxc/providers/Microsoft.Authorization/roleAssignments/7a211a45-fe2d-a9e4-f2aa-57e5c2a3f02e]
+module.app.azurerm_role_assignment.app_kv_secrets_user: Destruction complete after 2s
+module.identity_rbac.azurerm_role_assignment.github_actions_website_contributor: Destruction complete after 8s
+module.logging.azurerm_log_analytics_saved_search.recent_audit_events: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.OperationalInsights/workspaces/law-ems-readykit-dev/savedSearches/EMS-RecentAuditEvents]
+module.data.azurerm_monitor_diagnostic_setting.pg_diag: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.DBforPostgreSQL/flexibleServers/pg-ems-readykit-dev|diag-pg]
+module.logging.azurerm_log_analytics_saved_search.recent_audit_events: Destruction complete after 0s
+module.app.azurerm_monitor_diagnostic_setting.app_diag: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Web/sites/app-ems-readykit-dev|diag-app]
+module.data.azurerm_postgresql_flexible_server_firewall_rule.allow_azure_services: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...t-dev/firewallRules/AllowAzureServices, 00m10s elapsed]
+module.policy.azurerm_subscription_policy_assignment.allowed_locations: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...olicyAssignments/ems-allowed-locations, 00m10s elapsed]
+module.network.azurerm_monitor_diagnostic_setting.data_nsg_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...kSecurityGroups/nsg-data|diag-nsg-data, 00m10s elapsed]
+module.data.azurerm_private_endpoint.pg_pe: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...rivateEndpoints/pe-pg-ems-readykit-dev, 00m10s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["CostCenter"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...Assignments/ems-require-tag-costcenter, 00m10s elapsed]
+module.data.azurerm_postgresql_flexible_server_firewall_rule.allow_azure_services: Destruction complete after 11s
+module.storage.azurerm_storage_container.evidence: Destroying... [id=https://emsreadykitstorage123.blob.core.windows.net/evidence]
+module.storage.azurerm_monitor_diagnostic_setting.storage_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...e123/blobServices/default|diag-storage, 00m10s elapsed]
+module.storage.azurerm_storage_container.evidence: Destruction complete after 0s
+module.app.azurerm_monitor_diagnostic_setting.kv_diag: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kv-f07bxc|diag-kv]
+module.identity_rbac.azuread_service_principal.ems_readykit: Still destroying... [id=1fb64958-8a46-4a50-8ec9-1cc2a6505ea2, 00m20s elapsed]
+module.identity_rbac.azuread_group.responders: Still destroying... [id=f0ec124d-b4a6-4677-878c-11c84c678567, 00m20s elapsed]
+module.identity_rbac.azuread_service_principal.ems_readykit: Destruction complete after 21s
+module.network.azurerm_monitor_diagnostic_setting.app_nsg_diag: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-app|diag-nsg-app]
+module.identity_rbac.azuread_group.responders: Destruction complete after 21s
+azurerm_consumption_budget_resource_group.main: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Consumption/budgets/budget-ems-readykit-dev]
+azurerm_consumption_budget_resource_group.main: Destruction complete after 1s
+module.logging.azurerm_log_analytics_saved_search.high_severity_events: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.OperationalInsights/workspaces/law-ems-readykit-dev/savedSearches/EMS-HighSeverityEvents]
+module.logging.azurerm_log_analytics_saved_search.high_severity_events: Destruction complete after 1s
+module.identity_rbac.azurerm_role_assignment.administrators_reader: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/roleAssignments/8f4a48e8-4847-db58-116a-3d704b4aa667]
+module.identity_rbac.azurerm_role_assignment.administrators_reader: Destruction complete after 3s
+module.network.azurerm_subnet_network_security_group_association.app_assoc: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-app]
+module.data.azurerm_monitor_diagnostic_setting.pg_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...bleServers/pg-ems-readykit-dev|diag-pg, 00m10s elapsed]
+module.app.azurerm_monitor_diagnostic_setting.app_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...eb/sites/app-ems-readykit-dev|diag-app, 00m10s elapsed]
+module.policy.azurerm_subscription_policy_assignment.allowed_locations: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...olicyAssignments/ems-allowed-locations, 00m20s elapsed]
+module.network.azurerm_monitor_diagnostic_setting.data_nsg_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...kSecurityGroups/nsg-data|diag-nsg-data, 00m20s elapsed]
+module.data.azurerm_private_endpoint.pg_pe: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...rivateEndpoints/pe-pg-ems-readykit-dev, 00m20s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["CostCenter"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...Assignments/ems-require-tag-costcenter, 00m20s elapsed]
+module.storage.azurerm_monitor_diagnostic_setting.storage_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...e123/blobServices/default|diag-storage, 00m20s elapsed]
+module.app.azurerm_monitor_diagnostic_setting.kv_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...soft.KeyVault/vaults/kv-f07bxc|diag-kv, 00m10s elapsed]
+module.data.azurerm_private_endpoint.pg_pe: Destruction complete after 21s
+module.network.azurerm_subnet_network_security_group_association.management_assoc: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-management]
+module.network.azurerm_subnet_network_security_group_association.app_assoc: Destruction complete after 4s
+module.policy.azurerm_subscription_policy_assignment.require_tag["ManagedBy"]: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyAssignments/ems-require-tag-managedby]
+module.network.azurerm_monitor_diagnostic_setting.app_nsg_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...orkSecurityGroups/nsg-app|diag-nsg-app, 00m10s elapsed]
+module.network.azurerm_subnet_network_security_group_association.management_assoc: Destruction complete after 5s
+module.identity_rbac.azurerm_role_assignment.github_actions_tfstate_blob: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/tfstate-rg/providers/Microsoft.Storage/storageAccounts/emsreadykittfstate/providers/Microsoft.Authorization/roleAssignments/63f25cb1-cb1e-d612-8d04-7cf766f030ad]
+module.data.azurerm_monitor_diagnostic_setting.pg_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...bleServers/pg-ems-readykit-dev|diag-pg, 00m20s elapsed]
+module.identity_rbac.azurerm_role_assignment.github_actions_tfstate_blob: Destruction complete after 2s
+module.app.azurerm_monitor_diagnostic_setting.app_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...eb/sites/app-ems-readykit-dev|diag-app, 00m20s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Owner"]: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyAssignments/ems-require-tag-owner]
+module.policy.azurerm_subscription_policy_assignment.allowed_locations: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...olicyAssignments/ems-allowed-locations, 00m30s elapsed]
+module.network.azurerm_monitor_diagnostic_setting.data_nsg_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...kSecurityGroups/nsg-data|diag-nsg-data, 00m30s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["CostCenter"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...Assignments/ems-require-tag-costcenter, 00m30s elapsed]
+module.storage.azurerm_monitor_diagnostic_setting.storage_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...e123/blobServices/default|diag-storage, 00m30s elapsed]
+module.app.azurerm_monitor_diagnostic_setting.kv_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...soft.KeyVault/vaults/kv-f07bxc|diag-kv, 00m20s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["ManagedBy"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...yAssignments/ems-require-tag-managedby, 00m10s elapsed]
+module.network.azurerm_monitor_diagnostic_setting.app_nsg_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...orkSecurityGroups/nsg-app|diag-nsg-app, 00m20s elapsed]
+module.data.azurerm_monitor_diagnostic_setting.pg_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...bleServers/pg-ems-readykit-dev|diag-pg, 00m30s elapsed]
+module.app.azurerm_monitor_diagnostic_setting.app_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...eb/sites/app-ems-readykit-dev|diag-app, 00m30s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Owner"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...olicyAssignments/ems-require-tag-owner, 00m10s elapsed]
+module.policy.azurerm_subscription_policy_assignment.allowed_locations: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...olicyAssignments/ems-allowed-locations, 00m40s elapsed]
+module.network.azurerm_monitor_diagnostic_setting.data_nsg_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...kSecurityGroups/nsg-data|diag-nsg-data, 00m40s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["CostCenter"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...Assignments/ems-require-tag-costcenter, 00m40s elapsed]
+module.storage.azurerm_monitor_diagnostic_setting.storage_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...e123/blobServices/default|diag-storage, 00m40s elapsed]
+module.app.azurerm_monitor_diagnostic_setting.kv_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...soft.KeyVault/vaults/kv-f07bxc|diag-kv, 00m30s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["ManagedBy"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...yAssignments/ems-require-tag-managedby, 00m20s elapsed]
+module.network.azurerm_monitor_diagnostic_setting.app_nsg_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...orkSecurityGroups/nsg-app|diag-nsg-app, 00m30s elapsed]
+module.data.azurerm_monitor_diagnostic_setting.pg_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...bleServers/pg-ems-readykit-dev|diag-pg, 00m40s elapsed]
+module.app.azurerm_monitor_diagnostic_setting.app_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...eb/sites/app-ems-readykit-dev|diag-app, 00m40s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Owner"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...olicyAssignments/ems-require-tag-owner, 00m20s elapsed]
+module.policy.azurerm_subscription_policy_assignment.allowed_locations: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...olicyAssignments/ems-allowed-locations, 00m50s elapsed]
+module.network.azurerm_monitor_diagnostic_setting.data_nsg_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...kSecurityGroups/nsg-data|diag-nsg-data, 00m50s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["CostCenter"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...Assignments/ems-require-tag-costcenter, 00m50s elapsed]
+module.storage.azurerm_monitor_diagnostic_setting.storage_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...e123/blobServices/default|diag-storage, 00m50s elapsed]
+module.app.azurerm_monitor_diagnostic_setting.kv_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...soft.KeyVault/vaults/kv-f07bxc|diag-kv, 00m40s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["ManagedBy"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...yAssignments/ems-require-tag-managedby, 00m30s elapsed]
+module.network.azurerm_monitor_diagnostic_setting.app_nsg_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...orkSecurityGroups/nsg-app|diag-nsg-app, 00m40s elapsed]
+module.storage.azurerm_monitor_diagnostic_setting.storage_diag: Destruction complete after 53s
+module.identity_rbac.azurerm_role_assignment.supervisors_log_reader: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Authorization/roleAssignments/b04067d5-6b16-47a5-6361-fa313962f349]
+module.network.azurerm_monitor_diagnostic_setting.data_nsg_diag: Destruction complete after 55s
+module.policy.azurerm_subscription_policy_assignment.require_tag["Project"]: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyAssignments/ems-require-tag-project]
+module.identity_rbac.azurerm_role_assignment.supervisors_log_reader: Destruction complete after 1s
+module.identity_rbac.azurerm_role_assignment.supervisors_contributor: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Authorization/roleAssignments/b9fd5ec0-51a9-5927-2393-613723e29ae8]
+module.data.azurerm_monitor_diagnostic_setting.pg_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...bleServers/pg-ems-readykit-dev|diag-pg, 00m50s elapsed]
+module.app.azurerm_monitor_diagnostic_setting.app_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...eb/sites/app-ems-readykit-dev|diag-app, 00m50s elapsed]
+module.identity_rbac.azurerm_role_assignment.supervisors_contributor: Destruction complete after 2s
+module.policy.azurerm_subscription_policy_assignment.deny_public_ip: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyAssignments/ems-deny-public-ip]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Owner"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...olicyAssignments/ems-require-tag-owner, 00m30s elapsed]
+module.data.azurerm_monitor_diagnostic_setting.pg_diag: Destruction complete after 52s
+module.static_web_app.azurerm_monitor_diagnostic_setting.swa_diag: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Web/staticSites/swa-ems-readykit-dev|diag-swa]
+module.policy.azurerm_subscription_policy_assignment.allowed_locations: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...olicyAssignments/ems-allowed-locations, 01m00s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["CostCenter"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...Assignments/ems-require-tag-costcenter, 01m00s elapsed]
+module.app.azurerm_monitor_diagnostic_setting.kv_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...soft.KeyVault/vaults/kv-f07bxc|diag-kv, 00m50s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["ManagedBy"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...yAssignments/ems-require-tag-managedby, 00m40s elapsed]
+module.network.azurerm_monitor_diagnostic_setting.app_nsg_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...orkSecurityGroups/nsg-app|diag-nsg-app, 00m50s elapsed]
+module.app.azurerm_monitor_diagnostic_setting.kv_diag: Destruction complete after 52s
+module.storage.azurerm_storage_management_policy.ems_lifecycle: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Storage/storageAccounts/emsreadykitstorage123/managementPolicies/default]
+module.storage.azurerm_storage_management_policy.ems_lifecycle: Destruction complete after 1s
+module.policy.azurerm_subscription_policy_assignment.require_tag["Environment"]: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyAssignments/ems-require-tag-environment]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Project"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...icyAssignments/ems-require-tag-project, 00m10s elapsed]
+module.app.azurerm_monitor_diagnostic_setting.app_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...eb/sites/app-ems-readykit-dev|diag-app, 01m00s elapsed]
+module.policy.azurerm_subscription_policy_assignment.deny_public_ip: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...n/policyAssignments/ems-deny-public-ip, 00m10s elapsed]
+module.network.azurerm_monitor_diagnostic_setting.app_nsg_diag: Destruction complete after 56s
+module.identity_rbac.azuread_group.administrators: Destroying... [id=64afc2ab-6aea-4aa3-bfa1-bf4e57fad244]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Owner"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...olicyAssignments/ems-require-tag-owner, 00m40s elapsed]
+module.static_web_app.azurerm_monitor_diagnostic_setting.swa_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...ticSites/swa-ems-readykit-dev|diag-swa, 00m10s elapsed]
+module.policy.azurerm_subscription_policy_assignment.allowed_locations: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...olicyAssignments/ems-allowed-locations, 01m10s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["CostCenter"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...Assignments/ems-require-tag-costcenter, 01m10s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["ManagedBy"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...yAssignments/ems-require-tag-managedby, 00m50s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Environment"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...ssignments/ems-require-tag-environment, 00m10s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Project"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...icyAssignments/ems-require-tag-project, 00m20s elapsed]
+module.app.azurerm_monitor_diagnostic_setting.app_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...eb/sites/app-ems-readykit-dev|diag-app, 01m10s elapsed]
+module.app.azurerm_monitor_diagnostic_setting.app_diag: Destruction complete after 1m10s
+module.policy.azurerm_subscription_policy_assignment.deny_public_ip: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...n/policyAssignments/ems-deny-public-ip, 00m20s elapsed]
+module.network.azurerm_subnet.data: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-data]
+module.identity_rbac.azuread_group.administrators: Still destroying... [id=64afc2ab-6aea-4aa3-bfa1-bf4e57fad244, 00m10s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Owner"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...olicyAssignments/ems-require-tag-owner, 00m50s elapsed]
+module.static_web_app.azurerm_monitor_diagnostic_setting.swa_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...ticSites/swa-ems-readykit-dev|diag-swa, 00m20s elapsed]
+module.policy.azurerm_subscription_policy_assignment.allowed_locations: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...olicyAssignments/ems-allowed-locations, 01m20s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["CostCenter"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...Assignments/ems-require-tag-costcenter, 01m20s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["ManagedBy"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...yAssignments/ems-require-tag-managedby, 01m00s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Environment"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...ssignments/ems-require-tag-environment, 00m20s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Project"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...icyAssignments/ems-require-tag-project, 00m30s elapsed]
+module.policy.azurerm_subscription_policy_assignment.deny_public_ip: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...n/policyAssignments/ems-deny-public-ip, 00m30s elapsed]
+module.network.azurerm_subnet.data: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...ks/vnet-ems-readykit/subnets/snet-data, 00m10s elapsed]
+module.identity_rbac.azuread_group.administrators: Still destroying... [id=64afc2ab-6aea-4aa3-bfa1-bf4e57fad244, 00m20s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Owner"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...olicyAssignments/ems-require-tag-owner, 01m00s elapsed]
+module.network.azurerm_subnet.data: Destruction complete after 10s
+module.network.azurerm_network_security_group.management_nsg: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-management]
+module.static_web_app.azurerm_monitor_diagnostic_setting.swa_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...ticSites/swa-ems-readykit-dev|diag-swa, 00m30s elapsed]
+module.policy.azurerm_subscription_policy_assignment.allowed_locations: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...olicyAssignments/ems-allowed-locations, 01m30s elapsed]
+module.identity_rbac.azuread_group.administrators: Destruction complete after 21s
+module.network.azurerm_subnet.management: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-management]
+module.policy.azurerm_subscription_policy_assignment.require_tag["CostCenter"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...Assignments/ems-require-tag-costcenter, 01m30s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["ManagedBy"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...yAssignments/ems-require-tag-managedby, 01m10s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Environment"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...ssignments/ems-require-tag-environment, 00m30s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Project"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...icyAssignments/ems-require-tag-project, 00m40s elapsed]
+module.policy.azurerm_subscription_policy_assignment.deny_public_ip: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...n/policyAssignments/ems-deny-public-ip, 00m40s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Owner"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...olicyAssignments/ems-require-tag-owner, 01m10s elapsed]
+module.network.azurerm_network_security_group.management_nsg: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...k/networkSecurityGroups/nsg-management, 00m10s elapsed]
+module.policy.azurerm_subscription_policy_assignment.allowed_locations: Destruction complete after 1m39s
+module.static_web_app.azurerm_monitor_diagnostic_setting.swa_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...ticSites/swa-ems-readykit-dev|diag-swa, 00m40s elapsed]
+module.identity_rbac.azuread_service_principal.github_actions: Destroying... [id=8daaf03d-2786-4be6-819d-639b81377350]
+module.policy.azurerm_subscription_policy_assignment.require_tag["CostCenter"]: Destruction complete after 1m39s
+module.network.azurerm_network_security_group.data_nsg: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-data]
+module.network.azurerm_network_security_group.management_nsg: Destruction complete after 11s
+module.identity_rbac.azuread_group.supervisors: Destroying... [id=4bae0c09-47f7-4122-9cd4-e81728e7c98d]
+module.network.azurerm_subnet.management: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...t-ems-readykit/subnets/snet-management, 00m10s elapsed]
+module.network.azurerm_subnet.management: Destruction complete after 11s
+module.network.azurerm_network_security_group.app_nsg: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/networkSecurityGroups/nsg-app]
+module.policy.azurerm_subscription_policy_assignment.require_tag["ManagedBy"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...yAssignments/ems-require-tag-managedby, 01m20s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Environment"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...ssignments/ems-require-tag-environment, 00m40s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Project"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...icyAssignments/ems-require-tag-project, 00m50s elapsed]
+module.policy.azurerm_subscription_policy_assignment.deny_public_ip: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...n/policyAssignments/ems-deny-public-ip, 00m50s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Owner"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...olicyAssignments/ems-require-tag-owner, 01m20s elapsed]
+module.static_web_app.azurerm_monitor_diagnostic_setting.swa_diag: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...ticSites/swa-ems-readykit-dev|diag-swa, 00m50s elapsed]
+module.identity_rbac.azuread_service_principal.github_actions: Still destroying... [id=8daaf03d-2786-4be6-819d-639b81377350, 00m10s elapsed]
+module.network.azurerm_network_security_group.data_nsg: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...Network/networkSecurityGroups/nsg-data, 00m10s elapsed]
+module.identity_rbac.azuread_group.supervisors: Still destroying... [id=4bae0c09-47f7-4122-9cd4-e81728e7c98d, 00m10s elapsed]
+module.network.azurerm_network_security_group.data_nsg: Destruction complete after 11s
+module.app.azurerm_linux_web_app.ems_app: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Web/sites/app-ems-readykit-dev]
+module.network.azurerm_network_security_group.app_nsg: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-....Network/networkSecurityGroups/nsg-app, 00m10s elapsed]
+module.network.azurerm_network_security_group.app_nsg: Destruction complete after 10s
+module.policy.azurerm_subscription_policy_assignment.require_tag["ManagedBy"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...yAssignments/ems-require-tag-managedby, 01m30s elapsed]
+module.static_web_app.azurerm_monitor_diagnostic_setting.swa_diag: Destruction complete after 53s
+module.logging.azurerm_log_analytics_workspace.ems_law: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.OperationalInsights/workspaces/law-ems-readykit-dev]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Environment"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...ssignments/ems-require-tag-environment, 00m50s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Project"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...icyAssignments/ems-require-tag-project, 01m00s elapsed]
+module.policy.azurerm_subscription_policy_assignment.deny_public_ip: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...n/policyAssignments/ems-deny-public-ip, 01m00s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Owner"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...olicyAssignments/ems-require-tag-owner, 01m30s elapsed]
+module.identity_rbac.azuread_service_principal.github_actions: Still destroying... [id=8daaf03d-2786-4be6-819d-639b81377350, 00m20s elapsed]
+module.identity_rbac.azuread_group.supervisors: Still destroying... [id=4bae0c09-47f7-4122-9cd4-e81728e7c98d, 00m20s elapsed]
+module.app.azurerm_linux_web_app.ems_app: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...crosoft.Web/sites/app-ems-readykit-dev, 00m10s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["ManagedBy"]: Destruction complete after 1m39s
+module.identity_rbac.azuread_group.supervisors: Destruction complete after 21s
+module.identity_rbac.azuread_service_principal.github_actions: Destruction complete after 21s
+module.identity_rbac.azuread_application.github_actions: Destroying... [id=/applications/73067554-3eba-4953-8ff0-761f8fc57c46]
+module.logging.azurerm_log_analytics_workspace.ems_law: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...sights/workspaces/law-ems-readykit-dev, 00m10s elapsed]
+module.logging.azurerm_log_analytics_workspace.ems_law: Destruction complete after 10s
+module.policy.azurerm_subscription_policy_assignment.require_tag["Environment"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...ssignments/ems-require-tag-environment, 01m00s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Project"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...icyAssignments/ems-require-tag-project, 01m10s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Owner"]: Destruction complete after 1m39s
+module.policy.azurerm_subscription_policy_assignment.deny_public_ip: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...n/policyAssignments/ems-deny-public-ip, 01m10s elapsed]
+module.app.azurerm_linux_web_app.ems_app: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...crosoft.Web/sites/app-ems-readykit-dev, 00m20s elapsed]
+module.identity_rbac.azuread_application.github_actions: Still destroying... [id=/applications/73067554-3eba-4953-8ff0-761f8fc57c46, 00m10s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Environment"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...ssignments/ems-require-tag-environment, 01m10s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Project"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...icyAssignments/ems-require-tag-project, 01m20s elapsed]
+module.policy.azurerm_subscription_policy_assignment.deny_public_ip: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...n/policyAssignments/ems-deny-public-ip, 01m20s elapsed]
+module.app.azurerm_linux_web_app.ems_app: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...crosoft.Web/sites/app-ems-readykit-dev, 00m30s elapsed]
+module.identity_rbac.azuread_application.github_actions: Still destroying... [id=/applications/73067554-3eba-4953-8ff0-761f8fc57c46, 00m20s elapsed]
+module.identity_rbac.azuread_application.github_actions: Destruction complete after 22s
+module.policy.azurerm_subscription_policy_assignment.require_tag["Environment"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...ssignments/ems-require-tag-environment, 01m20s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Project"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...icyAssignments/ems-require-tag-project, 01m30s elapsed]
+module.policy.azurerm_subscription_policy_assignment.deny_public_ip: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...n/policyAssignments/ems-deny-public-ip, 01m30s elapsed]
+module.app.azurerm_linux_web_app.ems_app: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...crosoft.Web/sites/app-ems-readykit-dev, 00m40s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Environment"]: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...ssignments/ems-require-tag-environment, 01m30s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Project"]: Destruction complete after 1m39s
+module.policy.azurerm_subscription_policy_assignment.deny_public_ip: Destruction complete after 1m39s
+module.policy.azurerm_policy_definition.deny_public_ip: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/providers/Microsoft.Authorization/policyDefinitions/ems-deny-public-ip]
+module.policy.azurerm_policy_definition.deny_public_ip: Destruction complete after 1s
+module.app.azurerm_linux_web_app.ems_app: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...crosoft.Web/sites/app-ems-readykit-dev, 00m50s elapsed]
+module.policy.azurerm_subscription_policy_assignment.require_tag["Environment"]: Destruction complete after 1m39s
+module.app.azurerm_linux_web_app.ems_app: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...crosoft.Web/sites/app-ems-readykit-dev, 01m00s elapsed]
+module.app.azurerm_linux_web_app.ems_app: Destruction complete after 1m2s
+module.app.azurerm_key_vault_secret.sql_connection: Destroying... [id=https://kv-f07bxc.vault.azure.net/secrets/sql-connection-string/041b3bfcfc7a4c85bfbb14ab4016996c]
+module.storage.azurerm_storage_container.backup: Destroying... [id=https://emsreadykitstorage123.blob.core.windows.net/app-backups]
+module.app.azurerm_service_plan.ems_plan: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Web/serverFarms/asp-ems-readykit-dev]
+module.static_web_app.azurerm_static_web_app.frontend: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Web/staticSites/swa-ems-readykit-dev]
+module.app.azurerm_key_vault_secret.app_secret_key: Destroying... [id=https://kv-f07bxc.vault.azure.net/secrets/app-secret-key/5b1f31369af74473a5e62e3d32783eac]
+module.identity_rbac.azuread_application.ems_readykit: Destroying... [id=/applications/0e0aaad3-1a5e-4927-bf98-cf2da5286643]
+module.storage.azurerm_storage_container.backup: Destruction complete after 0s
+module.storage.azurerm_storage_account.ems_storage: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Storage/storageAccounts/emsreadykitstorage123]
+module.storage.azurerm_storage_account.ems_storage: Destruction complete after 2s
+module.app.azurerm_service_plan.ems_plan: Destruction complete after 6s
+module.static_web_app.azurerm_static_web_app.frontend: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...t.Web/staticSites/swa-ems-readykit-dev, 00m10s elapsed]
+module.app.azurerm_key_vault_secret.sql_connection: Still destroying... [id=https://kv-f07bxc.vault.azure.net/secre...tring/041b3bfcfc7a4c85bfbb14ab4016996c, 00m10s elapsed]
+module.app.azurerm_key_vault_secret.app_secret_key: Still destroying... [id=https://kv-f07bxc.vault.azure.net/secre...t-key/5b1f31369af74473a5e62e3d32783eac, 00m10s elapsed]
+module.identity_rbac.azuread_application.ems_readykit: Still destroying... [id=/applications/0e0aaad3-1a5e-4927-bf98-cf2da5286643, 00m10s elapsed]
+module.static_web_app.azurerm_static_web_app.frontend: Destruction complete after 11s
+module.app.azurerm_key_vault_secret.sql_connection: Still destroying... [id=https://kv-f07bxc.vault.azure.net/secre...tring/041b3bfcfc7a4c85bfbb14ab4016996c, 00m20s elapsed]
+module.app.azurerm_key_vault_secret.app_secret_key: Still destroying... [id=https://kv-f07bxc.vault.azure.net/secre...t-key/5b1f31369af74473a5e62e3d32783eac, 00m20s elapsed]
+module.identity_rbac.azuread_application.ems_readykit: Still destroying... [id=/applications/0e0aaad3-1a5e-4927-bf98-cf2da5286643, 00m20s elapsed]
+module.app.azurerm_key_vault_secret.app_secret_key: Destruction complete after 24s
+module.app.azurerm_key_vault_secret.sql_connection: Destruction complete after 25s
+module.identity_rbac.azuread_application.ems_readykit: Destruction complete after 25s
+module.app.azurerm_role_assignment.terraform_kv_secrets_officer: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kv-f07bxc/providers/Microsoft.Authorization/roleAssignments/abd2a884-508e-06ae-531c-11429b6ec491]
+module.data.azurerm_postgresql_flexible_server_database.ems_db: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.DBforPostgreSQL/flexibleServers/pg-ems-readykit-dev/databases/ems_readykit]
+module.app.random_password.app_secret_key: Destroying... [id=none]
+module.app.random_password.app_secret_key: Destruction complete after 0s
+module.app.azurerm_role_assignment.terraform_kv_secrets_officer: Destruction complete after 2s
+module.app.azurerm_key_vault.ems_kv: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kv-f07bxc]
+module.app.azurerm_key_vault.ems_kv: Destruction complete after 3s
+module.app.random_string.kv_suffix: Destroying... [id=f07bxc]
+module.app.random_string.kv_suffix: Destruction complete after 0s
+module.network.azurerm_subnet.app: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit/subnets/snet-app]
+module.data.azurerm_postgresql_flexible_server_database.ems_db: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...ms-readykit-dev/databases/ems_readykit, 00m10s elapsed]
+module.data.azurerm_postgresql_flexible_server_database.ems_db: Destruction complete after 11s
+module.data.azurerm_postgresql_flexible_server.ems_pg: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.DBforPostgreSQL/flexibleServers/pg-ems-readykit-dev]
+module.network.azurerm_subnet.app: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...rks/vnet-ems-readykit/subnets/snet-app, 00m10s elapsed]
+module.network.azurerm_subnet.app: Destruction complete after 10s
+module.network.azurerm_virtual_network.ems_vnet: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.Network/virtualNetworks/vnet-ems-readykit]
+module.data.azurerm_postgresql_flexible_server.ems_pg: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...QL/flexibleServers/pg-ems-readykit-dev, 00m10s elapsed]
+module.network.azurerm_virtual_network.ems_vnet: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...work/virtualNetworks/vnet-ems-readykit, 00m10s elapsed]
+module.network.azurerm_virtual_network.ems_vnet: Destruction complete after 11s
+module.data.azurerm_postgresql_flexible_server.ems_pg: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...QL/flexibleServers/pg-ems-readykit-dev, 00m20s elapsed]
+module.data.azurerm_postgresql_flexible_server.ems_pg: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...QL/flexibleServers/pg-ems-readykit-dev, 00m30s elapsed]
+module.data.azurerm_postgresql_flexible_server.ems_pg: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...QL/flexibleServers/pg-ems-readykit-dev, 00m40s elapsed]
+module.data.azurerm_postgresql_flexible_server.ems_pg: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...QL/flexibleServers/pg-ems-readykit-dev, 00m50s elapsed]
+module.data.azurerm_postgresql_flexible_server.ems_pg: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...QL/flexibleServers/pg-ems-readykit-dev, 01m00s elapsed]
+module.data.azurerm_postgresql_flexible_server.ems_pg: Destruction complete after 1m2s
+azurerm_key_vault_secret.pg_admin_password: Destroying... [id=https://kvqzf6ns.vault.azure.net/secrets/pg-admin-password/df4b98876fcf4094afe1e5c4ced9ce41]
+azurerm_key_vault_secret.pg_admin_password: Still destroying... [id=https://kvqzf6ns.vault.azure.net/secret...sword/df4b98876fcf4094afe1e5c4ced9ce41, 00m10s elapsed]
+azurerm_key_vault_secret.pg_admin_password: Still destroying... [id=https://kvqzf6ns.vault.azure.net/secret...sword/df4b98876fcf4094afe1e5c4ced9ce41, 00m20s elapsed]
+azurerm_key_vault_secret.pg_admin_password: Destruction complete after 22s
+random_password.pg_admin: Destroying... [id=none]
+azurerm_key_vault.platform: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev/providers/Microsoft.KeyVault/vaults/kvqzf6ns]
+random_password.pg_admin: Destruction complete after 0s
+azurerm_key_vault.platform: Destruction complete after 2s
+azurerm_resource_group.ems_rg: Destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-b424b2913c8e/resourceGroups/rg-ems-readykit-dev]
+random_string.kv_suffix: Destroying... [id=qzf6ns]
+random_string.kv_suffix: Destruction complete after 0s
+azurerm_resource_group.ems_rg: Still destroying... [id=/subscriptions/75fce2ea-1d83-4c5a-9929-...c8e/resourceGroups/rg-ems-readykit-dev, 00m10s elapsed]
+azurerm_resource_group.ems_rg: Destruction complete after 16s
+Releasing state lock. This may take a few moments...
+
+Destroy complete! Resources: 70 destroyed.

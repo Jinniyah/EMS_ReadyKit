@@ -3,7 +3,7 @@
  * API calls for the Check History module.
  */
 
-import { apiDelete, apiGet, apiPatch, apiDeleteWithBody } from '../../../shared/api/client.js'
+import { apiDelete, apiGet, apiPatch, apiDeleteWithBody, ApiError } from '../../../shared/api/client.js'
 
 const BASE = '/api/v1'
 
@@ -54,4 +54,66 @@ export const checkHistoryApi = {
   /** CH-B4: Permanently hard-delete a soft-deleted check (Admin only) */
   forceDeleteCheck: (checkId, getToken) =>
     apiDelete(`${BASE}/checks/daily/${checkId}/force`, getToken),
+
+  /** F-5G3a: Active vehicles + jump bags + supply room, for the export filter panel */
+  getStationVehicles: (stationId, getToken) =>
+    apiGet(`${BASE}/stations/${stationId}/vehicles`, getToken),
+
+  getStationLocations: (stationId, getToken) =>
+    apiGet(`${BASE}/stations/${stationId}/locations`, getToken),
+
+  getSupplyRoom: (stationId, getToken) =>
+    apiGet(`${BASE}/stations/${stationId}/supply-room`, getToken).catch(() => null),
+
+  /**
+   * F-5G3a: Download a compliance CSV export. Raw fetch (not apiGet, which
+   * is JSON-only) -- same deliberate exception supplyApi.js already uses for
+   * its template download. Unlike that existing pattern, this DOES check
+   * res.ok before treating the body as a blob, so a non-2xx response (e.g.
+   * the 422 for an out-of-range date pick, or picking nothing to export)
+   * surfaces the server's real message instead of silently downloading a
+   * broken "CSV" of the JSON error body.
+   */
+  exportChecks: async (
+    stationId,
+    getToken,
+    { from, to, format, wholeStation, vehicleIds = [], locationIds = [] }
+  ) => {
+    const token = getToken ? await getToken() : null
+    const headers = { Accept: 'text/csv' }
+    if (token) headers['Authorization'] = `Bearer ${token}`
+
+    const params = new URLSearchParams()
+    params.set('from', from)
+    params.set('to', to)
+    params.set('format', format)
+    if (wholeStation) {
+      params.set('whole_station', 'true')
+    } else {
+      vehicleIds.forEach(id => params.append('vehicle_ids', id))
+      locationIds.forEach(id => params.append('location_ids', id))
+    }
+
+    let res
+    try {
+      res = await fetch(`${BASE}/checks/daily/station/${stationId}/export?${params}`, { headers })
+    } catch {
+      throw new ApiError(0, 'No connection — check your internet and try again.', null)
+    }
+
+    if (!res.ok) {
+      let detail = null
+      try { detail = (await res.json()).detail } catch { /* body wasn't JSON */ }
+      const message = typeof detail === 'string' && detail
+        ? detail
+        : `Export failed (HTTP ${res.status}). Please try again.`
+      throw new ApiError(res.status, message, detail)
+    }
+
+    const blob = await res.blob()
+    const disposition = res.headers.get('Content-Disposition') || ''
+    const match = disposition.match(/filename="?([^"]+)"?/)
+    const filename = match ? match[1] : `compliance_${format}_${from}_to_${to}.csv`
+    return { blob, filename }
+  },
 }

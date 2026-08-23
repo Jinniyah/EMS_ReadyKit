@@ -33,6 +33,9 @@ vi.mock('../components/CheckDetail.jsx', () => ({
 vi.mock('../../../shared/components/ErrorBoundary.jsx', () => ({
   default: ({ children }) => <>{children}</>,
 }))
+vi.mock('../components/ExportPanel.jsx', () => ({
+  default: () => <div data-testid="export-panel" />,
+}))
 
 import { useAuth } from '../../../shared/hooks/useAuth.jsx'
 import { useApi }  from '../../../shared/hooks/useApi.js'
@@ -104,6 +107,11 @@ describe('CheckHistory — Responder view', () => {
     render(<CheckHistoryScreen station={STATION} onBack={vi.fn()} onNavigateToVehicles={vi.fn()} />)
     expect(screen.queryByRole('tablist')).toBeNull()
   })
+
+  it('does NOT render the compliance export panel (Responder has no All Checks tab)', () => {
+    render(<CheckHistoryScreen station={STATION} onBack={vi.fn()} onNavigateToVehicles={vi.fn()} />)
+    expect(screen.queryByTestId('export-panel')).toBeNull()
+  })
 })
 
 describe('CheckHistory — Supervisor view', () => {
@@ -154,5 +162,10 @@ describe('CheckHistory — Supervisor view', () => {
   it('station name appears in the header', () => {
     render(<CheckHistoryScreen station={STATION} onBack={vi.fn()} onNavigateToVehicles={vi.fn()} />)
     expect(screen.getByText('Test Station')).toBeTruthy()
+  })
+
+  it('shows the compliance export panel on the All Checks tab', () => {
+    render(<CheckHistoryScreen station={STATION} onBack={vi.fn()} onNavigateToVehicles={vi.fn()} />)
+    expect(screen.getByTestId('export-panel')).toBeTruthy()
   })
 })
